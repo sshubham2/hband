@@ -1,0 +1,437 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-003",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-23T19:40:37.479Z",
+ "head": "db0c871ef2a3b0f2fd33f7fb2cd990cd65ae1710",
+ "run_id": 11719,
+ "summary": "The product code matches the design. The only departures from it are ones the build declared. One minor defect sends the build back: the widened byte-path tripwire misses the Go 1.24+ `os.OpenRoot(dir).FS()` way of serving a directory. A failing repro is attached.\n\n**Product code**\n- **Routes and handlers.** `GET /` uses `Latest`, `GET /reports/{slug}` uses `PublishedBySlug`, and `GET /raw/{slug}` uses `OpenRaw(…, true)` and then `serveRaw(…, \"no-cache\")`. Both reader pages go through one `renderReader(w, r, page, rep, state)`, which derives the status (503 only when unavailable), the title, `Next` (taken from the stored slug, and only for a found report page) and the viewer. That is the m6 critic's contract.\n- **Status values.** Each status and flag is given only in the cases where the reader of it is right to act:\n  - `stateEmpty` comes only from `ErrNotFound` on `Latest`.\n  - `stateUnavailable` (503) comes from any other library error.\n  - `/raw` maps `ErrNotFound` to `http.NotFound` and every other error to 500. That includes the wrapped file-open error, which is not `ErrNotFound` (reports.go:363-366).\n- **404s.** Both 404s are written before this handler sets any header, so they keep the site policy and carry no Cache-Control.\n- **Template.** `report.html` carries the exact iframe from the design. `layout.html`'s anchor uses `{{.SignInNext}}`, and only `report.html` renders `header`.\n- **Comments and docstrings** I checked against their code all hold. That covers `readRaw`'s Windows note, the `readerState` comments, the assay's header comment on what the beacon logs prove, and Shot's note on not using `t.TempDir`.\n\n**What I ran**\n- `go vet ./...` was clean and `go test -count=1 ./...` passed.\n- Fitness op=check: all 18 rules hold.\n- `TestReportScriptsNeverRun` and `TestReagentShape` with `HBAND_TEST_BROWSER` set to Edge: PASS.\n  - blank-empty 0/0 and blank-found 0/0.\n  - W4 red 805,759, W4b red 805,759, W5 0/0, W3 green 805,754.\n  - W1 green 1,110,394, W1s green 1,110,394, W2 green 1,432,954, red 0 in every verdict well.\n  - No Edge process was left behind and the worktree is unchanged.\n- I read every one of the 14 cases' tests, and each feeds its shape in.\n\n**The defect**\nThe byte-path rule `report bytes are written only by serveRaw` claims to bound \"a file server over a directory (http.FileServer, http.Dir) and os.DirFS\". It stays quiet on `root, _ := os.OpenRoot(dataDir); http.FileServerFS(root.FS())`. That is the traversal-safe directory idiom since Go 1.24, and the toolchain here is go1.27.4. Its `bounded_by` entry does not list it among what is left unbounded. I confirmed the gap with a `go test -overlay` repro that FAILS on this tree.\n\n**Smaller notes (not findings)**\n- The O-019 discharge says \"no Shot may add a /beacon/ entry to P or S\". The code checks this only in the W1, W1s and W2 verdict wells. It has no consequence: the blanks load a report with no beacons, and W5's frame is refused.\n- O-015 and O-016 are owed to validate-slice. My own Edge run measured both as holding: the CLI screenshot shows sandboxed-frame pixels, and green in every verdict well means the page was parsed past the script before the capture.\n\nSecond reader, for inputs: I reviewed this slice for unexpected inputs. The HTTP surface held up. I ran odd slug spellings through the real handler with a go test -overlay probe, which leaves the tree clean. These all gave the same bytes as an unregistered path's 404, on both /reports/ and /raw/: a percent-encoded draft slug (/raw/%64rafty), an encoded slash, a NUL, a trailing space, a 5,000-character slug, upper case, live%2F..%2Fdrafty, and HEAD on a draft. A percent-encoded published slug serves that same report, which is harmless. A multi-range request on /raw gets a 206 multipart/byteranges response that still carries the report CSP. OpenRaw filters on status before it opens the file, opens by id rather than by slug, and holds the library lock across the row read and the open, so no check is let go of. go vet and go test -count=1 ./... pass, including the Edge assay, and Fitness op=check reports all 18 rules holding.\n\nThe defects are in the new fitness tripwires, the family that O-020 and O-021 closed as a class. Both are confirmed by running the project's own rule runner over the spellings:\n- **Frame rules skip Go code.** The frame-element rule and the sandbox-token rule except every Go file, on the stated ground that the string-literal rule covers Go. That rule only sees a literal that starts with markup. So a handler that writes `fmt.Fprintf(w, \"Report: %s <iframe src=/raw/%s>…\")` passes all three rules. CC-001 names exactly this spelling.\n- **Byte-path rule misses os.OpenRoot.** It catches http.FileServer(http.Dir(...)) and os.DirFS but not the Go 1.24+ form `os.OpenRoot(dataDir)` plus `http.FileServerFS(root.FS())`. That is a file server over the data directory, which the rule's bounded_by claims to cover.\n\nBoth are tripwire gaps, not live exploits. rawCSP's sandbox header would still stop scripts. So both are minor.\n\nReading pass: I have now read the unread ranges of `internal/fitnessrules/testdata/rule_spellings.json`, lines 2-30 and 187-275, line by line. They add nothing new to file.\n\n**Lines 2-30** hold the three SL-003 `bounded_by` entries (lines 8-10) and `rules_under_test` (lines 21-25, the five SL-003 rule names). Each entry matches its rule in `.taad/fitness.yaml`:\n- The byte-path entry names ServeContent, ServeFile and ServeFileFS, plus `http.FileServer`, `http.Dir` and `os.DirFS`. Its \"Not bounded\" list is io.Copy, an aliased net/http import, a function value under another name, and bytes read with `os.ReadFile`.\n- The draft entry names BySlug and ListAll, as a call, a split call and a method value.\n- The frame entry names the five elements and the four forbidden sandbox tokens plus srcdoc.\n\n**Lines 187-275** are the SL-003 corpus rows:\n- `bytes-f001`..`f010` and `q001`..`q007` (line 205 keeps `router.go`'s `http.FileServerFS(staticSub)` quiet).\n- `frametok-f001`..`f010` and `q001`..`q006`, including `f010`, a longer token starting with a banned one, and `q004`, which keeps Go files quiet.\n- `frametag-f001`..`f011` and `q001`..`q007`.\n- `openraw-f001`..`f008` and `q001`..`q006`.\n- `drafts-f001`..`f008` and `q001`..`q007`.\n\nEvery rule under test has fire and quiet rows. The quiet rows for `report.html` and `admin_report.html` are those templates' iframes verbatim. `TestRuleSpellingsCorpus` passed in my `go test -count=1 ./...` run.\n\nTwo things in these rows are already filed on this review:\n- `frametok-q004` and `frametag-q003` show the blanket Go-file exception (IN-m1).\n- `bytes-q002` with the `FileServerFS` quiet row covers IN-m2. My earlier M1 (a file server over the data folder through Go 1.24's `os.OpenRoot(dir).FS()`, which the rule misses) is a member of that same `FileServerFS` gap, so I file nothing separately.\n\nThe obligation and case answers from my earlier turn stand unchanged.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The product code matches the design. The only departures from it are ones the build declared. One minor defect sends the build back: the widened byte-path tripwire misses the Go 1.24+ `os.OpenRoot(dir).FS()` way of serving a directory. A failing repro is attached.\n\n**Product code**\n- **Routes and handlers.** `GET /` uses `Latest`, `GET /reports/{slug}` uses `PublishedBySlug`, and `GET /raw/{slug}` uses `OpenRaw(…, true)` and then `serveRaw(…, \"no-cache\")`. Both reader pages go through one `renderReader(w, r, page, rep, state)`, which derives the status (503 only when unavailable), the title, `Next` (taken from the stored slug, and only for a found report page) and the viewer. That is the m6 critic's contract.\n- **Status values.** Each status and flag is given only in the cases where the reader of it is right to act:\n  - `stateEmpty` comes only from `ErrNotFound` on `Latest`.\n  - `stateUnavailable` (503) comes from any other library error.\n  - `/raw` maps `ErrNotFound` to `http.NotFound` and every other error to 500. That includes the wrapped file-open error, which is not `ErrNotFound` (reports.go:363-366).\n- **404s.** Both 404s are written before this handler sets any header, so they keep the site policy and carry no Cache-Control.\n- **Template.** `report.html` carries the exact iframe from the design. `layout.html`'s anchor uses `{{.SignInNext}}`, and only `report.html` renders `header`.\n- **Comments and docstrings** I checked against their code all hold. That covers `readRaw`'s Windows note, the `readerState` comments, the assay's header comment on what the beacon logs prove, and Shot's note on not using `t.TempDir`.\n\n**What I ran**\n- `go vet ./...` was clean and `go test -count=1 ./...` passed.\n- Fitness op=check: all 18 rules hold.\n- `TestReportScriptsNeverRun` and `TestReagentShape` with `HBAND_TEST_BROWSER` set to Edge: PASS.\n  - blank-empty 0/0 and blank-found 0/0.\n  - W4 red 805,759, W4b red 805,759, W5 0/0, W3 green 805,754.\n  - W1 green 1,110,394, W1s green 1,110,394, W2 green 1,432,954, red 0 in every verdict well.\n  - No Edge process was left behind and the worktree is unchanged.\n- I read every one of the 14 cases' tests, and each feeds its shape in.\n\n**The defect**\nThe byte-path rule `report bytes are written only by serveRaw` claims to bound \"a file server over a directory (http.FileServer, http.Dir) and os.DirFS\". It stays quiet on `root, _ := os.OpenRoot(dataDir); http.FileServerFS(root.FS())`. That is the traversal-safe directory idiom since Go 1.24, and the toolchain here is go1.27.4. Its `bounded_by` entry does not list it among what is left unbounded. I confirmed the gap with a `go test -overlay` repro that FAILS on this tree.\n\n**Smaller notes (not findings)**\n- The O-019 discharge says \"no Shot may add a /beacon/ entry to P or S\". The code checks this only in the W1, W1s and W2 verdict wells. It has no consequence: the blanks load a report with no beacons, and W5's frame is refused.\n- O-015 and O-016 are owed to validate-slice. My own Edge run measured both as holding: the CLI screenshot shows sandboxed-frame pixels, and green in every verdict well means the page was parsed past the script before the capture.\n\nSecond reader, for inputs: I reviewed this slice for unexpected inputs. The HTTP surface held up. I ran odd slug spellings through the real handler with a go test -overlay probe, which leaves the tree clean. These all gave the same bytes as an unregistered path's 404, on both /reports/ and /raw/: a percent-encoded draft slug (/raw/%64rafty), an encoded slash, a NUL, a trailing space, a 5,000-character slug, upper case, live%2F..%2Fdrafty, and HEAD on a draft. A percent-encoded published slug serves that same report, which is harmless. A multi-range request on /raw gets a 206 multipart/byteranges response that still carries the report CSP. OpenRaw filters on status before it opens the file, opens by id rather than by slug, and holds the library lock across the row read and the open, so no check is let go of. go vet and go test -count=1 ./... pass, including the Edge assay, and Fitness op=check reports all 18 rules holding.\n\nThe defects are in the new fitness tripwires, the family that O-020 and O-021 closed as a class. Both are confirmed by running the project's own rule runner over the spellings:\n- **Frame rules skip Go code.** The frame-element rule and the sandbox-token rule except every Go file, on the stated ground that the string-literal rule covers Go. That rule only sees a literal that starts with markup. So a handler that writes `fmt.Fprintf(w, \"Report: %s <iframe src=/raw/%s>…\")` passes all three rules. CC-001 names exactly this spelling.\n- **Byte-path rule misses os.OpenRoot.** It catches http.FileServer(http.Dir(...)) and os.DirFS but not the Go 1.24+ form `os.OpenRoot(dataDir)` plus `http.FileServerFS(root.FS())`. That is a file server over the data directory, which the rule's bounded_by claims to cover.\n\nBoth are tripwire gaps, not live exploits. rawCSP's sandbox header would still stop scripts. So both are minor.\n\nReading pass: I have now read the unread ranges of `internal/fitnessrules/testdata/rule_spellings.json`, lines 2-30 and 187-275, line by line. They add nothing new to file.\n\n**Lines 2-30** hold the three SL-003 `bounded_by` entries (lines 8-10) and `rules_under_test` (lines 21-25, the five SL-003 rule names). Each entry matches its rule in `.taad/fitness.yaml`:\n- The byte-path entry names ServeContent, ServeFile and ServeFileFS, plus `http.FileServer`, `http.Dir` and `os.DirFS`. Its \"Not bounded\" list is io.Copy, an aliased net/http import, a function value under another name, and bytes read with `os.ReadFile`.\n- The draft entry names BySlug and ListAll, as a call, a split call and a method value.\n- The frame entry names the five elements and the four forbidden sandbox tokens plus srcdoc.\n\n**Lines 187-275** are the SL-003 corpus rows:\n- `bytes-f001`..`f010` and `q001`..`q007` (line 205 keeps `router.go`'s `http.FileServerFS(staticSub)` quiet).\n- `frametok-f001`..`f010` and `q001`..`q006`, including `f010`, a longer token starting with a banned one, and `q004`, which keeps Go files quiet.\n- `frametag-f001`..`f011` and `q001`..`q007`.\n- `openraw-f001`..`f008` and `q001`..`q006`.\n- `drafts-f001`..`f008` and `q001`..`q007`.\n\nEvery rule under test has fire and quiet rows. The quiet rows for `report.html` and `admin_report.html` are those templates' iframes verbatim. `TestRuleSpellingsCorpus` passed in my `go test -count=1 ./...` run.\n\nTwo things in these rows are already filed on this review:\n- `frametok-q004` and `frametag-q003` show the blanket Go-file exception (IN-m1).\n- `bytes-q002` with the `FileServerFS` quiet row covers IN-m2. My earlier M1 (a file server over the data folder through Go 1.24's `os.OpenRoot(dir).FS()`, which the rule misses) is a member of that same `FileServerFS` gap, so I file nothing separately.\n\nThe obligation and case answers from my earlier turn stand unchanged.",
+  "matches_design": true,
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The widened byte-path tripwire 'report bytes are written only by serveRaw' is quiet on a file server over a directory opened with Go 1.24+'s os.Root: `root, _ := os.OpenRoot(cfg.DataDir); mux.Handle(\"GET /data/\", http.FileServerFS(root.FS()))`. That serves <data>/reports/*.html under the site policy, which is exactly the exposure the rule and its bounded_by entry ('a file server over a directory (http.FileServer, http.Dir) and os.DirFS, anywhere in the repository including the entrypoint') claim to bound. http.FileServerFS is left quiet on purpose for the embedded static FS. os.Root is the traversal-safe idiom on this go1.27.4 toolchain, so an author reaching for a 'safe' directory server writes exactly this. The bounded_by entry's 'Not bounded' list does not name it, so the build claimed this member of the family closed when it is open.",
+    "evidence": ".taad/fitness.yaml:152-168 (patterns \\bhttp\\.Serve(Content|File|FileFS)\\(, \\bhttp\\.(Dir|FileServer)\\(, \\bos\\.DirFS\\(). internal/fitnessrules/testdata/rule_spellings.json bounded_by 'report bytes and report files (SL-003 m5)'. Repro run via go test -overlay: '--- FAIL: TestByteRuleCatchesOpenRootFileServer ... the byte-path rule is quiet on a file server over a directory opened with os.OpenRoot'. A grep shows no OpenRoot, OpenInRoot or .FS() use anywhere in the tree today, so the widened rule stays quiet on it.",
+    "file": ".taad/fitness.yaml",
+    "line": 154,
+    "end_line": 157,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 154,
+     "text": "    must_not_match:\n    - \\bhttp\\.Serve(Content|File|FileFS)\\(\n    - \\bhttp\\.(Dir|FileServer)\\(\n    - \\bos\\.DirFS\\("
+    },
+    "fix": "Add `- \\bos\\.(OpenRoot|OpenInRoot)\\(` to this rule's must_not_match. If the library later adopts os.Root for its own file opens, except internal/reports/** explicitly. Add corpus fire rows: bytes-f011 at cmd/hband/main.go `root, err := os.OpenRoot(cfg.DataDir)` and bytes-f012 at internal/server/reader.go `h := http.FileServerFS(mustRoot(dir).FS())` together with its `os.OpenRoot(d)` helper. Name os.Root in the bounded_by entry.",
+    "class_of": "fitness tripwire spelling variants",
+    "threat": "accident",
+    "repro": {
+     "path": "internal/fitnessrules/openroot_repro_test.go",
+     "body": "package fitnessrules\n\nimport \"testing\"\n\n// A file server over the data directory built on Go 1.24's os.Root is the\n// same exposure as http.FileServer(http.Dir(dataDir)): report bytes served\n// under the site policy. The byte-path rule must trip on it.\nfunc TestByteRuleCatchesOpenRootFileServer(t *testing.T) {\n\trules := loadRules(t, repoRoot(t))\n\tr, ok := rules[\"report bytes are written only by serveRaw\"]\n\tif !ok {\n\t\tt.Fatal(\"the byte-path rule is not in fitness.yaml\")\n\t}\n\tfor _, text := range []string{\n\t\t\"root, err := os.OpenRoot(cfg.DataDir)\\nif err != nil {\\n\\treturn err\\n}\\nmux.Handle(\\\"GET /data/\\\", http.FileServerFS(root.FS()))\",\n\t\t\"mux.Handle(\\\"GET /files/\\\", http.StripPrefix(\\\"/files/\\\", http.FileServerFS(mustRoot(dataDir).FS())))\\n\\nfunc mustRoot(d string) *os.Root { r, _ := os.OpenRoot(d); return r }\",\n\t} {\n\t\tif fired, _ := r.fires(\"cmd/hband/main.go\", text); !fired {\n\t\t\tt.Errorf(\"the byte-path rule is quiet on a file server over a directory opened with os.OpenRoot:\\n%s\", text)\n\t\t}\n\t}\n}\n",
+     "command": "go test -count=1 -run TestByteRuleCatchesOpenRootFileServer ./internal/fitnessrules"
+    }
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "file": ".taad/fitness.yaml",
+    "line": 181,
+    "end_line": 196,
+    "claim": "Both SL-003 frame tripwires except all Go files: 'only the audited templates contain a frame element' and 'no site template frames a report with scripts or the site origin, or inlines it' each list except_files '**/*.go'. The corpus gives the reason for the frame rule (frametag-q003): 'Go files are held by the string-literal rule'. That is false for markup that does not open the literal. The string-literal rule's pattern `[\"`]\\s*<[a-zA-Z!/]` fires only when a literal STARTS with markup, and its own bounded_by says so. So a handler writing `fmt.Fprintf(w, \"Report: %s <iframe src=/raw/%s></iframe>\", title, slug)` (an unsandboxed frame) or `fmt.Fprintf(w, \"%s<iframe sandbox='allow-scripts' src=/raw/%s>\", …)` trips no rule in fitness.yaml. I confirmed this by running the project's loadRules/fires over both spellings at internal/server/reader.go. These are the 'non-prefix string occurrences (such as inside fmt.Fprintf)' that CC-001 says a conformance rule must be tested against. The interpreted-string form `sandbox=\\\"allow-scripts\\\"` would also stay quiet even without the Go exception, because `[^\"'>]*` stops at the escaped quote.",
+    "evidence": ".taad/fitness.yaml:181-183 and 194-196 (except_files '**/*.go'). internal/fitnessrules/testdata/rule_spellings.json rows frametag-q003 and frametok-q004 pin Go text as quiet. The 'escaping bypass (m5)' bounded_by covers only 'a Go string literal ... that starts with markup'. Run: an overlay test calling loadRules/fires gave fires=false for the frame rule, the token rule and the literal rule on both Fprintf spellings.",
+    "fix": "In both rules, replace except_files '**/*.go' with '**/*_test.go' and 'internal/testutil/**'. No production Go file under internal/ contains a frame tag, `sandbox=` or `srcdoc=` today, and I checked in memory that the tree stays quiet. In the token pattern, allow an escaped quote (`sandbox\\s*=\\s*\\\\?[\"']?`). In the corpus, flip frametag-q003 and frametok-q004 to fire rows and add the two Fprintf spellings at internal/server/reader.go as fire rows.",
+    "class_of": "fitness tripwire spelling variants",
+    "threat": "accident",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 194,
+     "text": "    except_files:\n    - '**/*.go'\n    - '**/testdata/**'\n    - internal/server/templates/report.html"
+    },
+    "repro": {
+     "path": "internal/fitnessrules/review_go_markup_test.go",
+     "body": "package fitnessrules\n\nimport \"testing\"\n\n// Go code that writes a frame, or a forbidden sandbox token, in the middle of\n// a string (not at its start, where the string-literal rule looks) is still a\n// site page framing a report: some architecture rule must trip on it.\nfunc TestRulesSeeFrameMarkupInsideGoStrings(t *testing.T) {\n\trules := loadRules(t, repoRoot(t))\n\tfor _, text := range []string{\n\t\t`fmt.Fprintf(w, \"Report: %s <iframe src=/raw/%s></iframe>\", title, slug)`,\n\t\t`fmt.Fprintf(w, \"%s<iframe sandbox='allow-scripts' src=/raw/%s></iframe>\", title, slug)`,\n\t} {\n\t\tfired := false\n\t\tfor _, r := range rules {\n\t\t\tif got, _ := r.fires(\"internal/server/reader.go\", text); got {\n\t\t\t\tfired = true\n\t\t\t}\n\t\t}\n\t\tif !fired {\n\t\t\tt.Errorf(\"no rule trips on a Go handler that writes a frame mid-string: %s\", text)\n\t\t}\n\t}\n}\n",
+     "command": "go test -count=1 -run TestRulesSeeFrameMarkupInsideGoStrings ./internal/fitnessrules"
+    }
+   },
+   {
+    "id": "IN-m2",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "file": ".taad/fitness.yaml",
+    "line": 155,
+    "end_line": 157,
+    "claim": "The rule 'report bytes are written only by serveRaw' forbids http.ServeContent, ServeFile and ServeFileFS, http.Dir, http.FileServer and os.DirFS, and deliberately leaves http.FileServerFS quiet for router.go's embedded static files. It misses the Go 1.24+ directory-root form, `root, _ := os.OpenRoot(dataDir); mux.Handle(\"GET /files/\", http.FileServerFS(root.FS()))`. That is a file server over the data directory and would serve <data>/reports/*.html as unsandboxed same-origin HTML under the site policy. The corpus bounded_by 'report bytes and report files (SL-003 m5)' claims 'a file server over a directory' as bounded, and lists OpenRoot nowhere under 'Not bounded'. I confirmed it is quiet with the project's runner at both internal/server/reader.go and cmd/hband/main.go. os.OpenRoot is the toolchain's recommended way to open a directory safely (go1.27.4 here), so it is a likely accidental spelling.",
+    "evidence": ".taad/fitness.yaml:152-168. internal/fitnessrules/testdata/rule_spellings.json bounded_by 'report bytes and report files (SL-003 m5)'. Run: an overlay test calling loadRules/fires gave no rule firing on either OpenRoot spelling. Today the only FileServerFS call is internal/server/router.go:66, and no OpenRoot, OpenInRoot or .FS() appears in any Go file.",
+    "fix": "Use the token form (lesson #931). Add a rule 'only router.go serves a filesystem' that forbids `\\bhttp\\.FileServerFS\\(` in '**/*.go', excepting internal/server/router.go, '**/*_test.go' and internal/testutil/**. I simulated it in memory: it fires on both spellings and stays quiet on the tree. Alternatively, add `\\bos\\.(OpenRoot|OpenInRoot)\\(` to the byte-path rule. Add fire rows for the two OpenRoot spellings (reader.go and cmd/hband/main.go), a quiet row for router.go's FileServerFS(staticSub), and name OpenRoot in the bounded_by entry.",
+    "class_of": "fitness tripwire spelling variants",
+    "threat": "accident",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 155,
+     "text": "    - \\bhttp\\.Serve(Content|File|FileFS)\\(\n    - \\bhttp\\.(Dir|FileServer)\\(\n    - \\bos\\.DirFS\\("
+    },
+    "repro": {
+     "path": "internal/fitnessrules/review_openroot_test.go",
+     "body": "package fitnessrules\n\nimport \"testing\"\n\n// A file server over the data directory opened with os.OpenRoot (Go 1.24+)\n// serves report bytes under the site policy, exactly like\n// http.FileServer(http.Dir(dataDir)): some architecture rule must trip on it.\nfunc TestRulesSeeFileServerOverOpenRoot(t *testing.T) {\n\trules := loadRules(t, repoRoot(t))\n\tfor _, c := range []struct{ path, text string }{\n\t\t{\"internal/server/reader.go\", `root, _ := os.OpenRoot(a.cfg.DataDir); mux.Handle(\"GET /files/\", http.FileServerFS(root.FS()))`},\n\t\t{\"cmd/hband/main.go\", `dataRoot, _ := os.OpenRoot(cfg.DataDir); h := http.FileServerFS(dataRoot.FS())`},\n\t} {\n\t\tfired := false\n\t\tfor _, r := range rules {\n\t\t\tif got, _ := r.fires(c.path, c.text); got {\n\t\t\t\tfired = true\n\t\t\t}\n\t\t}\n\t\tif !fired {\n\t\t\tt.Errorf(\"no rule trips at %s on: %s\", c.path, c.text)\n\t\t}\n\t}\n}\n",
+     "command": "go test -count=1 -run TestRulesSeeFileServerOverOpenRoot ./internal/fitnessrules"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/server/reader_test.go:96-130 TestReaderHomeEmpty checks three states: nothing at all, only a draft, and published-then-unpublished. Each must give 200, 'No reports yet', no iframe, no 'cannot be shown' and Cache-Control private, no-cache, and the draft's title and slug must be absent. Handler: reader.go:67-68. Green in my go test run."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "reader_test.go:132-164 uploads A, advances the clock, uploads B, advances it, then uploads draft C. It asserts exactly one iframe with src=/raw/b, B's h1, and no A or C title or path. Publishing C then makes C the newest."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "reader_test.go:166-208 uses the title `Q3 <b>\"review\"</b> & more`. The decoded <title>, <h1> and iframe title all equal it, and no raw <b> reaches the page. It asserts exactly one iframe whose sorted sandbox tokens are exactly the two, plus referrerpolicy, src /raw/q3-review, no inline style, width and height present, and Cache-Control. Template: report.html:11."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "reader_test.go:210-248. Owner and non-owner: sameResponse compares status, body and headers minus Date for / and /reports/newest. Anonymous: the decoded next is / and /reports/newest, and the pages are equal once the anchor is masked. Code: one renderReader (reader.go:96-117) with page affecting only Next."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "reader_test.go:250-292 covers draft, unpublished, deleted, unknown, UPPER-CASE and an 81-char slug on /reports/ and /raw/, anonymous and owner. Each must equal GET /nowhere byte for byte (status, body, headers minus Date). The baseline must carry siteCSP and no Cache-Control. Controls: live gives 200 on both paths. Code: reader.go:83-84 and raw.go:36-38 call http.NotFound before setting any header."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "reader_test.go:294-353, http and https harnesses. It checks exactly one CSP equal to rawCSP (not siteCSP), Content-Type, nosniff, Referrer-Policy no-referrer, CORP, an ETag of the sha256, no-cache, the body equal to the upload and no Set-Cookie. A signed-in request gets an identical response, HEAD has the same headers and an empty body, and If-None-Match gives 304."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "reader_test.go:355-388: the replace shows the new title on /reports/stable and the new bytes on /raw with a new ETag. The old ETag in If-None-Match gives 200 with the new bytes."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "reader_test.go:390-417 removes <data>/reports/<id>.html. /raw then gives 500 'internal error\\n' with siteCSP and no bytes, and /reports/lost still gives 200 framing /raw/lost. Code: raw.go:40-43, and the wrapped os.Open error at reports.go:363-366 is not ErrNotFound."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "reader_test.go:419-462 closes the store. For anonymous, owner and non-owner, / and /reports/up give 503 'Reports cannot be shown right now' with no iframe, no 'No reports yet', no signed-in header, sign-in next '/' and Cache-Control. /raw gives 500. admin_test.go:327-333 now expects 503 with its anonymity checks kept, plus no iframe and no 'No reports yet'."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "reader_test.go:464-492: the sentinel is in the report body (reportHTML puts it in the document's <title> and <p>, not the upload-form title 'Inline check'). It is absent from / and /reports/inline-check for anonymous, non-owner and owner. Each page must frame /raw/inline-check, and /raw carries the sentinel as the positive control."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "reader_test.go:494-541 uses an 80-char slug ('ab-'x26+'a9'). The decoded next is /reports/<slug>, and / on the home page. No form targets /auth/github/login. The full flow, via h.client(true) and the anchor href, lands on the report signed in. When signed in there is no anchor, there is a logout form, and the Admin link shows for the owner only."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "reader_test.go:548-599 pins //reports/x and //raw/x to a 307 to the cleaned path, and x/../y to a 307 to /reports/y and /raw/y. /reports/x/, /reports/, /reports, /REPORTS/x, /raw/x/, /raw/ and /raw give the mux 404. POST gives 405 with Allow: GET, HEAD. Each is compared between a draft-x harness and an unknown-x harness. router.go is unchanged apart from the two new routes."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "browser_test.go:258-285: W1 (http /reports/probe), W1s (https with --ignore-certificate-errors) and W2 (top-level /raw/probe) each need green >= 40,000, red 0, GET /raw/probe in that Shot's own log and no /beacon/. My run with HBAND_TEST_BROWSER set gave green 1,110,394, 1,110,394 and 1,432,954, red 0, PASS."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "browser_test.go:224-256: W4 (allow-scripts, no policy) must show red >= 40,000 and log /beacon/script?w=W4. W4b (onerror only) must be red. W5 (P's /raw framed from Q's port) must show neither colour and still log GET /raw/probe on P. W3 (attribute parsed from the real page at :216-222, no policy) must be green with red 0 and log /beacon/img?w=W3. My run: W4 red 805,759, W4b red 805,759, W5 0/0, W3 green 805,754."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "Owed to validate-slice; I measured it here. headless.go:87-95 uses only Edge's CLI --headless=new --screenshot. In my run, the sandboxed frames read as their colours: W4's allow-scripts frame from Q red 805,759, and W3's attribute-sandboxed frame green 805,754. The spike measured such frames as out-of-process iframes in Edge 158. So the CLI capture includes framed-document pixels."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "Owed to validate-slice; I measured it here. In the reagent (browser_test.go:71-83) the green <style> comes last, after the <script> and the onerror <img>, with no !important. TestReagentShape (:290-312) pins this. So green >= 40,000 in W1, W1s and W2 (my run) means the parser got past the script before the capture, and W4b red 805,759 shows the onerror handler fires within the capture."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "browser_test.go:197-214: blank-empty (P's / before any upload) and blank-found (/reports/blank, a #808080 neutral report uploaded via POST /admin/reports, anonymous) must each show green 0 and red 0, or the run is 'INVALID RUN: the site chrome contains a signal colour'. Both read 0/0 in my run."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "browser_test.go:71-83: green style last, no !important, both repaints set element.style. W4b at :231-235 is the reagent without the script under allow-scripts and must be red. TestReagentShape pins the order, no !important, four element.style repaints, a script-free W4b reagent and tagged beacons."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "browser_test.go:94-129: one reqLog type wraps P and S through h.handler under h.mu (harness_test.go:109-114 reads it under h.mu) and Q directly. well() at :182-190 judges each Shot on its own new entries. W1, W2 and W5 must each add GET /raw/probe to P, and W1s must add it to S. The no-/beacon/ check on P and S runs only for W1, W1s and W2 (:282-284), not for every Shot as the claim says. That has no consequence: the blanks load a beacon-free report, and W5's frame is refused before it renders."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": ".taad/fitness.yaml:169-198: the token rule is on internal/** excepting Go and testdata. The frame rule `(?i)<(iframe|frame|fencedframe|object|embed)\\b` is on internal/** excepting Go, testdata, report.html and admin_report.html. Corpus rows frametag-f001..f011 include a new template, static/x.html, upper case, frame, object, embed, fencedframe, a newline and a bare tag. q001/q002 cover report.html and admin_report.html verbatim. Fitness op=check passes and TestRuleSpellingsCorpus is green."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": ".taad/fitness.yaml:152-168 and 199-225 contain what m5's critic prescribed: the byte rule on **/*.go with http.Dir, FileServer and os.DirFS; `\\.OpenRaw\\b` as its own rule excepting raw.go, admin.go, internal/reports/** and tests; `\\.BySlug\\b` and `\\.ListAll\\b` with raw.go not excepted. Corpus rows cover the multi-line call, method values and cmd/hband/main.go. One new member of the same class is still open: os.OpenRoot(...).FS(), filed as M1 with a failing repro."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "reader.go:91-117: renderReader(w, r, page, rep, state). Status is derived from state (503 only for stateUnavailable). Title is rep.Title+\" - hband\" when found, else \"hband\". Next is \"/reports/\"+rep.Slug only for reportPage with stateFound. SignedIn and Viewer come from auth.ViewerFrom. The callers at :62-89 pass no status and no strings."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "Waived, but built anyway. headless.go:71-84 creates the profile and screenshot folders with os.MkdirTemp and removes them in t.Cleanup via removeLoud (:156-165): 10 retries, logged and never fatal. cmd.WaitDelay = 5s at :101, and exec.CommandContext kills only the process it started."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "browser_test.go:45-50 says the red-pixel count is the only script verdict and that P's zero-beacon check measures policy blocking. Q serves /copy/{well} tagged with ?w= (:161-169). Run acceptance: W4 must log /beacon/script?w=W4 (:226), W3 must log /beacon/img?w=W3 (:254) and must not log /beacon/script?w=W3 (:248)."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "reader_test.go:96-130 asks GET / with nothing at all, then with only a draft uploaded through the real route, then after a publish and unpublish."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "reader_test.go:132-164 uploads A, advances the clock, uploads B, advances it, uploads draft C, and asserts / frames only /raw/b."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "reader_test.go:166-208 uses the title `Q3 <b>\"review\"</b> & more` (it has <, & and \") and checks <title>, <h1> and the iframe title decoded."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "reader_test.go:210-248 opens the newest report at / and at /reports/newest as owner, as non-owner (byte-equal) and anonymously (equal except the anchor, next / and /reports/newest)."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "reader_test.go:250-292 creates a real draft, an unpublished report and a deleted report, plus unknown, 'UPPER-CASE' and 81×'a' slugs, each on /reports/ and /raw/, and compares each to GET /nowhere."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "reader_test.go:294-353 sends GET, HEAD and If-None-Match with the current ETag to /raw/raw-one with no cookie, over http and https harnesses."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "reader_test.go:355-388 re-uploads slug 'stable' with new bytes and a new title, then asks with the old ETag."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "reader_test.go:390-417 removes the published row's file under <data>/reports, then asks /raw (500) and /reports (200)."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "reader_test.go:419-462 calls h.store.Close(), then anonymous, owner and non-owner ask / and /reports/up. admin_test.go:327-333 asks GET / signed in."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "reader_test.go:464-492: the sentinel is in the bytes only (upload title 'Inline check'). Anonymous, non-owner and owner view / and /reports/<slug>, and /raw is the positive control."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "reader_test.go:494-541 uses the 80-character slug 'ab-'x26+'a9' (letters, digits, hyphens, length asserted) as an anonymous reader, follows the whole sign-in flow and checks the signed-in header."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "reader_test.go:548-599 sends //reports/x, /reports/x/, /reports/, /REPORTS/x, /reports/x/../y, /raw/x/, /raw/ and POST /reports/x (plus extras), each to a harness with draft x and one with no x."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "browser_test.go:71-83: the reagent has an inline script, an onerror handler and tagged same-origin beacons, uploaded through POST /admin/reports. W1 is http /reports/probe, W1s is the https harness, W2 is top-level /raw/probe. I ran it with HBAND_TEST_BROWSER set: PASS."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "browser_test.go:216-256: W3 uses the sandbox attribute parsed from the real /reports/probe HTML over a policy-free copy. W4 uses allow-scripts. W5 frames P's real /raw/probe from Q's port. Each is a run-acceptance check that fails the test. My run: W3 green 805,754, W4 red 805,759, W5 0/0."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [
+   "internal/fitnessrules/testdata/rule_spellings.json -- I read the SL-003 rows (bytes-*, frametag-*, openraw-*, drafts-*) and the bounded_by and rules_under_test entries by querying the parsed JSON, not line by line in Read. I did not list the frametok-* rows for the sandbox-token rule individually; TestRuleSpellingsCorpus passes and Fitness op=check holds.",
+   "internal/testutil/headless/headless.go -- read whole. Not judged: the timeout-kill path's effect on Edge child processes on Windows (lines 97-109). It was not exercised, because no Shot timed out in my run."
+  ],
+  "second_round": {
+   "run_id": 11720,
+   "filed": 2,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 11721,
+   "session": "e5b98271-89f1-412a-a45e-ab7785e63f60",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       7,
+       10
+      ],
+      [
+       20,
+       25
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      2,
+      30
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       192,
+       273
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      187,
+      275
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 3,
+   "named": [],
+   "before": {
+    "read_whole": 9,
+    "changed": 13,
+    "listed": 4
+   },
+   "filed": 0,
+   "read_after": 3,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 13,
+   "read_whole": 9,
+   "deleted": [
+    "internal/server/home.go",
+    "internal/server/templates/home.html"
+   ],
+   "runs": [
+    11719,
+    11720,
+    11721
+   ],
+   "range": {
+    "base": "611f1bbc1322b9607377a1d52265d4657a7be830",
+    "head": "db0c871ef2a3b0f2fd33f7fb2cd990cd65ae1710",
+    "source": "commits",
+    "hunk_base": "611f1bbc1322b9607377a1d52265d4657a7be830",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "partly-opened",
+     "section": "lines 1, 31-186 of 275",
+     "reason": "a Read returned only part of it; seen only as 125 Grep lines (long lines elided); seen only through a shell command: $j, git diff",
+     "size_lines": 275,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/admin_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-437 of 437",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 437,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/static/site.css",
+     "state": "partly-opened",
+     "section": "lines 1-11 of 11",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 11,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/templates/admin.html",
+     "state": "partly-opened",
+     "section": "lines 1-48 of 48",
+     "reason": "seen only as 2 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 48,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

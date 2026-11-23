@@ -161,5 +161,147 @@
     "result": "No new hole in the product path:\n- serveRaw is unchanged, with rawCSP's sandbox, script-src 'none', frame-ancestors set to the origin, nosniff and CORP;\n- the iframe uses exactly the admin preview's tokens;\n- 404s are written before any header, so drafts have no existence oracle;\n- allow-popups-to-escape-sandbox is within the constraint, and target=_blank implies noopener.\nThe only security-adjacent gap is m4: a future template could frame a report unsandboxed, and only the CSP header would remain."
    }
   ]
+ },
+ "prescribed": {
+  "host": 678,
+  "at": "2026-11-23T19:19:22.585Z",
+  "runs": [
+   {
+    "run_id": 11714,
+    "resumed_from": "7d6f7992-0b19-40b0-8b1e-9ba228750d19",
+    "ending": "completed",
+    "cost_usd": 1.1213510000000002,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 1962,
+    "key": "M-add-1",
+    "digest": "73d9352f8e7deb6c"
+   },
+   {
+    "finding_id": 1954,
+    "key": "m1",
+    "digest": "eb3156906e4e5ccb"
+   },
+   {
+    "finding_id": 1955,
+    "key": "m2",
+    "digest": "081edb08cb3da524"
+   },
+   {
+    "finding_id": 1956,
+    "key": "m3",
+    "digest": "aef27f5eeabaa6bf"
+   },
+   {
+    "finding_id": 1957,
+    "key": "m4",
+    "digest": "0d4bceb6ca3b4bd8"
+   },
+   {
+    "finding_id": 1958,
+    "key": "m5",
+    "digest": "cc63b237ae253a69"
+   },
+   {
+    "finding_id": 1959,
+    "key": "m6",
+    "digest": "1af7a01120f3dfb3"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 1962,
+    "key": "M-add-1",
+    "digest": "73d9352f8e7deb6c",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "I re-read the prescribed wells, run conditions and outside claims against raw.go:15-19 (rawCSP: default-src 'none', img-src data:) and against the build-check measurement: under rawCSP no plain-img beacon was requested, while the img-src 'self' control fetched its img. I traced W3: Q serves the reagent with no CSP, under a sandbox attribute without allow-scripts, and the frame has a real src URL, so it inherits no policy from its parent. The frame's origin is opaque, but sandbox does not restrict image loads, so <img src=/beacon/img?w=W3> resolves to Q and is fetched. I traced W4: allow-scripts with no CSP, so the inline script's /beacon/script?w=W4 reaches Q. A cross-origin fetch from an opaque origin still sends the GET. I traced W5: it frames P, so any beacon from it would go to P, not Q, and the well tags keep W3 and W4 apart in Q's log. Changing ?w= changes only a query string, so W3 is still 'the same bytes' for the attribute-alone purpose.",
+    "why": "The reframing is correct. P's zero-beacon count measures rawCSP's request blocking, not script execution. A script running under rawCSP would have its beacon blocked either way, so only the red pixel count can say whether a script ran. W3's /beacon/img is the right control for that blocking: the same tag in the same reagent, differing only in the absence of rawCSP. Tagging each copy with its well removes the W3/W4 merge. I found no well, start state or spelling where the three conditions pass vacuously.",
+    "instead": ""
+   },
+   {
+    "finding_id": 1954,
+    "key": "m1",
+    "digest": "eb3156906e4e5ccb",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I compared the design's report.html branches: with HasReport, an h1, the 'Published' date, the permalink and the .report-frame iframe with a 1px #8884 border; when empty, only <p>No reports yet.</p>. I re-read the slice brief: 'The like count and comments beneath the report are added to this shared layout by SC-010 and SC-011'. A grep of internal/server for signal colours found none today.",
+    "why": "The prescribed blank, GET / in the 'No reports yet' state, shoots only the header, the brand, the sign-in anchor and the body background. Everything that renders only beside a found report is missing from it:\n- the h1, the date and the permalink;\n- the frame border;\n- and, decisively, the like count and comments SC-010 and SC-011 put beneath the report.\nThe case that motivated m1, a heart styled color:red next to the report, appears in W1 but never in this blank. W1 would still read red > 0 as 'a script ran'. The rationale's claim that the blank 'catches the colour from any source, including the like and comment UI SC-010/SC-011 will add' is false.",
+    "instead": "Shoot the blank in the found-state layout. Upload a second published report 'blank' through the same POST /admin/reports: a neutral body (for example a #808080 background), no script, no signal colour. Shoot P's /reports/blank, anonymous like W1, and require green = 0 and red = 0, failing as 'invalid run: the site chrome contains a signal colour'. Because it uses /reports/blank rather than /, it does not depend on Latest or on upload order. The empty-state shot can stay as a second blank."
+   },
+   {
+    "finding_id": 1955,
+    "key": "m2",
+    "digest": "081edb08cb3da524",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I traced the reordered reagent: script, then the onerror image, then the green <style> at the end of the body.\n- An inline <script> blocks the parser: when it runs, it finishes before the parser reaches the style, and when it is blocked, the parser simply goes on. So green means the parser got past the script.\n- The <img src=x onerror> handler runs asynchronously, after the image request fails. Under rawCSP's img-src data: that failure is a CSP block, which also fires error asynchronously.\n- An inline style set through element.style outranks a sheet rule only while the sheet does not use !important.",
+    "why": "The per-well timing proof covers the inline script only. The parser can reach the trailing green <style> and paint green before the onerror event is dispatched. If the capture lands in that gap, W1 reads 'rendered, no handler ran' whether or not the handler would have run. That is exactly what precondition 2 left open, now only for the second probe. W4 cannot cover it: in W4 the inline script turns the page red first, so W4 never shows that the onerror channel alone fires within the budget. Separately, a builder who writes the green rule with !important silently defeats the red repaint in every well.",
+    "instead": "State that the per-well guarantee holds for the inline <script>. For the onerror probe, add a positive-control well W4b: the reagent with the inline script removed, so only the onerror image is left, under sandbox=\"allow-scripts\" with no CSP. Require red ≥ 40,000 px, which shows the handler fires and repaints within the capture budget. Also require that the reagent's green rule carries no !important, and that both repaints use element.style."
+   },
+   {
+    "finding_id": 1956,
+    "key": "m3",
+    "digest": "aef27f5eeabaa6bf",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I read harness_test.go:102-114: each harness has its own httptest server, whose handler reads h.handler under h.mu. A log wrapper can therefore be set by swapping h.handler to wrap(New(...)) outside the security chain. I listed which wells target which server: W1, W2 and W5 on P, W1s on the TLS harness. Only W2's and W5's /raw URLs can carry a query tag, because W1's iframe src comes from report.html ('/raw/{{.Report.Slug}}').",
+    "why": "The logs are cumulative across wells. 'Each log must hold GET /raw/probe for every well aimed at that server' is satisfied on P by a single /raw/probe from any one of W1, W2 or W5. If W1's frame never requested /raw/probe (it rendered something else, or the wrapper was on the wrong handler for that request), the check still passes on W2's hit, and the vacuity the fix exists to remove returns per well. Also, nothing requires P's and the TLS harness's wrapper to be the same code as Q's. If they differ, Q's /beacon/img hit (M-add-1) does not show that P's logger records beacon paths at all.",
+    "instead": "Run the Shots in sequence. Before each Shot, record the length of every log, and judge each well on that Shot's own entries: W1, W2 and W5 must each add GET /raw/probe to P, W1s must add it to the TLS log, and no Shot may add a /beacon/ entry to P or TLS. Install the wrapper by setting h.handler under h.mu, outside New's chain, so it sees mux 404s too. Use one wrapper type for P, TLS and Q, so Q's tagged hits show that the same logger records /beacon/ paths."
+   },
+   {
+    "finding_id": 1957,
+    "key": "m4",
+    "digest": "0d4bceb6ca3b4bd8",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I grepped internal/ for <(iframe|frame|object|embed|fencedframe|portal): the only hit outside tests is admin_report.html:22, so the rule would be quiet on the tree. `<frame\\b` does not match <frameset. I globbed internal/server/static/**: only site.css today. router.go:24-25 embeds the whole of static, and router.go:62 serves it under siteCSP via http.FileServerFS. rules_test.go:234-237: a corpus row with no path defaults to internal/server/x.go.",
+    "why": "The files glob internal/**/templates/** leaves out internal/server/static/**. Anything placed in static/ is embedded and served at /static/... under siteCSP, whose frame-src 'self' allows framing /raw/<slug>. A static .html page can therefore frame a report with no sandbox attribute while the rule and the corpus pass. That is the very bypass m4 was raised to close. Also, the prescribed fire row `<iframe src=\"/raw/{{.Slug}}\">` written without a path is evaluated at internal/server/x.go. There the templates glob does not apply, so the row fails TestRuleSpellingsCorpus, or a builder 'fixes' it by weakening the row. <fencedframe> is not listed either.",
+    "instead": "Give the rule files 'internal/**', with except_files '**/*.go', internal/server/templates/report.html and internal/server/templates/admin_report.html. The tree walker already skips testdata, and the only non-Go file today is site.css, so it covers templates/ and static/ and stays quiet now. Add fencedframe to the alternation: <(iframe|frame|fencedframe|object|embed)\\b. Give both corpus rows explicit paths: fire at internal/server/templates/new.html and at internal/server/static/x.html, quiet at internal/server/templates/report.html."
+   },
+   {
+    "finding_id": 1958,
+    "key": "m5",
+    "digest": "cc63b237ae253a69",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I read .taad/fitness.yaml:172-185. The draft rule is one rule, three patterns (.OpenRaw(…false), .BySlug(, .ListAll() and one except_files list. rules_test.go:138-147 applies except_files to the whole rule. I grepped the tree for \\.OpenRaw\\b, \\.BySlug\\b, \\.ListAll\\b, os.DirFS, http.Dir( and http.FileServer(. Outside tests the only hits are admin.go:73, 105 and 124 and upload.go:317. There is no DirFS, Dir or FileServer anywhere. `\\bhttp\\.(Dir|FileServer)\\(` does not match router.go:62's http.FileServerFS(.",
+    "why": "Three paths are left open.\n- **raw.go escapes the draft checks.** readRaw in raw.go must call OpenRaw, so the token form needs raw.go excepted. Done the obvious way, by editing the existing rule, that adds raw.go to an except list it shares with .BySlug( and .ListAll(. The public byte-path file, the one place a draft leak matters most, then escapes all three draft checks.\n- **Method values pass.** `\\.OpenRaw\\(` misses a method value: `open := a.reports.OpenRaw; open(ctx, slug, false)`. The same holds for BySlug and ListAll. CC-001 names this accessor variant explicitly.\n- **cmd/ is never checked.** The byte-path rule's files are internal/**/*.go, so cmd/hband/*.go, where the data dir is configured and the handler is composed, could mount http.FileServer(http.Dir(dataDir)) unchecked.",
+    "instead": "Make the OpenRaw token a separate rule, 'only raw.go and admin.go open report files', with pattern `\\.OpenRaw\\b` and except_files internal/server/raw.go, internal/server/admin.go, internal/reports/** and **/*_test.go. Leave the existing BySlug/ListAll rule's except list as it is (admin.go, internal/reports/**, tests), and change its patterns to `\\.BySlug\\b` and `\\.ListAll\\b`. Widen the byte-path rule's files to '**/*.go', keeping internal/server/raw.go and **/*_test.go excepted and adding internal/testutil/**. It stays quiet on today's tree. Add fire rows for the gofmt multi-line OpenRaw call, for a method value `f := a.reports.OpenRaw` at internal/server/reader.go, and for http.FileServer(http.Dir(dir)) at cmd/hband/main.go."
+   },
+   {
+    "finding_id": 1959,
+    "key": "m6",
+    "digest": "1af7a01120f3dfb3",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I traced the prescribed signature renderReader(w, r, status, rep, state), with state found, empty or unavailable, through the design's two callers and its Next rule: Next is \"/\" for the home page and \"/reports/\"+rep.Slug for a report page, from the stored slug, never from the request. TestReaderPagesShareOneLayout expects the anonymous bodies to differ only by next decoding to / and to /reports/<slug>. home.go:19 confirms auth.ViewerFrom(r.Context()) returns (Viewer, bool).",
+    "why": "With a report found, home and readReport pass the same (rep, found). Nothing in the parameters says which page is being drawn, so Next cannot be derived as prescribed. The builder must then do one of three things:\n- read r.URL.Path, which is the request and so forbidden by the design;\n- send both pages to /reports/<slug>, which changes the decided home-page return to /;\n- add an undeclared parameter.\nThe prescribed `status` is also redundant with `state`: found and empty mean 200, unavailable means 503. A caller can write (200, rep, unavailable) or (503, rep, found). That repeats the 'remembered at each call site' defect m6 was raised to remove. Finally, on a report page with the store down, the lookup failed, so there is no stored slug, and the prescription does not say what Next is then.",
+    "instead": "Use renderReader(w, r, page, rep, state), with page ∈ {homePage, reportPage} and state ∈ {found, empty, unavailable}. Inside it:\n- derive status from state (found and empty give 200, unavailable gives 503);\n- derive Title (rep.Title+\" - hband\" when found, else \"hband\");\n- derive Next: \"/reports/\"+rep.Slug only for reportPage with found, otherwise \"/\";\n- derive SignedIn and Viewer from auth.ViewerFrom.\nThe handlers pass no status and no strings."
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:1954",
+   "finding:1955",
+   "finding:1956",
+   "finding:1957",
+   "finding:1958",
+   "finding:1959"
+  ],
+  "counts": {
+   "holds": 1,
+   "hole": 6,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "Of the seven prescriptions, one holds (M-add-1) and six have holes. All the holes are minor, and each can be fixed inside the same file the prescription already touches.\n\n- **m1:** the blank well uses the 'No reports yet' state, and that state renders nothing in the report branch: no h1, no date, no permalink, no frame border. SC-010 and SC-011's like count and comments go beneath the report, so the case that motivated the finding is exactly what the blank never shoots.\n- **m2:** moving the green style to the end proves timing for the inline `<script>`. The onerror handler is asynchronous, so green can paint before it fires.\n- **m3:** the request logs are cumulative, so 'GET /raw/probe for every well' passes on a single hit unless each Shot's own slice of the log is checked.\n- **m4:** the files glob covers templates/ only. internal/server/static/ is embedded and served under the site policy, so a static HTML page can frame a report unsandboxed. Also, a corpus row with no path defaults to x.go, which the templates glob never applies to.\n- **m5:** if raw.go is added to the existing draft rule's except_files, raw.go, the public byte-path file, also escapes the .BySlug( and .ListAll( checks. `\\.OpenRaw\\(` misses a method value. The byte-path rule never looks at cmd/.\n- **m6:** the prescribed renderReader(w, r, status, rep, state) cannot tell the home page from a report page when both show a report. So Next ('/' versus '/reports/<slug>') cannot be derived without reading the request, which the design forbids. Status and state are also two parameters a caller can pass out of step.",
+  "why": "",
+  "round": "landed"
  }
 }

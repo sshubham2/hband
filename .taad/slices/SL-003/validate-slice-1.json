@@ -1,0 +1,209 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-003",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-23T19:52:29.424Z",
+ "head": "7dfe10a03a5d50147e7f313f5596cb8d527f0d15",
+ "run_id": 11724,
+ "summary": "SL-003 does what it promises. All 14 acceptance criteria were met against the built binary and the test suite, and both obligations owed to this stage (O-015, O-016) were confirmed by my own measurements.\n\n**Suite and rules**\n- `go vet` is clean.\n- `go test -count=1 ./...` passes, with the browser forced to Edge (`HBAND_TEST_BROWSER`). The browser assay really ran: it wrote 9 screenshots.\n- I recounted the pixels in those screenshots with my own counter:\n  - W1 and W1s: 1,110,394 green, 0 red.\n  - W2: 1,432,954 green, 0 red.\n  - W3: 805,754 green, 0 red.\n  - W4 and W4b: 805,759 red.\n  - W5 and both blanks: 0 green, 0 red.\n- Fitness `op=check`: all 18 rules hold.\n\n**Live checks, independent of the project's tests**\nI built `hband.exe` and ran it in a scratch folder with a hand-seeded database: 3 published reports, 1 draft and 1 unpublished.\n- **Pages:**\n  - `/` shows only the newest report, framed from `/raw/reagent`, with `private, no-cache`.\n  - `/reports/<slug>` escapes a title containing `<`, `&` and `\"`.\n  - Each page has exactly one iframe, with `sandbox=\"allow-popups allow-popups-to-escape-sandbox\"`.\n  - The sign-in link returns to `/` from the home page and to `/reports/<slug>` from a report page.\n  - No report's sentinel text appears in any site page.\n- **`/raw/<slug>`:**\n  - It returns the file byte for byte, under the exact report policy with `frame-ancestors http://127.0.0.1:18791`.\n  - It also sends nosniff, no-referrer, CORP same-origin, an ETag equal to the sha256, no-cache, and no cookie.\n  - HEAD returns 200 with no body. `If-None-Match` with the current ETag returns 304; with a stale one, 200.\n- **Hidden reports:** these all return a response identical to the mux's own 19-byte 404 (same status, body and headers apart from Date), on both paths:\n  - draft, unpublished, unknown, upper-case and 81-character slugs;\n  - `/reports/`, `/raw/`, a trailing slash, and `/raw/%64rafty`;\n  - HEAD on a draft.\n  - POST to `/reports/<slug>` returns 405 with `Allow: GET, HEAD`.\n- **Empty states:** a fresh data folder, and one holding only a draft, both give 200 \"No reports yet\" with no iframe.\n- **Missing file:** with the report file removed while the server was running, `/raw` returned 500 \"internal error\" under the site policy with no report bytes, and the report page still returned 200.\n\n**My own headless Edge runs against the binary**\n- **Reports under test:** the reagent report, plus a second one carrying eight more ways to run script: body onload, svg onload, details ontoggle, autofocus onfocus, video onerror, an iframe srcdoc script, a module script, and a meta refresh to `javascript:`.\n- **Under the shipped policy, red = 0 everywhere:**\n  - `/` and `/reports/reagent`: 1,110,121 green.\n  - `/raw/reagent`: 1,432,681 green.\n  - `/reports/vectors`: 1,061,376 green.\n  - `/raw/vectors`: 1,383,936 green.\n- **Positive controls (same files, no policy), red as expected:**\n  - Opened as local files: reagent 1,432,692 red, vectors 1,428,533 red.\n  - Framed with `allow-scripts`: reagent 539,092 red, vectors 535,314 red.\n- **Foreign-origin frame of `/raw` (blank):** 0 green, 0 red, so the framing refusal holds.\n\n**Obligations O-015 and O-016**\n- **O-015 holds:** Edge's command-line screenshot does include the pixels of out-of-process iframes.\n- **O-016 holds:** the capture comes after the script had its chance to run. The green style sits after the script and the onerror image, and the controls in the same setup turned red.\n\n**Layout**\nAt 1280 px and at 500 px the reader page lays out correctly. At a requested 390 px the screenshot cut off the title and the sign-in link. That is a limit of headless Edge, not the page: its window cannot go below 492 CSS px (measured), so the 390-px picture is a crop of a 492-px layout. Real phone width was not checked.\n\n**What was covered by tests only, and what was not reached**\n- A signed-in reader, a closed database, a replaced report and the full sign-in flow were judged from the project's tests, which I read and which pass. They were not run live: that needs a real GitHub sign-in or the admin upload route.\n- I graded contact `code`, not `real`: everything ran on a loopback scratch setup with a hand-seeded database and synthetic reports, not the VPS, HTTPS or Linux deployment.\n\n**Clean-up:** the worktree is unchanged from the start of the run, and none of my Edge, hband or Python server processes were left running.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "SL-003 does what it promises. All 14 acceptance criteria were met against the built binary and the test suite, and both obligations owed to this stage (O-015, O-016) were confirmed by my own measurements.\n\n**Suite and rules**\n- `go vet` is clean.\n- `go test -count=1 ./...` passes, with the browser forced to Edge (`HBAND_TEST_BROWSER`). The browser assay really ran: it wrote 9 screenshots.\n- I recounted the pixels in those screenshots with my own counter:\n  - W1 and W1s: 1,110,394 green, 0 red.\n  - W2: 1,432,954 green, 0 red.\n  - W3: 805,754 green, 0 red.\n  - W4 and W4b: 805,759 red.\n  - W5 and both blanks: 0 green, 0 red.\n- Fitness `op=check`: all 18 rules hold.\n\n**Live checks, independent of the project's tests**\nI built `hband.exe` and ran it in a scratch folder with a hand-seeded database: 3 published reports, 1 draft and 1 unpublished.\n- **Pages:**\n  - `/` shows only the newest report, framed from `/raw/reagent`, with `private, no-cache`.\n  - `/reports/<slug>` escapes a title containing `<`, `&` and `\"`.\n  - Each page has exactly one iframe, with `sandbox=\"allow-popups allow-popups-to-escape-sandbox\"`.\n  - The sign-in link returns to `/` from the home page and to `/reports/<slug>` from a report page.\n  - No report's sentinel text appears in any site page.\n- **`/raw/<slug>`:**\n  - It returns the file byte for byte, under the exact report policy with `frame-ancestors http://127.0.0.1:18791`.\n  - It also sends nosniff, no-referrer, CORP same-origin, an ETag equal to the sha256, no-cache, and no cookie.\n  - HEAD returns 200 with no body. `If-None-Match` with the current ETag returns 304; with a stale one, 200.\n- **Hidden reports:** these all return a response identical to the mux's own 19-byte 404 (same status, body and headers apart from Date), on both paths:\n  - draft, unpublished, unknown, upper-case and 81-character slugs;\n  - `/reports/`, `/raw/`, a trailing slash, and `/raw/%64rafty`;\n  - HEAD on a draft.\n  - POST to `/reports/<slug>` returns 405 with `Allow: GET, HEAD`.\n- **Empty states:** a fresh data folder, and one holding only a draft, both give 200 \"No reports yet\" with no iframe.\n- **Missing file:** with the report file removed while the server was running, `/raw` returned 500 \"internal error\" under the site policy with no report bytes, and the report page still returned 200.\n\n**My own headless Edge runs against the binary**\n- **Reports under test:** the reagent report, plus a second one carrying eight more ways to run script: body onload, svg onload, details ontoggle, autofocus onfocus, video onerror, an iframe srcdoc script, a module script, and a meta refresh to `javascript:`.\n- **Under the shipped policy, red = 0 everywhere:**\n  - `/` and `/reports/reagent`: 1,110,121 green.\n  - `/raw/reagent`: 1,432,681 green.\n  - `/reports/vectors`: 1,061,376 green.\n  - `/raw/vectors`: 1,383,936 green.\n- **Positive controls (same files, no policy), red as expected:**\n  - Opened as local files: reagent 1,432,692 red, vectors 1,428,533 red.\n  - Framed with `allow-scripts`: reagent 539,092 red, vectors 535,314 red.\n- **Foreign-origin frame of `/raw` (blank):** 0 green, 0 red, so the framing refusal holds.\n\n**Obligations O-015 and O-016**\n- **O-015 holds:** Edge's command-line screenshot does include the pixels of out-of-process iframes.\n- **O-016 holds:** the capture comes after the script had its chance to run. The green style sits after the script and the onerror image, and the controls in the same setup turned red.\n\n**Layout**\nAt 1280 px and at 500 px the reader page lays out correctly. At a requested 390 px the screenshot cut off the title and the sign-in link. That is a limit of headless Edge, not the page: its window cannot go below 492 CSS px (measured), so the 390-px picture is a crop of a 492-px layout. Real phone width was not checked.\n\n**What was covered by tests only, and what was not reached**\n- A signed-in reader, a closed database, a replaced report and the full sign-in flow were judged from the project's tests, which I read and which pass. They were not run live: that needs a real GitHub sign-in or the admin upload route.\n- I graded contact `code`, not `real`: everything ran on a loopback scratch setup with a hand-seeded database and synthetic reports, not the VPS, HTTPS or Linux deployment.\n\n**Clean-up:** the worktree is unchanged from the start of the run, and none of my Edge, hband or Python server processes were left running.",
+  "checks": [
+   {
+    "what": "go vet ./... (TAAD3_HOME and GOTMPDIR set to a new scratch folder)",
+    "command": "go version; go vet ./...",
+    "outcome": "passed",
+    "evidence": "go1.27.4 windows/amd64; vet exit 0"
+   },
+   {
+    "what": "Full test suite with the browser assay forced to Edge",
+    "command": "$env:HBAND_TEST_BROWSER='C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'; $env:HBAND_TEST_ARTIFACTS=<scratch>\\art; go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "Every package passed: cmd/hband, auth, config, fitnessrules, reports, server (12.1s), store; exit 0. The assay ran rather than skipped: it wrote blank-empty, blank-found, W1, W1s, W2, W3, W4, W4b and W5 .png into the artifacts folder."
+   },
+   {
+    "what": "Independent pixel recount of the assay's own screenshots (my own image/png counter, tolerance ±8)",
+    "command": "count.exe <scratch>\\art\\*.png",
+    "outcome": "passed",
+    "evidence": "blank-empty and blank-found: green 0, red 0. W1 and W1s: green 1,110,394, red 0. W2: green 1,432,954, red 0. W3: green 805,754, red 0. W4 and W4b: red 805,759. W5: green 0, red 0. These match the numbers build and code-review reported."
+   },
+   {
+    "what": "Architecture rules",
+    "command": "Fitness op=check",
+    "outcome": "passed",
+    "evidence": "18 rules checked against 39 parsed files; every declared rule holds"
+   },
+   {
+    "what": "Real binary on a seeded scratch data folder: reader pages over HTTP",
+    "command": "go build -o <scratch>\\hband.exe ./cmd/hband; Start-Process hband.exe (HBAND_ADDR and BASE_URL http://127.0.0.1:18791, scratch data dir); python -I seed.py (published plain-one, vectors, reagent at t0, +100, +200; draft drafty; unpublished unpub); python -I probe.py",
+    "outcome": "passed",
+    "evidence": "/ returned 200 with Cache-Control 'private, no-cache', the site CSP, exactly 1 iframe (sandbox=\"allow-popups allow-popups-to-escape-sandbox\" referrerpolicy=no-referrer src=/raw/reagent), <h1>Reagent report</h1> and no draft or unpublished title. /reports/plain-one gave <h1>Quarterly &lt;notes&gt; &amp; &#34;stuff&#34;</h1> with the iframe title escaped the same way. Sign-in next was %2f on / and %2freports%2f<slug> on report pages. None of the 3 sentinels appeared in any site page."
+   },
+   {
+    "what": "Live /raw/<slug>: headers, HEAD and conditional GET",
+    "command": "probe.py: GET, HEAD, If-None-Match current and stale on /raw/reagent and /raw/plain-one",
+    "outcome": "passed",
+    "evidence": "200 and bytes-equal to the file. CSP = 'sandbox allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'; frame-ancestors http://127.0.0.1:18791'. Also nosniff, Referrer-Policy no-referrer, CORP same-origin, ETag = \"<sha256>\", Cache-Control no-cache, no Set-Cookie. HEAD: 200, 0 bytes, same CSP. If-None-Match current: 304, 0 bytes. Stale ETag: 200 with full bytes. My first run of the probe crashed on a case-sensitive Python dict lookup of 'ETag' (Go sends it canonicalised as 'Etag'). That was my tooling's fault, fixed and re-run."
+   },
+   {
+    "what": "Live: hidden reports are indistinguishable from an unregistered path",
+    "command": "probe.py: compare status, body and all headers except Date against GET /nowhere",
+    "outcome": "passed",
+    "evidence": "All gave a 404 identical to /nowhere ('404 page not found\\n', site CSP, no Cache-Control): /reports/ and /raw/ for drafty, unpub, nope, REAGENT and 81×'a', plus /reports/, /raw/, /reports/reagent/ and /raw/%64rafty. HEAD on /reports/drafty and /raw/drafty was identical to HEAD /nowhere. POST /reports/reagent gave 405 with Allow 'GET, HEAD'."
+   },
+   {
+    "what": "Live: empty home page and drafts-only home page",
+    "command": "hband.exe on a fresh data dir (port 18793), GET /; then a draft row and file seeded, restart, GET / and /reports/drafty",
+    "outcome": "passed",
+    "evidence": "Both states: 200, 'No reports yet', no iframe, no draft title, Cache-Control private + no-cache. /reports/drafty: 404 with a 19-byte body."
+   },
+   {
+    "what": "Live: a published row whose file is gone",
+    "command": "While hband was running, moved data\\reports\\1.html away; GET /reports/plain-one and /raw/plain-one; then moved the file back",
+    "outcome": "passed",
+    "evidence": "/raw/plain-one gave 500 'internal error' under the site CSP, with no sentinel. /reports/plain-one still gave 200 with its iframe."
+   },
+   {
+    "what": "My own headless Edge against the real binary: verdict wells (script reagent and 8 extra script vectors)",
+    "command": "msedge --headless=new --disable-gpu --user-data-dir=<scratch> --window-size=1024,1400 --virtual-time-budget=5000 --screenshot=<png> on http://127.0.0.1:18791/, /reports/reagent, /raw/reagent, /reports/vectors, /raw/vectors; count.exe",
+    "outcome": "passed",
+    "evidence": "red = 0 in every shot. / and /reports/reagent: green 1,110,121. /raw/reagent: green 1,432,681. /reports/vectors: green 1,061,376. /raw/vectors: green 1,383,936. The vectors screenshot shows the framed report rendered green, with its static content visible."
+   },
+   {
+    "what": "My own positive controls in the same Edge setup (O-015 and O-016)",
+    "command": "Edge shots of file:///<scratch>/rep/reagent.html and vectors.html (no policy), and of http://127.0.0.1:18792/parent.html and parentv.html (python -I -m http.server, iframe sandbox=allow-scripts, no CSP)",
+    "outcome": "passed",
+    "evidence": "Top-level: reagent red 1,432,692, vectors red 1,428,533. Framed with allow-scripts: reagent red 539,092, vectors red 535,314. So the command-line screenshot shows the pixels of an out-of-process sandboxed frame, and it captures after the scripts had run. The vectors control shows only that at least one of the 8 vectors fires without the policy, not that each one does."
+   },
+   {
+    "what": "Blank: /raw framed from a foreign origin",
+    "command": "Edge shot of http://127.0.0.1:18792/parentx.html (an unsandboxed iframe of http://127.0.0.1:18791/raw/reagent)",
+    "outcome": "passed",
+    "evidence": "green 0, red 0, white 893,600: frame-ancestors refused the framing."
+   },
+   {
+    "what": "Looked at the reader page layout",
+    "command": "Edge shots of /reports/plain-one at 1280x900 and 500x900; opened the PNGs",
+    "outcome": "passed",
+    "evidence": "Header (brand, 'Sign in with GitHub'), escaped title, 'Published 21 September 2026 · Link to this report' and the framed report all read correctly at both widths. The page rendered in the dark colour scheme; the report keeps its own light background."
+   },
+   {
+    "what": "Phone-width layout (390 CSS px)",
+    "command": "Edge shot of /reports/plain-one at --window-size=390,844, then a control page printing innerWidth at the same size",
+    "outcome": "not-run",
+    "evidence": "The 390 shot clipped the title and the sign-in link, but the control page measured innerWidth=492: headless Edge's window cannot go below 492 CSS px, so the picture is a crop of a 492-px layout, not a page fault. At 500 px the page lays out correctly. True phone width needs a real phone or DevTools device emulation; this project's browser stack is CLI-only."
+   },
+   {
+    "what": "Signed-in reader, sign-in from a shared link, closed store and replace on the live binary",
+    "outcome": "not-run",
+    "evidence": "Not run live: they need a real GitHub OAuth sign-in or the owner-gated upload route. Judged instead from TestReaderPagesShareOneLayout, TestReportPageSignInReturnsThere (full flow against fakegithub), TestReaderStoreDown and TestPublicRawAfterReplace, which I read whole and which pass."
+   },
+   {
+    "what": "Clean-up and tree state",
+    "command": "git status --short; process lists filtered on my scratch path, hband, http.server 1879x and hband-headless-*",
+    "outcome": "passed",
+    "evidence": "git status is identical to the start (only the engine's .taad/slices/SL-003 files). 0 of my Edge processes, 0 hband, 0 python http.server and 0 hband-headless temp folders left. The person's own Edge processes were not touched."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "1. read the home page — when only drafts exist (and, first, nothing at all)",
+    "met": "yes",
+    "how": "TestReaderHomeEmpty (read; passes): nothing at all, then only a draft, then after an unpublish. Each gives 200 'No reports yet', no iframe, private no-cache. Live on the real binary: a fresh data folder and a drafts-only database both gave 200 'No reports yet' with no iframe and no draft title."
+   },
+   {
+    "criterion": "2. read the home page — when two published reports (A, then B with the clock advanced) and a draft C uploaded after both",
+    "met": "yes",
+    "how": "TestReaderHomeShowsNewest (read; passes): / frames exactly /raw/b, shows B's h1 and names neither A nor C; publishing C makes it the newest. Live with published_at t0, +100, +200 plus a later draft and an unpublished report: / framed only /raw/reagent (the newest) with no other title."
+   },
+   {
+    "criterion": "3. open a report by its link — when a published report whose title carries <, & and a double quote",
+    "met": "yes",
+    "how": "TestReportPage passes, using the title Q3 <b>\"review\"</b> & more. Live: /reports/plain-one titled 'Quarterly <notes> & \"stuff\"' gave h1 and iframe title as &lt;notes&gt; &amp; &#34;stuff&#34;. The screenshot shows the literal title, with one sandboxed iframe src=/raw/plain-one."
+   },
+   {
+    "criterion": "4. see the same layout on the home page and on the report's own page — newest report at / and /reports/<slug>, signed in and anonymous",
+    "met": "yes",
+    "how": "TestReaderPagesShareOneLayout (read; passes): signed in as the owner and as a non-owner, / and /reports/newest are byte-identical. Anonymous, they are identical apart from the sign-in anchor. Live (anonymous only): / and /reports/reagent carried the same iframe line and h1, with next %2f and %2freports%2freagent. The signed-in comparison was not run live (no real GitHub)."
+   },
+   {
+    "criterion": "5. be refused a report that is not public — draft, unpublished, deleted, unknown, malformed (upper-case, 81-char) on /reports and /raw",
+    "met": "yes",
+    "how": "TestHiddenReportsAreIndistinguishable passes. Live: drafty, unpub, nope, REAGENT and 81×'a' on both paths, plus HEAD on a draft, all matched /nowhere's 404 in status, body and headers apart from Date. A deleted slug was not exercised live, because the database was seeded by hand; the test covers it."
+   },
+   {
+    "criterion": "6. load the framed report bytes — GET, HEAD, If-None-Match on /raw/<slug> with no cookie",
+    "met": "yes",
+    "how": "Live: GET 200 and bytes-equal, under the exact rawCSP with frame-ancestors set to the base URL, plus nosniff, no-referrer, CORP same-origin, ETag = sha256, no-cache and no Set-Cookie. HEAD 200 with 0 bytes and the same CSP. If-None-Match current gave 304; stale gave 200. TestPublicRawHeaders passes over both http and https."
+   },
+   {
+    "criterion": "7. re-read a report after the author replaced it",
+    "met": "yes",
+    "how": "TestPublicRawAfterReplace (read; passes): new title on /reports, new bytes and a new ETag on /raw, and the old ETag gets 200 with the new bytes. Not run live, because replacing needs the owner-gated upload route."
+   },
+   {
+    "criterion": "8. load the framed report bytes — published row whose file was removed",
+    "met": "yes",
+    "how": "Live: with the file moved out while the server ran, /raw/plain-one gave 500 'internal error' under the site CSP with no report bytes, and /reports/plain-one still gave 200 with the frame. TestPublicRawMissingFile passes."
+   },
+   {
+    "criterion": "9. read while the database is down — signed in and anonymous, / and /reports/<slug>",
+    "met": "yes",
+    "how": "TestReaderStoreDown (read; passes): for anonymous, owner and non-owner, both pages give 503 'Reports cannot be shown right now' with an anonymous header, sign-in next /, no iframe and private no-cache; /raw gives 500. Not run live."
+   },
+   {
+    "criterion": "10. never see report bytes inside a site page — sentinel, anonymous / non-owner / owner",
+    "met": "yes",
+    "how": "TestReportBytesNeverInReaderPages passes, with /raw as its positive control and a frame present in every page. Live (anonymous): none of the 3 sentinels appeared in /, /reports/plain-one, /reports/reagent or /reports/vectors, while /raw served the bytes containing them."
+   },
+   {
+    "criterion": "11. sign in from a shared report link — 80-char slug",
+    "met": "yes",
+    "how": "TestReportPageSignInReturnsThere (read; passes): an 80-character slug, next = /reports/<slug>, and the full sign-in flow against fakegithub lands back on the report signed in. Live: the anchor carried next=%2freports%2f<slug>. Real GitHub was not reached."
+   },
+   {
+    "criterion": "12. reach a report by a variant of its path",
+    "met": "yes",
+    "how": "TestReaderPathVariants (read; passes): 307s for // and /../, mux 404s, and 405 with 'GET, HEAD', all identical whether x is a draft or unknown. Live subset: /reports/, /raw/, /reports/reagent/ and /raw/%64rafty were the mux 404; POST /reports/reagent gave 405 'GET, HEAD'."
+   },
+   {
+    "criterion": "13. read a report in a real browser — inline script, onerror, beacons; framed over http and https, top-level /raw",
+    "met": "yes",
+    "how": "The assay's own screenshots, recounted by me: W1 and W1s green 1,110,394 red 0; W2 green 1,432,954 red 0. My own Edge against the built binary: /reports/reagent green 1,110,121 red 0; /raw/reagent green 1,432,681 red 0; a vectors report with 8 more script vectors green with red 0, framed and top-level. https was covered only by the test's W1s (httptest TLS)."
+   },
+   {
+    "criterion": "14. trust the browser verdict — attribute alone, allow-scripts positive control, foreign-origin blank",
+    "met": "yes",
+    "how": "The assay's screenshots recounted: W3 (attribute alone) green 805,754 red 0; W4 and W4b red 805,759; W5 0/0; blanks 0/0. My own setup: allow-scripts frames with no policy went red (539,092 and 535,314); a foreign-origin frame of the real /raw went 0/0."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-015",
+    "verified": "yes",
+    "evidence": "In my own Edge 158 runs, the command-line --screenshot showed out-of-process sandboxed frame pixels. A sandbox=allow-scripts frame (opaque origin) read red 539,092; the real binary's /reports/reagent frame read green 1,110,121 (the parent chrome is dark and white, so the green comes from the frame); and a foreign-origin blank read 0/0. The assay's own W4 (red 805,759) and W3 (green 805,754) agree."
+   },
+   {
+    "key": "O-016",
+    "verified": "yes",
+    "evidence": "The reagent's green <style> is the last element in the body, after the inline script and the onerror image. So a green frame means the parser got past the script before the capture: framed green 1,110,121 and top-level 1,432,681. In the same setup, the same bytes with scripts allowed read red: as local files 1,432,692, framed 539,092. The assay's per-run W4 and W4b went red 805,759."
+   }
+  ],
+  "not_reached": [
+   "The production path: the Linux container behind the VPS reverse proxy over WireGuard, with a real https certificate. Whether the proxy keeps the two CSPs, CORP and nosniff intact, and whether it caches the personalised reader pages (Q-007, still open).",
+   "A real GitHub OAuth sign-in from a shared /reports/<slug> link, and the signed-in header seen live. Covered only by tests against fakegithub.",
+   "True phone width below 492 CSS px: headless Edge's window has a measured minimum of 492 px, so a 390-px request is a crop. Checked at 500 and 1280 px only. A real phone or device emulation is needed.",
+   "Browsers other than Edge 158 (Firefox, Safari).",
+   "A closed database, a replace and a delete on the running binary: covered by the passing tests, not live.",
+   "The light colour scheme: this machine rendered the site in dark mode only.",
+   "Real reports authored by the person: only synthetic reagents and one plain sample were used."
+  ],
+  "planned": [],
+  "screens": [],
+  "elevation": []
+ }
+}

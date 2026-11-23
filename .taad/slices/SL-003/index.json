@@ -75,6 +75,178 @@
   {
    "stage": "design-slice",
    "issue": "Assay size: crossdomain offered to cut five wells to three. Kept at six, the https well included, because the attribute-alone and CSP-alone wells each prove one of the two layers the constraint names."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The Page.captureScreenshot DevTools fallback behind Shot. Not needed: the CLI --screenshot capture shows out-of-process iframe pixels, measured here (W4 red 805,759, W3 green 805,754, W5 blank 0/0, W1 green 1.1M), and the controls would have failed the run had it not."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No 'open in its own tab' anchor and no rewrite of report links, as the design decided. The blocked target-less link is this project's own frame-src policy, so there is no workaround setting; the upload form carries the one-sentence target=_blank hint."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "A person should look at the reader page, the screenshots under HBAND_TEST_ARTIFACTS from TestReportScriptsNeverRun, and a phone-width window (lesson #184). I looked at desktop-width screenshots from the real binary: header, title, date, permalink and the framed report read correctly. Phone width was not looked at."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The reader page cannot be declared as a screen: the app starts only from HBAND_* environment variables (owner ID, GitHub client secret, data dir), which a bare command cannot carry, so `screens` and `app` are left empty rather than declared with a command that would exit 2. The page was opened by the browser assay and by my own Edge run of the built binary."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Q-007 stays open. The reader pages send Cache-Control: private, no-cache, which is correct under either answer but does not say whether the VPS proxy may cache them. Q-006 is untouched: /raw reads no identity, so the cookie question does not arise on this path."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "An upload-time notice for target-less outward links in an uploaded report (warn only, never refuse or rewrite) is still a candidate; this slice only states the target=_blank contract in the upload form."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The assay covers Edge 158 only (Firefox and Safari are a known limit). The HTTP tests pin the exact headers and the iframe attribute every browser receives."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The widened rules use internal/** and **/testdata/** globs. I could only check them with the repository's own rules test, because PyYAML is not installed and I have no Fitness tool, so the engine's Fitness op=check should be run once to confirm it parses them and skips testdata the same way."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: headless.Shot takes a name parameter, Shot(t, browser, name, url, extraFlags...), where the design had Shot(t, browser, url, extraFlags...). The design says each shot is copied to HBAND_TEST_ARTIFACTS/<name>.png but gave Shot nothing to name it from, and W1 and W1s could not be told apart by test name."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: renderReader is (w, r, page, rep, state), not the design's (w, r, status, readerData): the accepted finding m6 and its critic's fix replaced the design's contract."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The design's three fitness rules (already in the working tree, uncommitted, when the build began) were revised as findings m4 and m5 prescribed. The template rule's glob widened from internal/**/templates/** to internal/**, a separate frame-element rule was added, the OpenRaw check became a token rule of its own, and the byte-path rule widened from internal/**/*.go to **/*.go with http.Dir, http.FileServer and os.DirFS added. The rule files and corpus carry the revised form."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The browser assay has more wells than the design's six: two instrument blanks (m1's critic version) and W4b (m2's critic version). Controls are judged before the verdict wells so a blind capture reports as INVALID RUN rather than 'script ran'. Added TestReagentShape, which is not in the design, to pin the reagent properties m2 depends on."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: home.go and home.html were deleted and reader.go and report.html created rather than git mv'd, because the build must not touch version control state. The history will show a delete and an add."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Test-only: the shot profile is os.MkdirTemp with bounded-retry removal that only logs a leftover, and cmd.WaitDelay is set, as the design's Shot text says. N-023 (m7) was waived, so this is no obligation, only the design text built as written."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json (not seen: lines 1, 31-186 of 275) -- partly-opened: a Read returned only part of it; seen only as 125 Grep lines (long lines elided); seen only through a shell command: $j, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/admin_test.go (not seen: lines 1-437 of 437) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/static/site.css (not seen: lines 1-11 of 11) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/templates/admin.html (not seen: lines 1-48 of 48) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/fitnessrules/testdata/rule_spellings.json -- I read the SL-003 rows (bytes-*, frametag-*, openraw-*, drafts-*) and the bounded_by and rules_under_test entries by querying the parsed JSON, not line by line in Read. I did not list the frametok-* rows for the sandbox-token rule individually; TestRuleSpellingsCorpus passes and Fitness op=check holds."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/testutil/headless/headless.go -- read whole. Not judged: the timeout-kill path's effect on Edge child processes on Windows (lines 97-109). It was not exercised, because no Shot timed out in my run."
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/server/reader.go:75 -- readReport's comment says the 404 is 'written before any other header'. This is true for headers the handler sets. The site headers from securityHeaders are already on the response, which the test pins as the site CSP. Left as is; it could be read loosely."
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/server/browser_test.go:299 -- the TestReagentShape message says 'both repaints must set element.style' while the check counts 4 occurrences (two repaints in each of two places). The text is a string literal, so it was not touched."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The production path: the Linux container behind the VPS reverse proxy over WireGuard, with a real https certificate. Whether the proxy keeps the two CSPs, CORP and nosniff intact, and whether it caches the personalised reader pages (Q-007, still open)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A real GitHub OAuth sign-in from a shared /reports/<slug> link, and the signed-in header seen live. Covered only by tests against fakegithub."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: True phone width below 492 CSS px: headless Edge's window has a measured minimum of 492 px, so a 390-px request is a crop. Checked at 500 and 1280 px only. A real phone or device emulation is needed."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Browsers other than Edge 158 (Firefox, Safari)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A closed database, a replace and a delete on the running binary: covered by the passing tests, not live."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The light colour scheme: this machine rendered the site in dark mode only."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Real reports authored by the person: only synthetic reagents and one plain sample were used."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The final m4 prescription excepted '**/*.go' from both frame rules ('only the audited templates contain a frame element' and the sandbox-token rule). The stated reason was that the string-literal rule covers Go. It fires only on a literal that starts with markup. So fmt.Fprintf(w, \"Report: %s <iframe src=/raw/%s>\", ...) at internal/server/reader.go trips no rule, and the corpus rows frametok-q004 and frametag-q003 pin that gap as quiet. A usable check would be to run the project's loadRules/fires over a non-prefix Fprintf spelling for any rule that excepts Go files, before accepting the exception."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The m5 prescription added http.Dir, http.FileServer and os.DirFS to the byte-path rule but deliberately kept http.FileServerFS quiet for router.go's embedded static files. os.OpenRoot(dataDir) with http.FileServerFS(root.FS()), the Go 1.24+ traversal-safe idiom on this go1.27.4 toolchain, therefore passed. It would serve <data>/reports/*.html under the site CSP, and the rule's bounded_by claimed to cover it. A usable check would be to ask of every ban list: 'what is the toolchain's other way to serve a directory?' Then fire-test each answer at internal/server/reader.go and cmd/hband/main.go."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design said the zero-beacon assertion on server P was made non-vacuous by W4's /beacon/script at server Q. W4 runs with no CSP on another server, and any beacon from P's /raw would be blocked by rawCSP in any case. So P's check tests request blocking, not script execution, and nothing asserted that the reagent's <img src=/beacon/img> fires when nothing blocks it. A usable question for the critique: for each 'zero X observed' assertion, which control shows X is observable in that same well?"
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does the VPS reverse proxy pass /raw/<slug> through with exactly one rawCSP, nosniff and CORP same-origin intact? No stage reached the production path (validations#259). The assay runs in-process only."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does headless.Shot's timeout-kill path leave Edge child processes holding the temp profile folder on Windows (headless.go:97-109)? No Shot timed out in any run, and the N-023 fix for it was waived."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Will SC-010 or SC-011 need site JavaScript on the reader page (script-src 'self')? The design chose 'no site JavaScript on reader pages', and the assay's red = 0 verdict only means something while the site chrome stays script-free. A like or comment action done with forms avoids the question. One done with fetch does not."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does the reader page read correctly below 492 CSS px and in the light colour scheme? Headless Edge cannot go below 492 px and rendered dark only. SC-031 asks a person to look, but nobody has an automated channel for this."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The epic-level design (219) specified an img-beacon proof of 'the frame rendered' that its own img-src data: policy makes impossible. Only the build-check's live Edge probe found it, so the slice started from a contradicted test plan. Neither the design nor the epic design's earlier review had run the browser."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The first risk spike halted on a no-go for framed-report links. That measured the project's own deliberate frame-src 'self' and frame-ancestors 'none' policy, and the design had already settled it as a target=_blank author contract. It cost a halt and a 'built anyway' second pass, and nothing in the design changed."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Every first-round prescribed fix put to the critic had a hole (m1-m6). Review effort went into the assay wells and the tripwires, not the product code, where no gate found a defect. The builder had to build the critic's version, not the accepted prescription, six times."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Fitness tripwire spelling variants went three laps (critique m4/m5, critic-on-fix, code-review IN-m1/IN-m2/M1) after O-020 and O-021 had closed the class. The slice shipped with the Go-file exception on both frame rules and the os.OpenRoot gap on the byte-path rule open, waived to SC-032 and SC-033. Corpus rows frametok-q004 and frametag-q003 now pin the wrong behaviour as quiet."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Code-review #1 did not read 4 of the 13 changed files whole: rule_spellings.json (lines 31-186 of 275 unseen), admin_test.go, site.css and admin.html. The unseen-hunks gate sent it back to 3 hunks. The oversized corpus file was only readable through parsed JSON."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The design stage wrote the three architecture rules into the working tree, uncommitted, before critique. The build then had to revise them into five rules after the critique, so the version that was reviewed was not the version that shipped."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Phone width was never checked. Headless Edge cannot go below 492 CSS px, so validate's 390 px shot was a crop of a 492 px layout. The only check left is the by-hand SC-031. Validation also ran on loopback with synthetic reports only, and graded contact code, not real."
   }
  ],
  "stages": [
@@ -150,6 +322,84 @@
      "caused_by": null,
      "changed": {},
      "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T19:22:47.939Z",
+     "head": "db0c871ef2a3b0f2fd33f7fb2cd990cd65ae1710",
+     "summary": "Built the three routes: GET / on Library.Latest, GET /reports/{slug} on PublishedBySlug, and GET /raw/{slug} on OpenRaw(slug, true) feeding the existing serveRaw with \"no-cache\".",
+     "caused_by": null,
+     "changed": {
+      "src": 12,
+      "tests": 2,
+      "config": 1,
+      "listed": 15,
+      "measured_by_git": 19
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T19:40:37.479Z",
+     "head": "db0c871ef2a3b0f2fd33f7fb2cd990cd65ae1710",
+     "summary": "The product code matches the design.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T19:52:29.424Z",
+     "head": "7dfe10a03a5d50147e7f313f5596cb8d527f0d15",
+     "summary": "SL-003 does what it promises.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "reflect",
+   "title": "Reflect",
+   "order": 10,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T19:59:11.927Z",
+     "head": "7dfe10a03a5d50147e7f313f5596cb8d527f0d15",
+     "summary": "SL-003 merged SC-004, SC-005 and SC-006.",
+     "caused_by": null,
+     "changed": {},
+     "details": "reflect-1.json"
     }
    ]
   }
