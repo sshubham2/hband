@@ -62,79 +62,11 @@
   },
   {
    "stage": "build-slice",
-   "issue": "SC-002 (0002_reports.sql, internal/reports, serveRaw, report admin routes, HBAND_MAX_UPLOAD_BYTES) and SC-005 (reader pages, /raw/{slug}, headless-Edge isolation test): later slices per the design's epic parts."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "No screens or app launch command declared for measurement: the binary is configured only by HBAND_* environment variables (decided, no flags and no config file), and the declared launch command cannot carry environment variables or a {port} argument, so the engine could not start it. The home, admin and 403 pages were exercised through the real binary and the test suites instead."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "The finish-line tests (tests/acceptance/e001_*) are not in the tree, so they were not run; TestBinary reproduces their environment shape (https://hband.test rewritten to a loopback port, HBAND_TRUSTED_PROXIES set, stand-in GitHub, no redirects followed)."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "The race detector was not run: -race needs cgo and this machine has CGO_ENABLED=0 as the project requires."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "The /admin registration rule's lookahead cannot be compiled by Go's regexp, so the Go corpus skips it. It was checked under Python re (the engine's matcher) against the whole tree with 0 violations, but it has no corpus rows."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Declare how the engine can start the app for screen measurement: either a documented launcher that supplies HBAND_* for a scratch run or an engine-side environment for the launch command. Until then the home, admin and 403 pages are unmeasured for readability."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Add a corpus row set for the '/admin route is only ever registered through the one gated mount' rule by running it under Python re, since Go's regexp cannot evaluate its lookahead."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "C-008 Reader Site has no path globs: internal/server/home.go and templates/home.html, layout.html belong to it (the 3-edit limit here went to C-001, C-002 and C-009)."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "The C-002 line says sessions live in an 'HttpOnly Secure cookie'; Secure is on only for an https base URL, and a loopback http base gets plain names. Reword when the record is next edited."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Person's checks already on the backlog still apply: real sign-in against github.com with the OAuth app (PKCE S256, __Host- cookies over https behind the VPS proxy, Sec-Fetch-Site through the proxy) and that the proxy does not cache admin responses."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The cleaned-variant class (//admin/, /admin/../admin/, //admin) answers 307, not the 301 the design recalled. go1.27.4's net/http/server.go passes StatusTemporaryRedirect at all three mux redirects (lines 2747, 2763, 2772) and the observed response was 307 for GET, HEAD and POST. The matrix pins the observed code through muxCleanStatus; routing was not changed, as the design requires."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The one absolute 302 to GitHub is written by auth.ToProvider in internal/auth/next.go, not directly in github.go or handlers.go as design 2 wrote it. The critic's prescription on m11 (O-043) says to move it so that handlers.go, which holds the callback's 303, is not exempt from the redirect rule. The redirect rule's only non-test exception is next.go."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The new markup-literal rule excepts tests/** as well as _test.go and internal/testutil/**, because the finish-line helpers planted under tests/ are not site code. The critic's text did not list it."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Extra patterns beyond the critic's lists, to close the class: receiver name 'request', r.URL.Host and r.URL.Scheme (an absolute-form request target carries its own), Header.Values and index forms with backtick keys, numeric WriteHeader(301/302/303/307/308), formaction on buttons in the sign-in form rule, and alias/dot imports of html/template."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The retired rule 'the identity provider's endpoints cannot be set from the environment' was removed from .taad/fitness.yaml by name, as design 2 prescribes; the replacement 'read only by the config loader' was already appended. It would otherwise fail config.go on every validate."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: server.New returns http.Handler as designed; if AddTrustedOrigin rejects the origin it returns a handler that answers 500, so the failure is closed rather than a panic. config.Load already guarantees a valid origin, so this is unreachable with a loaded Config."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The non-owner 403 page lives in internal/auth/templates/forbidden.html (an embedded html/template in package auth), because RequireOwner is a package-level function used as auth.RequireOwner( by the existing /admin registration rule and cannot take a renderer without changing that spelling."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Standing workaround rule: not applicable. No outside defect is worked around: the backslash and %5c refusals follow the WHATWG URL parser as specified, Lax-not-Strict is SameSite as specified, and the foreign-key runner follows SQLite's documented pragma and rebuild semantics. No settings list or notice was added."
+   "issue": "The store tests, the server harness and TestBinary still pass absolute temp directories; only the new relative-path test uses the shipped default. Consider running TestBinary once with no HBAND_DATA_DIR."
   },
   {
    "stage": "code-review",
-   "issue": "drift: config.Load refuses a malformed HBAND_ADDR (not host:port) with exit 2 (internal/config/config.go:122-127; pinned by TestLoadIgnoresUnknownVariables). The design gives HBAND_ADDR only a default, and its contract leaves the exit-2 list without it and puts a failed listen at exit 1. This departure was not declared."
+   "issue": "drift: config.Load refuses a malformed HBAND_ADDR (not host:port) with exit 2 (internal/config/config.go:122-127). The design gives HBAND_ADDR only a default, and its contract puts a failed listen at exit 1. Undeclared."
   },
   {
    "stage": "code-review",
@@ -146,11 +78,119 @@
   },
   {
    "stage": "code-review",
-   "issue": "drift: loadMigrations refuses any migration file not named NNNN_name.sql and any set whose versions do not run 1, 2, 3 without gaps (internal/store/migrate.go:32-48). The design says only forward-only NNNN_name.sql files tracked by user_version. Undeclared, and it constrains every later slice's migrations."
+   "issue": "drift: loadMigrations refuses any migration file not named NNNN_name.sql, and any set whose versions do not run 1, 2, 3 without gaps (internal/store/migrate.go:32-48). The design only says forward-only NNNN_name.sql files tracked by user_version. Undeclared, and it constrains every later slice's migrations."
   },
   {
    "stage": "code-review",
-   "issue": "not reviewed: internal/fitnessrules/testdata/rule_spellings.json -- opened in part: the bounded_by, rules_under_test and retired_rules blocks, the host-f001..f017 rows and the ttpl rows. The remaining ~120 corpus rows were not judged one by one. Their pass/fail is mechanically checked by TestRuleSpellingsCorpus, which I ran (pass); I judged their coverage only through finding m1."
+   "issue": "not read (measured): internal/store/migrate.go (not seen: lines 110-127, 129-171 of 171) -- partly-opened: a Read returned only part of it; seen only through a shell command: git log; 82 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/store/migrate.go:52 -- the migrate doc comment says 'up to the newest migration under possession', which is unclear. The rest of the comment matches the code, so I did not reword it."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The real github.com sign-in with the author's own account and a registered OAuth app (person-run). Every flow here used a stand-in on loopback that enforces PKCE, the client secret and redirect_uri."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The real VPS reverse proxy over WireGuard: whether it keeps or rewrites Host, adds or strips Sec-Fetch-*/Origin, and honours Cache-Control: no-store on /admin. My TLS front is a stand-in for its shape only."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Browsers other than Chromium/Edge 158 (Firefox and Safari handling of __Host- deletions, Sec-Fetch-Site and form-action on the sign-out redirect)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A loopback-http base URL (unprefixed cookies, no Secure) in a real browser. It was checked only by TestCookieAttributes."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The home page '/' is personalised (it shows '@login' and the sign-out form) and carries no Cache-Control header. I did not check whether the VPS proxy could cache it heuristically. It is not an admin response and no criterion covers it."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Linux and Docker: the binary ran on this Windows PC only. The container volume's ownership and read-only behaviour (N-011, the write-protected database) were not exercised."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: Design attempt 1 was never compared with the person-approved finish-line tests. Three critique and three critique-review rounds passed it with HBAND_LISTEN_ADDR and HBAND_UPLOAD_MAX_BYTES, a fitness rule forbidding HBAND_GITHUB_URL/API_URL from the environment, reliance on ServeMux's 301 from /admin to /admin/ (the finish-line client never follows redirects and needs 200), id-keyed admin routes, a 409 on a duplicate slug, and action= instead of status=. A check for it is to list every env name, route and form field the acceptance tests use and diff that list against the contracts, and to say so when the test files are not visible."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design set HBAND_DATA_DIR default ./data and a file: DSN built from the path, and planned TestBinary and the store tests. It never asked what the DSN is for a relative path, or for a test that leaves the variable unset. The default was unopenable (file://data/hband.db on Linux, the drive root on Windows). A check for it is to run the compiled binary with HBAND_DATA_DIR unset in a scratch working directory."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The prescribed runner for M-add-3 (dedicated connection, foreign_keys OFF, BEGIN, SQL, foreign_key_check, user_version, COMMIT) leaves the pending set decided from a user_version read outside any transaction. It then opens a deferred BEGIN with no re-read, so two processes starting on one data dir can both apply migration N+1. The critic's check said 'holds' and asked about foreign keys only. A check for it is to bump user_version between the read and the apply and expect a skip."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The store.Open contract listed one refusal, a user_version above the newest migration. It did not ask about a negative user_version, which panics at all[current:] and exits 2, the code reserved for config errors. It also did not ask about a write-protected hband.db, which opens, passes Ping, answers /healthz 200 and then answers 503 on every sign-in and sign-out. A check for it is a user_version=-1 file and a 0444 file, each given to Open."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The critic's prescribed pattern list for the redirect rule (m11) covered http.Redirect, RedirectHandler, Set/Add of Location, Header()[\"Location\"] and the status constants. It did not cover a Refresh header, which browsers follow as a navigation. All three spellings of Refresh stayed quiet under the project's own rule runner."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The critic's prescribed markup rule for m5, `[\"`]\\s*<[a-zA-Z!/]`, only fires when a Go string literal starts with a tag. `fmt.Fprintf(w, \"Signed in as <b>%s</b>\", v.Login)` and `\"Report: <h2>\" + title + \"</h2>\"` pass. This is the only guard against untrusted titles and comment bodies reaching HTML unescaped in later slices."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The critic's widened request-host rule for m6, `\\b(r|req|request)\\.URL\\.(Host|Scheme)\\b`, misses r.URL.Hostname() and r.URL.Port(), because there is no word boundary between Host and name. The older forwarded-header rule matches only double-quoted names, so a backtick X-Forwarded-Host passes."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design's contracts, cases and slice criteria say cleaned path variants answer 301. Go 1.27.4 ServeMux answers 307 (net/http/server.go:2747/2763/2772). Critique M1's own evidence suggested a 20-line httptest probe to settle it, and nobody ran it in design. The 301 stayed a recalled claim that the build had to contradict."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Do the planted tests/acceptance/e001_* files match what the design took from its own account: the env names, a client that never follows redirects, GET /admin answering 200 with the upload form, POST /admin/reports/<slug>/<action>, replace-by-re-upload keeping the date, and admin POSTs carrying neither Origin nor Sec-Fetch-Site? Only reading or running them settles it."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does a Lax, persistent, Secure __Host- session cookie reach the sandboxed GET /admin/reports/{slug}/raw frame in Edge over https? Spike 193 measured plain http only, and the design retired SC-002's preview test on that basis. If not, the preview needs the signed-URL contract the design avoided."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Can the VPS proxy cache the personalised home page? GET / shows '@login', an Admin link and a sign-out form, and carries no Cache-Control (validations#257 'not reached'). No criterion covers it, and SC-005 replaces that handler in internal/server/reader.go, so its design should decide private or no-store for a signed-in Viewer."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Do Firefox and Safari apply the __Host- Max-Age=0 deletions, and do they send Sec-Fetch-Site on the sign-out POST? Only Chromium/Edge 158 was driven. If the author's own browser differs, sign-out and the OAuth-cookie clear could silently fail there."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Design attempt 1 passed a person's acceptance, then 3 critique rounds and 3 critique-review rounds, while contradicting the person-approved finish-line tests in nine places. The places were the listen and upload-cap env names, the endpoint-override fitness rule, relying on the 301 from /admin to /admin/, id-keyed admin routes, a 409 on a duplicate slug, action= instead of status=, and the real-binary case. The mismatch surfaced only when spike fork O-002 forced a re-synthesis (design attempts 3 and 4). Critique 2 admitted it 'could not check the finish-line tests: tests/acceptance is not in the tree', so the nine overrides rest on unread test text. Build and validate never ran those tests either."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: IN-M1: the shipped default HBAND_DATA_DIR=./data could not be opened, with file://data/hband.db on Linux and the drive root on Windows. It passed all of build #1's tests and its by-hand run 'against real defaults'. Every test used an absolute t.TempDir(), and that by-hand run evidently set a data directory. Code review #1's input-driven second reader found it, and that cost build attempt 2."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The 301 vs 307 mismatch was recalled instead of measured. Design contracts, cases and criterion text say cleaned paths answer 301. Go 1.27.4 ServeMux answers 307 (net/http/server.go:2747/2763/2772). Critique M1 had suggested a 20-line httptest probe, and nobody ran it in design. Validate's own check list also marks '[passed] Cleaned path variants answer the 301 the criterion text says' while its summary says 307, so that label contradicts its own measurement."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Five more spelling gaps were found in fitness-rule classes the build had already declared closed. They are the Refresh header (IN-m2), URL.Hostname()/Port() and backtick X-Forwarded-* names (IN-m3), markup in the middle of a Go string literal (IN-m4), a Go-side import check that skips files opening with a doc comment (m1), and a bounded_by text claiming a URL builder that does not exist (RD-m4). This came after a 143-row corpus, and three of them are holes in the critic's own prescribed patterns for m5, m6 and m11. Most were waived to notes N-009, N-010 and N-012, or to SC-026 and SC-027."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The M1 triage prescription put /admin in the 'cleaned 301 to /admin/' class. The critic's check on it called that a major hole: following it would have meant removing the exact /admin mount, which fails finish line 1. Only critique-review caught it."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Backlog records collide. SC-024 and SC-025 are the same VPS-proxy check filed twice, once per design attempt, although the design said to reuse the earlier item. O-054 (IN-m5, migration re-apply) and O-056 (write-protected database) were both waived to the single note N-011, so the migration race has no record of its own."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Code review #3 closed with migrate.go lines 110-127 and 129-171 unread. The engine measured that, from the review's own tool record. The review relied on the earlier pass for those lines. migrate.go is the file with the most findings (M-add-3, IN-m1, IN-m5, e1), and it holds the BEGIN/COMMIT logic where IN-m5 lives."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: A second risk-spike lap (trip 1 of 2) was needed only because the design declared the preview-frame cookie question 'settled in SC-002's build', which the loop's own rules forbid. The spike answered YES, but only for plain http with a Max-Age cookie, not the https __Host- configuration that config.Load enforces for every non-loopback host."
   }
  ],
  "stages": [
@@ -290,7 +330,7 @@
    "stage": "build-slice",
    "title": "Build",
    "order": 7,
-   "state": "sent back",
+   "state": "passed",
    "attempts": [
     {
      "n": 1,
@@ -307,6 +347,40 @@
       "measured_by_git": 42
      },
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T14:06:07.092Z",
+     "head": "624122a6b16f2dd740a07bab5c012eab6d9e4656",
+     "summary": "Fixed the two store findings and nothing else.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "1 obligation(s) landed on this stage after it passed (O-046), so nothing downstream was ever going to carry them out and the merge would have refused. Sent back with what raised them: O-046 (fix): IN-M1 (major): dsn() builds the SQLite file: URI from a relative path without making it absolute, so any relative data directory, including the configured default HBAND_DATA_DIR=./data (config.go:19), cannot be opened. - Linux: url.URL{Scheme:\"file\", Path:\"data/hband.db\"}.String() gives \"file://data/hband.db\". SQLite reads \"data\" as the URI authority and refuses: \"invalid uri authority: data (1)\". Measured by opening that exact DSN through modernc here. - Windows: the added '/' prefix turns \"data/hband.db\" into \"file:///data/hband.db\", the root of the current drive. Measured: I built cmd/hband (CGO_ENABLED=0) and ran it in a scratch dir with valid owner, client and base URL and no HBAND_DATA_DIR. It exits 1 with \"cannot open the database ... unable to open database file (14)\", after MkdirAll has already created .\\data. If <drive>:\\data happens to exist, SQLite instead creates the live database there, outside the working directory, and nothing reports it. Every test (TestBinary, the store tests, the server harness) passes an absolute t.TempDir(), so none of them uses the shipped default. In dsn() (or at the top of openWith), resolve the path first with `abs, err := filepath.Abs(path)`, return that error, and build the URI from abs. The existing Windows '/' prefix then applies only to drive-letter paths, as intended. [shown by a failing run] The engine ran the code review's test for this, internal/store/relative_data_dir_test.go, with `go test -count=1 -run TestOpenAcceptsRelativeDataDir ./internal/store`, and it FAILED. Put that test at internal/store/relative_data_dir_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run TestOpenAcceptsRelativeDataDir ./internal/store` again in your tree, and that run is what closes this; your word does not. The test: package store import ( \"os\" \"path/filepath\" \"testing\" ) // The configured default HBAND_DATA_DIR is the relative ./data, and realMain // passes filepath.Join(DataDir, \"hband.db\") to Open. A relative path must name // a file under the working directory. func TestOpenAcceptsRelativeDataDir(t *testing.T) { dir := t.TempDir() t.Chdir(dir) if err := os.MkdirAll(\"data\", 0o700); err != nil { t.Fatal(err) } st, err := Open(filepath.Join(\"./data\", \"hband.db\")) if err != nil { t.Fatalf(\"Open refused the default relative data directory: %v\", err) } defer st.Close() if _, err := os.Stat(filepath.Join(dir, \"data\", \"hband.db\")); err != nil { t.Fatalf(\"the database is not under the working directory's data folder: %v\", err) } }",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-046",
+       "O-047",
+       "O-048",
+       "O-049",
+       "O-050",
+       "O-051",
+       "O-052",
+       "O-053",
+       "O-054",
+       "O-055"
+      ]
+     },
+     "changed": {
+      "src": 4,
+      "listed": 4,
+      "measured_by_git": 8
+     },
+     "details": "build-slice-2.json"
     }
    ]
   },
@@ -325,6 +399,61 @@
      "caused_by": null,
      "changed": {},
      "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T14:07:53.529Z",
+     "head": "624122a6b16f2dd740a07bab5c012eab6d9e4656",
+     "summary": "Re-reviewed the tree at 624122a, a re-run because the earlier pass went stale.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-23T14:06:05.145Z, and build-slice has judged since (2026-11-23T14:07:51.814Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T14:14:14.494Z",
+     "head": "2750199f3b264f211922cc87869d136bce6524eb",
+     "summary": "The slice passes.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "reflect",
+   "title": "Reflect",
+   "order": 10,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T14:26:09.622Z",
+     "head": "2750199f3b264f211922cc87869d136bce6524eb",
+     "summary": "SL-001 built the whole SC-001 identity layer in Go from an empty tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "reflect-1.json"
     }
    ]
   }
