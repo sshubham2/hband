@@ -1,8 +1,10 @@
 // Package config loads the HBAND_* environment into one validated Config.
 //
 // Load validates every variable and reports all the bad ones at once. It reads
-// only the names listed in knownVariables; every other name (including
-// HBAND_TRUSTED_PROXIES, which is left for a later block) is ignored.
+// only HBAND_OWNER_GITHUB_ID, HBAND_GITHUB_CLIENT_ID, HBAND_GITHUB_CLIENT_SECRET,
+// HBAND_BASE_URL, HBAND_ADDR, HBAND_DATA_DIR, HBAND_GITHUB_URL and
+// HBAND_GITHUB_API_URL; every other name (including HBAND_TRUSTED_PROXIES,
+// which is left for a later block) is ignored.
 package config
 
 import (

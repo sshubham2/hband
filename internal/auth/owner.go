@@ -21,8 +21,9 @@ func IsOwner(ownerID, githubID int64) bool {
 	return ownerID > 0 && githubID == ownerID
 }
 
-// Owner is the proof that RequireOwner let this request through. Only this
-// package can create one.
+// Owner is what RequireOwner attaches to the request context when it lets the
+// owner through. Only this package can attach it (ownerKey is unexported); an
+// Owner value on its own proves nothing.
 type Owner struct {
 	GitHubID int64
 	Login    string
