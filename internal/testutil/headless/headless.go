@@ -15,7 +15,9 @@
 //	                      never skips. When unset, the default Edge path is used
 //	                      if it exists, and otherwise the test skips.
 //	HBAND_TEST_ARTIFACTS  a folder; every screenshot is also copied there as
-//	                      <name>.png, for a person to look at.
+//	                      <name>.png (any run of characters in name other than
+//	                      letters, digits, '.', '_' and '-' becomes one '_'),
+//	                      for a person to look at.
 package headless
 
 import (

@@ -21,8 +21,8 @@ func (a *app) rawCSP() string {
 }
 
 // readRaw is the public byte path, the only address the reader pages frame.
-// It serves a report only while it is published, and reads no identity and
-// sets no cookie. Every report that is not public (a draft, an unpublished,
+// It serves a report only while it is published, never reads the viewer that
+// Identify resolved, and sets no cookie. Every report that is not public (a draft, an unpublished,
 // a deleted, an unknown or a malformed slug) is the same http.NotFound,
 // written before any report header, so it keeps the site policy and gives
 // nothing away. A published row whose file is gone is not hidden: it is

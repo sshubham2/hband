@@ -200,7 +200,7 @@ func TestReportScriptsNeverRun(t *testing.T) {
 		t.Fatalf("INVALID RUN: the site chrome contains a signal colour (empty state: green=%d red=%d)", green(img), red(img))
 	}
 
-	// Reports go in through the real upload route, drafts and all.
+	// Reports go in through the real upload route.
 	p.mustUpload(pOwner, "blank", "Blank", "published", neutralReport())
 	p.mustUpload(pOwner, "probe", "Probe", "published", reagent("P", true))
 	s.mustUpload(sOwner, "probe", "Probe", "published", reagent("S", true))
