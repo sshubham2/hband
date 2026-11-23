@@ -1,0 +1,209 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-002",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-23T17:47:23.758Z",
+ "head": "93396be15892a229121582b9d7b7424d656608e2",
+ "run_id": 11679,
+ "summary": "SC-002 is built as designed, apart from the deviations the build declared. What is in the tree:\n- the 0002 migration (AUTOINCREMENT, STRICT, the status CHECK, the index);\n- HBAND_MAX_UPLOAD_BYTES with its grammar, limit and an unset-default test;\n- the report library, with save by slug, the m8 set-aside and restore, the RWMutex, Publish/Unpublish with COALESCE, Delete and the Open sweep;\n- serveRaw with the cache parameter and the sandbox CSP;\n- six adminRoutes rows mounted only through OwnerRoute;\n- the landing and edit templates.\n\nI ran `go vet ./...` (clean), `go test -count=1 ./...` (every package ok) and `TestBinary -v` (the new default-data-dir, default-cap subtest passes). Fitness check: all 13 rules hold. I checked every acceptance shape in the design against a test that actually feeds it in:\n- accepted: exactly the cap, a UTF-8 BOM, a file that starts with `<meta>`;\n- refused: cap+1 (413), two file parts, .zip and .txt names, zip and PNG bytes, UTF-16 with a BOM, the four bad slugs, an empty title, status 'live';\n- the state checks: a snapshot of rows, sqlite_sequence and file hashes taken against an existing report, and an empty tmp/;\n- cross-origin 403, m4, m8, M-add-2 and the startup sweep.\n\nOne defect, reproduced. m10 was declared as 'a crash mid-replace must not delete the only copy'. But when the sweep's restore of tmp/<id>.old fails, the sweep goes on and deletes that file anyway. I ran this with an overlay probe on this PC: with the file in place held open, Open logged 'could not restore a set-aside file ... Access is denied' and then deleted 1.old. The row still describes v1's sha256 and size, and v2 is served. A minimal fix, also applied through an overlay, makes the repro and the whole reports package pass.\n\nThe one undeclared departure is small: the edit page shows Publish or Unpublish depending on the status, where the design said it has both forms.\n\nSecond reader, for inputs: I read the input side of SL-002 whole: upload.go, reports.go, raw.go, admin.go, router.go, both templates, the 0002 migration, config.go and main.go. go vet ./... is clean and go test -count=1 ./... passes in every package. I fed the upload parser and the startup sweep crafted inputs through go test -overlay probes, so the worktree was not written.\n\nShapes that behaved:\n- Filenames: RFC 5987 filename*, upper-case .HTM, a Windows full path, a trailing space, and an `attachment` disposition.\n- Parts: an empty filename, duplicate fields, oversized text parts, and truncated bodies.\n- Size: cap and cap+1, including a cap under 512 bytes.\n- Fields: slug and title variants, including CR/LF and control characters. HBAND_MAX_UPLOAD_BYTES grammar.\n- Encoding: a UTF-16 BOM is refused.\n- Locking: the lock is held from the slug lookup through to the commit, so the stage-unlocked / save-locked gap lets nothing past.\n- Paths: path-value slugs never reach a filesystem path, and redirects only use slugs already in the database.\n\nConfirmed by running:\n1. A defect in the startup sweep. When recoverSetAside cannot rename tmp/<id>.old back into place, the next loop deletes that file anyway. That file can be the only copy of the bytes the row describes. The repro fails on this tree.\n2. Not requested, the sniff refuses an HTML file that starts with an XML declaration, which is what org-mode and docutils html4 exports start with.\n3. Not requested, the sniff accepts non-UTF-8 HTML such as windows-1252. serveRaw then forces charset=utf-8, so the report is stored and renders garbled, although the refusal text says files must be UTF-8.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "SC-002 is built as designed, apart from the deviations the build declared. What is in the tree:\n- the 0002 migration (AUTOINCREMENT, STRICT, the status CHECK, the index);\n- HBAND_MAX_UPLOAD_BYTES with its grammar, limit and an unset-default test;\n- the report library, with save by slug, the m8 set-aside and restore, the RWMutex, Publish/Unpublish with COALESCE, Delete and the Open sweep;\n- serveRaw with the cache parameter and the sandbox CSP;\n- six adminRoutes rows mounted only through OwnerRoute;\n- the landing and edit templates.\n\nI ran `go vet ./...` (clean), `go test -count=1 ./...` (every package ok) and `TestBinary -v` (the new default-data-dir, default-cap subtest passes). Fitness check: all 13 rules hold. I checked every acceptance shape in the design against a test that actually feeds it in:\n- accepted: exactly the cap, a UTF-8 BOM, a file that starts with `<meta>`;\n- refused: cap+1 (413), two file parts, .zip and .txt names, zip and PNG bytes, UTF-16 with a BOM, the four bad slugs, an empty title, status 'live';\n- the state checks: a snapshot of rows, sqlite_sequence and file hashes taken against an existing report, and an empty tmp/;\n- cross-origin 403, m4, m8, M-add-2 and the startup sweep.\n\nOne defect, reproduced. m10 was declared as 'a crash mid-replace must not delete the only copy'. But when the sweep's restore of tmp/<id>.old fails, the sweep goes on and deletes that file anyway. I ran this with an overlay probe on this PC: with the file in place held open, Open logged 'could not restore a set-aside file ... Access is denied' and then deleted 1.old. The row still describes v1's sha256 and size, and v2 is served. A minimal fix, also applied through an overlay, makes the repro and the whole reports package pass.\n\nThe one undeclared departure is small: the edit page shows Publish or Unpublish depending on the status, where the design said it has both forms.\n\nSecond reader, for inputs: I read the input side of SL-002 whole: upload.go, reports.go, raw.go, admin.go, router.go, both templates, the 0002 migration, config.go and main.go. go vet ./... is clean and go test -count=1 ./... passes in every package. I fed the upload parser and the startup sweep crafted inputs through go test -overlay probes, so the worktree was not written.\n\nShapes that behaved:\n- Filenames: RFC 5987 filename*, upper-case .HTM, a Windows full path, a trailing space, and an `attachment` disposition.\n- Parts: an empty filename, duplicate fields, oversized text parts, and truncated bodies.\n- Size: cap and cap+1, including a cap under 512 bytes.\n- Fields: slug and title variants, including CR/LF and control characters. HBAND_MAX_UPLOAD_BYTES grammar.\n- Encoding: a UTF-16 BOM is refused.\n- Locking: the lock is held from the slug lookup through to the commit, so the stage-unlocked / save-locked gap lets nothing past.\n- Paths: path-value slugs never reach a filesystem path, and redirects only use slugs already in the database.\n\nConfirmed by running:\n1. A defect in the startup sweep. When recoverSetAside cannot rename tmp/<id>.old back into place, the next loop deletes that file anyway. That file can be the only copy of the bytes the row describes. The repro fails on this tree.\n2. Not requested, the sniff refuses an HTML file that starts with an XML declaration, which is what org-mode and docutils html4 exports start with.\n3. Not requested, the sniff accepts non-UTF-8 HTML such as windows-1252. serveRaw then forces charset=utf-8, so the report is stored and renders garbled, although the refusal text says files must be UTF-8.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "defect",
+    "file": "internal/reports/reports.go",
+    "line": 159,
+    "end_line": 220,
+    "claim": "Open's sweep calls recoverSetAside for each tmp/<id>.old and then unconditionally RemoveAll's every tmp entry. recoverSetAside has two failure paths: the row lookup errors with something other than no-rows ('no row (or unreadable)'), or os.Rename(old, cur) fails, where it logs 'could not restore a set-aside file' and returns. Either way the sweep then deletes tmp/<id>.old, which in that state is the only copy of the bytes the row describes. The report's bytes are lost for good, and from then on the file in place no longer matches the row's sha256 and size: the ETag and the size advertise v1 while v2 is served. This contradicts the comment at lines 159-160, the declared m10 deviation ('a crash mid-replace must not delete the only copy'), and replace()'s restore-failure log 'the next start recovers it' (upload.go:384), which only holds if that next start's rename succeeds. Measured on this PC with an overlay probe: the file in place was held open, Open logged 'rename ...tmp\\1.old ...reports\\1.html: Access is denied.', and tmp/ was then empty with reports/1.html still v2.",
+    "class_of": "set-aside recovery failure paths that fall through to clearing tmp/",
+    "threat": "accident",
+    "evidence": "internal/reports/reports.go:161-171 (recover loop, then a RemoveAll loop over the same tmpEntries with no exception), :203-205 (any Scan error returns as 'nothing to restore'), :215-218 (rename failure logs and returns). Probe: go test -overlay ... -run TestOpenKeepsTheOnlyCopyWhenRestoreFails ./internal/reports gives FAIL 'the sweep deleted tmp/<id>.old after failing to restore it'. With recoverSetAside returning keep=true on these paths and the sweep skipping kept names, the repro and the whole reports package pass.",
+    "fix": "Have recoverSetAside return whether the .old must be kept: true when the rename back fails, and true when the row lookup fails with an error other than sql.ErrNoRows. The sweep should then skip RemoveAll for those names. Alternatively, return an error from Open so the server does not start serving a file that does not match its row.",
+    "quote": {
+     "path": "internal/reports/reports.go",
+     "line": 216,
+     "text": "slog.Error(\"reports: could not restore a set-aside file\", \"id\", id, \"error\", err)"
+    },
+    "repro": {
+     "path": "internal/reports/sweep_restore_failure_test.go",
+     "body": "package reports\n\nimport (\n\t\"bytes\"\n\t\"os\"\n\t\"runtime\"\n\t\"testing\"\n)\n\n// m10: when a restart finds tmp/<id>.old holding the bytes the row describes\n// but cannot put it back (here: the file in place is held open, so Windows\n// refuses the rename), the sweep must not then delete that set-aside file. It\n// is the only copy of the report the row describes.\nfunc TestOpenKeepsTheOnlyCopyWhenRestoreFails(t *testing.T) {\n\tif runtime.GOOS != \"windows\" {\n\t\tt.Skip(\"holding the target open makes the rename fail only on Windows\")\n\t}\n\tr := newRig(t)\n\tv1, v2 := htmlOf(300, \"v1\"), htmlOf(400, \"v2\")\n\trep := r.mustSave(goodForm(\"crash\", \"Crash\", \"published\", v1))\n\t// A crash after the new file was renamed in but before the commit: the row\n\t// still describes v1, v1 is set aside, v2 is in place.\n\tmust(t, os.WriteFile(r.lib.setAsidePath(rep.ID), v1, 0o600))\n\tmust(t, os.WriteFile(r.lib.path(rep.ID), v2, 0o600))\n\n\theld, err := os.Open(r.lib.path(rep.ID))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\t_, _ = Open(Options{DB: r.st.DB(), DataDir: r.root, MaxUploadBytes: testCap, Now: r.clock.Now})\n\theld.Close()\n\n\tcur, _ := os.ReadFile(r.lib.path(rep.ID))\n\told, _ := os.ReadFile(r.lib.setAsidePath(rep.ID))\n\tif !bytes.Equal(cur, v1) && !bytes.Equal(old, v1) {\n\t\tt.Fatal(\"the sweep deleted tmp/<id>.old after failing to restore it: the bytes the row describes are gone\")\n\t}\n}\n",
+     "command": "go test -count=1 -run ^TestOpenKeepsTheOnlyCopyWhenRestoreFails$ ./internal/reports"
+    }
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "defect",
+    "file": "internal/reports/reports.go",
+    "line": 161,
+    "end_line": 171,
+    "claim": "The sweep deletes the only copy of a report's bytes when it fails to restore it. A replace interrupted after setAside leaves the row's bytes only in tmp/<id>.old. recoverSetAside (lines 201-220) returns silently in two cases: when its row lookup errors (line 203-204, any error, not only ErrNoRows), and when the restoring os.Rename fails (line 215-218, which only logs). In both cases the second loop (lines 167-171) RemoveAll's every tmp entry, that .old included. The row survives with no file behind it, and the preview answers 500 for good. This is exactly the m10 'must not delete the only copy' state that the declared sweep deviation claims to protect.",
+    "evidence": "Run on this PC with an overlay test. The report was saved, its file renamed to tmp/1.old, and a non-empty directory planted at reports/1.html so the restoring rename fails. Open logged `ERROR reports: could not restore a set-aside file id=1 error=\"rename ...tmp\\1.old ...reports\\1.html: Access is denied.\"`. Afterwards tmp/ was [] and tmp/1.old no longer existed.",
+    "fix": "Make recoverSetAside report whether the set-aside file must be kept. Keep it when the restoring rename failed, or when the row lookup failed with anything other than sql.ErrNoRows. In the removal loop, skip those names so the next start can try again.",
+    "quote": {
+     "path": "internal/reports/reports.go",
+     "line": 216,
+     "text": "slog.Error(\"reports: could not restore a set-aside file\", \"id\", id, \"error\", err)"
+    },
+    "repro": {
+     "path": "internal/reports/sweep_restore_failure_test.go",
+     "command": "go test -count=1 -run ^TestSweepKeepsASetAsideFileItCouldNotRestore$ ./internal/reports",
+     "body": "package reports\n\nimport (\n\t\"bytes\"\n\t\"os\"\n\t\"path/filepath\"\n\t\"testing\"\n)\n\n// A crash while the canonical path is empty leaves the only copy of the bytes\n// the row describes in tmp/<id>.old. If the restart cannot put it back, it must\n// not delete it either.\nfunc TestSweepKeepsASetAsideFileItCouldNotRestore(t *testing.T) {\n\tr := newRig(t)\n\tv1 := htmlOf(300, \"v1\")\n\trep := r.mustSave(goodForm(\"crash\", \"Crash\", \"published\", v1))\n\told, cur := r.lib.setAsidePath(rep.ID), r.lib.path(rep.ID)\n\n\t// The replace set v1 aside and stopped: the row still says v1.\n\tif err := os.Rename(cur, old); err != nil {\n\t\tt.Fatal(err)\n\t}\n\t// Something at the canonical path makes the restoring rename fail.\n\tif err := os.MkdirAll(filepath.Join(cur, \"blocker\"), 0o700); err != nil {\n\t\tt.Fatal(err)\n\t}\n\n\t// Restart. Refusing to start is acceptable; deleting the only copy is not.\n\t_, _ = Open(Options{DB: r.st.DB(), DataDir: r.root, MaxUploadBytes: testCap, Now: r.clock.Now})\n\n\tfor _, p := range []string{old, cur} {\n\t\tif b, err := os.ReadFile(p); err == nil && bytes.Equal(b, v1) {\n\t\t\treturn\n\t\t}\n\t}\n\tt.Fatal(\"the only copy of the report's bytes was deleted after the restore failed\")\n}\n"
+    }
+   },
+   {
+    "id": "IN-m2",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "file": "internal/reports/upload.go",
+    "line": 201,
+    "end_line": 208,
+    "claim": "sniffOK accepts only DetectContentType results of text/html or text/plain (charset=utf-8). A legitimate self-contained HTML file that opens with an XML declaration sniffs as text/xml; charset=utf-8, so it is refused as 'not an HTML file'. Browsers parse the declaration as a bogus comment and render the page normally. Both Emacs org-mode HTML export (org-html-xml-declaration) and docutils' html4css1 writer emit it as the first line, with the CSS embedded. The same holds after a UTF-8 BOM.",
+    "evidence": "Overlay probe on this tree. `<?xml version=\"1.0\" encoding=\"utf-8\"?>` followed by an XHTML 1.0 Strict doctype was refused with \"The file is not an HTML file (it must be UTF-8 text).\". BOM + `<?xml version=\"1.0\"?><html>...` got the same refusal.",
+    "fix": "Also accept \"text/xml; charset=utf-8\" in sniffOK. The name check already requires .html/.htm, and the bytes are served as text/html under the sandbox CSP whatever they sniff as. This widens the design's sniff list, so it is design-slice's call.",
+    "class_of": "upload type sniff vs. the shapes a real HTML file can take",
+    "threat": "accident",
+    "quote": {
+     "path": "internal/reports/upload.go",
+     "line": 204,
+     "text": "case \"text/html; charset=utf-8\", \"text/plain; charset=utf-8\":"
+    }
+   },
+   {
+    "id": "IN-m3",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "file": "internal/reports/upload.go",
+    "line": 201,
+    "end_line": 208,
+    "claim": "The 'charset=utf-8' in DetectContentType's answer is a label, not a validation, so a non-UTF-8 HTML file passes. A legacy windows-1252 or Latin-1 file is one example, such as an Office 'Web Page, Filtered' export with <meta charset=windows-1252>. serveRaw then sends it with `Content-Type: text/html; charset=utf-8` (raw.go:29), and per the HTML encoding-sniffing order that header beats the meta tag. Every 8-bit character renders as U+FFFD. The upload is accepted and stored garbled, while the refusal message and the sniffOK comment both say files must be UTF-8.",
+    "evidence": "Overlay probe on this tree. `<!DOCTYPE html>...<meta charset=\"windows-1252\"><title>caf\\xe9</title>...\\x93quoted\\x94` was accepted (err=nil, id=1). raw.go:29 sets the UTF-8 charset unconditionally for every report.",
+    "fix": "Check UTF-8 validity over the whole streamed file in streamFile, for example a validating io.Writer added to the MultiWriter that carries an incomplete trailing rune across Write calls and checks the tail at EOF. Refuse invalid files with the existing 400 'it must be UTF-8 text' message.",
+    "class_of": "upload type sniff vs. the shapes a real HTML file can take",
+    "threat": "accident",
+    "quote": {
+     "path": "internal/server/raw.go",
+     "line": 29,
+     "text": "h.Set(\"Content-Type\", \"text/html; charset=utf-8\")"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "Every part named is in the tree.\n- Migration: internal/store/migrations/0002_reports.sql. The store tests follow the migration count and check that the reports table exists.\n- Upload cap: internal/config/config.go:146-156, with TestLoadUploadCap covering the unset default, the grammar and 209715200.\n- Library: internal/reports/reports.go and upload.go, with save by slug, create and replace, the m8 set-aside, the RWMutex, Publish/Unpublish COALESCE, Delete, the sweep and the queries.\n- serveRaw with the cache argument: internal/server/raw.go:26-38. adminRaw passes \"no-store\".\n- Six report rows in adminRoutes (admin.go:31-36), registered through OwnerRoute (router.go:70-74). Templates: admin.html with the upload form and list, admin_report.html with the sandboxed iframe.\n\nTests, all passing here:\n- TestOwnerReportLifecycle: upload, replace keeping the id and published_at, unpublish and republish keeping the date, delete removing the row and the file.\n- TestAcceptedUploads (internal/reports): exactly the cap, BOM, <meta>.\n- Refusals, each with a snapshot of rows, the id counter and file hashes against an existing report, plus an empty tmp/:\n  - TestRefusedUploads: every refusal the design listed, UTF-16 with a BOM included;\n  - TestUploadRefusalsOverHTTP: 413 over HTTP.\n- TestAdminReportPostsAreCrossOriginProtected: 403.\n- TestPreviewHeaders (m4): http and https/__Host-.\n- TestReplaceCommitFailureKeepsFileConsistent (m8) and TestDeletedIDNotReused (M-add-2).\n- TestOpenSweeps and the TestBinary subtest: startup sweep.\n- The access matrix covers every row with {slug}=x. The edit to it is declared."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "internal/server/admin_reports_test.go TestOwnerReportLifecycle drives a real harness over HTTP as the pinned owner, in this order:\n1. Uploads published bytes as multipart and checks the 303, the row's status and published_at, the byte-equal reports/<id>.html and an empty tmp/.\n2. Checks the list and the edit page (sandboxed iframe, forms).\n3. Re-uploads the same slug after a clock advance: same id, same published_at, new bytes.\n4. POSTs unpublish and publish: the date is kept.\n5. POSTs delete: the row and the file are gone, and the preview answers 404.\n\nThe refusal, cap, m4, m8, M-add-2 and sweep shapes are each fed in by their own tests (see O-001)."
+   }
+  ],
+  "drift": [
+   "internal/server/templates/admin_report.html:25-27 renders only one of the two forms: Unpublish when the report is published, Publish otherwise. The design's edit page 'has publish, unpublish and delete forms'. The build did not declare this. The finish-line POSTs go straight to the action URLs, so they are unaffected."
+  ],
+  "unreviewed": [
+   "cmd/hband/main_test.go -- only the hunks in `git diff 993d715 HEAD` were read (startProcIn and the new TestBinary subtest), not the unchanged rest of the file",
+   "internal/store/store_test.go -- only the changed hunks from the diff were read (newestVersion, identityOnly, migrationsWith, seedTwoSessions, the openWith reopen)",
+   "internal/config/config_test.go -- only the changed hunks were read (TestLoadIgnoresUnknownVariables edit, TestLoadUploadCap)",
+   "internal/server/harness_test.go -- only the changed hunks were read (harness fields, newHarness data dir/cap/library, rebuild)",
+   "internal/config/config.go:1-79 and 175-end -- read through the diff hunks only. The full read covered lines 80-179 (Load)"
+  ],
+  "second_round": {
+   "run_id": 11680,
+   "filed": 3,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 13,
+    "changed": 17,
+    "listed": 4
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 17,
+   "read_whole": 13,
+   "deleted": [],
+   "runs": [
+    11679,
+    11680
+   ],
+   "range": {
+    "base": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+    "head": "93396be15892a229121582b9d7b7424d656608e2",
+    "source": "commits",
+    "hunk_base": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": "cmd/hband/main_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-549 of 549",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 549,
+     "hunks": []
+    },
+    {
+     "path": "internal/config/config_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-245 of 245",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 245,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/harness_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-343 of 343",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 343,
+     "hunks": []
+    },
+    {
+     "path": "internal/store/store_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-437 of 437",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 437,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

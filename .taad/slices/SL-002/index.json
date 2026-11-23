@@ -39,6 +39,94 @@
   {
    "stage": "build-check",
    "issue": "Every report admin page and action is reachable only by the pinned owner, and cross-origin POSTs are refused: missing"
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No headless-Edge preview test, as the design says. Lesson #933 asks for a preview-frame check over https with __Host- cookies. I covered the server half only: TestPreviewHeaders runs on a TLS-configured harness with the __Host- cookie name. Whether Edge sends that cookie for the sandboxed frame is Q-006, still open and not measured here."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Report.Latest and Library.PublishedBySlug exist because the design lists them, but only tests call them. SC-005's reader pages are their callers."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Decide Q-006 by driving Edge over https with the __Host- session cookie to the sandboxed preview frame. If the cookie is not sent, the preview needs the signed-URL contract the design avoided."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The delete button has no confirmation step, because the site CSP rules out inline script and the admin page ships no script. A no-JS confirm (a checkbox or a confirm page) is worth ranking."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The e001 finish-line tests are still not in the tree (Q-009). Run them against this build once tests/acceptance exists."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Windows refuses to rename a file another handle has open (measured by the build check). A replace therefore retries setting the old file aside for up to 2 s, then refuses with ErrBusy (HTTP 409, 'Nothing changed'), leaving the old report untouched. The design named only the commit-failure branch."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The Open sweep does not blindly clear tmp/: it first restores tmp/<id>.old when the row still describes it and the file in place does not, which is critique finding m10 (a crash mid-replace must not delete the only copy). Everything else in tmp/ and any orphan reports/<n>.html is then removed, as designed."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The library lock is a sync.RWMutex. Writes hold it exclusively, and OpenRaw holds it shared while it looks the row up and opens the file, so a reader never sees the empty canonical path during a replace. The design said 'package write mutex'."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: server.New now takes the opened library: New(cfg, st, lib, clock). main opens it so a data-directory failure exits 1, and harness_test.go is updated. The design left New's signature alone."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The design said TestAdminAccessMatrix needs no edits, but measurement showed the owner branch wanted 404 for every non-landing path. I replaced that with ownerRouteStatus, which quotes the observed responses (404, 405, and 400 for a bodyless POST /admin/reports); routing is unchanged. Per-row, per-method responses are asserted, not a blanket 'not 401/403/503'."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Existing store tests that assumed schema version 1 follow the embedded migration count. The injected-migration tests seed from 0001 only, so a real 0002 does not change what they prove."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Validation failures use 400 and wrong-type files use 400 rather than 415; only an oversize body is 413. Duplicate title, slug or status fields and an empty file are also refused. The design did not list these two."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: internal/server/templates/admin_report.html:25-27 renders only one of the two forms: Unpublish when the report is published, Publish otherwise. The design's edit page 'has publish, unpublish and delete forms'. The build did not declare this. The finish-line POSTs go straight to the action URLs, so they are unaffected."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): cmd/hband/main_test.go (not seen: lines 1-549 of 549) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/config/config_test.go (not seen: lines 1-245 of 245) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/harness_test.go (not seen: lines 1-343 of 343) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/store/store_test.go (not seen: lines 1-437 of 437) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: cmd/hband/main_test.go -- only the hunks in `git diff 993d715 HEAD` were read (startProcIn and the new TestBinary subtest), not the unchanged rest of the file"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/store/store_test.go -- only the changed hunks from the diff were read (newestVersion, identityOnly, migrationsWith, seedTwoSessions, the openWith reopen)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/config/config_test.go -- only the changed hunks were read (TestLoadIgnoresUnknownVariables edit, TestLoadUploadCap)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/harness_test.go -- only the changed hunks were read (harness fields, newHarness data dir/cap/library, rebuild)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/config/config.go:1-79 and 175-end -- read through the diff hunks only. The full read covered lines 80-179 (Load)"
   }
  ],
  "stages": [
@@ -121,13 +209,13 @@
    "stage": "build-slice",
    "title": "Build",
    "order": 7,
-   "state": "waiting",
+   "state": "sent back",
    "attempts": [
     {
      "n": 1,
-     "state": "waiting",
+     "state": "passed",
      "at": "2026-11-23T15:22:13.983Z",
-     "head": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+     "head": "93396be15892a229121582b9d7b7424d656608e2",
      "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 11:10pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
      "caused_by": null,
      "changed": {},
@@ -135,13 +223,45 @@
     },
     {
      "n": 1,
-     "state": "waiting",
+     "state": "passed",
      "at": "2026-11-23T15:27:44.559Z",
-     "head": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+     "head": "93396be15892a229121582b9d7b7424d656608e2",
      "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 11:10pm (Asia/Kolkata)",
      "caused_by": null,
      "changed": {},
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T17:40:11.926Z",
+     "head": "93396be15892a229121582b9d7b7424d656608e2",
+     "summary": "SC-002 is built.",
+     "caused_by": null,
+     "changed": {
+      "src": 17,
+      "listed": 17,
+      "measured_by_git": 22
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T17:47:23.758Z",
+     "head": "93396be15892a229121582b9d7b7424d656608e2",
+     "summary": "SC-002 is built as designed, apart from the deviations the build declared.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
     }
    ]
   }

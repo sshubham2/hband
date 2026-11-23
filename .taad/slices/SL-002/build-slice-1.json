@@ -3,9 +3,192 @@
  "slice": "SL-002",
  "stage": "build-slice",
  "attempt": 1,
- "at": "2026-11-23T15:27:44.559Z",
- "head": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
- "run_id": 11674,
- "summary": "",
- "payload": {}
+ "at": "2026-11-23T17:40:11.926Z",
+ "head": "93396be15892a229121582b9d7b7424d656608e2",
+ "run_id": 11675,
+ "summary": "SC-002 is built. The owner uploads one .html file with title, slug and published|draft status, and can replace it under the same slug, unpublish, republish and delete. Replace keeps the report's id and first publish date. Attempt 1's files (config cap, reports library, migration) built and vetted clean, so I kept them and added the rest on top. `go vet ./...` and `go test -count=1 ./...` pass in every package. I also ran the built binary with no `HBAND_DATA_DIR`: first through TestBinary, then with real files from this PC (a 6.6 MB Python changelog and a 2.6 MB Go trace viewer). Both uploaded, previewed byte-equal, and left `data/tmp` empty.",
+ "payload": {
+  "status": "complete",
+  "summary": "SC-002 is built. The owner uploads one .html file with title, slug and published|draft status, and can replace it under the same slug, unpublish, republish and delete. Replace keeps the report's id and first publish date. Attempt 1's files (config cap, reports library, migration) built and vetted clean, so I kept them and added the rest on top. `go vet ./...` and `go test -count=1 ./...` pass in every package. I also ran the built binary with no `HBAND_DATA_DIR`: first through TestBinary, then with real files from this PC (a 6.6 MB Python changelog and a 2.6 MB Go trace viewer). Both uploaded, previewed byte-equal, and left `data/tmp` empty.",
+  "files": [
+   {
+    "path": "internal/store/migrations/0002_reports.sql",
+    "change": "added",
+    "why": "reports table: AUTOINCREMENT id, unique slug, status CHECK, nullable published_at, size/sha256, STRICT, plus the (status, published_at, id) index"
+   },
+   {
+    "path": "internal/config/config.go",
+    "change": "modified",
+    "why": "HBAND_MAX_UPLOAD_BYTES: ^[1-9][0-9]*$, at most 209715200, default 26214400, as Config.MaxUploadBytes"
+   },
+   {
+    "path": "internal/config/config_test.go",
+    "change": "modified",
+    "why": "the cap is no longer an ignored name; TestLoadUploadCap covers the grammar, the limit and the unset default"
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "change": "added",
+    "why": "Library: Open with the tmp/orphan sweep and set-aside recovery, queries, OpenRaw, Publish, Unpublish, Delete, package write lock"
+   },
+   {
+    "path": "internal/reports/upload.go",
+    "change": "added",
+    "why": "SaveUpload: streaming multipart parse, cap, sniff, field validation, create and replace by slug with m8 set-aside/restore"
+   },
+   {
+    "path": "internal/reports/reports_test.go",
+    "change": "added",
+    "why": "library tests: accepted and refused uploads, replace identity, m8 commit failure, M-add-2 id reuse, Windows open-file replace, sweep and crash recovery"
+   },
+   {
+    "path": "internal/server/raw.go",
+    "change": "added",
+    "why": "serveRaw: the only writer of report bytes, with the sandbox CSP and the cache parameter"
+   },
+   {
+    "path": "internal/server/admin.go",
+    "change": "modified",
+    "why": "six new adminRoutes rows and their handlers; landing page lists reports and shows the upload form"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "modified",
+    "why": "app holds the report library; New takes it as a parameter"
+   },
+   {
+    "path": "internal/server/templates/admin.html",
+    "change": "modified",
+    "why": "report list, upload form (title, slug, status, file input) and refusal message"
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "change": "added",
+    "why": "edit page: sandboxed preview iframe, publish/unpublish, replace form with the slug filled in, delete"
+   },
+   {
+    "path": "internal/server/admin_reports_test.go",
+    "change": "added",
+    "why": "HTTP tests: lifecycle, preview headers over http and https cookie names, refusals, cross-origin 403, owner-only, no inlining, replace while the preview is open"
+   },
+   {
+    "path": "internal/server/admin_test.go",
+    "change": "modified",
+    "why": "owner branch of TestAdminAccessMatrix now pins the observed per-row response (404, 405 or 400) via ownerRouteStatus; routing unchanged"
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "change": "modified",
+    "why": "harness sets HBAND_DATA_DIR and a small HBAND_MAX_UPLOAD_BYTES, opens the report library and passes it to New"
+   },
+   {
+    "path": "internal/store/store_test.go",
+    "change": "modified",
+    "why": "fresh-database test follows the embedded migration count; injected-migration tests seed from 0001 only"
+   },
+   {
+    "path": "cmd/hband/main.go",
+    "change": "modified",
+    "why": "opens the report library (exit 1 on failure) before listening and passes it to server.New"
+   },
+   {
+    "path": "cmd/hband/main_test.go",
+    "change": "modified",
+    "why": "TestBinary subtest: real binary, no HBAND_DATA_DIR, default cap, startup sweep and full lifecycle; startProcIn takes a working directory"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "Built SC-002 end to end and fed it in through TestOwnerReportLifecycle: upload, replace keeping id and published_at, unpublish and republish keeping the date, delete removing row and file. The refusals, cap boundary, m4 preview headers, m8 commit failure, M-add-2 id reuse, startup sweep and the cross-origin 403 each have their own test, and the full suite passes."
+   }
+  ],
+  "mandatory": [],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestOwnerReportLifecycle",
+    "test_command": "go test -count=1 -run ^TestOwnerReportLifecycle$ ./internal/server"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "note": "clean"
+   },
+   {
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "cmd/hband, auth, config, fitnessrules, reports, server and store all ok; fakegithub has no tests"
+   },
+   {
+    "command": "go test -count=1 -v -run TestBinary ./cmd/hband",
+    "outcome": "passed",
+    "note": "new subtest runs the real binary with no HBAND_DATA_DIR and no cap variable: planted tmp/upload-planted and reports/999.html swept at startup; upload, replace, a file of exactly 26214400 bytes accepted, 26214401 gets 413, unpublish, publish and delete all behave; data/tmp left empty"
+   },
+   {
+    "command": "go test -count=1 -overlay <scratch>/overlay.json -run TestZZProbeRealFiles -v ./cmd/hband",
+    "outcome": "passed",
+    "note": "probe in a scratch folder, repo not written. Real binary, real files from this PC: Python's 6,671,241-byte changelog.html and Go's 2,618,942-byte trace_viewer_full.html. Each upload gave 303 to /admin/reports/<slug>; the preview was byte-equal, Cache-Control no-store, with the sandbox CSP and ETag set; both reports were listed on /admin; data/tmp was empty."
+   },
+   {
+    "command": "go test -count=1 -v -run 'TestReplaceWhileTheFileIsOpen|TestReplaceCommitFailure|TestDeletedIDNotReused|TestOpenRecovers|TestOpenSweeps|TestAcceptedUploads' ./internal/reports",
+    "outcome": "passed",
+    "note": "On this Windows PC the open-file replace returns ErrBusy and leaves the old report whole; the later retry succeeds"
+   },
+   {
+    "command": "go test -count=1 -run ^TestOwnerReportLifecycle$ -v ./internal/server",
+    "outcome": "passed",
+    "note": "the O-001 case command runs only that test"
+   }
+  ],
+  "deviations": [
+   "Windows refuses to rename a file another handle has open (measured by the build check). A replace therefore retries setting the old file aside for up to 2 s, then refuses with ErrBusy (HTTP 409, 'Nothing changed'), leaving the old report untouched. The design named only the commit-failure branch.",
+   "The Open sweep does not blindly clear tmp/: it first restores tmp/<id>.old when the row still describes it and the file in place does not, which is critique finding m10 (a crash mid-replace must not delete the only copy). Everything else in tmp/ and any orphan reports/<n>.html is then removed, as designed.",
+   "The library lock is a sync.RWMutex. Writes hold it exclusively, and OpenRaw holds it shared while it looks the row up and opens the file, so a reader never sees the empty canonical path during a replace. The design said 'package write mutex'.",
+   "server.New now takes the opened library: New(cfg, st, lib, clock). main opens it so a data-directory failure exits 1, and harness_test.go is updated. The design left New's signature alone.",
+   "The design said TestAdminAccessMatrix needs no edits, but measurement showed the owner branch wanted 404 for every non-landing path. I replaced that with ownerRouteStatus, which quotes the observed responses (404, 405, and 400 for a bodyless POST /admin/reports); routing is unchanged. Per-row, per-method responses are asserted, not a blanket 'not 401/403/503'.",
+   "Existing store tests that assumed schema version 1 follow the embedded migration count. The injected-migration tests seed from 0001 only, so a real 0002 does not change what they prove.",
+   "Validation failures use 400 and wrong-type files use 400 rather than 415; only an oversize body is 413. Duplicate title, slug or status fields and an empty file are also refused. The design did not list these two."
+  ],
+  "not_built": [
+   "No headless-Edge preview test, as the design says. Lesson #933 asks for a preview-frame check over https with __Host- cookies. I covered the server half only: TestPreviewHeaders runs on a TLS-configured harness with the __Host- cookie name. Whether Edge sends that cookie for the sandboxed frame is Q-006, still open and not measured here.",
+   "Report.Latest and Library.PublishedBySlug exist because the design lists them, but only tests call them. SC-005's reader pages are their callers."
+  ],
+  "follow_ups": [
+   "Decide Q-006 by driving Edge over https with the __Host- session cookie to the sandboxed preview frame. If the cookie is not sent, the preview needs the signed-URL contract the design avoided.",
+   "The delete button has no confirmation step, because the site CSP rules out inline script and the admin page ships no script. A no-JS confirm (a checkbox or a confirm page) is worth ranking.",
+   "The e001 finish-line tests are still not in the tree (Q-009). Run them against this build once tests/acceptance exists."
+  ],
+  "architecture": [
+   {
+    "block": "C-003",
+    "kind": "paths",
+    "add": [
+     "internal/reports/**",
+     "internal/store/migrations/0002_reports.sql"
+    ],
+    "why": "internal/reports/reports.go and upload.go implement the report library; the migration creates the reports table"
+   },
+   {
+    "block": "C-004",
+    "kind": "paths",
+    "add": [
+     "internal/server/raw.go"
+    ],
+    "why": "serveRaw in internal/server/raw.go is the only code that writes report bytes, with the sandbox CSP"
+   },
+   {
+    "block": "C-009",
+    "kind": "paths",
+    "add": [
+     "internal/server/templates/admin_report.html",
+     "internal/server/admin_reports_test.go"
+    ],
+    "why": "the edit-page template and the admin report tests belong with admin.go and admin.html"
+   }
+  ]
+ }
 }

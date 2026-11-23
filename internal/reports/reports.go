@@ -157,14 +157,25 @@ func (l *Library) sweep(ctx context.Context) error {
 		return fmt.Errorf("reports: read %s: %w", l.tmp, err)
 	}
 	// Recover first: the set-aside file may be the only copy of the bytes the
-	// row describes, so it must be looked at before tmp/ is cleared.
+	// row describes, so it must be looked at before tmp/ is cleared. One that
+	// could not be put back (or could not be judged) is kept, and Open refuses
+	// to start rather than serve a file that does not match its row: the next
+	// start tries again.
+	kept := map[string]bool{}
+	var stuck []error
 	for _, e := range tmpEntries {
 		if m := setAsideName.FindStringSubmatch(e.Name()); m != nil {
 			id, _ := strconv.ParseInt(m[1], 10, 64)
-			l.recoverSetAside(ctx, id)
+			if _, err := l.recoverSetAside(ctx, id); err != nil {
+				kept[e.Name()] = true
+				stuck = append(stuck, err)
+			}
 		}
 	}
 	for _, e := range tmpEntries {
+		if kept[e.Name()] {
+			continue
+		}
 		if err := os.RemoveAll(filepath.Join(l.tmp, e.Name())); err != nil {
 			slog.Warn("reports: could not clear a temporary file", "name", e.Name(), "error", err)
 		}
@@ -172,7 +183,7 @@ func (l *Library) sweep(ctx context.Context) error {
 
 	files, err := os.ReadDir(l.dir)
 	if err != nil {
-		return fmt.Errorf("reports: read %s: %w", l.dir, err)
+		return errors.Join(append(stuck, fmt.Errorf("reports: read %s: %w", l.dir, err))...)
 	}
 	for _, e := range files {
 		m := reportFileName.FindStringSubmatch(e.Name())
@@ -182,7 +193,7 @@ func (l *Library) sweep(ctx context.Context) error {
 		id, _ := strconv.ParseInt(m[1], 10, 64)
 		var n int
 		if err := l.db.QueryRowContext(ctx, "SELECT count(*) FROM reports WHERE id = ?", id).Scan(&n); err != nil {
-			return fmt.Errorf("reports: look up report %d: %w", id, err)
+			return errors.Join(append(stuck, fmt.Errorf("reports: look up report %d: %w", id, err))...)
 		}
 		if n == 0 {
 			if err := os.Remove(filepath.Join(l.dir, e.Name())); err != nil {
@@ -192,31 +203,74 @@ func (l *Library) sweep(ctx context.Context) error {
 			}
 		}
 	}
-	return nil
+	return errors.Join(stuck...)
 }
 
-// recoverSetAside decides, for one tmp/<id>.old, which of the two files the
-// row describes. A crash between "set the old file aside" and "commit" leaves
-// the new bytes in place with the old row; the old bytes are then in .old.
-func (l *Library) recoverSetAside(ctx context.Context, id int64) {
+// recovery names where recoverSetAside ended for one tmp/<id>.old. The error
+// it returns with the name is non-nil exactly when the set-aside file must be
+// KEPT: it may be the only copy of the bytes the row describes, and it was
+// neither restored nor proven unneeded. The corpus testdata/sweep_recovery.json
+// has a row for every name below; TestSweepRecoveryExits holds the two in step.
+type recovery string
+
+const (
+	// Deleted with the rest of tmp/: nothing needs the file.
+	recNoRow       recovery = "no-row"                  // no report has this id
+	recInPlace     recovery = "committed-file-in-place" // the file in place is the row's
+	recOldGone     recovery = "old-gone"                // it vanished before it was read
+	recOldNotAFile recovery = "old-not-a-file"          // a directory or other junk, not bytes
+	recOldDiffers  recovery = "old-differs"             // not the bytes the row describes
+	recRestored    recovery = "restored"                // put back in place
+	// Kept, and Open fails: the file may be the only copy.
+	recLookupFailed  recovery = "lookup-failed"  // the row could not be read
+	recOldUnreadable recovery = "old-unreadable" // it could not be examined
+	recRenameFailed  recovery = "rename-failed"  // it could not be put back
+)
+
+// recoverSetAside decides, for one tmp/<id>.old, what the row describes. A
+// crash between "set the old file aside" and "commit" leaves the new bytes in
+// place with the old row; the old bytes are then in .old, and are put back.
+// A file is released for deletion only when it is provably not needed; any
+// failure on the way returns an error and the caller keeps the file.
+func (l *Library) recoverSetAside(ctx context.Context, id int64) (recovery, error) {
 	var want string
-	if err := l.db.QueryRowContext(ctx, "SELECT sha256 FROM reports WHERE id = ?", id).Scan(&want); err != nil {
-		return // no row (or unreadable): nothing to restore for
+	err := l.db.QueryRowContext(ctx, "SELECT sha256 FROM reports WHERE id = ?", id).Scan(&want)
+	if errors.Is(err, sql.ErrNoRows) {
+		return recNoRow, nil
 	}
-	cur := l.path(id)
+	if err != nil {
+		return recLookupFailed, fmt.Errorf("reports: report %d: cannot read its row, so tmp/%d.old is kept: %w", id, id, err)
+	}
+	cur, old := l.path(id), l.setAsidePath(id)
 	if got, err := fileSum(cur); err == nil && got == want {
-		return // the committed file is in place
+		return recInPlace, nil
 	}
-	old := l.setAsidePath(id)
+	fi, err := os.Lstat(old)
+	if errors.Is(err, os.ErrNotExist) {
+		return recOldGone, nil
+	}
+	if err != nil {
+		return recOldUnreadable, fmt.Errorf("reports: report %d: cannot examine %s, so it is kept: %w", id, old, err)
+	}
+	if !fi.Mode().IsRegular() {
+		return recOldNotAFile, nil
+	}
 	got, err := fileSum(old)
-	if err != nil || got != want {
-		return // the set-aside file is not what the row describes either
+	if errors.Is(err, os.ErrNotExist) {
+		return recOldGone, nil
+	}
+	if err != nil {
+		return recOldUnreadable, fmt.Errorf("reports: report %d: cannot read %s, so it is kept: %w", id, old, err)
+	}
+	if got != want {
+		return recOldDiffers, nil
 	}
 	if err := os.Rename(old, cur); err != nil {
-		slog.Error("reports: could not restore a set-aside file", "id", id, "error", err)
-		return
+		slog.Error("reports: could not restore a set-aside file; it is kept for the next start", "id", id, "error", err)
+		return recRenameFailed, fmt.Errorf("reports: report %d: the file in place does not match its row and %s could not be put back (it is kept; fix %s and start again): %w", id, old, cur, err)
 	}
 	slog.Warn("reports: restored the previous file of an interrupted replace", "id", id)
+	return recRestored, nil
 }
 
 // scanner is *sql.Row or *sql.Rows.
