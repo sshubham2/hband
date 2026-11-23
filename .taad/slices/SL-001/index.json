@@ -1,0 +1,461 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-001",
+ "title": "Owner signs in with GitHub and only the pinned owner ID reaches admin pages (with the server, config, database and sessions it needs)",
+ "status": "active",
+ "branch": "slice/SL-001",
+ "opened_at": "2026-11-23T11:55:35.241Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "An HTTP server for hband exists and starts (the slice names 'the server'): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Config loading includes a pinned owner GitHub user ID (a numeric ID, not a login name): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "A GitHub OAuth sign-in flow (login redirect with state, callback that exchanges the code and fetches the GitHub user's numeric ID): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "The real sign-in works with the author's own GitHub account on github.com, using a registered OAuth app: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "A database stores what sign-in needs (users and/or sessions) (the slice names 'database'): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Sessions: after the callback, a session cookie identifies the signed-in GitHub user on later requests, and sign-out ends it: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Owner recognition: the signed-in user whose GitHub ID equals the pinned ID is treated as owner, and no other user is: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Admin pages are reachable only by the pinned owner: anonymous visitors and every other signed-in GitHub account are refused (redirect or 403) on every admin route, and the server refuses to start or fails closed if no owner ID is configured: missing"
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Migration runner: practice uses a dedicated Conn on the serving pool and closes the pool if the re-enable fails; crossdomain uses a separate handle closed before the pool opens. Chose the separate handle."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Validating next: practice checks verbatim, allows a query and refuses %5c; crossdomain cleans and escapes, then refuses '?' and '#'. Chose practice's, because the gate's next is RequestURI."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Helper names: LocalPath and SeeOther (practice) versus safeNext and redirectLocal (crossdomain). Chose practice's, with SeeOther exported for internal/server."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Whether TestSignInIsAtomic and the %5c refusal are worth their lines. Practice itself flagged both as belt-and-braces. Kept as cheap pins, and the first to trim."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "GET /admin/{$}: the same handler as GET /admin (chosen) or a 303 to /admin."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The store tests, the server harness and TestBinary still pass absolute temp directories; only the new relative-path test uses the shipped default. Consider running TestBinary once with no HBAND_DATA_DIR."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: config.Load refuses a malformed HBAND_ADDR (not host:port) with exit 2 (internal/config/config.go:122-127). The design gives HBAND_ADDR only a default, and its contract puts a failed listen at exit 1. Undeclared."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: parseOAuthCookie also refuses an OAuth cookie whose verifier part is shorter than 43 or longer than 128 characters, answering 400 (internal/auth/handlers.go:111-113). The design's refusal list names only 'not 3 parts' and 'a state that is not 43 characters'. Undeclared, harmless hardening."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: fetchUser stores avatar_url as '' unless it is an absolute https URL of 512 bytes or fewer (internal/auth/github.go:94-103), where the design stores GitHub's avatar_url as given. Undeclared."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: loadMigrations refuses any migration file not named NNNN_name.sql, and any set whose versions do not run 1, 2, 3 without gaps (internal/store/migrate.go:32-48). The design only says forward-only NNNN_name.sql files tracked by user_version. Undeclared, and it constrains every later slice's migrations."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/store/migrate.go (not seen: lines 110-127, 129-171 of 171) -- partly-opened: a Read returned only part of it; seen only through a shell command: git log; 82 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/store/migrate.go:52 -- the migrate doc comment says 'up to the newest migration under possession', which is unclear. The rest of the comment matches the code, so I did not reword it."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The real github.com sign-in with the author's own account and a registered OAuth app (person-run). Every flow here used a stand-in on loopback that enforces PKCE, the client secret and redirect_uri."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The real VPS reverse proxy over WireGuard: whether it keeps or rewrites Host, adds or strips Sec-Fetch-*/Origin, and honours Cache-Control: no-store on /admin. My TLS front is a stand-in for its shape only."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Browsers other than Chromium/Edge 158 (Firefox and Safari handling of __Host- deletions, Sec-Fetch-Site and form-action on the sign-out redirect)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A loopback-http base URL (unprefixed cookies, no Secure) in a real browser. It was checked only by TestCookieAttributes."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The home page '/' is personalised (it shows '@login' and the sign-out form) and carries no Cache-Control header. I did not check whether the VPS proxy could cache it heuristically. It is not an admin response and no criterion covers it."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Linux and Docker: the binary ran on this Windows PC only. The container volume's ownership and read-only behaviour (N-011, the write-protected database) were not exercised."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: Design attempt 1 was never compared with the person-approved finish-line tests. Three critique and three critique-review rounds passed it with HBAND_LISTEN_ADDR and HBAND_UPLOAD_MAX_BYTES, a fitness rule forbidding HBAND_GITHUB_URL/API_URL from the environment, reliance on ServeMux's 301 from /admin to /admin/ (the finish-line client never follows redirects and needs 200), id-keyed admin routes, a 409 on a duplicate slug, and action= instead of status=. A check for it is to list every env name, route and form field the acceptance tests use and diff that list against the contracts, and to say so when the test files are not visible."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design set HBAND_DATA_DIR default ./data and a file: DSN built from the path, and planned TestBinary and the store tests. It never asked what the DSN is for a relative path, or for a test that leaves the variable unset. The default was unopenable (file://data/hband.db on Linux, the drive root on Windows). A check for it is to run the compiled binary with HBAND_DATA_DIR unset in a scratch working directory."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The prescribed runner for M-add-3 (dedicated connection, foreign_keys OFF, BEGIN, SQL, foreign_key_check, user_version, COMMIT) leaves the pending set decided from a user_version read outside any transaction. It then opens a deferred BEGIN with no re-read, so two processes starting on one data dir can both apply migration N+1. The critic's check said 'holds' and asked about foreign keys only. A check for it is to bump user_version between the read and the apply and expect a skip."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The store.Open contract listed one refusal, a user_version above the newest migration. It did not ask about a negative user_version, which panics at all[current:] and exits 2, the code reserved for config errors. It also did not ask about a write-protected hband.db, which opens, passes Ping, answers /healthz 200 and then answers 503 on every sign-in and sign-out. A check for it is a user_version=-1 file and a 0444 file, each given to Open."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The critic's prescribed pattern list for the redirect rule (m11) covered http.Redirect, RedirectHandler, Set/Add of Location, Header()[\"Location\"] and the status constants. It did not cover a Refresh header, which browsers follow as a navigation. All three spellings of Refresh stayed quiet under the project's own rule runner."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The critic's prescribed markup rule for m5, `[\"`]\\s*<[a-zA-Z!/]`, only fires when a Go string literal starts with a tag. `fmt.Fprintf(w, \"Signed in as <b>%s</b>\", v.Login)` and `\"Report: <h2>\" + title + \"</h2>\"` pass. This is the only guard against untrusted titles and comment bodies reaching HTML unescaped in later slices."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The critic's widened request-host rule for m6, `\\b(r|req|request)\\.URL\\.(Host|Scheme)\\b`, misses r.URL.Hostname() and r.URL.Port(), because there is no word boundary between Host and name. The older forwarded-header rule matches only double-quoted names, so a backtick X-Forwarded-Host passes."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design's contracts, cases and slice criteria say cleaned path variants answer 301. Go 1.27.4 ServeMux answers 307 (net/http/server.go:2747/2763/2772). Critique M1's own evidence suggested a 20-line httptest probe to settle it, and nobody ran it in design. The 301 stayed a recalled claim that the build had to contradict."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Do the planted tests/acceptance/e001_* files match what the design took from its own account: the env names, a client that never follows redirects, GET /admin answering 200 with the upload form, POST /admin/reports/<slug>/<action>, replace-by-re-upload keeping the date, and admin POSTs carrying neither Origin nor Sec-Fetch-Site? Only reading or running them settles it."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does a Lax, persistent, Secure __Host- session cookie reach the sandboxed GET /admin/reports/{slug}/raw frame in Edge over https? Spike 193 measured plain http only, and the design retired SC-002's preview test on that basis. If not, the preview needs the signed-URL contract the design avoided."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Can the VPS proxy cache the personalised home page? GET / shows '@login', an Admin link and a sign-out form, and carries no Cache-Control (validations#257 'not reached'). No criterion covers it, and SC-005 replaces that handler in internal/server/reader.go, so its design should decide private or no-store for a signed-in Viewer."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Do Firefox and Safari apply the __Host- Max-Age=0 deletions, and do they send Sec-Fetch-Site on the sign-out POST? Only Chromium/Edge 158 was driven. If the author's own browser differs, sign-out and the OAuth-cookie clear could silently fail there."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Design attempt 1 passed a person's acceptance, then 3 critique rounds and 3 critique-review rounds, while contradicting the person-approved finish-line tests in nine places. The places were the listen and upload-cap env names, the endpoint-override fitness rule, relying on the 301 from /admin to /admin/, id-keyed admin routes, a 409 on a duplicate slug, action= instead of status=, and the real-binary case. The mismatch surfaced only when spike fork O-002 forced a re-synthesis (design attempts 3 and 4). Critique 2 admitted it 'could not check the finish-line tests: tests/acceptance is not in the tree', so the nine overrides rest on unread test text. Build and validate never ran those tests either."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: IN-M1: the shipped default HBAND_DATA_DIR=./data could not be opened, with file://data/hband.db on Linux and the drive root on Windows. It passed all of build #1's tests and its by-hand run 'against real defaults'. Every test used an absolute t.TempDir(), and that by-hand run evidently set a data directory. Code review #1's input-driven second reader found it, and that cost build attempt 2."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The 301 vs 307 mismatch was recalled instead of measured. Design contracts, cases and criterion text say cleaned paths answer 301. Go 1.27.4 ServeMux answers 307 (net/http/server.go:2747/2763/2772). Critique M1 had suggested a 20-line httptest probe, and nobody ran it in design. Validate's own check list also marks '[passed] Cleaned path variants answer the 301 the criterion text says' while its summary says 307, so that label contradicts its own measurement."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Five more spelling gaps were found in fitness-rule classes the build had already declared closed. They are the Refresh header (IN-m2), URL.Hostname()/Port() and backtick X-Forwarded-* names (IN-m3), markup in the middle of a Go string literal (IN-m4), a Go-side import check that skips files opening with a doc comment (m1), and a bounded_by text claiming a URL builder that does not exist (RD-m4). This came after a 143-row corpus, and three of them are holes in the critic's own prescribed patterns for m5, m6 and m11. Most were waived to notes N-009, N-010 and N-012, or to SC-026 and SC-027."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The M1 triage prescription put /admin in the 'cleaned 301 to /admin/' class. The critic's check on it called that a major hole: following it would have meant removing the exact /admin mount, which fails finish line 1. Only critique-review caught it."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Backlog records collide. SC-024 and SC-025 are the same VPS-proxy check filed twice, once per design attempt, although the design said to reuse the earlier item. O-054 (IN-m5, migration re-apply) and O-056 (write-protected database) were both waived to the single note N-011, so the migration race has no record of its own."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Code review #3 closed with migrate.go lines 110-127 and 129-171 unread. The engine measured that, from the review's own tool record. The review relied on the earlier pass for those lines. migrate.go is the file with the most findings (M-add-3, IN-m1, IN-m5, e1), and it holds the BEGIN/COMMIT logic where IN-m5 lives."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: A second risk-spike lap (trip 1 of 2) was needed only because the design declared the preview-frame cookie question 'settled in SC-002's build', which the loop's own rules forbid. The spike answered YES, but only for plain http with a Max-Age cookie, not the https __Host- configuration that config.Load enforces for every non-loopback host."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T12:02:00.572Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T12:48:14.492Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "Trip 1 of 2 back to the risk spike: the design left 1 fork that only a measurement can settle. O-002: unsettled design fork: Does a session cookie with SameSite=Lax reach the gated draft preview, GET /admin/reports/{id}/raw, when an iframe with sandbox=\"allow-popups allow-popups-to-escape-sandbox\" on the admin edit page loads it? Its context: Crossdomain moved the draft preview under the gate. Practice served drafts to the owner on public /raw/{slug}, which also depends on the cookie, so it does not escape the question. This design assumes yes: the frame's navigation request uses the parent's same-site context. It is settled in SC-002's build by headless Edge on this PC. Edge signs in through the fake GitHub, opens /admin/reports/{id}, and the test server logs whether /admin/reports/{id}/raw arrived with the session cookie. If not, the preview contract changes to a short-lived signed preview URL, which is a new contract and data. The synthesis marked this as forcing a re-synthesis: the losing answer moves a component boundary, a contract or the data model. How the fork decider would measure it: MEASURE IT IN THE RISK SPIKE, ON THIS PC, BEFORE THE DESIGN IS WRITTEN AGAIN. Do not leave it to SC-002's build. **Setup.** Copy the harness of the existing spike lax-cookies-survive-cross-site-oauth-redirect (spikes#192): - A throwaway `python -I` server bound only to 127.0.0.1, on random ports, with hosts gh.test and app.test mapped through `--host-resolver-rules`. - Edge 158 at C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe, run with `--headless=new`, `--no-first-run`, `--no-default-browser-check` and `--virtual-time-budget=8000`. - A fresh `--user-data-dir` under the scratch folder, and TAAD3_HOME set to an empty scratch folder. - No project code is involved, because none exists. - Worst case is a few MB and under a minute. Afterwards, kill any leftover msedge processes and delete the scratch tree. **Server routes.** - app `/login`: 302 to gh `/authorize`. - gh `/authorize`: a self-submitting form that POSTs to gh `/approve`. - gh `/approve`: 303 to app `/callback?code=c&state=abc`. - app `/callback`: sets `sid=1; SameSite=Lax; HttpOnly; Path=/` and, for information only, `sid_s=1; SameSite=Strict; HttpOnly; Path=/`. Answers 302 to `/admin/reports/1`. - app `/admin/reports/1`, the edit page: - Response headers: the design's site CSP verbatim (`default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://avatars.githubusercontent.com; frame-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`), plus `Cache-Control: no-store`. - Body: two iframes. A is `<iframe sandbox=\"allow-popups allow-popups-to-escape-sandbox\" referrerpolicy=\"no-referrer\" src=\"/admin/reports/1/raw\">`. B is a control with no sandbox attribute, `src=\"/admin/reports/1/raw?control=1\"`. - app `/admin/reports/1/raw`: answers 200 with these headers: - `Content-Type: text/html; charset=utf-8` - `Content-Security-Policy: sandbox allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'; frame-ancestors http://app.test:<port>` - `Cache-Control: no-store` **Logging.** For every request the server logs the path, the full Cookie header, and any Sec-Fetch-Site and Sec-Fetch-Dest headers. **Run two modes.** - Mode 1, the sign-in path: start at app `/login`. This is the hardest case, because the edit page itself arrives at the end of a cross-site POST-then-303 chain. - Mode 2, a later visit: launch the same profile again, straight at app `/admin/reports/1`. **How the result decides the fork.** UNDECIDED, so fix the harness and re-run; this is neither a pass nor a fail: - the edit-page request `/admin/reports/1` does not carry `sid` (the positive control, lesson #814), or - neither `/raw` request arrives. YES: in both modes the sandboxed request `/admin/reports/1/raw` (not the `?control=1` one) carries `sid`. - The design stands unchanged. The owner's draft preview stays the gated adminRoutes row `GET /admin/reports/{id}/raw`, served by serveRaw. The edit page frames it with `sandbox=\"allow-popups allow-popups-to-escape-sandbox\"`. - There is no signed preview URL, no preview key and no new data. - The outside_claim on the iframe's same-site cookie context moves from recalled to measured, citing the spike. - The headless-Edge preview item is dropped from SC-002's test list, because the spike is its evidence. The access matrix still covers that route for anonymous and non-owner visitors. - Record its scope as a constraint: Chromium only, plain http, not the __Host-/Secure variant. NO: in either mode the sandboxed `/raw` request lacks `sid`. - The design is re-synthesised with a preview reachable without the session cookie: the short-lived signed preview URL the synthesis named. - Whether `?control=1` carried `sid` tells the re-synthesis what caused it. If the control carried it, the cause is the sandbox attribute, and dropping the sandbox tokens from the preview frame is not an option, because the isolation constraint forbids it. If the control lacked it too, the cause is the frame context itself. Whether `sid_s` (Strict) arrives is recorded but decides nothing, because the architecture rules already forbid Strict. Neither spike measured this. The Lax-cookie spike measured top-level navigations after a cross-site redirect, not a request for a frame's content made from a same-site parent page. The design itself labels the yes answer recalled. The question is a browser behaviour this PC can answer in about a minute with no person: Edge is installed, and the harness already exists in spikes#192. The synthesis marked the losing answer as forcing a re-synthesis, because a no means a new contract and probably a preview route outside /admin. That has to be known while the design is being written, not discovered in SC-002. SC-002 gets no design or critique of its own, so a builder who hit a no there would settle the fork by writing code. The design's own plan, to settle this during SC-002's build, is the thing the rules forbid: a build is not where a design question gets measured. Nothing in SC-001's own build depends on the outcome, because SC-001 has no preview route. Measuring therefore blocks no SC-001 work. It costs one of the two laps back to the spike, and none has been used yet. The unsandboxed control frame and the edit-page positive control mean a broken harness cannot be mistaken for a no. The risk spike measures these first. Write the design again with what it measured: its experiments are under what reality already said about this slice.",
+      "cause": "fork-measure",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "design-slice-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T12:24:02.642Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "The core identity model holds.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T13:10:12.312Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "The rework answers every accepted finding from attempt 1: - **M1:** the access matrix now has one expected outcome per variant class, driven in-process without following redirects.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "critique passed on 2026-11-23T12:35:17.676Z, and design-slice has judged since (2026-11-23T13:10:10.472Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "design-slice",
+      "from": [
+       "design-slice"
+      ]
+     },
+     "changed": {},
+     "details": "critique-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T12:35:19.477Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "All ten first-pass findings hold at the severities filed.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "unrecorded",
+     "at": "2026-11-23T13:16:30.690Z",
+     "head": "",
+     "summary": "The rework answers all three of my earlier findings: - **M-add-1, open redirect after sign-in:** closed.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "critique-review passed on 2026-11-23T12:42:41.558Z, and design-slice has judged since (2026-11-23T13:10:10.472Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "design-slice",
+      "from": [
+       "design-slice"
+      ]
+     },
+     "changed": {},
+     "details": "critique-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T13:25:09.869Z",
+     "head": "057fd7c2144bf560ac462ff9908a24c84df25018",
+     "summary": "Built the SC-001 Go project from an empty tree: config loader, possession-style migration runner and store, cookie and redirect helpers, GitHub OAuth flow (PKCE, state cookie), hashed sessions, the two-mount owner gate with the OwnerRoute interlock, the router and home/admin pages, a fake GitHub, and realMain.",
+     "caused_by": null,
+     "changed": {
+      "src": 32,
+      "config": 1,
+      "tests": 2,
+      "listed": 35,
+      "measured_by_git": 42
+     },
+     "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T14:06:07.092Z",
+     "head": "624122a6b16f2dd740a07bab5c012eab6d9e4656",
+     "summary": "Fixed the two store findings and nothing else.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "1 obligation(s) landed on this stage after it passed (O-046), so nothing downstream was ever going to carry them out and the merge would have refused. Sent back with what raised them: O-046 (fix): IN-M1 (major): dsn() builds the SQLite file: URI from a relative path without making it absolute, so any relative data directory, including the configured default HBAND_DATA_DIR=./data (config.go:19), cannot be opened. - Linux: url.URL{Scheme:\"file\", Path:\"data/hband.db\"}.String() gives \"file://data/hband.db\". SQLite reads \"data\" as the URI authority and refuses: \"invalid uri authority: data (1)\". Measured by opening that exact DSN through modernc here. - Windows: the added '/' prefix turns \"data/hband.db\" into \"file:///data/hband.db\", the root of the current drive. Measured: I built cmd/hband (CGO_ENABLED=0) and ran it in a scratch dir with valid owner, client and base URL and no HBAND_DATA_DIR. It exits 1 with \"cannot open the database ... unable to open database file (14)\", after MkdirAll has already created .\\data. If <drive>:\\data happens to exist, SQLite instead creates the live database there, outside the working directory, and nothing reports it. Every test (TestBinary, the store tests, the server harness) passes an absolute t.TempDir(), so none of them uses the shipped default. In dsn() (or at the top of openWith), resolve the path first with `abs, err := filepath.Abs(path)`, return that error, and build the URI from abs. The existing Windows '/' prefix then applies only to drive-letter paths, as intended. [shown by a failing run] The engine ran the code review's test for this, internal/store/relative_data_dir_test.go, with `go test -count=1 -run TestOpenAcceptsRelativeDataDir ./internal/store`, and it FAILED. Put that test at internal/store/relative_data_dir_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run TestOpenAcceptsRelativeDataDir ./internal/store` again in your tree, and that run is what closes this; your word does not. The test: package store import ( \"os\" \"path/filepath\" \"testing\" ) // The configured default HBAND_DATA_DIR is the relative ./data, and realMain // passes filepath.Join(DataDir, \"hband.db\") to Open. A relative path must name // a file under the working directory. func TestOpenAcceptsRelativeDataDir(t *testing.T) { dir := t.TempDir() t.Chdir(dir) if err := os.MkdirAll(\"data\", 0o700); err != nil { t.Fatal(err) } st, err := Open(filepath.Join(\"./data\", \"hband.db\")) if err != nil { t.Fatalf(\"Open refused the default relative data directory: %v\", err) } defer st.Close() if _, err := os.Stat(filepath.Join(dir, \"data\", \"hband.db\")); err != nil { t.Fatalf(\"the database is not under the working directory's data folder: %v\", err) } }",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-046",
+       "O-047",
+       "O-048",
+       "O-049",
+       "O-050",
+       "O-051",
+       "O-052",
+       "O-053",
+       "O-054",
+       "O-055"
+      ]
+     },
+     "changed": {
+      "src": 4,
+      "listed": 4,
+      "measured_by_git": 8
+     },
+     "details": "build-slice-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T13:53:58.758Z",
+     "head": "057fd7c2144bf560ac462ff9908a24c84df25018",
+     "summary": "I read every changed Go file, template, go.mod, .gitignore, site.css and fitness.yaml in full.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T14:07:53.529Z",
+     "head": "624122a6b16f2dd740a07bab5c012eab6d9e4656",
+     "summary": "Re-reviewed the tree at 624122a, a re-run because the earlier pass went stale.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-23T14:06:05.145Z, and build-slice has judged since (2026-11-23T14:07:51.814Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T14:14:14.494Z",
+     "head": "2750199f3b264f211922cc87869d136bce6524eb",
+     "summary": "The slice passes.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "reflect",
+   "title": "Reflect",
+   "order": 10,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T14:26:09.622Z",
+     "head": "2750199f3b264f211922cc87869d136bce6524eb",
+     "summary": "SL-001 built the whole SC-001 identity layer in Go from an empty tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "reflect-1.json"
+    }
+   ]
+  }
+ ]
+}

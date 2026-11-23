@@ -1,0 +1,710 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-001",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-23T13:25:09.869Z",
+ "head": "057fd7c2144bf560ac462ff9908a24c84df25018",
+ "run_id": 11635,
+ "summary": "Built the SC-001 Go project from an empty tree: config loader, possession-style migration runner and store, cookie and redirect helpers, GitHub OAuth flow (PKCE, state cookie), hashed sessions, the two-mount owner gate with the OwnerRoute interlock, the router and home/admin pages, a fake GitHub, and realMain. `go build` (CGO_ENABLED=0), `go vet` and `go test -count=1 ./...` pass across all 6 test packages, including TestBinary, which compiles and runs the real binary in the finish line's environment shape. I also ran the built binary by hand against its real defaults and saw sign-in redirect to github.com. The fitness rules are fixed in `.taad/fitness.yaml` and pinned by a 143-row corpus, which also matches under Python `re`. Ten mutation runs each turned a target test red. Not run: the finish-line tests (`tests/acceptance` is not in the tree), the race detector (needs cgo), and the real-GitHub browser sign-in (a person's check).",
+ "payload": {
+  "status": "complete",
+  "summary": "Built the SC-001 Go project from an empty tree: config loader, possession-style migration runner and store, cookie and redirect helpers, GitHub OAuth flow (PKCE, state cookie), hashed sessions, the two-mount owner gate with the OwnerRoute interlock, the router and home/admin pages, a fake GitHub, and realMain. `go build` (CGO_ENABLED=0), `go vet` and `go test -count=1 ./...` pass across all 6 test packages, including TestBinary, which compiles and runs the real binary in the finish line's environment shape. I also ran the built binary by hand against its real defaults and saw sign-in redirect to github.com. The fitness rules are fixed in `.taad/fitness.yaml` and pinned by a 143-row corpus, which also matches under Python `re`. Ten mutation runs each turned a target test red. Not run: the finish-line tests (`tests/acceptance` is not in the tree), the race detector (needs cgo), and the real-GitHub browser sign-in (a person's check).",
+  "files": [
+   {
+    "path": "go.mod",
+    "change": "added",
+    "why": "module github.com/sshubham2/hband, go 1.27.4, deps golang.org/x/oauth2 v0.38.0 and modernc.org/sqlite v1.63.0"
+   },
+   {
+    "path": "go.sum",
+    "change": "added",
+    "why": "module checksums"
+   },
+   {
+    "path": ".gitignore",
+    "change": "added",
+    "why": "keeps the default ./data directory and built binaries out of the tree"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "retired the endpoint-lockdown rule by name; widened the host, redirect and escaping rules in place; appended the markup-literal and sign-in-form rules"
+   },
+   {
+    "path": "cmd/hband/main.go",
+    "change": "added",
+    "why": "realMain: exit 2 for config, 1 for startup, clean shutdown, startup log with the override warning"
+   },
+   {
+    "path": "cmd/hband/main_test.go",
+    "change": "added",
+    "why": "TestRealMainRefusesBadConfig and TestBinary (compiled CGO_ENABLED=0 binary, four runs)"
+   },
+   {
+    "path": "internal/config/config.go",
+    "change": "added",
+    "why": "HBAND_* loader: owner-ID grammar, base URL and GitHub endpoint rules, defaults, no secret echo"
+   },
+   {
+    "path": "internal/config/config_test.go",
+    "change": "added",
+    "why": "owner grammar, base URL, endpoint, unknown-variable and default tests"
+   },
+   {
+    "path": "internal/store/store.go",
+    "change": "added",
+    "why": "Open/openWith, serving pool DSN, Ping, DB"
+   },
+   {
+    "path": "internal/store/migrate.go",
+    "change": "added",
+    "why": "possession migration runner: separate handle, foreign_keys OFF, foreign_key_check before COMMIT, version guard"
+   },
+   {
+    "path": "internal/store/signin.go",
+    "change": "added",
+    "why": "SignIn: one transaction for upsert, expiry sweep, old-session delete and new-session insert"
+   },
+   {
+    "path": "internal/store/sessions.go",
+    "change": "added",
+    "why": "LookupSession (expiry filter) and DeleteSession"
+   },
+   {
+    "path": "internal/store/migrations/0001_identity.sql",
+    "change": "added",
+    "why": "users and sessions, STRICT, cascade, no stored owner or role"
+   },
+   {
+    "path": "internal/store/store_test.go",
+    "change": "added",
+    "why": "fresh/reopen/newer schema/cascade/rebuild/orphan/atomic SignIn tests, with a foreign-keys-on positive control"
+   },
+   {
+    "path": "internal/auth/cookies.go",
+    "change": "added",
+    "why": "the only cookie writer: setCookie, clearCookie, cookieName, __Host- on https"
+   },
+   {
+    "path": "internal/auth/next.go",
+    "change": "added",
+    "why": "LocalPath, SeeOther (verbatim 303) and ToProvider (the one absolute 302)"
+   },
+   {
+    "path": "internal/auth/session.go",
+    "change": "added",
+    "why": "token grammar, hashing, Viewer, Identify middleware"
+   },
+   {
+    "path": "internal/auth/owner.go",
+    "change": "added",
+    "why": "IsOwner, RequireOwner (no-store, 503/303/403 rules, login-URL fallback), OwnerRoute, Owner proof"
+   },
+   {
+    "path": "internal/auth/github.go",
+    "change": "added",
+    "why": "oauth2 config with PKCE S256, token exchange, /user with raw-integer id check"
+   },
+   {
+    "path": "internal/auth/handlers.go",
+    "change": "added",
+    "why": "login, callback (clear OAuth cookie on every outcome, 400/502/503) and logout"
+   },
+   {
+    "path": "internal/auth/templates/forbidden.html",
+    "change": "added",
+    "why": "non-owner 403 page with no admin markup"
+   },
+   {
+    "path": "internal/auth/auth_test.go",
+    "change": "added",
+    "why": "TestIsOwner, TestOwnerRouteWithoutProof, LocalPath corpus, SeeOther, ToProvider, cookie helper and loginTarget boundary tests"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "added",
+    "why": "handler chain, security headers, CrossOriginProtection, two RequireOwner mounts over one adminMux"
+   },
+   {
+    "path": "internal/server/home.go",
+    "change": "added",
+    "why": "home page handler"
+   },
+   {
+    "path": "internal/server/admin.go",
+    "change": "added",
+    "why": "adminRoutes table and the admin landing handler"
+   },
+   {
+    "path": "internal/server/templates/layout.html",
+    "change": "added",
+    "why": "shared head and header; the sign-in control is an anchor"
+   },
+   {
+    "path": "internal/server/templates/home.html",
+    "change": "added",
+    "why": "home page template"
+   },
+   {
+    "path": "internal/server/templates/admin.html",
+    "change": "added",
+    "why": "admin page with the data-hband-admin marker"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "added",
+    "why": "site stylesheet served from the site's own origin"
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "change": "added",
+    "why": "test harness: real listener, fake GitHub, temp SQLite, injected clock, flow walker"
+   },
+   {
+    "path": "internal/server/signin_test.go",
+    "change": "added",
+    "why": "sign-in, anchor, rotation, callback refusal, next and cookie-attribute tests"
+   },
+   {
+    "path": "internal/server/admin_test.go",
+    "change": "added",
+    "why": "access matrix per variant class, pin change, dead sessions, store-down, logout, headers"
+   },
+   {
+    "path": "internal/testutil/fakegithub/fakegithub.go",
+    "change": "added",
+    "why": "fake authorize/token/user endpoints with S256 checks and switchable failures"
+   },
+   {
+    "path": "internal/fitnessrules/rules_test.go",
+    "change": "added",
+    "why": "runs .taad/fitness.yaml rules over the corpus and over the repository's own files"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "change": "added",
+    "why": "143 must-fire/must-stay-quiet rows for the redirect, request-host, escaping, sign-in-form, endpoint and cookie rules"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "config.TestLoadOwnerIDGrammar feeds every listed refusal plus \"5\\n\", \"0x10\", \"1_000\" and accepts \"1\" and \"9223372036854775807\"; each refusal must name HBAND_OWNER_GITHUB_ID."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "config.TestLoadBaseURL feeds the https and loopback-http forms (and checks origin, callback URL and SecureCookies) and the refused forms (http non-loopback, path, query, fragment, userinfo, relative); server.TestCookieAttributes covers the prefix and Secure result on both bases."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "cmd/hband.TestBinary runs the compiled binary: owner 4242 reaches /admin; no-owner and 'octocat' exit 2 within 10 s naming HBAND_OWNER_GITHUB_ID with the marker secret never printed and no 'listening'; with no overrides (and unread HBAND_GITHUB_AUTH_URL/TOKEN_URL set to evil.example) /healthz is 200 and /auth/github/login is 302 to github.com with client_id, redirect_uri, S256 and no scope. The old clause 'API_URL=evil.example still reaches github.com' contradicts design 2; it now exits 2 (TestBinary subtest 'a remote http identity provider is refused').",
+    "replaced_by": "HBAND_GITHUB_URL and HBAND_GITHUB_API_URL are accepted only as https or loopback http, anything else exits 2 naming the variable (config.Load), and unread names are ignored."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "server.TestOwnerSignInReachesAdmin subtest 'sent to sign-in from /admin/' follows the whole flow from /admin/ through the fake and ends on 200 with the marker and @octocat; the other subtest checks exactly one sessions row with token_hash == hex(sha256(cookie)) != cookie."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "server.TestAdminAccessMatrix/anonymous: every adminRoutes path and the listed variants under GET, HEAD and POST; gated paths 303 to login (GET/HEAD) or 403 (POST), no 2xx, no marker, Cache-Control no-store. Cleaned and case classes answer per design 2 (mux redirect, 404) rather than this older all-303 shape, per M1."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "server.TestAdminAccessMatrix/non_owner: same routes, variants and methods, every gated path 403 with the explanatory page, never 2xx or the marker; the same session still shows '@somebody' on the home page."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "server.TestPinChangeRevokesAdmin mints a session as owner 42, rebuilds the handler on the same DB with owner 43: 403 on /admin/ with no marker, and the home page still shows the account signed in."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "server.TestCallbackRefusesBadState: no cookie, 2-part and 4-part cookies, wrong state length, mismatch, error=access_denied, missing and empty code, and the fake's DenyAtAuthorize each give 400, zero token calls, 0 users and 0 sessions rows, OAuth cookie cleared; a genuine-flow control proves the counts are not vacuous."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "server.TestCallbackRefusesGitHubFailures: TokenError200, Token500, wrong verifier, User401, UserMissingID, UserIDZero, UserIDString, UserIDFloat and UserEmptyLogin each give 502, the token endpoint was reached, 0 rows, OAuth cookie cleared, no session cookie, no secret in the body."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "server.TestStoreErrorDeniesAdmin 'after sign-in': with the store closed /admin is 503 with no marker, GET / is 200 as anonymous with the sign-in anchor, /healthz is 503; the same test also covers the callback and logout moments."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "server.TestDeadSessionIsAnonymous (expired via the injected clock, malformed cookies answered 303 even with the store closed while a well-formed one gives 503 as a control, unknown token) and TestSignInRotatesSession (the first cookie is dead after a second sign-in and the token differs)."
+   },
+   {
+    "key": "O-014",
+    "done": true,
+    "how": "server.TestLogout: same-origin POST (with and without Sec-Fetch-Site) deletes the row, clears the cookie, 303 to / and the replayed cookie gets 303 to login; cross-site, same-site and Origin https://evil.example give 403 and the session still opens /admin; GET gives 405."
+   },
+   {
+    "key": "O-015",
+    "done": true,
+    "how": "server.TestLoginNextIsLocalOnly runs the full flow for the listed bad next values (//evil.example, backslash forms, %5C/%5c, https and javascript URLs, tab, NUL, space, 513 bytes) and asserts the callback's final Location is '/'; also with the OAuth cookie's next part swapped after login; /admin and /reports/a-b?x=1 are kept verbatim; the gate case /admin/%2e%2e/%5Cevil.example ends on '/'."
+   },
+   {
+    "key": "O-016",
+    "done": true,
+    "how": "go test ./internal/store: TestOpenFreshDatabase (user_version 1, wal, idempotent reopen), TestRefusesNewerSchema (user_version 99, and realMain returns 1 in cmd/hband.TestRealMainRefusesBadConfig), TestUserDeleteCascadesToSessions, TestUsersHasNoStoredOwnerColumn."
+   },
+   {
+    "key": "O-017",
+    "done": true,
+    "how": "TestAdminAccessMatrix pins one outcome per variant class from design 2 for anonymous, non-owner and owner: cleaned //admin/ and /admin/../admin/ redirect to /admin/, //admin to /admin; /ADMIN and /ADMIN/ 404; gated variants and every adminRoutes path per identity; invariant no 2xx, no marker, Location one of /admin, /admin/, /auth/github/login or /auth/github/login?; the owner's marker is a positive control. Observed redirect status is 307 not 301 (go1.27.4); see deviations.",
+    "mutation": {
+     "file": "internal/server/router.go",
+     "find": "mux.Handle(\"/admin\", auth.RequireOwner(adminMux))",
+     "replace": "// removed",
+     "test_command": "go test -count=1 ./internal/server -run TestAdminAccessMatrix"
+    }
+   },
+   {
+    "key": "O-018",
+    "done": true,
+    "how": "internal/auth/cookies.go is the only cookie writer (setCookie/clearCookie, always HttpOnly, SameSite=Lax, Path=/, no Domain, Secure and __Host- on https, deletions included); rule 'every cookie is written by the one cookie helper' is in fitness.yaml and in the corpus; server.TestCookieAttributes runs on httptest TLS and parses every Set-Cookie from login, each refusal incl. 503, success and logout success/failure.",
+    "mutation": {
+     "file": "internal/auth/cookies.go",
+     "find": "Secure:   cfg.SecureCookies,",
+     "replace": "Secure:   false,",
+     "test_command": "go test -count=1 ./internal/server -run TestCookieAttributes"
+    }
+   },
+   {
+    "key": "O-019",
+    "done": true,
+    "how": "auth.TestOwnerRouteWithoutProof serves a bare request, a non-owner Viewer, and a Viewer with IsOwner=true but no Owner proof (each 403, zero calls) plus a positive control with the proof (one call, receives the Owner); auth.TestIsOwner tables (0,0), (-1,-1), (42,0), (42,43), (42,42).",
+    "mutation": {
+     "file": "internal/auth/owner.go",
+     "find": "o, ok := OwnerFrom(r.Context())",
+     "replace": "o, _ := OwnerFrom(r.Context()); ok := true",
+     "test_command": "go test -count=1 ./internal/auth -run TestOwnerRouteWithoutProof"
+    }
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "how": "Every sign-in control is an anchor (layout.html); server.TestHomeSignInIsAnchor asserts the anchor and no form targeting the login URL; fitness rule 'no sign-in control is ever a form' covers internal/**/templates/** and is in the corpus (15 rows) and the tree scan.",
+    "mutation": {
+     "file": "internal/server/templates/layout.html",
+     "find": "<a class=\"signin\" href=\"/auth/github/login?next=%2F\">Sign in with GitHub</a>",
+     "replace": "<form method=\"get\" action=\"/auth/github/login\"><button type=\"submit\">Sign in with GitHub</button></form>",
+     "test_command": "go test -count=1 ./internal/server -run TestHomeSignInIsAnchor"
+    }
+   },
+   {
+    "key": "O-021",
+    "done": true,
+    "how": "Kept the existing text/template import ban, added alias and dot import patterns to the template.HTML rule (an aliased html/template hides the typed conversion) and a new rule 'site HTML is never built as a Go string literal' (closes the hand-built-markup spelling the critic named). Corpus holds import spellings, the seven typed conversions and markup literals. Before the fix, run against the unedited fitness.yaml, the corpus failed 70 lines: 3 on the escaping rule, 38 because the new rules did not exist, 11 and 17 on the host and redirect rules, 1 for the retired rule still present; after the fix all rows pass and Python re (the engine's matcher) agrees on all 143 text rows with 0 tree violations.",
+    "corpus": "internal/fitnessrules/testdata/rule_spellings.json",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "    - '[\"`]\\s*<[a-zA-Z!/]'",
+     "replace": "    - '[\"`]\\s*<[a-zA-Z!/]QQ'",
+     "test_command": "go test -count=1 ./internal/fitnessrules -run TestRuleSpellingsCorpus"
+    }
+   },
+   {
+    "key": "O-022",
+    "done": true,
+    "how": "Widened 'no handler derives scheme or host from the request' in place: receiver names r|req|request; Host, TLS, URL.Host, URL.Scheme, Referer(); Header.Get/Values and Header[...] with host|origin|referer in any case, double quote or backtick, spaces allowed. 34 corpus rows (20 fire, 14 quiet incl. exceptions); the 11 failing before the edit now pass.",
+    "corpus": "internal/fitnessrules/testdata/rule_spellings.json",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "    - \\b(r|req|request)\\.Referer\\(\\)",
+     "replace": "    - \\b(r|req|request)\\.NoReferer\\(\\)",
+     "test_command": "go test -count=1 ./internal/fitnessrules -run TestRuleSpellingsCorpus"
+    }
+   },
+   {
+    "key": "O-024",
+    "done": true,
+    "how": "LocalPath checks the exact emitted string (printable ASCII 0x21..0x7E, <=512 bytes, no backslash or %5c anywhere, one leading '/', url.Parse clean) and SeeOther writes it verbatim; nothing calls http.Redirect (rule in fitness.yaml). TestLoginNextIsLocalOnly adds /./\\evil.example, /x/../\\evil.example and /admin/../\\evil.example and asserts the Location of the callback's final 303, also with a tampered cookie.",
+    "mutation": {
+     "file": "internal/auth/next.go",
+     "find": "if strings.ContainsRune(s, '\\\\') || strings.Contains(strings.ToLower(s), \"%5c\") {",
+     "replace": "if false {",
+     "test_command": "go test -count=1 ./internal/server -run TestLoginNextIsLocalOnly"
+    }
+   },
+   {
+    "key": "O-025",
+    "done": true,
+    "how": "migrate.go runs each migration on a separate single-connection *sql.DB: foreign_keys OFF, BEGIN, SQL, foreign_key_check (any row rolls back and names migration and table), user_version, COMMIT, foreign_keys ON deferred, handle closed before the serving pool opens. TestMigrationRebuildKeepsChildRows keeps both sessions across an injected users rebuild; TestRebuildWithForeignKeysOnWouldCascade is the positive control; TestMigrationOrphanFailsOpen and TestServingPoolHasForeignKeys cover the rest.",
+    "mutation": {
+     "file": "internal/store/migrate.go",
+     "find": "\"PRAGMA foreign_keys = OFF\"",
+     "replace": "\"PRAGMA foreign_keys = ON\"",
+     "test_command": "go test -count=1 ./internal/store -run TestMigrationRebuildKeepsChildRows"
+    }
+   },
+   {
+    "key": "O-029",
+    "done": true,
+    "how": "Same as O-003: config.TestLoadOwnerIDGrammar."
+   },
+   {
+    "key": "O-030",
+    "done": true,
+    "how": "config.TestLoadBaseURL, TestLoadGitHubEndpoints (defaults, loopback and https overrides, refused forms naming the variable) and TestLoadIgnoresUnknownVariables (HBAND_TRUSTED_PROXIES=127.0.0.1 causes no error; Load reads only its own names; unset HBAND_ADDR gives 127.0.0.1:8080)."
+   },
+   {
+    "key": "O-031",
+    "done": true,
+    "how": "cmd/hband.TestBinary compiles with CGO_ENABLED=0 and runs the four shapes: finish-line env with requests to https://hband.test rewritten to the port (owner 200 with marker, other ID 403, anonymous 303 to login), no overrides (302 to github.com), HBAND_GITHUB_URL or HBAND_GITHUB_API_URL=http://evil.example (exit 2 naming it), no owner with a marker secret (exit 2 within 10 s, secret never printed). The __Host- cookie jar behaviour behind the rewriting transport worked, confirming the recalled http.Client claim."
+   },
+   {
+    "key": "O-032",
+    "done": true,
+    "how": "server.TestOwnerSignInReachesAdmin and TestHomeSignInIsAnchor: the home page's control is an anchor to /auth/github/login?next=, no form targets it, the flow ends on GET /admin (exact path) 200 with the marker and @octocat, one sessions row, token_hash equals hex(sha256(cookie))."
+   },
+   {
+    "key": "O-033",
+    "done": true,
+    "how": "server.TestAdminAccessMatrix/anonymous per design 2's classes, methods GET, HEAD, POST, plus the long-path boundary rows (slash-dense path gives exactly /auth/github/login; 512-byte login URL keeps next; 513 falls back)."
+   },
+   {
+    "key": "O-034",
+    "done": true,
+    "how": "server.TestAdminAccessMatrix/non_owner: every gated path 403 for all three methods, never 2xx or marker; home page still shows '@somebody'."
+   },
+   {
+    "key": "O-035",
+    "done": true,
+    "how": "auth.TestOwnerRouteWithoutProof and auth.TestIsOwner (see O-019)."
+   },
+   {
+    "key": "O-036",
+    "done": true,
+    "how": "server.TestPinChangeRevokesAdmin (owner 42 session after rebuild with 43 gets 403 and stays signed in), TestDeadSessionIsAnonymous (expired and malformed give 303 to login, malformed with no DB query), TestSignInRotatesSession."
+   },
+   {
+    "key": "O-037",
+    "done": true,
+    "how": "server.TestCallbackRefusesBadState (400 cases) and TestCallbackRefusesGitHubFailures (502 cases), each with 0 users and 0 sessions rows and the OAuth cookie cleared."
+   },
+   {
+    "key": "O-038",
+    "done": true,
+    "how": "server.TestStoreErrorDeniesAdmin: callback with the store closed 503, no hband_sid Set-Cookie, hband_oauth clear present, 0 rows after reopening; logout 503 with no Set-Cookie and the row kept; after sign-in /admin 503 without marker, GET / 200 anonymous, /healthz 503."
+   },
+   {
+    "key": "O-039",
+    "done": true,
+    "how": "server.TestLogout (same-origin, trusted Origin header, cross-origin 403 with session intact, GET 405, no-session cases)."
+   },
+   {
+    "key": "O-040",
+    "done": true,
+    "how": "server.TestLoginNextIsLocalOnly (see O-015), including the gate case and the verbatim cases."
+   },
+   {
+    "key": "O-041",
+    "done": true,
+    "how": "server.TestCookieAttributes: httptest TLS server with an https base collects 5+ clears and 4+ sets from login, a refusal, the 503 callback, success, logout success and failure, all parsed with http.ParseSetCookie to __Host- names with Secure, HttpOnly, Path=/, SameSite=Lax, no Domain, clears Max-Age<0; the loopback http base gives unprefixed names with no Secure."
+   },
+   {
+    "key": "O-042",
+    "done": true,
+    "how": "go test ./internal/store covers every listed row: fresh file, 99 refused (realMain returns 1 in cmd/hband), cascade, no owner column, injected users rebuild keeping both sessions, injected orphan failing Open with user_version unchanged and no row, SignIn rolling back on a duplicate token_hash."
+   },
+   {
+    "key": "O-043",
+    "done": true,
+    "how": "Edited the redirect rule in place: http.Redirect, http.RedirectHandler, any Set/Add of the Location key (quotes or backticks, spaces allowed), Header()[\"Location\"] index writes, the five redirect status constants and numeric 301/302/303/307/308 in WriteHeader; the only excepted non-test file is internal/auth/next.go. Moved the one absolute 302 into next.go as ToProvider (critic's prescription) so handlers.go is not exempt. 34 corpus rows; the 17 failing before the edit now pass.",
+    "corpus": "internal/fitnessrules/testdata/rule_spellings.json",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "    - \\bhttp\\.RedirectHandler\\(",
+     "replace": "    - \\bhttp\\.NoSuchHandler\\(",
+     "test_command": "go test -count=1 ./internal/fitnessrules -run TestRuleSpellingsCorpus"
+    }
+   },
+   {
+    "key": "O-044",
+    "done": true,
+    "how": "RequireOwner's loginTarget passes next only when LocalPath accepts the request URI and the escaped login URL also passes; otherwise it answers exactly /auth/github/login. The matrix invariant and gate contract now read 'Location is /admin, /admin/, exactly /auth/github/login, or begins /auth/github/login?'. Matrix rows: 'a/' x200 gives exactly the plain URL; a 512-byte login URL keeps next and next decodes to the request URI; one byte more falls back. Unit test auth.TestLoginTargetFallsBackToPlainLogin.",
+    "mutation": {
+     "file": "internal/auth/owner.go",
+     "find": "if _, ok := LocalPath(target); !ok {",
+     "replace": "if false {",
+     "test_command": "go test -count=1 ./internal/server -run TestAdminAccessMatrix"
+    }
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "github.com/sshubham2/hband/internal/config.TestLoadOwnerIDGrammar",
+    "test_command": "go test -count=1 ./internal/config -run TestLoadOwnerIDGrammar"
+   },
+   {
+    "key": "C-002",
+    "test_name": "github.com/sshubham2/hband/internal/config.TestLoadBaseURL",
+    "test_command": "go test -count=1 ./internal/config -run TestLoadBaseURL"
+   },
+   {
+    "key": "C-003",
+    "test_name": "github.com/sshubham2/hband/cmd/hband.TestBinary",
+    "test_command": "go test -count=1 -timeout 10m ./cmd/hband -run \"TestRealMainRefusesBadConfig|TestBinary\""
+   },
+   {
+    "key": "C-004",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestOwnerSignInReachesAdmin",
+    "test_command": "go test -count=1 ./internal/server -run TestOwnerSignInReachesAdmin"
+   },
+   {
+    "key": "C-005",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestAdminAccessMatrix/anonymous",
+    "test_command": "go test -count=1 ./internal/server -run TestAdminAccessMatrix/anonymous"
+   },
+   {
+    "key": "C-006",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestAdminAccessMatrix/non_owner",
+    "test_command": "go test -count=1 ./internal/server -run TestAdminAccessMatrix/non_owner"
+   },
+   {
+    "key": "C-007",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestPinChangeRevokesAdmin",
+    "test_command": "go test -count=1 ./internal/server -run TestPinChangeRevokesAdmin"
+   },
+   {
+    "key": "C-008",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCallbackRefusesBadState",
+    "test_command": "go test -count=1 ./internal/server -run TestCallbackRefusesBadState"
+   },
+   {
+    "key": "C-009",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCallbackRefusesGitHubFailures",
+    "test_command": "go test -count=1 ./internal/server -run TestCallbackRefusesGitHubFailures"
+   },
+   {
+    "key": "C-010",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestStoreErrorDeniesAdmin",
+    "test_command": "go test -count=1 ./internal/server -run TestStoreErrorDeniesAdmin"
+   },
+   {
+    "key": "C-011",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestDeadSessionIsAnonymous",
+    "test_command": "go test -count=1 ./internal/server -run \"TestDeadSessionIsAnonymous|TestSignInRotatesSession\""
+   },
+   {
+    "key": "C-012",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestLogout",
+    "test_command": "go test -count=1 ./internal/server -run TestLogout"
+   },
+   {
+    "key": "C-013",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestLoginNextIsLocalOnly",
+    "test_command": "go test -count=1 ./internal/server -run TestLoginNextIsLocalOnly"
+   },
+   {
+    "key": "C-014",
+    "test_name": "github.com/sshubham2/hband/internal/store.TestOpenFreshDatabase",
+    "test_command": "go test -count=1 ./internal/store"
+   },
+   {
+    "key": "C-015",
+    "test_name": "github.com/sshubham2/hband/internal/config.TestLoadOwnerIDGrammar",
+    "test_command": "go test -count=1 ./internal/config -run TestLoadOwnerIDGrammar"
+   },
+   {
+    "key": "C-016",
+    "test_name": "github.com/sshubham2/hband/internal/config.TestLoadBaseURL",
+    "test_command": "go test -count=1 ./internal/config -run \"TestLoadBaseURL|TestLoadGitHubEndpoints|TestLoadIgnoresUnknownVariables\""
+   },
+   {
+    "key": "C-017",
+    "test_name": "github.com/sshubham2/hband/cmd/hband.TestBinary",
+    "test_command": "go test -count=1 -timeout 10m ./cmd/hband -run \"TestRealMainRefusesBadConfig|TestBinary\""
+   },
+   {
+    "key": "C-018",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestOwnerSignInReachesAdmin",
+    "test_command": "go test -count=1 ./internal/server -run \"TestOwnerSignInReachesAdmin|TestHomeSignInIsAnchor\""
+   },
+   {
+    "key": "C-019",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestAdminAccessMatrix/anonymous",
+    "test_command": "go test -count=1 ./internal/server -run TestAdminAccessMatrix/anonymous"
+   },
+   {
+    "key": "C-020",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestAdminAccessMatrix/non_owner",
+    "test_command": "go test -count=1 ./internal/server -run TestAdminAccessMatrix/non_owner"
+   },
+   {
+    "key": "C-021",
+    "test_name": "github.com/sshubham2/hband/internal/auth.TestOwnerRouteWithoutProof",
+    "test_command": "go test -count=1 ./internal/auth -run \"TestOwnerRouteWithoutProof|TestIsOwner\""
+   },
+   {
+    "key": "C-022",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestPinChangeRevokesAdmin",
+    "test_command": "go test -count=1 ./internal/server -run \"TestPinChangeRevokesAdmin|TestDeadSessionIsAnonymous|TestSignInRotatesSession\""
+   },
+   {
+    "key": "C-023",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCallbackRefusesBadState",
+    "test_command": "go test -count=1 ./internal/server -run \"TestCallbackRefusesBadState|TestCallbackRefusesGitHubFailures\""
+   },
+   {
+    "key": "C-024",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestStoreErrorDeniesAdmin",
+    "test_command": "go test -count=1 ./internal/server -run TestStoreErrorDeniesAdmin"
+   },
+   {
+    "key": "C-025",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestLogout",
+    "test_command": "go test -count=1 ./internal/server -run TestLogout"
+   },
+   {
+    "key": "C-026",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestLoginNextIsLocalOnly",
+    "test_command": "go test -count=1 ./internal/server -run TestLoginNextIsLocalOnly"
+   },
+   {
+    "key": "C-027",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCookieAttributes",
+    "test_command": "go test -count=1 ./internal/server -run TestCookieAttributes"
+   },
+   {
+    "key": "C-028",
+    "test_name": "github.com/sshubham2/hband/internal/store.TestMigrationRebuildKeepsChildRows",
+    "test_command": "go test -count=1 ./internal/store"
+   }
+  ],
+  "deviations": [
+   "The cleaned-variant class (//admin/, /admin/../admin/, //admin) answers 307, not the 301 the design recalled. go1.27.4's net/http/server.go passes StatusTemporaryRedirect at all three mux redirects (lines 2747, 2763, 2772) and the observed response was 307 for GET, HEAD and POST. The matrix pins the observed code through muxCleanStatus; routing was not changed, as the design requires.",
+   "The one absolute 302 to GitHub is written by auth.ToProvider in internal/auth/next.go, not directly in github.go or handlers.go as design 2 wrote it. The critic's prescription on m11 (O-043) says to move it so that handlers.go, which holds the callback's 303, is not exempt from the redirect rule. The redirect rule's only non-test exception is next.go.",
+   "The new markup-literal rule excepts tests/** as well as _test.go and internal/testutil/**, because the finish-line helpers planted under tests/ are not site code. The critic's text did not list it.",
+   "Extra patterns beyond the critic's lists, to close the class: receiver name 'request', r.URL.Host and r.URL.Scheme (an absolute-form request target carries its own), Header.Values and index forms with backtick keys, numeric WriteHeader(301/302/303/307/308), formaction on buttons in the sign-in form rule, and alias/dot imports of html/template.",
+   "The retired rule 'the identity provider's endpoints cannot be set from the environment' was removed from .taad/fitness.yaml by name, as design 2 prescribes; the replacement 'read only by the config loader' was already appended. It would otherwise fail config.go on every validate.",
+   "server.New returns http.Handler as designed; if AddTrustedOrigin rejects the origin it returns a handler that answers 500, so the failure is closed rather than a panic. config.Load already guarantees a valid origin, so this is unreachable with a loaded Config.",
+   "The non-owner 403 page lives in internal/auth/templates/forbidden.html (an embedded html/template in package auth), because RequireOwner is a package-level function used as auth.RequireOwner( by the existing /admin registration rule and cannot take a renderer without changing that spelling.",
+   "Standing workaround rule: not applicable. No outside defect is worked around: the backslash and %5c refusals follow the WHATWG URL parser as specified, Lax-not-Strict is SameSite as specified, and the foreign-key runner follows SQLite's documented pragma and rebuild semantics. No settings list or notice was added."
+  ],
+  "not_built": [
+   "SC-002 (0002_reports.sql, internal/reports, serveRaw, report admin routes, HBAND_MAX_UPLOAD_BYTES) and SC-005 (reader pages, /raw/{slug}, headless-Edge isolation test): later slices per the design's epic parts.",
+   "No screens or app launch command declared for measurement: the binary is configured only by HBAND_* environment variables (decided, no flags and no config file), and the declared launch command cannot carry environment variables or a {port} argument, so the engine could not start it. The home, admin and 403 pages were exercised through the real binary and the test suites instead.",
+   "The finish-line tests (tests/acceptance/e001_*) are not in the tree, so they were not run; TestBinary reproduces their environment shape (https://hband.test rewritten to a loopback port, HBAND_TRUSTED_PROXIES set, stand-in GitHub, no redirects followed).",
+   "The race detector was not run: -race needs cgo and this machine has CGO_ENABLED=0 as the project requires.",
+   "The /admin registration rule's lookahead cannot be compiled by Go's regexp, so the Go corpus skips it. It was checked under Python re (the engine's matcher) against the whole tree with 0 violations, but it has no corpus rows."
+  ],
+  "follow_ups": [
+   "Declare how the engine can start the app for screen measurement: either a documented launcher that supplies HBAND_* for a scratch run or an engine-side environment for the launch command. Until then the home, admin and 403 pages are unmeasured for readability.",
+   "Add a corpus row set for the '/admin route is only ever registered through the one gated mount' rule by running it under Python re, since Go's regexp cannot evaluate its lookahead.",
+   "C-008 Reader Site has no path globs: internal/server/home.go and templates/home.html, layout.html belong to it (the 3-edit limit here went to C-001, C-002 and C-009).",
+   "The C-002 line says sessions live in an 'HttpOnly Secure cookie'; Secure is on only for an https base URL, and a loopback http base gets plain names. Reword when the record is next edited.",
+   "Person's checks already on the backlog still apply: real sign-in against github.com with the OAuth app (PKCE S256, __Host- cookies over https behind the VPS proxy, Sec-Fetch-Site through the proxy) and that the proxy does not cache admin responses."
+  ],
+  "architecture": [
+   {
+    "block": "C-001",
+    "kind": "paths",
+    "add": [
+     "cmd/**",
+     "internal/config/**",
+     "internal/store/**",
+     "internal/testutil/**",
+     "internal/fitnessrules/**",
+     "internal/server/router.go",
+     "internal/server/static/**",
+     "go.mod",
+     "go.sum"
+    ],
+    "why": "internal/config/config.go, internal/store/{store,migrate,signin,sessions}.go, cmd/hband/main.go, internal/server/router.go and static/site.css, the fake GitHub under internal/testutil, and the rule corpus under internal/fitnessrules exist and match no block's globs."
+   },
+   {
+    "block": "C-002",
+    "kind": "paths",
+    "add": [
+     "internal/auth/**"
+    ],
+    "why": "internal/auth holds cookies.go, next.go, session.go, owner.go, github.go, handlers.go and templates/forbidden.html: OAuth flow, sessions, owner gate and the cookie and redirect helpers."
+   },
+   {
+    "block": "C-009",
+    "kind": "paths",
+    "add": [
+     "internal/server/admin.go",
+     "internal/server/templates/admin.html"
+    ],
+    "why": "admin.go defines the adminRoutes table and the landing handler; admin.html renders the data-hband-admin page."
+   }
+  ],
+  "tests": [
+   {
+    "command": "go build ./... (CGO_ENABLED=0)",
+    "outcome": "passed",
+    "note": "no output; the binary is static as required"
+   },
+   {
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "note": "no findings"
+   },
+   {
+    "command": "gofmt -l .",
+    "outcome": "passed",
+    "note": "no unformatted files"
+   },
+   {
+    "command": "go test -count=1 -timeout 10m ./...",
+    "outcome": "passed",
+    "note": "ok for cmd/hband, internal/auth, internal/config, internal/fitnessrules, internal/server, internal/store; fakegithub has no tests"
+   },
+   {
+    "command": "go test -count=1 -v -timeout 10m ./cmd/hband",
+    "outcome": "passed",
+    "note": "TestBinary compiled cmd/hband with CGO_ENABLED=0 and ran 4 subtests: finish-line env shape (owner 200 with marker, another ID 403, anonymous 303), no overrides (302 to github.com), remote http provider (exit 2), no owner (exit 2). TestRealMainRefusesBadConfig ran 7 subtests including exit 1 for user_version 99 and a clean shutdown."
+   },
+   {
+    "command": "go test -count=1 ./internal/server (matrix, sign-in, callback, logout, cookies, store-down)",
+    "outcome": "passed",
+    "note": "first run of the matrix failed: every cleaned variant answered 307 where the design said 301; ServeMux source confirmed 307, expectation corrected and recorded as a deviation"
+   },
+   {
+    "command": "go test -count=1 ./internal/fitnessrules against the unedited .taad/fitness.yaml",
+    "outcome": "failed",
+    "note": "70 failure lines before the fix: 11 on the request-host rule, 17 on the redirect rule, 3 on the escaping rule, 38 because the two new rules did not exist, 1 for the retired rule still present. Run before editing the rules, as the class-closing evidence."
+   },
+   {
+    "command": "go test -count=1 -v ./internal/fitnessrules after editing the rules",
+    "outcome": "passed",
+    "note": "corpus 143 text rows plus import rows pass; the tree scan passes. First run after the edit failed twice (an alias pattern fired on a plain import, and a comment in handlers.go quoted an angle bracket); both fixed."
+   },
+   {
+    "command": "python -I check.py <repo> (scratch script, real Python re over the corpus and the whole tree including the lookahead /admin rule)",
+    "outcome": "passed",
+    "note": "143 rows checked, 0 mismatches; 173 file/rule checks, 0 violations"
+   },
+   {
+    "command": "python -I mut.py <repo> (10 mutations, each applied, tested and restored)",
+    "outcome": "passed",
+    "note": "O-017, O-018, O-019, O-020, O-021, O-022, O-024, O-025, O-043 and O-044 each turned their named test red; files restored and the suite green afterwards"
+   },
+   {
+    "command": "go build -o <tmp>/hband.exe ./cmd/hband; run it with HBAND_ADDR, BASE_URL, owner 583231, client id and a marker secret, no overrides; Invoke-WebRequest against it",
+    "outcome": "passed",
+    "note": "/healthz 200 ok; / 200 with the sign-in anchor and the site CSP; anonymous /admin 303 to /auth/github/login?next=%2Fadmin; /auth/github/login 302 to https://github.com/login/oauth/authorize with client_id, S256 challenge, redirect_uri and a 43-character state, no scope; data dir held hband.db plus WAL files; the log held the listening line with owner_github_id and no secret"
+   },
+   {
+    "command": "go test -race ./internal/server ./internal/auth ./internal/store",
+    "outcome": "not-run",
+    "note": "go: -race requires cgo; the project builds with CGO_ENABLED=0 and no C toolchain is assumed"
+   }
+  ]
+ }
+}

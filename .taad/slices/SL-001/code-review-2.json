@@ -1,0 +1,181 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-001",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-23T14:07:53.529Z",
+ "head": "624122a6b16f2dd740a07bab5c012eab6d9e4656",
+ "run_id": 11644,
+ "summary": "Re-reviewed the tree at 624122a, a re-run because the earlier pass went stale. I read the store diff from 057fd7c, all of internal/store/store.go, migrate.go lines 50-109, and both new test files.\n\n**O-046 (relative data directory).** openWith (store.go:44-51) now resolves the path with filepath.Abs once, returns that error, and passes the absolute path to both migrate and the serving DSN. On Windows the '/' prefix in dsn now applies only to drive-letter paths. I built cmd/hband with CGO_ENABLED=0 and ran it in a scratch directory with no HBAND_DATA_DIR. /healthz answered 200 ok, hband.db plus its WAL and SHM files were created under <cwd>\\data, and the log held only the listening line, with no secret. The process was stopped and the scratch tree deleted.\n\n**O-050 (negative schema version).** migrate (migrate.go:85-89) refuses a negative user_version with an error before `all[current:]`. Open therefore returns an error, and realMain's existing branch at main.go:46-49 exits 1.\n\n**Tests.** go vet ./... is clean. TestOpenAcceptsRelativeDataDir, TestOpenRefusesNegativeSchemaVersion and TestRefusesNewerSchema pass. `go test -count=1 ./...` passes for all six test packages.\n\n**Comments.** The updated dsn comment and the new comments in both files match the code. No comment elsewhere described the old relative-path behaviour: realMain's exit-code doc, config's ./data default and .gitignore's /data/ all agree with it.\n\n**Waived items.** The earlier m1/m2/m3/RD-m4 and IN-m2..m5 were waived by decision to the backlog or notes. They are unchanged in the tree and I have not re-opened them.\n\nNothing new to file.\n\nSecond round: Second, adversarial pass over the tree at 624122a. I put the probes in through `go test -overlay`, so the worktree was never written to, and `git status` stayed clean.\n\nOne new partial-failure path, filed as extra. A write-protected hband.db opens with no error, and Ping succeeds, so /healthz answers 200 ok. SignIn then fails with \"attempt to write a readonly database (8)\". The server starts and reports healthy while every sign-in and sign-out answers 503. The realistic cause is a Docker volume whose owner UID differs from the container user, or a read-only mount.\n\nTwo detection probes: a write lock taken and released (BEGIN IMMEDIATE; ROLLBACK) did not detect it. `PRAGMA user_version = N` did, returning SQLITE_READONLY. So the fix is one header write at the end of migrate.\n\nNothing else new:\n- The absolute-path change handles %, #, ? and non-ASCII through percent-escaping.\n- A garbage file or a directory at the database path fails Open, and the program exits 1.\n- Every error from the GitHub calls and the store calls has a handler.\n- Only the first next, state and code query value is read, which is safe here.\n- The only check let go before acting is the migration version read, already filed as IN-m5.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "Re-reviewed the tree at 624122a, a re-run because the earlier pass went stale. I read the store diff from 057fd7c, all of internal/store/store.go, migrate.go lines 50-109, and both new test files.\n\n**O-046 (relative data directory).** openWith (store.go:44-51) now resolves the path with filepath.Abs once, returns that error, and passes the absolute path to both migrate and the serving DSN. On Windows the '/' prefix in dsn now applies only to drive-letter paths. I built cmd/hband with CGO_ENABLED=0 and ran it in a scratch directory with no HBAND_DATA_DIR. /healthz answered 200 ok, hband.db plus its WAL and SHM files were created under <cwd>\\data, and the log held only the listening line, with no secret. The process was stopped and the scratch tree deleted.\n\n**O-050 (negative schema version).** migrate (migrate.go:85-89) refuses a negative user_version with an error before `all[current:]`. Open therefore returns an error, and realMain's existing branch at main.go:46-49 exits 1.\n\n**Tests.** go vet ./... is clean. TestOpenAcceptsRelativeDataDir, TestOpenRefusesNegativeSchemaVersion and TestRefusesNewerSchema pass. `go test -count=1 ./...` passes for all six test packages.\n\n**Comments.** The updated dsn comment and the new comments in both files match the code. No comment elsewhere described the old relative-path behaviour: realMain's exit-code doc, config's ./data default and .gitignore's /data/ all agree with it.\n\n**Waived items.** The earlier m1/m2/m3/RD-m4 and IN-m2..m5 were waived by decision to the backlog or notes. They are unchanged in the tree and I have not re-opened them.\n\nNothing new to file.\n\nSecond round: Second, adversarial pass over the tree at 624122a. I put the probes in through `go test -overlay`, so the worktree was never written to, and `git status` stayed clean.\n\nOne new partial-failure path, filed as extra. A write-protected hband.db opens with no error, and Ping succeeds, so /healthz answers 200 ok. SignIn then fails with \"attempt to write a readonly database (8)\". The server starts and reports healthy while every sign-in and sign-out answers 503. The realistic cause is a Docker volume whose owner UID differs from the container user, or a read-only mount.\n\nTwo detection probes: a write lock taken and released (BEGIN IMMEDIATE; ROLLBACK) did not detect it. `PRAGMA user_version = N` did, returning SQLITE_READONLY. So the fix is one header write at the end of migrate.\n\nNothing else new:\n- The absolute-path change handles %, #, ? and non-ASCII through percent-escaping.\n- A garbage file or a directory at the database path fails Open, and the program exits 1.\n- Every error from the GitHub calls and the store calls has a handler.\n- Only the first next, state and code query value is read, which is safe here.\n- The only check let go before acting is the migration version read, already filed as IN-m5.",
+  "findings": [
+   {
+    "id": "R2-RD2-e1",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "extra",
+    "claim": "A write-protected database file passes startup and /healthz but cannot be written. SQLite falls back to read-only when the file is write-protected, and nothing in migrate or openWith writes once the schema is current. So store.Open returns nil, Ping succeeds (/healthz 200 ok), and the process listens. Every store.SignIn then fails with 'attempt to write a readonly database (8)', so every callback answers 503 and logout answers 503 too. Measured with a scratch overlay test: Open err=<nil>, Ping <nil>, SignIn 'save user: attempt to write a readonly database (8)'. The realistic trigger on the home server is the Docker volume owned by a UID other than the container's user, or mounted read-only. The design's contract says healthz is exactly Ping and lists exit 1 only for a database that cannot be opened, so this is hardening nobody asked for, not a breach.",
+    "file": "internal/store/migrate.go",
+    "line": 101,
+    "end_line": 106,
+    "quote": {
+     "path": "internal/store/migrate.go",
+     "line": 101,
+     "text": "\tfor _, m := range all[current:] {\n\t\tif err := applyMigration(ctx, conn, m); err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n\treturn nil"
+    },
+    "evidence": "Overlay probe TestProbeReadOnlyDatabase (os.Chmod 0o444 on hband.db after a first Open): Open err=<nil>, Ping <nil>, SignIn error SQLITE_READONLY. A second probe showed `BEGIN IMMEDIATE; ROLLBACK` succeeding on the read-only file. A third showed `PRAGMA user_version = 1` returning 'attempt to write a readonly database (8)'.",
+    "fix": "At the end of migrate, after the loop, run `PRAGMA user_version = <len(all)>` on the migration conn even when nothing was pending, and return its error. A write-protected file then fails Open and realMain exits 1. Add a store test that chmods the file 0o444 after a first Open and expects the second Open to fail."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-046",
+    "discharged": "yes",
+    "evidence": "internal/store/store.go:44-51: `path, err := filepath.Abs(path)`, with the error returned, before migrate(path, …) and sql.Open(dsn(path, servingPragmas)). The dsn comment (72-74) now states it takes an absolute path. internal/store/relative_data_dir_test.go TestOpenAcceptsRelativeDataDir chdirs to a temp dir, opens ./data/hband.db and stats the file under the working directory: pass. The built binary run with no HBAND_DATA_DIR served /healthz 200 and created data\\hband.db under the working directory."
+   },
+   {
+    "key": "O-050",
+    "discharged": "yes",
+    "evidence": "internal/store/migrate.go:85-89 returns an error naming the version when current < 0, ahead of the newer-schema check and the `all[current:]` slice at line 101. internal/store/negative_version_test.go sets user_version -1, recovers any panic and requires an error: pass. realMain maps any Open error to exit 1 (cmd/hband/main.go:46-49)."
+   },
+   {
+    "key": "O-045",
+    "discharged": "yes",
+    "evidence": "Unchanged since the last pass. internal/config/config.go:135-136 and 150-190 refuse every value that is not https or loopback http, naming the variable, and cmd/hband/main.go:36-39 exits 2. The TestBinary subtests 'a remote http identity provider is refused' and 'without overrides' still pass in this run."
+   },
+   {
+    "key": "O-026",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice and needs a real browser over https behind the proxy. In the loop, TestCookieAttributes still passes, and cookies.go:31-50 is unchanged."
+   },
+   {
+    "key": "O-027",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice and needs the real proxy. In the loop, config refuses non-loopback http (config.go:186-188) and TestLogout still passes."
+   },
+   {
+    "key": "O-028",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice and the person. RequireOwner still sets no-store first (internal/auth/owner.go:51); whether the proxy honours it is not visible here."
+   },
+   {
+    "key": "O-047",
+    "discharged": "no",
+    "evidence": "Waived by decision (carried to SC-026); not re-opened. internal/fitnessrules/rules_test.go:166 still guards the import check on a `package ` prefix."
+   },
+   {
+    "key": "O-048",
+    "discharged": "no",
+    "evidence": "Waived to note N-007 for the comment fixer; not re-opened. internal/config/config.go:4 still names knownVariables."
+   },
+   {
+    "key": "O-049",
+    "discharged": "no",
+    "evidence": "Waived to note N-008 for the comment fixer; not re-opened. internal/auth/owner.go:24-25 is unchanged."
+   },
+   {
+    "key": "O-051",
+    "discharged": "no",
+    "evidence": "Waived by decision (carried to SC-027); not re-opened. The .taad/fitness.yaml redirect rule is unchanged."
+   },
+   {
+    "key": "O-052",
+    "discharged": "no",
+    "evidence": "Waived to note N-009; not re-opened. The request-host and forwarded-header patterns are unchanged."
+   },
+   {
+    "key": "O-053",
+    "discharged": "no",
+    "evidence": "Waived to note N-010; not re-opened. The markup-literal pattern is unchanged."
+   },
+   {
+    "key": "O-054",
+    "discharged": "no",
+    "evidence": "Waived to note N-011; not re-opened. migrate.go:82 still reads user_version outside the transaction, and applyMigration still opens a plain BEGIN."
+   },
+   {
+    "key": "O-055",
+    "discharged": "no",
+    "evidence": "Waived to note N-012 for the comment fixer; not re-opened. rule_spellings.json:4 is unchanged."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "Open and migrate the database. internal/store/store_test.go still feeds every listed shape and passes. It now also covers a relative ./data path opened from a chdir'd temp dir (relative_data_dir_test.go) and user_version -1 refused without a panic (negative_version_test.go)."
+   }
+  ],
+  "drift": [
+   "config.Load refuses a malformed HBAND_ADDR (not host:port) with exit 2 (internal/config/config.go:122-127). The design gives HBAND_ADDR only a default, and its contract puts a failed listen at exit 1. Undeclared.",
+   "parseOAuthCookie also refuses an OAuth cookie whose verifier part is shorter than 43 or longer than 128 characters, answering 400 (internal/auth/handlers.go:111-113). The design's refusal list names only 'not 3 parts' and 'a state that is not 43 characters'. Undeclared, harmless hardening.",
+   "fetchUser stores avatar_url as '' unless it is an absolute https URL of 512 bytes or fewer (internal/auth/github.go:94-103), where the design stores GitHub's avatar_url as given. Undeclared.",
+   "loadMigrations refuses any migration file not named NNNN_name.sql, and any set whose versions do not run 1, 2, 3 without gaps (internal/store/migrate.go:32-48). The design only says forward-only NNNN_name.sql files tracked by user_version. Undeclared, and it constrains every later slice's migrations."
+  ],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 11645,
+   "filed": 1
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 3,
+    "changed": 4,
+    "listed": 1
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 4,
+   "read_whole": 3,
+   "deleted": [],
+   "runs": [
+    11639,
+    11641,
+    11644,
+    11645
+   ],
+   "range": {
+    "base": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+    "head": "624122a6b16f2dd740a07bab5c012eab6d9e4656",
+    "source": "commits",
+    "hunk_base": "057fd7c2144bf560ac462ff9908a24c84df25018",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [
+    {
+     "path": "internal/store/migrate.go",
+     "state": "partly-opened",
+     "section": "lines 110-127, 129-171 of 171",
+     "reason": "a Read returned only part of it; seen only through a shell command: git log; 82 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 171,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

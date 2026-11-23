@@ -1,0 +1,230 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-001",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-23T14:14:14.494Z",
+ "head": "2750199f3b264f211922cc87869d136bce6524eb",
+ "run_id": 11648,
+ "summary": "The slice passes. The full suite (46 top-level tests in 6 packages), go vet, gofmt and the 13 architecture rules are all clean.\n\n**What I ran it against.**\n- The compiled cmd/hband binary (CGO_ENABLED=0), with HBAND_DATA_DIR unset, so the shipped ./data default was used.\n- A TLS front I wrote for hband.test. It keeps the browser's Host header, the way the VPS proxy will.\n- A stand-in GitHub on loopback that checks client_id, client_secret, redirect_uri and the PKCE S256 verifier.\n- Real Edge 158.0.4370.33, headless, on a fresh profile in my scratch folder, driven over the DevTools protocol.\n\n**Sign-in and owner recognition.**\n- The home page's sign-in control is an anchor. Clicking it went through the cross-site 302 to the stand-in, its auto-submitted POST, the 303 to the callback, and the callback's 303 back to '/'. The page then showed \"Signed in as @author\" and an Admin link.\n- GET /admin answered 200 directly, with the data-hband-admin marker and \"@author (owner)\".\n\n**Cookies (O-026).** Edge stored __Host-hband_sid exactly as written: Secure, HttpOnly, SameSite=Lax, Path=/, host-only, persistent for 30 days. The browser also applied both __Host- deletions (Max-Age=0):\n- after the callback, the OAuth cookie was gone;\n- after sign-out, the browser held no cookies and the next request carried none.\n\nThe session cookie survived a browser relaunch, and /admin still answered 200 with the marker.\n\n**Cross-site protection (O-027).**\n- Edge sent Sec-Fetch-Site through the front on every request.\n- The app's own Sign out button sent a same-origin POST, which got 303 to '/'.\n- A cross-site page's auto-submitted POST to /auth/logout got 403 \"cross-origin request detected from Sec-Fetch-Site header\", and the session still opened /admin.\n- Sent straight to the binary: Origin https://evil.example got 403, Sec-Fetch-Site: cross-site got 403, and GET /auth/logout got 405.\n\n**Admin responses and caching (O-028).** Every /admin response carried Cache-Control: no-store, whether it was 200, 303 or 403. After sign-out, history.back() fetched /admin again and got 303 to login. Edge did not restore the owner's page from its cache.\n\n**Other accounts.** A GitHub ID of 777 with the same login, \"author\", as the owner got 403 \"Not allowed\" on /admin, with no marker. The home page still showed \"@author\" but no Admin link. So the owner is recognised by ID, not by login name.\n\n**The access matrix against the real binary.** 33 rows each for an anonymous visitor, another account and the owner, sent over a real socket with the public Host header. There were no violations:\n- gated paths: anonymous GET and HEAD got 303 to /auth/github/login?next=, POST got 403; the other account got 403 throughout;\n- /ADMIN and /ADMIN/ got 404;\n- the cleaned variants got a redirect to /admin or /admin/;\n- no row was 2xx or carried the marker except the owner's.\n\n**Sign-out replay.** Sending the old owner cookie again after sign-out got 303 to login.\n\n**Database failure.** I held a real write lock on the database from another process. The callback waited out the 5-second busy timeout and answered 503. It cleared the OAuth cookie, set no session cookie, the browser kept its previous session cookie, and no user 999 row was written.\n\n**Database contents.** Exactly one sessions row remained, and its token_hash equals hex(sha256(cookie)), not the cookie itself.\n\n**Logs.** The server log never contained the secret, any of the 6 codes and tokens issued, or any cookie value.\n\n**Startup refusals.** With no owner, owner 'octocat' or owner '0', or with HBAND_GITHUB_URL, HBAND_GITHUB_API_URL or HBAND_BASE_URL set to a remote http URL, the binary exited 2 within 0.06 s, naming the variable. It never printed the secret or 'listening'.\n\n**Without overrides.** With HBAND_TRUSTED_PROXIES set and no endpoint overrides, /healthz answered 200 and login answered 302 to https://github.com/login/oauth/authorize. The redirect carried client_id, redirect_uri=https://hband.test/auth/github/callback and S256, with no scope. The database was created under <cwd>\\data, which also covers build-slice's open note about running once with no HBAND_DATA_DIR.\n\n**One mismatch, not a fault in this code.** The cleaned path variants answer 307, not the 301 that criterion 5's text says. That status comes from Go 1.27.4's own ServeMux (net/http/server.go:2747/2763/2772 use StatusTemporaryRedirect), and the build already recorded this deviation.\n\n**Loops.** None: both build attempts changed source.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "real",
+  "summary": "The slice passes. The full suite (46 top-level tests in 6 packages), go vet, gofmt and the 13 architecture rules are all clean.\n\n**What I ran it against.**\n- The compiled cmd/hband binary (CGO_ENABLED=0), with HBAND_DATA_DIR unset, so the shipped ./data default was used.\n- A TLS front I wrote for hband.test. It keeps the browser's Host header, the way the VPS proxy will.\n- A stand-in GitHub on loopback that checks client_id, client_secret, redirect_uri and the PKCE S256 verifier.\n- Real Edge 158.0.4370.33, headless, on a fresh profile in my scratch folder, driven over the DevTools protocol.\n\n**Sign-in and owner recognition.**\n- The home page's sign-in control is an anchor. Clicking it went through the cross-site 302 to the stand-in, its auto-submitted POST, the 303 to the callback, and the callback's 303 back to '/'. The page then showed \"Signed in as @author\" and an Admin link.\n- GET /admin answered 200 directly, with the data-hband-admin marker and \"@author (owner)\".\n\n**Cookies (O-026).** Edge stored __Host-hband_sid exactly as written: Secure, HttpOnly, SameSite=Lax, Path=/, host-only, persistent for 30 days. The browser also applied both __Host- deletions (Max-Age=0):\n- after the callback, the OAuth cookie was gone;\n- after sign-out, the browser held no cookies and the next request carried none.\n\nThe session cookie survived a browser relaunch, and /admin still answered 200 with the marker.\n\n**Cross-site protection (O-027).**\n- Edge sent Sec-Fetch-Site through the front on every request.\n- The app's own Sign out button sent a same-origin POST, which got 303 to '/'.\n- A cross-site page's auto-submitted POST to /auth/logout got 403 \"cross-origin request detected from Sec-Fetch-Site header\", and the session still opened /admin.\n- Sent straight to the binary: Origin https://evil.example got 403, Sec-Fetch-Site: cross-site got 403, and GET /auth/logout got 405.\n\n**Admin responses and caching (O-028).** Every /admin response carried Cache-Control: no-store, whether it was 200, 303 or 403. After sign-out, history.back() fetched /admin again and got 303 to login. Edge did not restore the owner's page from its cache.\n\n**Other accounts.** A GitHub ID of 777 with the same login, \"author\", as the owner got 403 \"Not allowed\" on /admin, with no marker. The home page still showed \"@author\" but no Admin link. So the owner is recognised by ID, not by login name.\n\n**The access matrix against the real binary.** 33 rows each for an anonymous visitor, another account and the owner, sent over a real socket with the public Host header. There were no violations:\n- gated paths: anonymous GET and HEAD got 303 to /auth/github/login?next=, POST got 403; the other account got 403 throughout;\n- /ADMIN and /ADMIN/ got 404;\n- the cleaned variants got a redirect to /admin or /admin/;\n- no row was 2xx or carried the marker except the owner's.\n\n**Sign-out replay.** Sending the old owner cookie again after sign-out got 303 to login.\n\n**Database failure.** I held a real write lock on the database from another process. The callback waited out the 5-second busy timeout and answered 503. It cleared the OAuth cookie, set no session cookie, the browser kept its previous session cookie, and no user 999 row was written.\n\n**Database contents.** Exactly one sessions row remained, and its token_hash equals hex(sha256(cookie)), not the cookie itself.\n\n**Logs.** The server log never contained the secret, any of the 6 codes and tokens issued, or any cookie value.\n\n**Startup refusals.** With no owner, owner 'octocat' or owner '0', or with HBAND_GITHUB_URL, HBAND_GITHUB_API_URL or HBAND_BASE_URL set to a remote http URL, the binary exited 2 within 0.06 s, naming the variable. It never printed the secret or 'listening'.\n\n**Without overrides.** With HBAND_TRUSTED_PROXIES set and no endpoint overrides, /healthz answered 200 and login answered 302 to https://github.com/login/oauth/authorize. The redirect carried client_id, redirect_uri=https://hband.test/auth/github/callback and S256, with no scope. The database was created under <cwd>\\data, which also covers build-slice's open note about running once with no HBAND_DATA_DIR.\n\n**One mismatch, not a fault in this code.** The cleaned path variants answer 307, not the 301 that criterion 5's text says. That status comes from Go 1.27.4's own ServeMux (net/http/server.go:2747/2763/2772 use StatusTemporaryRedirect), and the build already recorded this deviation.\n\n**Loops.** None: both build attempts changed source.",
+  "checks": [
+   {
+    "what": "Full project test suite",
+    "command": "$env:TAAD3_HOME=<scratch>\\home; CGO_ENABLED=0 go test -count=1 -p 4 -timeout 15m -v ./...",
+    "outcome": "passed",
+    "evidence": "exit 0; cmd/hband, internal/auth, internal/config, internal/fitnessrules, internal/server and internal/store all ok. 46 top-level tests PASS, 67 subtests, 0 FAIL, 0 SKIP."
+   },
+   {
+    "what": "Static checks",
+    "command": "go vet ./...; gofmt -l .",
+    "outcome": "passed",
+    "evidence": "vet exit 0; gofmt lists no files"
+   },
+   {
+    "what": "Declared architecture rules",
+    "command": "Fitness op=check",
+    "outcome": "passed",
+    "evidence": "13 rules checked against 27 parsed files: every declared rule holds"
+   },
+   {
+    "what": "Real binary refuses bad configuration (exit 2, names the variable, never prints the secret)",
+    "command": "python -I drive.py part_a: hband.exe with no owner, owner=octocat, owner=0, HBAND_GITHUB_URL=http://evil.example, HBAND_GITHUB_API_URL=http://evil.example, HBAND_BASE_URL=http://hband.example; marker secret set",
+    "outcome": "passed",
+    "evidence": "All 6 exit 2 within 0.01-0.06 s. Each output names exactly the bad variable (e.g. 'HBAND_GITHUB_URL: must be https unless the host is 127.0.0.1, localhost or [::1]'). secret_printed=false and listening=false in every case."
+   },
+   {
+    "what": "Real binary without endpoint overrides sends the browser to github.com",
+    "command": "hband.exe with owner 4242, HBAND_TRUSTED_PROXIES=127.0.0.1, no HBAND_DATA_DIR; GET /healthz; GET /auth/github/login?next=%2Fadmin, redirects not followed",
+    "outcome": "passed",
+    "evidence": "/healthz 200. Login 302 to https://github.com/login/oauth/authorize with client_id matching, redirect_uri=https://hband.test/auth/github/callback, code_challenge_method=S256, no scope, 43-character state, and Set-Cookie __Host-hband_oauth. Secret not in the log; hband.db created under <cwd>\\data."
+   },
+   {
+    "what": "Owner signs in through a real browser over https and reaches /admin",
+    "command": "Edge 158.0.4370.33, headless, fresh profile, driven over DevTools; https://hband.test:<port> through my Host-preserving TLS front to hband.exe; stand-in GitHub on 127.0.0.1 returns id 4242; click a.signin on the home page, then navigate to /admin",
+    "outcome": "passed",
+    "evidence": "Front log: /auth/github/login 302 to the stand-in (Sec-Fetch-Site: cross-site); the stand-in reports client_ok, pkce_ok and redirect_ok all true; the callback answered 303 to /, clearing __Host-hband_oauth and setting __Host-hband_sid. Home then shows 'Signed in as @author' with the Admin link. GET /admin answers 200 with no-store, the [data-hband-admin] marker and '@author (owner)'."
+   },
+   {
+    "what": "Browser applies the cookies as written, including the __Host- deletions (O-026)",
+    "command": "CDP Network.getCookies after sign-in, after a browser relaunch, and after sign-out",
+    "outcome": "passed",
+    "evidence": "After sign-in only __Host-hband_sid is present: domain hband.test (host-only), path /, secure, httpOnly, SameSite Lax, session=false, 30.0 days; the OAuth cookie deletion was applied. The cookie survived a relaunch of the same profile (/admin 200 with the marker). After sign-out the cookie list is [] and the next GET / carried no Cookie header."
+   },
+   {
+    "what": "Real browser sends a cross-site sign-out attempt and the app refuses it (O-027)",
+    "command": "Navigate to http://127.0.0.1:<gh>/evil, a page that auto-submits POST https://hband.test:<port>/auth/logout; then GET /admin",
+    "outcome": "passed",
+    "evidence": "Front log: POST /auth/logout 403 with sfs=cross-site, origin=http://127.0.0.1:<gh> and no cookie (Lax). Body: 'cross-origin request detected from Sec-Fetch-Site header'. The following GET /admin still answers 200 with the marker."
+   },
+   {
+    "what": "Same-origin sign-out through the app's own button, then replaying the old cookie",
+    "command": "On /admin, click form[action=/auth/logout] button; then send the captured old cookie on GET /admin straight to the binary",
+    "outcome": "passed",
+    "evidence": "POST /auth/logout: sfs=same-origin, origin=https://hband.test:<port>, 303 to /, Set-Cookie __Host-hband_sid with an empty value and Max-Age=0. Home shows the sign-in anchor. Replaying the old cookie answers 303 to /auth/github/login?next=%2Fadmin with no-store. In the database, the owner's session row is gone."
+   },
+   {
+    "what": "Sign-out refusals sent straight to the binary",
+    "command": "http.client POST /auth/logout with Origin https://evil.example; POST with Sec-Fetch-Site: cross-site; GET /auth/logout; then GET /admin, all with the owner cookie",
+    "outcome": "passed",
+    "evidence": "403, 403 and 405; afterwards /admin answers 200 with the marker and no-store"
+   },
+   {
+    "what": "Browser does not bring an owner's admin page back from its cache after sign-out (O-028, browser side)",
+    "command": "After sign-out, run history.back() towards /admin with the stand-in's auto-approve off",
+    "outcome": "passed",
+    "evidence": "Front log shows a new GET /admin with no cookie, answered 303 to login, then 302 to the stand-in. The page ended on the stand-in's Authorize page with no marker. Every /admin response in the run (200, 303 and 403) carried Cache-Control: no-store."
+   },
+   {
+    "what": "Another GitHub account with the owner's own login name is refused",
+    "command": "The stand-in returns id 777 with login 'author'; navigate to /admin and run the sign-in flow; then GET /",
+    "outcome": "passed",
+    "evidence": "The callback answered 303 to /admin; /admin answered 403 with no-store, the 'Not allowed ... You are signed in as @author' page and no marker. Home shows 'Signed in as @author' and no Admin link."
+   },
+   {
+    "what": "Access matrix against the compiled binary over a real socket, three identities",
+    "command": "http.client to 127.0.0.1:<app> with Host hband.test:<port>; GET/HEAD/POST on //admin/, /admin/../admin/, //admin, /ADMIN, /ADMIN/, /admin, /admin/, /%61dmin, /%61dmin/, /admin/%2e%2e/admin/, /admin/does-not-exist; anonymous, non-owner (777) and owner cookies",
+    "outcome": "passed",
+    "evidence": "33 rows per identity, 0 violations for anonymous and non-owner. Gated paths: anonymous GET/HEAD 303 to /auth/github/login?next=..., POST 403; non-owner 403 for every method; all with no-store. Case variants 404. Cleaned variants 307 to /admin or /admin/. No anonymous or non-owner row is 2xx or carries the marker. Owner: gated GET 200 with the marker, the unknown path 404, POST 405 or 404."
+   },
+   {
+    "what": "Cleaned path variants answer the 301 the criterion text says",
+    "command": "Same matrix; Grep in C:\\Program Files\\Go\\src\\net\\http\\server.go",
+    "outcome": "passed",
+    "evidence": "The observed status is 307, not 301. It comes from Go 1.27.4's own ServeMux, which uses RedirectHandler(..., StatusTemporaryRedirect) at server.go:2747, 2763 and 2772. This slice's code does not write it. The security invariant holds: never 2xx, never the marker, Location /admin or /admin/. The build already recorded the deviation under O-017. Passed on the invariant; the 301 in the design text is out of date."
+   },
+   {
+    "what": "Sign-in fails closed when the database is locked by another process",
+    "command": "Python sqlite3 BEGIN EXCLUSIVE on <cwd>\\data\\hband.db while Edge runs a sign-in (stand-in id 999) holding the non-owner cookie; ROLLBACK afterwards",
+    "outcome": "passed",
+    "evidence": "The callback answered 503 'Sign-in could not be saved, try again' after 5.1 s (busy_timeout). Set-Cookie held only the __Host-hband_oauth clear, no __Host-hband_sid. The browser kept its previous session cookie unchanged. The database has no user 999. The log reads 'sign in: save user: database is locked (5) (SQLITE_BUSY)' and nothing else sensitive."
+   },
+   {
+    "what": "The database stores a hash of the session cookie, never the cookie",
+    "command": "After the run, read-only sqlite3 on my scratch database (not the ledger)",
+    "outcome": "passed",
+    "evidence": "users: (777, author) and (4242, author). sessions: one row, for 777. Its token_hash equals hex(sha256(the browser's cookie value)), and no row equals a raw cookie value."
+   },
+   {
+    "what": "The server log never carries the secret, codes, tokens or cookie values",
+    "command": "Scan hbandB.log for the marker secret, the 6 codes and tokens the stand-in issued, and the cookie values read over DevTools",
+    "outcome": "passed",
+    "evidence": "3 lines: listening, the endpoint-override warning, and the SQLITE_BUSY error. secret=false, codes_or_tokens_found=0 of 6, cookie_values_found=0."
+   },
+   {
+    "what": "Cleanup of what I started",
+    "command": "Get-CimInstance Win32_Process filtered on my scratch path; count msedge processes; Remove-Item on the scratch folder",
+    "outcome": "passed",
+    "evidence": "0 of my processes left; the person's msedge processes numbered 5 before and 5 after and were not touched; the scratch folder was removed"
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "1. Pin the owner in config: only a strictly positive decimal int64 is accepted",
+    "met": "yes",
+    "how": "config.TestLoadOwnerIDGrammar passes with every listed refusal and both accepted values. On the real binary, '', 'octocat' and '0' each exit 2 naming HBAND_OWNER_GITHUB_ID, and 4242 starts. I did not run the other refused forms against the binary; they are covered by the test."
+   },
+   {
+    "criterion": "2. Base URL and GitHub endpoints: https anywhere, http only on loopback; other forms refused naming the variable; TRUSTED_PROXIES tolerated; HBAND_ADDR default",
+    "met": "yes",
+    "how": "TestLoadBaseURL, TestLoadGitHubEndpoints and TestLoadIgnoresUnknownVariables pass. On the real binary: remote http for each of the 3 variables exits 2 naming it; https://hband.test:<port>, http://127.0.0.1:<gh> and HBAND_TRUSTED_PROXIES=127.0.0.1 are accepted; unset GitHub variables give github.com. The default HBAND_ADDR of 127.0.0.1:8080 is checked only by the test."
+   },
+   {
+    "criterion": "3. The compiled binary run four ways",
+    "met": "yes",
+    "how": "TestBinary passes. I also ran all four shapes myself. (1) Finish-line shape, with the base at https://hband.test:<port> behind a TLS front rather than a rewriting transport: owner 200 with the marker, ID 777 got 403, anonymous 303 to login. (2) No overrides: 302 to github.com/login/oauth/authorize. (3) A remote http HBAND_GITHUB_URL: exit 2 naming it. (4) No owner with a marker secret: exit 2 in 0.06 s, secret never printed."
+   },
+   {
+    "criterion": "4. Owner signs in with GitHub: anchor control, flow ends on GET /admin 200 with the marker and @login, one session row holding hex(sha256(cookie))",
+    "met": "yes",
+    "how": "Real Edge clicked the home anchor <a class=signin href=/auth/github/login?next=%2F>; the page has no forms while signed out. The flow completed through the cross-site stand-in, and GET /admin answered 200 directly with the marker and @author. The session row is the sha256 of the cookie, checked on the remaining row. TestOwnerSignInReachesAdmin and TestHomeSignInIsAnchor cover the flow that starts at /admin and the exactly-one-row assertion."
+   },
+   {
+    "criterion": "5. Keep admin pages from anonymous visitors: per-class outcomes for GET, HEAD and POST, no 2xx, no marker, Locations limited, no-store",
+    "met": "yes",
+    "how": "33-row matrix against the compiled binary over a real socket, with 0 violations: gated GET/HEAD 303 to login, POST 403, all no-store; case variants 404; cleaned variants redirect to /admin or /admin/. The cleaned status is 307 from Go 1.27.4's ServeMux, not the 301 in the criterion text; the security invariant holds. TestAdminAccessMatrix/anonymous also passes and covers every adminRoutes path."
+   },
+   {
+    "criterion": "6. Keep admin pages from every other GitHub account; the same session still shows @login on the home page",
+    "met": "yes",
+    "how": "Real Edge signed in as ID 777 with login 'author', the owner's own login: /admin 403 with no marker, home shows @author with no Admin link. The binary matrix with that cookie: every gated path 403 for GET, HEAD and POST, with 0 violations."
+   },
+   {
+    "criterion": "7. OwnerRoute refuses a handler reached without the gate's proof; IsOwner table",
+    "met": "yes",
+    "how": "Code only: auth.TestOwnerRouteWithoutProof and auth.TestIsOwner pass. This cannot be reached from outside the process, because every real request passes through RequireOwner."
+   },
+   {
+    "criterion": "8. Stop honouring a session that no longer proves the owner (pin change, expired, malformed, rotated)",
+    "met": "yes",
+    "how": "TestPinChangeRevokesAdmin, TestDeadSessionIsAnonymous and TestSignInRotatesSession pass. In the real run, the replayed owner cookie after sign-out got 303 to login. Pin change, expiry and malformed cookies are checked by the tests only."
+   },
+   {
+    "criterion": "9. Refuse a callback that the browser or GitHub did not vouch for (400s and 502s, 0 rows, OAuth cookie cleared)",
+    "met": "yes",
+    "how": "Code only: TestCallbackRefusesBadState and TestCallbackRefusesGitHubFailures pass. In the real run, the stand-in enforced PKCE, client secret and redirect_uri, and the app sent the matching values."
+   },
+   {
+    "criterion": "10. Fail closed when the database is unavailable (callback, logout, after sign-in)",
+    "met": "yes",
+    "how": "TestStoreErrorDeniesAdmin passes for all three moments. In the real run, a database locked by another process made the callback answer 503 with no session cookie and the OAuth cookie cleared; the browser's previous session was kept and no user row was written. The logout and after-sign-in moments are checked by the test only."
+   },
+   {
+    "criterion": "11. Sign out: same-origin POST deletes the row and clears the cookie with 303 to /; cross-site gets 403 and the session survives; GET gets 405",
+    "met": "yes",
+    "how": "Real Edge clicked the app's own Sign out button: 303 to /, the row was deleted, the browser dropped the cookie, and a replay got 303 to login. A real cross-site POST from Edge got 403 (Sec-Fetch-Site: cross-site) and /admin still answered 200. Sent straight to the binary: Origin evil got 403, Sec-Fetch-Site cross-site got 403, GET got 405. TestLogout passes."
+   },
+   {
+    "criterion": "12. Return to where sign-in started; every hostile next ends on '/'",
+    "met": "yes",
+    "how": "Code only for the hostile values: TestLoginNextIsLocalOnly passes through the full flow, including the gate case. In the real run, next=%2F returned to / and next=%2Fadmin to /admin, verbatim."
+   },
+   {
+    "criterion": "13. Write every cookie so a browser applies it (__Host-, Secure, HttpOnly, Path=/, Lax, no Domain; clears Max-Age <= 0; unprefixed on a loopback http base)",
+    "met": "yes",
+    "how": "Real Edge over https stored __Host-hband_sid with exactly those attributes, host-only, and applied both __Host- deletions (Max-Age=0): the OAuth cookie after the callback and the session cookie after sign-out. TestCookieAttributes passes for all set and clear sites and for the loopback http base. The loopback http base was not tried in the browser."
+   },
+   {
+    "criterion": "14. Open and migrate the database (fresh, version 99 refused, cascade, no owner column, rebuild keeps children, orphan fails, SignIn rollback)",
+    "met": "yes",
+    "how": "The internal/store suite passes every listed row, and TestRealMainRefusesBadConfig covers realMain returning 1. The real binary twice created a fresh database under the relative default <cwd>\\data and served from it."
+   },
+   {
+    "criterion": "The real sign-in works with the author's own GitHub account on github.com, using a registered OAuth app",
+    "met": "person-run",
+    "how": "Register a GitHub OAuth app whose callback is <public base>/auth/github/callback. Start hband behind the VPS proxy with HBAND_BASE_URL set to the public https URL, HBAND_OWNER_GITHUB_ID set to the author's numeric ID (from https://api.github.com/users/<login>), and the client ID and secret, with no HBAND_GITHUB_* overrides. In a normal browser, open <base>/admin and sign in on github.com. It must show 'Admin' with '@<login> (owner)'. Sign out must return to the home page with 'Sign in with GitHub'. A second GitHub account must get 'Not allowed' on /admin."
+   }
+  ],
+  "planned": [],
+  "obligations": [
+   {
+    "key": "O-026",
+    "verified": "yes",
+    "evidence": "Real Edge 158.0.4370.33 over https, through a TLS front that keeps the Host header, to the compiled binary. It stored __Host-hband_sid as written: Secure, HttpOnly, SameSite=Lax, Path=/, host-only, 30 days, kept across a relaunch. It applied both __Host- deletions: after the callback's Max-Age=0 clear the OAuth cookie was gone, and after sign-out the cookie list was [] and the next request carried no Cookie header. Not measured: Firefox or Safari, and the real VPS proxy (the person's sign-in check)."
+   },
+   {
+    "key": "O-027",
+    "verified": "yes",
+    "evidence": "On the https configuration the deployment uses, Edge sent Sec-Fetch-Site on every request through the front. Same-origin values: sign-out POST same-origin, giving 303; navigations none, subresources same-origin. Cross-site values: the OAuth return was cross-site, and an evil page's POST was cross-site, giving 403 'cross-origin request detected from Sec-Fetch-Site header' with the session intact. A loopback-http base was not tried in a browser."
+   },
+   {
+    "key": "O-028",
+    "verified": "yes",
+    "evidence": "Through the front, every /admin response carried Cache-Control: no-store: 200 (owner), 303 (anonymous) and 403 (non-owner). After sign-out, Edge's history.back() made a fresh GET /admin, answered 303 to login, and did not restore the owner page. As the obligation itself records, whether the real VPS proxy honours no-store is filed for the person and could not be reached from here."
+   }
+  ],
+  "not_reached": [
+   "The real github.com sign-in with the author's own account and a registered OAuth app (person-run). Every flow here used a stand-in on loopback that enforces PKCE, the client secret and redirect_uri.",
+   "The real VPS reverse proxy over WireGuard: whether it keeps or rewrites Host, adds or strips Sec-Fetch-*/Origin, and honours Cache-Control: no-store on /admin. My TLS front is a stand-in for its shape only.",
+   "Browsers other than Chromium/Edge 158 (Firefox and Safari handling of __Host- deletions, Sec-Fetch-Site and form-action on the sign-out redirect).",
+   "A loopback-http base URL (unprefixed cookies, no Secure) in a real browser. It was checked only by TestCookieAttributes.",
+   "The home page '/' is personalised (it shows '@login' and the sign-out form) and carries no Cache-Control header. I did not check whether the VPS proxy could cache it heuristically. It is not an admin response and no criterion covers it.",
+   "Linux and Docker: the binary ran on this Windows PC only. The container volume's ownership and read-only behaviour (N-011, the write-protected database) were not exercised."
+  ],
+  "screens": []
+ }
+}

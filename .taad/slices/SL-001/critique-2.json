@@ -1,0 +1,297 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-001",
+ "stage": "critique",
+ "attempt": 2,
+ "at": "2026-11-23T13:10:12.312Z",
+ "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+ "run_id": 11629,
+ "summary": "The rework answers every accepted finding from attempt 1:\n- **M1:** the access matrix now has one expected outcome per variant class, driven in-process without following redirects.\n- **M-add-1:** LocalPath checks the exact string that goes out, SeeOther writes it verbatim, and a rule forbids http.Redirect.\n- **m1:** one cookie helper, a rule against writing cookies anywhere else, and a TLS test over every Set-Cookie, deletions included.\n- **m2:** TestOwnerRouteWithoutProof and TestIsOwner.\n- **m3:** every sign-in control is an anchor, with a test.\n- **m5 and m6:** new-named rules for text/template and for scheme or host read from the request.\n- **m7:** SignIn runs as one transaction; a failed sign-in and a failed logout each answer 503.\n- **M-add-3:** migrations run on a separate handle with foreign_key_check before commit.\n\nThe deferred items (m4, m8, M-add-2) are written into the SC-002 part.\n\nThe endpoint lockdown was retired because the finish-line tests override the GitHub endpoints, and the reasoning holds: whoever controls the environment can already set HBAND_OWNER_GITHUB_ID. The replacement rule plus the https-or-loopback check keep what still matters.\n\nI checked the regex in the existing /admin registration rule by hand: it allows both RequireOwner mounts. The go1.26.4 csrf.go source still says requests with neither Sec-Fetch-Site nor Origin are allowed, which the finish-line harness relies on.\n\nI could not check the finish-line tests themselves: tests/acceptance is not in the tree yet. The nine overrides therefore rest on test content I could not read.\n\nThree new minor defects:\n- **SC-001:** \"SeeOther is the only 303\" is enforced only by banning the http.Redirect spelling, so a hand-written Location header still gets past it.\n- **SC-001:** SeeOther's 512-byte cap applies to the gate's whole login URL. A long admin URL sends anonymous visitors to / instead of sign-in, which breaks the gate contract and the matrix invariant. This one is safe, not a leak.\n- **SC-002:** Open sweeps tmp/* unconditionally, and that deletes m8's tmp/<id>.old. After a crash mid-replace, that file is the only copy of the bytes the row describes.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The rework answers every accepted finding from attempt 1:\n- **M1:** the access matrix now has one expected outcome per variant class, driven in-process without following redirects.\n- **M-add-1:** LocalPath checks the exact string that goes out, SeeOther writes it verbatim, and a rule forbids http.Redirect.\n- **m1:** one cookie helper, a rule against writing cookies anywhere else, and a TLS test over every Set-Cookie, deletions included.\n- **m2:** TestOwnerRouteWithoutProof and TestIsOwner.\n- **m3:** every sign-in control is an anchor, with a test.\n- **m5 and m6:** new-named rules for text/template and for scheme or host read from the request.\n- **m7:** SignIn runs as one transaction; a failed sign-in and a failed logout each answer 503.\n- **M-add-3:** migrations run on a separate handle with foreign_key_check before commit.\n\nThe deferred items (m4, m8, M-add-2) are written into the SC-002 part.\n\nThe endpoint lockdown was retired because the finish-line tests override the GitHub endpoints, and the reasoning holds: whoever controls the environment can already set HBAND_OWNER_GITHUB_ID. The replacement rule plus the https-or-loopback check keep what still matters.\n\nI checked the regex in the existing /admin registration rule by hand: it allows both RequireOwner mounts. The go1.26.4 csrf.go source still says requests with neither Sec-Fetch-Site nor Origin are allowed, which the finish-line harness relies on.\n\nI could not check the finish-line tests themselves: tests/acceptance is not in the tree yet. The nine overrides therefore rest on test content I could not read.\n\nThree new minor defects:\n- **SC-001:** \"SeeOther is the only 303\" is enforced only by banning the http.Redirect spelling, so a hand-written Location header still gets past it.\n- **SC-001:** SeeOther's 512-byte cap applies to the gate's whole login URL. A long admin URL sends anonymous visitors to / instead of sign-in, which breaks the gate contract and the matrix invariant. This one is safe, not a leak.\n- **SC-002:** Open sweeps tmp/* unconditionally, and that deletes m8's tmp/<id>.old. After a crash mid-replace, that file is the only copy of the bytes the row describes.",
+  "findings": [
+   {
+    "id": "m10",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "claim": "The m8 fix sets the old file aside, and the Open sweep then destroys it. Replace moves reports/<id>.html to tmp/<id>.old, renames the new file in and commits, while Open sweeps tmp/* with no conditions.\n\nSuppose the process dies after the move and before the commit: container kill, power loss on the home server, or OOM. SQLite rolls back to the old row (old sha256 and size). reports/<id>.html is then either missing (the crash came before the rename) or holds the new bytes that were never committed. tmp/<id>.old holds the only copy of the bytes the row describes, and the next Open deletes it.\n\nThe result is a published report that 404s or 500s on /raw, or that serves bytes which do not match its ETag and size, so clients holding the old ETag get false 304s. That is the inconsistency m8 was meant to remove, now reached by a crash instead of a commit failure. The move also leaves the canonical path empty for a moment, so a concurrent public /raw read can miss the file: the package mutex covers writes only.\n\nSC-002 gets no critique of its own, so this is the only place to catch it.",
+    "evidence": "The Report library's SAVE rule for an existing slug, and its sweep rule 'Open sweeps tmp/* and any reports/<n>.html that has no row.' Both are in the same component.",
+    "file": ".taad/slices/SL-001/design-slice-2.json",
+    "line": 78,
+    "quote": {
+     "path": ".taad/slices/SL-001/design-slice-2.json",
+     "line": 78,
+     "text": "Move reports/<id>.html to tmp/<id>.old, rename the new file into place, then commit."
+    },
+    "fix": "Never empty the canonical path. Hard-link (os.Link) or copy reports/<id>.html to tmp/<id>.old instead of moving it, then rename the new file over reports/<id>.html, which replaces it atomically on Linux. At Open, before the tmp/* sweep, reconcile each tmp/<id>.old against the row's sha256: if .old matches the row and reports/<id>.html does not, rename .old back; otherwise delete it. Add an SC-002 test that plants the crash state (row with the old sha256, new bytes at reports/<id>.html, old bytes at tmp/<id>.old) and asserts that Open leaves the file matching the row."
+   },
+   {
+    "id": "m11",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The design says SeeOther 'is the only way any package answers a 303' and that 'every 303 in the code is a proven local path'. The only enforcement is the new rule banning the spelling `http.Redirect(`. Once that is banned, the natural fallback is `w.Header().Set(\"Location\", target); w.WriteHeader(http.StatusSeeOther)` in an SC-002 admin handler, or `http.RedirectHandler(...)`, and both pass every rule.\n\nSo the invariant M-add-1's fix depends on still holds only by remembering. The design already writes one Location by hand, the login's 302 to GitHub, so the pattern is right there in the codebase to copy.",
+    "evidence": "The new fitness rule 'no redirect is written through http.Redirect' has a single pattern. The Cookie and redirect helpers component says the login handler writes Location directly with Header().Set.",
+    "file": ".taad/fitness.yaml",
+    "line": 108,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 108,
+     "text": "- \\bhttp\\.Redirect\\("
+    },
+    "fix": "Add `\\bhttp\\.RedirectHandler\\(` and `(?i)Header\\(\\)\\.(Set|Add)\\(\"location\"` to that rule. Add internal/auth/next.go (SeeOther) and the single file that writes the login's 302 to GitHub to its except_files, so every other Location header has to go through SeeOther.",
+    "class_of": "redirect-writing spellings",
+    "threat": "accident"
+   },
+   {
+    "id": "m12",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "claim": "Two of the design's own rules contradict each other at the gate.\n- RequireOwner answers an anonymous GET with SeeOther('/auth/github/login?next=' + url.QueryEscape(r.URL.RequestURI())).\n- SeeOther runs LocalPath, which caps the WHOLE target at 512 bytes and silently substitutes '/' when it is longer.\n\nQueryEscape grows the RequestURI: each '/' becomes %2F and each '%' becomes %25. So any admin URL long enough that the escaped login URL passes 512 bytes sends the anonymous visitor to the home page, not to sign-in. Depending on how many slashes and escapes it holds, that is somewhere between about 160 and 490 bytes.\n\nThis breaks the gate contract ('Anonymous GET or HEAD: 303 to /auth/github/login?next=…') and the matrix invariant ('any Location is /admin, /admin/ or begins /auth/github/login?'). The matrix will not catch it, because every path it lists is short. The outcome is safe, not a leak, but the contract states something the code will not do.",
+    "evidence": "The Owner gate component gives the anonymous redirect. The Cookie and redirect helpers component makes SeeOther run LocalPath on its target, and LocalPath accepts only 1 to 512 bytes.",
+    "file": ".taad/slices/SL-001/design-slice-2.json",
+    "line": 54,
+    "quote": {
+     "path": ".taad/slices/SL-001/design-slice-2.json",
+     "line": 54,
+     "text": "SeeOther('/auth/github/login?next=' + url.QueryEscape(r.URL.RequestURI()))"
+    },
+    "fix": "In RequireOwner, pass next only when LocalPath accepts RequestURI on its own and the escaped login URL fits in 512 bytes. Otherwise redirect to the plain '/auth/github/login', so the target is always the login URL. Add a 400-byte admin path to the anonymous matrix row, asserting a Location that begins /auth/github/login."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "I could not verify the finish-line tests. A Glob of the worktree finds no tests/acceptance, so the nine overrides rest on test content that is not in the tree yet. The design says a person approved those tests, so this is recorded here as 'could not look' and not filed.\n\nThe load-bearing recalled claim checks out. The go1.26.4 csrf.go doc (https://github.com/golang/go/blob/go1.26.4/src/net/http/csrf.go) still says 'Requests without Sec-Fetch-Site or Origin headers are currently assumed to be either same-origin or non-browser requests, and are allowed', which is what the harness's admin POSTs need.\n\nServeMux serves the exact /admin pattern without a redirect, which agrees with its documented redirect rule (a redirect only when /tree is not registered). Open upstream issues #60769 and #50243 (redirect with 308 or 307 instead of 301) could change the cleaned class's status code on a later toolchain. The design's 'correct a class expectation only by quoting the observed response' already covers that."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "m10: Open's unconditional tmp/* sweep deletes m8's set-aside file after a crash mid-replace, and the move leaves the canonical path empty for a moment. LocalPath covers the M-add-1 inputs plus the tab and newline, NUL, space and %5c shapes, and the case asserts on the emitted Location."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "none: m1 (one cookie helper with a rule), m7 (SignIn as one transaction), M-add-3 (migrations on a separate handle, possession and handback) and m2 (OwnerRoute and IsOwner tests) are each answered by moving the invariant into a seam or a test. Lesson #73 still applies: the slice is sized medium and the design itself expects several laps. Noted here, not filed."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "none: each new mechanism is tied to an accepted finding. The %5c refusal and TestSignInIsAtomic are marked as the first to trim, and the separate migration handle removes a failure branch rather than adding one."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "m12: SeeOther's 512-byte cap applies to the gate's whole login URL, so a long admin URL redirects anonymous visitors to '/' instead of sign-in, against the gate contract and the matrix invariant. m4 is answered by serveRaw's cache parameter, which the SC-002 part carries."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "none new: a failed SignIn gives 503 with no session cookie, a failed DeleteSession at logout gives 503 with the cookie kept, a failed migration rolls back and leaves user_version unchanged, and config errors exit 2 with every bad variable named. Each is pinned by TestStoreErrorDeniesAdmin or the store tests."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "none: the decided stack is kept. The renamed variables (HBAND_ADDR, HBAND_GITHUB_URL, HBAND_GITHUB_API_URL, HBAND_MAX_UPLOAD_BYTES) remain HBAND_* environment variables with exit 2 on bad config. The retired fitness rule is replaced by a new-named narrower one, not just dropped. The old entry is still present at .taad/fitness.yaml:44 and its removal is a listed SC-001 deliverable."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "m11: the rule behind 'SeeOther is the only 303' bans only the http.Redirect spelling, so a hand-written Location header gets past it.\n\nI checked the existing /admin registration rule by hand. Its negative lookahead allows both `mux.Handle(\"/admin\", auth.RequireOwner(` and `mux.Handle(\"/admin/\", auth.RequireOwner(`, and the loop-registered adminMux patterns are not literals. The new cookie, text/template, request-host and endpoint rules match the spellings the accepted findings named."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "none new beyond the tests proposed in m10 and m12. The cases now cover: OwnerRoute without proof, the IsOwner table, an anchor-only sign-in, every Set-Cookie under TLS including deletions, a migration rebuild that keeps child rows, an orphan rejected by foreign_key_check, atomic SignIn, and the real binary under the finish-line environment shape."
+   },
+   {
+    "dimension": "security",
+    "result": "none new beyond m11. The retired endpoint lockdown gives no extra privilege, because environment control already sets the owner pin. A remote plain-http override exits 2, and any override is logged at startup. The open redirect (M-add-1) is closed by checking the exact emitted string. Ownership is recomputed per request, the gate covers both mounts, and the CSP and sandbox on the report path are unchanged."
+   }
+  ]
+ },
+ "prescribed": {
+  "host": 670,
+  "at": "2026-11-23T13:20:36.605Z",
+  "runs": [
+   {
+    "run_id": 11634,
+    "resumed_from": "d77109b2-d699-4ce6-a771-91d0fd38a325",
+    "ending": "completed",
+    "cost_usd": 1.5168652000000007,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 1934,
+    "key": "m11",
+    "digest": "b8282181fd2388ed"
+   },
+   {
+    "finding_id": 1935,
+    "key": "m12",
+    "digest": "5cc5766912aadb89"
+   },
+   {
+    "finding_id": 1930,
+    "key": "M-add-1",
+    "digest": "5ea2d5a0bd378854"
+   },
+   {
+    "finding_id": 1932,
+    "key": "M-add-3",
+    "digest": "10f7e003f7c286c9"
+   },
+   {
+    "finding_id": 1920,
+    "key": "M1",
+    "digest": "cd0d7dd8a6789d12"
+   },
+   {
+    "finding_id": 1921,
+    "key": "m1",
+    "digest": "19db7f2f0105fab0"
+   },
+   {
+    "finding_id": 1922,
+    "key": "m2",
+    "digest": "036f159588549cff"
+   },
+   {
+    "finding_id": 1923,
+    "key": "m3",
+    "digest": "05069094e7984cae"
+   },
+   {
+    "finding_id": 1925,
+    "key": "m5",
+    "digest": "97f1cfdffa845a7f"
+   },
+   {
+    "finding_id": 1926,
+    "key": "m6",
+    "digest": "e55c99ad98350134"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 1934,
+    "key": "m11",
+    "digest": "b8282181fd2388ed",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read the 'no redirect is written through http.Redirect' rule at .taad/fitness.yaml:105-115. In design-slice-2, read the OAuth flow component's lives_at, \"internal/auth/github.go, internal/auth/handlers.go\" (line 41), and the redirect helper's \"The login handler's 302 to GitHub is the one absolute redirect, written directly with Header().Set and WriteHeader(302)\" (line 37). Tried the patterns against the ways a Location can be written by hand.",
+    "why": "1. The exemption opens the hole it is meant to close. Per the design, the login handler shares internal/auth/handlers.go with the callback and logout. Exempting 'the single file that writes the login's 302' therefore exempts the callback, which is the 303-to-next where M-add-1's open redirect lived. A later edit in that file that writes `w.Header().Set(\"Location\", next)` passes the rule. It is also ambiguous which file is meant, github.go or handlers.go.\n2. The pattern `(?i)Header\\(\\)\\.(Set|Add)\\(\"location\"` only matches the chained form. `h := w.Header(); h.Set(\"Location\", t)` is how http.Redirect itself is written and gets past it. So do `w.Header()[\"Location\"] = …` and a space after the parenthesis.",
+    "instead": "Move the one absolute 302 into internal/auth/next.go as a second helper, for example `ToProvider(w, cfg, authURL)`, which refuses any URL that does not start with cfg.GitHub.AuthURL. Then except_files is only next.go, plus the existing _test.go and internal/testutil/** exceptions. Use these patterns: `\\bhttp\\.Redirect\\(`, `\\bhttp\\.RedirectHandler\\(`, `(?i)\\.(Set|Add)\\(\\s*\"location\"`, `(?i)\\[\\s*\"location\"\\s*\\]`. Optionally add `http\\.Status(SeeOther|Found|MovedPermanently|TemporaryRedirect|PermanentRedirect)\\b`, which no handler outside next.go needs. Edit the existing rule in place in fitness.yaml: its name is already recorded, so an appended copy under that name would be ignored."
+   },
+   {
+    "finding_id": 1935,
+    "key": "m12",
+    "digest": "5cc5766912aadb89",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read design-slice-2's gate contract and the matrix invariant \"any Location is /admin, /admin/ or begins /auth/github/login?\" (line 187). Worked through the byte counts: QueryEscape turns '/' into %2F and '%' into %25, and the prefix '/auth/github/login?next=' is 24 bytes. Followed RequestURI for /admin/%2e%2e/%5Cevil.example through LocalPath.",
+    "why": "1. The fallback contradicts the design's own invariant. The plain '/auth/github/login' has no '?', so it does not begin '/auth/github/login?'. The anonymous matrix row would then fail on the very path the fix adds, unless the invariant and the gate contract ('303 to /auth/github/login?next=…') are reworded too, and the prescription does not ask for that.\n2. The prescribed test does not separate fixed from unfixed code. A 400-byte admin path with only its two slashes escapes to about 404 bytes, plus 24, which is about 428: under 512. The unfixed code also answers a Location beginning /auth/github/login, so the test is green either way. Only a path dense with slashes (over about 163 bytes of '/x' pairs) or with % in it crosses the cap.\n\nThe rest holds:\n- Checking RequestURI on its own refuses %5C, which agrees with the existing 'ends on /' case for /admin/%2e%2e/%5Cevil.example.\n- QueryEscape output stays inside LocalPath's 0x21..0x7E range and never forms '%5c' (it gives %255c).",
+    "instead": "Keep the fallback, and update the invariant and the gate contract to 'Location is /admin, /admin/, exactly /auth/github/login, or begins /auth/github/login?'. Test two paths in the anonymous row:\n- `/admin/` + 'a/' repeated 200 times: about 407 bytes raw, over 800 escaped. Assert Location is exactly '/auth/github/login'.\n- A path whose escaped login URL is just under 512 bytes. Assert Location begins '/auth/github/login?next=' and that next decodes to the RequestURI."
+   },
+   {
+    "finding_id": 1930,
+    "key": "M-add-1",
+    "digest": "5ea2d5a0bd378854",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Tried these inputs against 'refuse \\ anywhere and check the exact emitted string':\n- /./\\evil.example, /x/../\\evil.example and /admin/../\\evil.example\n- %5C, which a browser leaves encoded, so it stays same-origin\n- tab, newline and other controls, which the WHATWG parser strips, so /\\t/evil would become //evil; refused as control characters\n- non-ASCII bytes written raw by Header().Set\n- a query on next\n- the gate's RequestURI: Go's EscapedPath re-escapes a raw '\\' to %5C\n- the callback re-checking the next decoded from base64url in the cookie\n\nAlso checked option B, path.Clean then check, against http.Redirect's own steps: it splits off the query, cleans the path and restores a trailing slash. path.Clean is idempotent, and once backslash and controls are refused it cannot emit '//' or '/\\'.",
+    "why": "Whichever option the builder takes, the string the browser receives has had the check applied to it. Design-2 takes the stricter option A (verbatim SeeOther plus the http.Redirect ban, extended under m11). I found no input that passes the check and leaves the origin. The prescribed test asserts on the Location of the callback's final 303, so it sees the emitted string, not the validator's return.",
+    "instead": ""
+   },
+   {
+    "finding_id": 1932,
+    "key": "M-add-3",
+    "digest": "10f7e003f7c286c9",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Walked the sequence: foreign_keys OFF outside a transaction, BEGIN, SQL, foreign_key_check, user_version, COMMIT, ON. Then checked:\n- the 12-step rebuild (create new_users, copy, DROP users, rename) with foreign keys off;\n- DROP with foreign keys on and ON DELETE CASCADE, which deletes the children and returns no error, so the prescribed test fails on the buggy runner;\n- user_version set inside the transaction: it lives in the header page and rolls back with the transaction;\n- foreign_key_check runs whatever the foreign_keys setting;\n- a migration file that itself contains BEGIN fails loudly ('cannot start a transaction within a transaction');\n- the injection seam: design-2's openWith(path, fs.FS).",
+    "why": "The order is SQLite's documented safe procedure, and the test (an injected 0002 rebuilds users and the sessions rows survive) fails on the defect it names. One residual risk depends on the variant built. If the dedicated Conn comes from the serving pool, a deferred `PRAGMA foreign_keys=ON` run with realMain's signal ctx fails after SIGTERM and returns the connection to the pool with foreign keys off. Design-2's separate *sql.DB, closed before the serving pool opens, removes that branch. Built as design-2 states, the prescription holds.",
+    "instead": ""
+   },
+   {
+    "finding_id": 1920,
+    "key": "M1",
+    "digest": "cd0d7dd8a6789d12",
+    "verdict": "hole",
+    "severity": "major",
+    "checked": "Compared the prescription's classes with design-slice-2 line 60, \"The exact /admin mount exists because the finish line requires GET /admin to answer 200 with no redirect.\", and the mounts `mux.Handle(\"/admin\", auth.RequireOwner(adminMux))` and `mux.Handle(\"/admin/\", …)`. Walked Go 1.22+ findHandler: it runs cleanPath on EscapedPath, redirects with 301 when the cleaned path differs, and redirects /tree to /tree/ only when /tree is not registered.",
+    "why": "The prescription is out of date and contradicts the current router. It puts /admin in the cleaned class ('301 with Location exactly /admin/') and allows only '/admin/ or /auth/github/login?…' as a Location. With the exact mount:\n- /admin is served by RequireOwner. It answers 303 or 403 to anonymous visitors and non-owners, and 200 to the owner.\n- //admin cleans to /admin, so its 301 Location is /admin, not /admin/.\n- With m12's fallback, a Location can also be exactly /auth/github/login.\n\nA builder who follows the prescription as written either sees the matrix fail, or removes the exact mount to make it pass, and then the person-approved finish line 1 fails. The rest of the prescription holds: //admin/ and /admin/../admin/ get 301 to /admin/, /ADMIN/ gets 404, and /%61dmin/ and /admin/%2e%2e/admin/ reach the gate, because EscapedPath keeps %2e and %61 matches per segment. The 'holds by construction' restatement also holds, now over two mounts.",
+    "instead": "Build design-2's classes:\n- cleaned: //admin/ and /admin/../admin/ get 301 to /admin/; //admin gets 301 to /admin;\n- case: /ADMIN and /ADMIN/ get 404;\n- gated: /admin, /admin/, /%61dmin, /%61dmin/, /admin/%2e%2e/admin/, /admin/does-not-exist and every adminRoutes path.\n\nUse the invariant 'no 2xx, no marker, and Location is /admin, /admin/, exactly /auth/github/login, or begins /auth/github/login?'. Restate the precondition as holding because adminMux is referenced only inside the two RequireOwner mounts."
+   },
+   {
+    "finding_id": 1921,
+    "key": "m1",
+    "digest": "19db7f2f0105fab0",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Read the 'every cookie is written by the one cookie helper' rule at .taad/fitness.yaml:71-82, with patterns http\\.Cookie\\s*\\{, http\\.SetCookie\\( and the chained Header().Set/Add(\"set-cookie\"). Tried these against it:\n- `&http.Cookie{`: matched\n- `new(http.Cookie)` followed by SetCookie: the write is matched\n- `w.Header().Add(\"Set-Cookie\", c.String())`: matched\n- an import alias, `h := w.Header(); h.Add(\"Set-Cookie\", …)`, and a map assignment: these get past it\n\nChecked that clearCookie keeps Secure, Path=/ and the __Host- name, that Go writes MaxAge -1 as Max-Age=0, and that the OAuth cookie value (43+43+about 683 bytes, characters [A-Za-z0-9_-.]) is under 4 KiB and needs no quoting. Checked TestCookieAttributes on NewTLSServer over every path, the 503 refusal included.",
+    "why": "Every natural way to write a cookie goes through the helper or is caught. The forms that get past (aliased net/http, Set-Cookie through a header variable, a map write) are deliberate detours, not accidents. The TLS test parses every Set-Cookie, deletions included, the way a browser applying __Host- rules would, so a wrong attribute fails in the loop rather than only in production. One harmless false positive: a function declared `func f() *http.Cookie {` outside cookies.go matches the first pattern.",
+    "instead": ""
+   },
+   {
+    "finding_id": 1922,
+    "key": "m2",
+    "digest": "036f159588549cff",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Wrote out the implementations of OwnerRoute that pass 'a bare request gets 403 and zero calls'. Checked the IsOwner table against `ownerID != 0 && ==`, which (-1,-1) catches, and `githubID > 0 && ==`, which is equivalent and passes.",
+    "why": "A bare request carries neither a Viewer nor an Owner. An OwnerRoute that checks `ViewerFrom(ctx)` ok, or `Viewer.IsOwner`, instead of the private Owner proof therefore also answers 403 and passes. The second interlock exists for a handler wired around RequireOwner, but still under Identify, which runs on every route. In that situation a Viewer is present. If OwnerRoute checks only that one is present, a non-owner is served, and the prescribed test stays green. The IsOwner table is adequate.",
+    "instead": "In the internal test in package auth, serve OwnerRoute three requests:\n- a bare one;\n- one whose context holds an Identify Viewer for a non-owner;\n- one whose context holds a Viewer with IsOwner=true but no Owner proof.\n\nExpect 403 and zero calls each time. Add a fourth with the Owner proof set the way RequireOwner sets it: expect one call, receiving that Owner."
+   },
+   {
+    "finding_id": 1923,
+    "key": "m3",
+    "digest": "05069094e7984cae",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read design-slice-2 line 60, \"Every sign-in control on every page is `<a href=…`\", and case TestHomeSignInIsAnchor (line 251). Looked for which pages carry sign-in controls: SC-001's home page, SC-005's reader header and the non-owner 403 page, plus later 'sign in to vote' controls. Checked that form-action covers GET forms and redirects, per the MDN/GitLab evidence from attempt 1. Checked the same-origin form flows: logout, a 303 to /, and admin POSTs, which answer 403 rather than redirecting when the session has expired. Neither form-action nor CSP blocks them.",
+    "why": "The rule is enforced by one home-page test. A <form action=\"/auth/github/login\"> on the SC-005 reader header (built without a critique of its own) or on a later vote or comment page passes every test and rule. It fails only in a real Chromium browser, which is exactly the hole the finding named for 'any later sign-in control'. fitness.yaml already scopes rules to non-Go files (migrations/*.sql), so a template rule can be built.",
+    "instead": "Keep the home-page test. Also append a rule with files internal/**/templates/**, must_not_match `(?i)<form[^>]*action=\"[^\"]*/auth/github/login`, so a form-shaped sign-in control fails on every page in every later slice."
+   },
+   {
+    "finding_id": 1925,
+    "key": "m5",
+    "digest": "97f1cfdffa845a7f",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read the 'site HTML is never rendered through text/template' rule at .taad/fitness.yaml:83-91 and the template.HTML( rule at :52-59. Listed the ways site HTML could be written unescaped: text/template; template.HTML conversions; and fmt.Fprintf, io.WriteString or w.Write with a markup string. The last group would naturally be used for small inline pages such as the non-owner 403, 'Sign-in expired' or 'No reports yet'.",
+    "why": "The import ban closes text/template, but the same class has a second spelling that nothing catches: HTML built by hand, as in `fmt.Fprintf(w, \"<p>Signed in as %s</p>\", v.Login)`. It needs no template package, so neither rule fires. Today the values involved are GitHub logins or fixed strings. Titles and comment bodies arrive in SC-002, SC-005 and later epics, and those are the untrusted text Q-001 says must be escaped.",
+    "instead": "Keep the text/template ban. Append a rule over internal/**/*.go and cmd/**/*.go (except _test.go and internal/testutil/**) with must_not_match `\"\\s*<[a-zA-Z!/]`, a Go string literal that starts with markup. All site HTML then lives in templates/ and goes through html/template. The site CSP and serveRaw header strings do not start with '<', so they are not matched."
+   },
+   {
+    "finding_id": 1926,
+    "key": "m6",
+    "digest": "e55c99ad98350134",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read the 'no handler derives scheme or host from the request' rule at .taad/fitness.yaml:92-104. Tried these against it:\n- r.Host and req.Host: matched\n- r.URL.Host: not matched, but empty on the server, so not a source\n- tr.TLS: correctly not matched, since there is no word boundary\n- r.Header.Get(\"Origin\"): matched\n- r.Referer(), r.Header.Values(\"Origin\"), r.Header[\"Referer\"], and a handler parameter named other than r or req: these get past it\n\nChecked that nothing in design-2 legitimately reads any of them. CrossOriginProtection's own Host read is inside the standard library.",
+    "why": "Referer is in the rule's own list, but the idiomatic accessor for it, `r.Referer()`, gets past the pattern. It is also the most likely spelling to appear, in a 'send the user back where they came from after sign-in' feature. That value is attacker-influenced and is exactly what the rule's 'because' forbids. `Header.Values(` and `Header[\"…\"]` are other ways to read the same headers. A parameter named differently, such as `request`, `rq` or `hr`, gets past all three patterns, but Go convention makes that an unlikely accident.",
+    "instead": "Add these patterns to the same rule, editing in place since the name is recorded: `\\b(r|req)\\.Referer\\(\\)`, `(?i)Header\\.Values\\(\"(host|origin|referer)\"\\)` and `(?i)Header\\[\\s*\"(host|origin|referer)\"\\s*\\]`, keeping the existing exceptions."
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:1934",
+   "finding:1935",
+   "finding:1920",
+   "finding:1922",
+   "finding:1923",
+   "finding:1925",
+   "finding:1926"
+  ],
+  "counts": {
+   "holds": 3,
+   "hole": 7,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "I checked all 10 prescriptions against design-slice-2 and .taad/fitness.yaml. M-add-1, M-add-3 and m1 hold. M1 has one major hole and six others have minor holes.\n\n- **M1 (major):** the prescription is out of date. It sends /admin to a 301 to /admin/ and allows only /admin/ or /auth/github/login? as a Location. The current design mounts /admin exactly, because a person-approved finish line needs GET /admin to answer 200. If the builder follows the prescription as written, either the matrix fails or finish line 1 does.\n- **m11:** the prescription exempts \"the file that writes the login's 302\". The design puts the login, the callback and logout together in internal/auth/handlers.go, so the exemption also exempts the callback, where the open redirect lived. The pattern also misses `h := w.Header(); h.Set(\"Location\", …)`.\n- **m12:**\n  - The plain /auth/github/login fallback breaks the matrix invariant, which requires a Location beginning \"/auth/github/login?\".\n  - The prescribed 400-byte test path, with few slashes, stays under 512 bytes, so the test passes on the unfixed code.\n- **m2:** a bare request through OwnerRoute cannot tell \"checks the Owner proof\" from \"checks any Viewer\".\n- **m3:** only the home page is tested; later sign-in controls are covered by nothing.\n- **m5:** writing HTML with fmt.Fprintf or w.Write is the same escaping bypass as text/template, and nothing stops it.\n- **m6:** r.Referer(), Header.Values and Header[...] get past the new patterns.",
+  "why": "",
+  "round": "landed"
+ }
+}

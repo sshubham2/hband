@@ -1,0 +1,95 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-001",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-23T12:35:19.477Z",
+ "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+ "run_id": 11614,
+ "summary": "All ten first-pass findings hold at the severities filed. M1 is correct on every variant. Go's ServeMux cleans the escaped path, so //admin/, /admin/../admin/ and /admin get a 301 and /ADMIN/ gets a 404, while /%61dmin/ and /admin/%2e%2e/admin/ reach the gate. That makes the precondition the design imported true by construction: adminMux is wired only through RequireOwner, so a variant that is wrong leads to a 404 or a 301, never to a leak.\n\nThe first reviewer missed one major issue: an open redirect after GitHub sign-in. The `next` check looks only at the start of the string, but the usual way to send the 303, `http.Redirect`, runs path.Clean, and path.Clean does not treat a backslash as a separator. So `/./\\evil.example` passes the check and goes out as `Location: /\\evil.example`, and browsers resolve that to evil.example. The gate's own %2e%2e variant leads to the same place.\n\nTwo smaller misses come from the epic parts that get no review of their own:\n- Report ids can be reused after a delete, because the table has no AUTOINCREMENT.\n- The migration runner always has foreign keys on, so a later table rebuild would cascade-delete child rows.\n\nThe overall approach is sound. It needs app-level OAuth because later epics let anyone sign in, server-side sessions because sign-out must end the session, and a subtree gate. None of the simpler designs I considered (stateless signed cookies, auth at the proxy) meet the slice's 'database and sessions' or the later public sign-in.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "All ten first-pass findings hold at the severities filed. M1 is correct on every variant. Go's ServeMux cleans the escaped path, so //admin/, /admin/../admin/ and /admin get a 301 and /ADMIN/ gets a 404, while /%61dmin/ and /admin/%2e%2e/admin/ reach the gate. That makes the precondition the design imported true by construction: adminMux is wired only through RequireOwner, so a variant that is wrong leads to a 404 or a 301, never to a leak.\n\nThe first reviewer missed one major issue: an open redirect after GitHub sign-in. The `next` check looks only at the start of the string, but the usual way to send the 303, `http.Redirect`, runs path.Clean, and path.Clean does not treat a backslash as a separator. So `/./\\evil.example` passes the check and goes out as `Location: /\\evil.example`, and browsers resolve that to evil.example. The gate's own %2e%2e variant leads to the same place.\n\nTwo smaller misses come from the epic parts that get no review of their own:\n- Report ids can be reused after a delete, because the table has no AUTOINCREMENT.\n- The migration runner always has foreign keys on, so a later table rebuild would cascade-delete child rows.\n\nThe overall approach is sound. It needs app-level OAuth because later epics let anyone sign in, server-side sessions because sign-out must end the session, and a subtree gate. None of the simpler designs I considered (stateless signed cookies, auth at the proxy) meet the slice's 'database and sessions' or the later public sign-in.",
+  "assessments": [
+   {
+    "finding": "M1",
+    "classification": "valid",
+    "note": "Checked against ServeMux's findHandler as I recall it (not run). It cleans the escaped path and sends a 301 RedirectHandler for any method when the result differs (//admin/, /admin/../admin/). It sends a 301 /tree to /tree/ redirect for /admin. Matching is case-sensitive, so /ADMIN/ falls through to 404. %61 is unescaped per segment, so /%61dmin/ matches /admin/. %2e%2e is not cleaned and reaches the gate. The design contradicts itself: its own router component and gate contract say 'ServeMux's redirect of /admin to /admin/ is relied on', yet the matrix row expects /admin to answer 303 or 403. A security test that cannot pass as written, in a high-risk slice, is correctly major. The restated precondition is right: if it were false, nothing would leak, because adminMux has no wiring except through RequireOwner and OwnerRoute."
+   },
+   {
+    "finding": "m1",
+    "classification": "valid",
+    "note": "RFC 6265bis checks the prefix rules on every Set-Cookie, deletions included. Go serialises {Name:\"__Host-…\", MaxAge:-1} as 'Max-Age=0' with no Secure, and the browser drops it. Every end-to-end test runs over loopback http, where the cookie names have no prefix, so none would notice. Minor is right: the gate does not depend on the cookie actually being cleared, because the session row is deleted and the OAuth state can be used once."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "Every check in the case list targets config, cmd, server or store. Each admin request in those tests arrives through RequireOwner, so an OwnerRoute that just passes requests through goes green. Minor is right: the primary gate is covered."
+   },
+   {
+    "finding": "m3",
+    "classification": "valid",
+    "note": "Chromium checks form-action against every redirect after a form submission, and the design does not say what shape the 'Sign in with GitHub' control takes. The sign-out forms are unaffected because they 303 to /, on the same origin. Minor is right: sign-in fails closed and is visible to the person checking by hand."
+   },
+   {
+    "finding": "m4",
+    "classification": "valid",
+    "note": "The text says RequireOwner sets no-store first and serveRaw then calls Header().Set(\"Cache-Control\", \"no-cache\"). That contradicts the coherence check's 'compatible' and the transfer invariant. The practical exposure is small: a shared cache has to revalidate no-cache responses with the origin, and the origin's gate refuses. A browser disk cache would still keep the draft. Minor is right, and it matters because SC-002 gets no critique of its own."
+   },
+   {
+    "finding": "m5",
+    "classification": "valid",
+    "note": "The rule's only check is a regex on typed conversions. Importing text/template escapes nothing and never matches that regex. Adding must_not_import is a one-line fix."
+   },
+   {
+    "finding": "m6",
+    "classification": "valid",
+    "note": "The rule is named for 'scheme, host or client identity' but only lists forwarded-header names. r.Host is the most natural way to write an absolute URL by mistake. CrossOriginProtection's use of Host is inside the standard library, outside the scanned files, so the suggested patterns would not flag it."
+   },
+   {
+    "finding": "m7",
+    "classification": "valid",
+    "note": "The callback's error_cases list 400, 502 and 405, but say nothing about a store failure on the success path or about logout's DeleteSession failing. The gate stays fail-closed either way, so minor is right."
+   },
+   {
+    "finding": "m8",
+    "classification": "valid",
+    "note": "Renaming the file before the commit means a failed commit leaves the new bytes on disk while the row keeps the old sha256 and size. The temp-file cleanup no longer applies, because the temp file has already been renamed. It needs a commit to fail after a successful rename, so minor is right."
+   },
+   {
+    "finding": "m9",
+    "classification": "valid",
+    "note": "The concern is real. The design rejects per-handler checks for /admin, yet exports Viewer.IsOwner to later blocks that will hold owner-only actions such as comment moderation. Recording the convention now costs nothing. The suggested regex needs adjusting, though: forbidding `.IsOwner` outside internal/auth and templates would also flag internal/server/home.go if it reads v.IsOwner to show the Admin link. That use is exactly the display-only read the fix's own wording allows."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "security",
+    "severity": "major",
+    "route": "premortem",
+    "claim": "Open redirect after sign-in. The `next` check refuses only these: empty, not starting with '/', starting with '//' or '/\\', a scheme or host after url.Parse, control characters, or more than 512 bytes. It runs on the raw string. The design says the callback 'answers 303 to `next`', and the idiomatic way to do that is http.Redirect(w, r, next, 303). For a URL with no scheme and no host, http.Redirect runs path.Clean before writing Location, and path.Clean does not treat '\\' as a separator. So `/./\\evil.example` and `/x/../\\evil.example` pass every listed check and go out as `Location: /\\evil.example`. Under the WHATWG URL parser, a backslash counts as a slash for http and https, so the browser goes to https://evil.example/. The gate leads to the same place. An anonymous GET /admin/%2e%2e/%5Cevil.example reaches RequireOwner, because ServeMux does not clean %2e (M1's own evidence). It emits next=/admin/../\\evil.example, which passes the check, round-trips through the OAuth cookie, and is cleaned to /\\evil.example after the real GitHub sign-in. That is a phishing redirect from the site's own domain right after a genuine GitHub login, and TestLoginNextIsLocalOnly stays green, because every input it lists is caught by the prefix checks.",
+    "evidence": "From net/http's Redirect, as I recall it: `if u.Scheme == \"\" && u.Host == \"\" { … url = path.Clean(url) … }`, then `h.Set(\"Location\", hexEscapeNonASCII(url))`. path.Clean(\"/./\\\\evil.example\") is \"/\\\\evil.example\". The WHATWG URL spec's relative slash state: 'If url is special and c is U+002F (/) or U+005C (\\)… set state to special authority ignore slashes state.' From the design: the contract for GET /auth/github/login?next lists only prefix checks. The callback's step 6 'Re-validates the decoded `next` … answers 303 to `next`' re-runs the same check on the same string. RequireOwner builds next from url.QueryEscape(r.URL.Path), which is the decoded path. Written directly with w.Header().Set(\"Location\", next) and no cleaning, `/./\\evil.example` resolves on the same origin, so the hole opens only through http.Redirect, which nothing in the design forbids.",
+    "fix": "Refuse any '\\\\' anywhere in `next`, not just at the start. Validate the exact string that will be sent: either write Location yourself without http.Redirect, or run path.Clean first and validate what it returns, requiring a leading '/' followed by a character that is neither '/' nor '\\\\'. Add `/./\\\\evil.example`, `/x/../\\\\evil.example` and `/admin/../\\\\evil.example` to TestLoginNextIsLocalOnly. Assert on the Location header of the callback's final 303, not on what the validator returns."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "severity": "minor",
+    "route": "re-derivation",
+    "claim": "In SC-002, report ids can be reused. `reports(id INTEGER PRIMARY KEY …)` has no AUTOINCREMENT, so after the highest-id report is deleted, the next create gets the same id. Two things then attach to the new report. First, a stale admin tab whose forms point at /admin/reports/{id}/replace, /publish or /delete. Second, anything a later epic keys on reports.id without an ON DELETE CASCADE foreign key, such as feedback or vote history kept after a delete. The design marks report identity irreversible and says votes and comments reference reports.id. SQLite cannot add AUTOINCREMENT to an existing table without rebuilding it, so it costs one word now and a table rebuild later.",
+    "evidence": "From the design's report library schema: 'reports(id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, …) STRICT'. Its key decision says 'Later epics' votes and comments reference reports.id', and its lifecycle says 'Delete commits the row removal, then removes the file.' SQLite's rowid docs say that without AUTOINCREMENT a new row gets one more than the largest rowid currently in the table, so a deleted maximum is reused.",
+    "fix": "Declare `id INTEGER PRIMARY KEY AUTOINCREMENT` in 0002_reports.sql. Add a test to SC-002's tests: create, delete the newest report, create again, and assert the new id is greater than the deleted one."
+   },
+   {
+    "dimension": "under-engineering",
+    "severity": "minor",
+    "route": "re-derivation",
+    "claim": "The migration runner cannot run SQLite's documented table-rebuild procedure safely, and every later slice appends to this convention. Each migration runs inside a transaction on a connection where the DSN has already set foreign_keys(1), and PRAGMA foreign_keys does nothing inside a transaction. So a migration file has no way to turn foreign keys off. With foreign keys on, DROP TABLE runs an implicit DELETE that fires ON DELETE CASCADE. The first later migration that rebuilds `users` (create new, copy, drop old, rename) would therefore cascade-delete every session, and later every comment and vote that references users or reports. Nothing in this slice triggers it, which is why it is minor. The runner is the only place it can be fixed.",
+    "evidence": "From the design's Store and migrations component: 'Each one numbered above PRAGMA user_version runs in its own transaction', and the DSN sets `_pragma=foreign_keys(1)` 'on every connection'. Schema 0001 has `sessions … REFERENCES users(github_id) ON DELETE CASCADE`. The SQLite foreign keys docs say: 'This pragma is a no-op within a transaction' and 'the DROP TABLE command performs an implicit DELETE … but may invoke foreign key actions'. The 12-step procedure in the ALTER TABLE docs begins by turning foreign keys off, before BEGIN.",
+    "fix": "Have migrate.go run each migration on one dedicated db.Conn: `PRAGMA foreign_keys=OFF`, then BEGIN, the migration SQL, `PRAGMA foreign_key_check` (any row returned means rollback), setting user_version, COMMIT, and finally `PRAGMA foreign_keys=ON`. Add a store test: a fake migration that rebuilds users must leave the sessions rows in place."
+   }
+  ],
+  "frame_challenged": false,
+  "notes": "The first reviewer was accurate and its severities were calibrated. Its one major, M1, is right on every variant, and its minors are real and correctly minor. It did not over-reach. It checked the design's text against Go and browser behaviour it could cite, but it did not trace what happens to an accepted value between the validator and the response. That gap is where the open redirect sits: the `next` check is correct on its input, and the hole is the standard-library function that rewrites the string afterwards. It looked at SC-002 storage but not at id allocation or at how the migration runner interacts with the DSN pragmas, the two places where later slices inherit a hazard.\n\nOne thing I could not settle: architecture rule 4 ('an /admin route is only ever registered through the one gated mount') uses a negative lookahead `(?!…)`. Go's regexp and ripgrep do not support lookahead (RE2 and Rust regex), while Python's re does. I do not know which engine evaluates fitness rules here, so I filed nothing. Whichever stage first runs the fitness checks should confirm the pattern compiles and fires on a test file, for example one containing `mux.Handle(\\\"/admin/x\\\", h)`.\n\nThe fixes for m9 and m6 need small adjustments when applied (see the m9 note), but the concerns stand."
+ }
+}

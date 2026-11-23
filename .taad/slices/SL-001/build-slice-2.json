@@ -1,0 +1,90 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-001",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-23T14:06:07.092Z",
+ "head": "624122a6b16f2dd740a07bab5c012eab6d9e4656",
+ "run_id": 11643,
+ "summary": "Fixed the two store findings and nothing else. openWith now resolves the database path with filepath.Abs before the migration handle and the serving pool are built, so the default relative HBAND_DATA_DIR=./data opens under the working directory. migrate() now refuses a negative user_version with an error, so Open no longer panics and realMain exits 1. Both review tests are committed as given, in internal/store/relative_data_dir_test.go and negative_version_test.go. I ran the shipped binary with no HBAND_DATA_DIR in a scratch directory: it started, /healthz answered 200, and hband.db was created under .\\data, not at the drive root. The full suite passes again.",
+ "payload": {
+  "status": "complete",
+  "summary": "Fixed the two store findings and nothing else. openWith now resolves the database path with filepath.Abs before the migration handle and the serving pool are built, so the default relative HBAND_DATA_DIR=./data opens under the working directory. migrate() now refuses a negative user_version with an error, so Open no longer panics and realMain exits 1. Both review tests are committed as given, in internal/store/relative_data_dir_test.go and negative_version_test.go. I ran the shipped binary with no HBAND_DATA_DIR in a scratch directory: it started, /healthz answered 200, and hband.db was created under .\\data, not at the drive root. The full suite passes again.",
+  "files": [
+   {
+    "path": "internal/store/store.go",
+    "change": "modified",
+    "why": "openWith resolves the path with filepath.Abs once and uses it for both the migration handle and the serving DSN; dsn's comment now says it takes an absolute path"
+   },
+   {
+    "path": "internal/store/migrate.go",
+    "change": "modified",
+    "why": "refuse a negative user_version before the pending-migration slice is taken, with an error naming the version"
+   },
+   {
+    "path": "internal/store/relative_data_dir_test.go",
+    "change": "added",
+    "why": "TestOpenAcceptsRelativeDataDir, as supplied by the code review"
+   },
+   {
+    "path": "internal/store/negative_version_test.go",
+    "change": "added",
+    "why": "TestOpenRefusesNegativeSchemaVersion, as supplied by the code review"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-046",
+    "done": true,
+    "how": "openWith in internal/store/store.go now does `path, err := filepath.Abs(path)` first (returning the error) and passes the absolute path to migrate and to dsn, so the Windows '/' prefix applies only to drive-letter paths. TestOpenAcceptsRelativeDataDir (the supplied test, unchanged) passes, and the full suite and `go vet` are clean. A real run of the built cmd/hband with no HBAND_DATA_DIR, in a scratch dir, started, answered /healthz 200, and created hband.db under .\\data with nothing at the drive root.",
+    "mutation": {
+     "file": "internal/store/store.go",
+     "find": "path, err := filepath.Abs(path)",
+     "replace": "var err error",
+     "test_command": "go test -count=1 -run TestOpenAcceptsRelativeDataDir ./internal/store"
+    }
+   },
+   {
+    "key": "O-050",
+    "done": true,
+    "how": "migrate() in internal/store/migrate.go now returns an error naming the version when user_version < 0, before `all[current:]`; realMain then exits 1 like any other open failure. TestOpenRefusesNegativeSchemaVersion (the supplied test, unchanged) passes.",
+    "mutation": {
+     "file": "internal/store/migrate.go",
+     "find": "if current < 0 {",
+     "replace": "if false {",
+     "test_command": "go test -count=1 -run TestOpenRefusesNegativeSchemaVersion ./internal/store"
+    }
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -v -run 'TestOpenAcceptsRelativeDataDir|TestOpenRefusesNegativeSchemaVersion' ./internal/store",
+    "outcome": "passed",
+    "note": "both supplied tests pass"
+   },
+   {
+    "command": "go test -count=1 -timeout 10m ./... (CGO_ENABLED=0)",
+    "outcome": "passed",
+    "note": "cmd/hband, internal/auth, internal/config, internal/fitnessrules, internal/server and internal/store all ok"
+   },
+   {
+    "command": "go vet ./... and gofmt -l .",
+    "outcome": "passed",
+    "note": "no findings"
+   },
+   {
+    "command": "mutation script: replace filepath.Abs with `var err error`, then replace `if current < 0 {` with `if false {`, run the named test, restore",
+    "outcome": "passed",
+    "note": "O-046 mutation: Open refused the relative data directory with 'unable to open database file (14)'. O-050 mutation: Open panicked with 'slice bounds out of range [-1:]'. Files restored and the store suite is green afterwards."
+   },
+   {
+    "command": "go build ./cmd/hband (CGO_ENABLED=0), run it in a scratch directory with owner, client and base URL set and no HBAND_DATA_DIR; GET /healthz",
+    "outcome": "passed",
+    "note": "did not exit; /healthz 200; hband.db found under <cwd>\\data; no database at <drive>:\\data; log held only the listening line"
+   }
+  ],
+  "follow_ups": [
+   "The store tests, the server harness and TestBinary still pass absolute temp directories; only the new relative-path test uses the shipped default. Consider running TestBinary once with no HBAND_DATA_DIR."
+  ]
+ }
+}
