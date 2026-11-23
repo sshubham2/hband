@@ -1,0 +1,155 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-003",
+ "stage": "reflect",
+ "attempt": 1,
+ "at": "2026-11-23T19:59:11.927Z",
+ "head": "7dfe10a03a5d50147e7f313f5596cb8d527f0d15",
+ "run_id": 11725,
+ "summary": "SL-003 merged SC-004, SC-005 and SC-006. It added GET /, GET /reports/{slug} and GET /raw/{slug} over library calls that already existed, with one report.html and one renderReader. Alongside them it built a headless-Edge colour assay (TestReportScriptsNeverRun, internal/testutil/headless) and five revised fitness tripwires. The product code was small and no gate found a product defect. Validate met all 14 criteria against the real binary. Nearly all the rework was in the verification apparatus: the assay wells and the regex tripwires.",
+ "payload": {
+  "status": "complete",
+  "summary": "SL-003 merged SC-004, SC-005 and SC-006. It added GET /, GET /reports/{slug} and GET /raw/{slug} over library calls that already existed, with one report.html and one renderReader. Alongside them it built a headless-Edge colour assay (TestReportScriptsNeverRun, internal/testutil/headless) and five revised fitness tripwires. The product code was small and no gate found a product defect. Validate met all 14 criteria against the real binary. Nearly all the rework was in the verification apparatus: the assay wells and the regex tripwires.",
+  "estimate_error": "Opened medium, high risk, sized by a person. Medium was right for effort: 2 spikes, 2 critiques, 3 critique-reviews, 1 build, 2 code-reviews and 1 validate, with 19 files changed in db0c871. The high risk tier was right about where the risk was and wrong about what it would cost. Script isolation held the first time: red = 0 in every verdict well, W4/W4b red 805,759, and validate's 8 extra script vectors stayed inert. The cost was building proof of that: the assay, the 13 s Edge run inside the 17 s server package test, 5 tripwires and 80 corpus rows. The three merged scope items made the product code a few routes and one template. A slice that reuses this assay needs far less than this one did.",
+  "learned": [
+   {
+    "kind": "process",
+    "lesson": "In this project a prescribed fix from the first critique is a draft, not an instruction. The critic-on-fix pass found a hole in every prescription it was put to (m1-m6), and the build correctly built the critic's version each time. Only M-add-1's fix held. The holes clustered in two places: assay wells (m1, m2, m3) and fitness-rule fixes (m4, m5). Plan the build against the critic's version, and budget a second critique pass whenever the findings are about tripwires or test wells.",
+    "evidence": "Findings block: critic_on_this_fix reads 'hole (minor)' for m1, m2, m3, m4, m5 and m6. It is 'not checked' for m7 and 'holds' for M-add-1. The build log says it 'Built the critic's version, not the prescription' for m1, m4 and m5."
+   },
+   {
+    "kind": "risk",
+    "lesson": "Regex tripwires in .taad/fitness.yaml do not converge on spelling variants. This slice ran three laps on the same class: critique m4/m5, then critic-on-fix, then code-review IN-m1/IN-m2/M1. It shipped with two known gaps, waived to SC-032 and SC-033. The corpus rows that pin the gaps as quiet are frametok-q004 and frametag-q003 (rule_spellings.json around lines 224 and 240), and bytes-q002 keeps router.go's FileServerFS(staticSub) quiet. Whoever fixes SC-032 must flip those rows to fire rows and not delete them. In future slices, name a tripwire's bounded_by and stop. Do not spend critique laps on spelling variants.",
+    "evidence": "O-020/O-021 closed the class 'fitness tripwire spelling variants'. Code-review #1 then found Go files excepted from both frame rules, plus os.OpenRoot(dir).FS() with http.FileServerFS, both reproduced with the project's own rule runner. O-025/O-026 were waived to SC-032/SC-033. The build added 80 corpus rows and Fitness op=check reports 18 rules holding."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "Edge's CLI screenshot (--headless=new --screenshot --virtual-time-budget=5000) does include out-of-process sandboxed-iframe pixels. Three independent stages measured it (build, code-review, validate), so no DevTools client is needed. Use headless.Shot(t, browser, name, url, ...) and headless.Count in internal/testutil/headless/headless.go. Its limits are a minimum window of 492 CSS px, which makes a 390 px request a crop, and Edge 158 on Windows only. Do not plan phone-width assertions on this channel.",
+    "evidence": "Build: W4 red 805,759, W3 green 805,754, W1 green 1,110,394, W5 and blanks 0/0. Validate's own counter reproduced them. Validate measured the 492 px window minimum."
+   },
+   {
+    "kind": "design",
+    "lesson": "SC-010 and SC-011 add UI to the shared layout in internal/server/templates/report.html, and the assay treats any pure #00ff00 or #ff0000 (±8) in the site chrome as a script run. The found-state blank (/reports/blank, a neutral #808080 report, anonymous) is the well that catches this. The empty-state blank cannot, because it has no h1, frame border or report-adjacent UI. A like or comment style that reads as pure red fails W1, W1s and W2 with 'INVALID RUN: the site chrome contains a signal colour'. Treat that message as a styling problem. Do not loosen the threshold.",
+    "evidence": "O-017: the mutation 'a red frame border in site.css' failed the found-state blank (red=16960) while the empty-state blank stayed clean. The critic's finding on m1 said the prescribed empty-state blank would never show report-adjacent UI."
+   },
+   {
+    "kind": "design",
+    "lesson": "The epic-level design (219) specified a render proof that its own CSP made impossible. It expected an /img beacon, but rawCSP's img-src data: suppresses every same-origin beacon. Only the build-check's live Edge probe found it. Likewise, P's zero-beacon check measures rawCSP's request blocking, not script execution. The pixel colour is the only script verdict, and W3's /beacon/img?w=W3 is the control for that blocking. For any slice whose proof is a browser observation, require a live probe in the real browser before design, and ask whether the policy under test also suppresses the signal.",
+    "evidence": "Build-check: an Edge probe with 0 beacons under the design CSP, and a control frame with img-src 'self' that fetched its img, cssbg and prefetch beacons. M-add-1 was filed by the second reader and implemented as tagged Q-side beacon conditions."
+   },
+   {
+    "kind": "process",
+    "lesson": "A spike that probes behaviour caused by a deliberate project policy will return no-go by construction, and the loop halts on it. The framed-report links spike measured that frame-src 'self' and frame-ancestors 'none' block target-less links. That was the intended policy, and the design had already settled it as a target=_blank author contract. The cost was a halt and a 'built anyway' second pass, with no design change. Phrase such experiments as measured design input, not a go/no-go on an assumption the design already rejects.",
+    "evidence": "Spike #194 verdict no-go. Risk-spike #2 'built anyway despite a no-go spike'. Design key decision: neither siteCSP nor rawCSP changes, and only a one-sentence hint is added to admin.html."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "Reader structure for the next slices. / and /reports/<slug> go through one renderReader(w, r, page, rep, state) in internal/server/reader.go. State is found, empty or unavailable. Status is derived from state (503 only when unavailable). Next comes from the stored slug, only for a found report page. /raw/{slug} lives in raw.go and maps non-ErrNotFound errors, including a missing file, to 500. TestStoreErrorDeniesAdmin now expects 503 on GET / with the store closed. Lesson #934's claim that reader routes join the access matrix automatically is false: adminPaths enumerates only adminRoutes, so reader path variants are pinned in TestReaderPathVariants.",
+    "evidence": "Design coherence_check items 1 and 8, build summary, code-review #1 product-code section, and validate's live 404-identity and 503 checks."
+   },
+   {
+    "kind": "process",
+    "lesson": "rule_spellings.json is too wide for a reviewer to read with Read: lines were elided in Grep output, and code-review #1 could not read lines 31-186 of 275 that way. A reviewer should parse it (python -I with json, or the Go test loader) and read the rows by id. Separately, the engine's unseen-hunks gate did send review #1 back to 3 hunks it had missed, so that gate works.",
+    "evidence": "Code-review LEFT OPEN: 'not read (measured): internal/fitnessrules/testdata/rule_spellings.json (not seen: lines 1, 31-186 of 275)'. The same review lists admin_test.go, site.css and admin.html as not read whole. 4 of 13 changed files were affected."
+   }
+  ],
+  "candidates": [
+   {
+    "title": "Replace the SL-003 regex tripwires with a go/parser architecture test so the spelling-variant class closes",
+    "urgency": "soon",
+    "why": "This slice spent three laps on one class: critique m4/m5, then the critic-on-fix, then code-review IN-m1, IN-m2 and M1. It ended with two known gaps waived to SC-032 and SC-033: Go files excepted from the frame rules, and os.OpenRoot(dir).FS() with http.FileServerFS. Each of those two is one more member of the same class. A stdlib AST test would walk all non-test Go files and list the callers of ServeContent/ServeFile/ServeFileFS/FileServer/FileServerFS/Dir/DirFS/OpenRoot, OpenRaw, BySlug and ListAll against an allowlist of (file, function) pairs. It would see through multi-line calls, method values and non-prefix Fprintf strings. Where measured: .taad/fitness.yaml has 18 rules in all (Fitness op=check in code-review #2), 5 of them added by SL-003 with 80 new corpus rows in internal/fitnessrules/testdata/rule_spellings.json. The router.go FileServerFS(staticSub) call is at line 66 at db0c871, and was line 62 at 611f1bb. Rank it before SC-032 and SC-033, because it may subsume both. It adds no dependency."
+   },
+   {
+    "title": "Warn at upload about target-less outward links in a report (warn only, never refuse or rewrite)",
+    "urgency": "soon",
+    "why": "Inside the reader frame a plain <a href> to another origin is blocked by the parent's frame-src 'self', and one to a site page is blocked by frame-ancestors 'none'. Only target=_blank works (spike #194: B's log held only /ext-blank). The sole mitigation shipped is one sentence in admin.html's uploadform partial. The product is citation-heavy, and validate tried only synthetic reports and one plain sample, never a real report with citations. The design listed this notice under filed_for_later with who 'slice', but only SC-031 shows among the items filed. Scan on the upload path in internal/reports/upload.go (sniffOK is there) with a stdlib regex, since the two-dependency rule excludes golang.org/x/net/html. Do not rewrite bytes, because that would break the sha256 ETag."
+   },
+   {
+    "title": "Add an opt-in deployed-origin check that /raw/<slug> keeps its isolation headers through the VPS proxy",
+    "urgency": "soon",
+    "why": "Every isolation check so far runs against an in-process httptest harness: TestPublicRawHeaders over http and https, and the Edge assay, whose W1s uses the project's own TLS harness with --ignore-certificate-errors. Validate #259 listed the production path as not reached: the Linux container behind the VPS proxy over WireGuard with a real certificate. Nothing yet shows that the proxy leaves exactly one rawCSP, nosniff, CORP same-origin and the ETag on /raw/<slug>, or that it leaves the site CSP on /reports/<slug>. The check would be skipped unless something like HBAND_TEST_URL is set. It would GET /raw/<slug> and /reports/<slug> and assert those headers, and could run headless.Shot against the same URL. It needs a deployed target, so it may fold into the deployment slice. It is separate from Q-007, which only asks about caching."
+   }
+  ],
+  "unknowns": [
+   "Does the VPS reverse proxy pass /raw/<slug> through with exactly one rawCSP, nosniff and CORP same-origin intact? No stage reached the production path (validations#259). The assay runs in-process only.",
+   "Does headless.Shot's timeout-kill path leave Edge child processes holding the temp profile folder on Windows (headless.go:97-109)? No Shot timed out in any run, and the N-023 fix for it was waived.",
+   "Will SC-010 or SC-011 need site JavaScript on the reader page (script-src 'self')? The design chose 'no site JavaScript on reader pages', and the assay's red = 0 verdict only means something while the site chrome stays script-free. A like or comment action done with forms avoids the question. One done with fetch does not.",
+   "Does the reader page read correctly below 492 CSS px and in the light colour scheme? Headless Edge cannot go below 492 px and rendered dark only. SC-031 asks a person to look, but nobody has an automated channel for this."
+  ],
+  "what_went_wrong": [
+   "The epic-level design (219) specified an img-beacon proof of 'the frame rendered' that its own img-src data: policy makes impossible. Only the build-check's live Edge probe found it, so the slice started from a contradicted test plan. Neither the design nor the epic design's earlier review had run the browser.",
+   "The first risk spike halted on a no-go for framed-report links. That measured the project's own deliberate frame-src 'self' and frame-ancestors 'none' policy, and the design had already settled it as a target=_blank author contract. It cost a halt and a 'built anyway' second pass, and nothing in the design changed.",
+   "Every first-round prescribed fix put to the critic had a hole (m1-m6). Review effort went into the assay wells and the tripwires, not the product code, where no gate found a defect. The builder had to build the critic's version, not the accepted prescription, six times.",
+   "Fitness tripwire spelling variants went three laps (critique m4/m5, critic-on-fix, code-review IN-m1/IN-m2/M1) after O-020 and O-021 had closed the class. The slice shipped with the Go-file exception on both frame rules and the os.OpenRoot gap on the byte-path rule open, waived to SC-032 and SC-033. Corpus rows frametok-q004 and frametag-q003 now pin the wrong behaviour as quiet.",
+   "Code-review #1 did not read 4 of the 13 changed files whole: rule_spellings.json (lines 31-186 of 275 unseen), admin_test.go, site.css and admin.html. The unseen-hunks gate sent it back to 3 hunks. The oversized corpus file was only readable through parsed JSON.",
+   "The design stage wrote the three architecture rules into the working tree, uncommitted, before critique. The build then had to revise them into five rules after the critique, so the version that was reviewed was not the version that shipped.",
+   "Phone width was never checked. Headless Edge cannot go below 492 CSS px, so validate's 390 px shot was a crop of a 492 px layout. The only check left is the by-hand SC-031. Validation also ran on loopback with synthetic reports only, and graded contact code, not real."
+  ],
+  "missed": [
+   {
+    "gate": "critique-review",
+    "dimension": "cross-cutting-conformance",
+    "severity": "minor",
+    "prescribed_fix": "m4",
+    "what": "The final m4 prescription excepted '**/*.go' from both frame rules ('only the audited templates contain a frame element' and the sandbox-token rule). The stated reason was that the string-literal rule covers Go. It fires only on a literal that starts with markup. So fmt.Fprintf(w, \"Report: %s <iframe src=/raw/%s>\", ...) at internal/server/reader.go trips no rule, and the corpus rows frametok-q004 and frametag-q003 pin that gap as quiet. A usable check would be to run the project's loadRules/fires over a non-prefix Fprintf spelling for any rule that excepts Go files, before accepting the exception.",
+    "caught_by": "code-review #1 (IN-m1), then waived to SC-032"
+   },
+   {
+    "gate": "critique-review",
+    "dimension": "cross-cutting-conformance",
+    "severity": "minor",
+    "prescribed_fix": "m5",
+    "what": "The m5 prescription added http.Dir, http.FileServer and os.DirFS to the byte-path rule but deliberately kept http.FileServerFS quiet for router.go's embedded static files. os.OpenRoot(dataDir) with http.FileServerFS(root.FS()), the Go 1.24+ traversal-safe idiom on this go1.27.4 toolchain, therefore passed. It would serve <data>/reports/*.html under the site CSP, and the rule's bounded_by claimed to cover it. A usable check would be to ask of every ban list: 'what is the toolchain's other way to serve a directory?' Then fire-test each answer at internal/server/reader.go and cmd/hband/main.go.",
+    "caught_by": "code-review #1 (M1 and IN-m2), then waived to SC-033"
+   },
+   {
+    "gate": "critique",
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "prescribed_fix": "",
+    "what": "The design said the zero-beacon assertion on server P was made non-vacuous by W4's /beacon/script at server Q. W4 runs with no CSP on another server, and any beacon from P's /raw would be blocked by rawCSP in any case. So P's check tests request blocking, not script execution, and nothing asserted that the reagent's <img src=/beacon/img> fires when nothing blocks it. A usable question for the critique: for each 'zero X observed' assertion, which control shows X is observable in that same well?",
+    "caught_by": "critique-review attempt 2 (M-add-1)"
+   }
+  ],
+  "lessons_judged": [
+   {
+    "id": 928,
+    "verdict": "used",
+    "why": "The spike acceptance-tests-match-reader-routes read the verbatim approved e001 sources from the ledger (finish_proofs 215-220) and checked the routes against them. The tests are still not in the tree, though, so no stage ran them."
+   },
+   {
+    "id": 932,
+    "verdict": "used",
+    "why": "The slice opened at medium with critique running. The critique plus its two review passes found 9 real minor issues in the assay and tripwires, so running critique was justified for this headless-Edge isolation slice."
+   },
+   {
+    "id": 936,
+    "verdict": "used",
+    "why": "The build committed a reusable Edge driver (internal/testutil/headless with Shot and Count) and the assay in browser_test.go, instead of a scratch harness. Later slices can reuse them."
+   },
+   {
+    "id": 933,
+    "verdict": "used",
+    "why": "The design added the https well W1s over the TLS harness, and /raw reads no identity, so the __Host- cookie question stays out of this path. W1s measured green 1,110,394 with red 0."
+   },
+   {
+    "id": 934,
+    "verdict": "wrong",
+    "why": "The 307-for-cleaned-paths part held and was used, since TestReaderPathVariants pins observed responses. The claim that reader routes join the access matrix automatically is false: adminPaths enumerates only adminRoutes, which the design's coherence_check caught."
+   },
+   {
+    "id": 184,
+    "verdict": "used",
+    "why": "The design filed SC-031 for a person to look, the assay writes screenshots to HBAND_TEST_ARTIFACTS, and validate looked at 1280 and 500 px. The phone-width look is still open, because the 390 px capture was a crop."
+   }
+  ],
+  "filed": [
+   {
+    "key": "SC-031",
+    "title": "Check by hand: Look at the HBAND_TEST_ARTIFACTS screenshots of the reader page (W1, desktop width) and at the page on a phone-width window, and judge whether the layout reads well: header, title, date, permalink and the framed report.",
+    "urgency": "soon",
+    "source": "design"
+   }
+  ]
+ }
+}

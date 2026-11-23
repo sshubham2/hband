@@ -43,5 +43,6 @@
 <option value="draft"{{if eq .Status "draft"}} selected{{end}}>Save as draft</option>
 </select></label></p>
 <p><label>File <input type="file" name="file" accept=".html,.htm,text/html" required></label></p>
+<p>A link in the report that leaves the report needs <code>target="_blank"</code>: inside the reader's frame a plain link to another page is blocked. Links to a place in the same report work as they are.</p>
 <p><button type="submit">Upload</button></p>
 </form>{{end}}

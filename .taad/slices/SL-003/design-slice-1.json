@@ -1,0 +1,719 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-003",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-23T18:41:18.099Z",
+ "head": "611f1bbc1322b9607377a1d52265d4657a7be830",
+ "run_id": 11709,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "selection_rationale": "The two proposals agree on everything the user can see. There are three routes: GET / fed Library.Latest, GET /reports/{slug} fed PublishedBySlug, and GET /raw/{slug} = OpenRaw(slug, true) + the existing serveRaw(…, \"no-cache\"). One template and one render path serve both pages. Both CSPs stay as they are, and report links carry target=\"_blank\" as an author contract. All of this matches the tree: every library call exists and is tested, serveRaw and rawCSP are already the byte path, and the admin preview iframe is the markup to copy. So the product code is composed from both, and the remaining choices are taste: template name, file placement, a Next field or a method.\n\nThe contested piece is how C8 ('no report script runs in a real browser') gets proved. It was judged against reality and against simplicity:\n- Practice proposed a ~200-line hand-written RFC 6455 WebSocket and DevTools client. That channel was spike-measured, but practice's own over_engineering_flag names it as the largest piece and the first to cut.\n- Crossdomain proposed reading Edge's own `--headless=new --screenshot` PNG with image/png and counting whole-image pixels against run-acceptance controls.\n- The spike measured that iframe pixels separate design (green), scripts-allowed (red) and blocked (grey). Whole-image counts avoid the spike's coordinate and inline-style traps. Tolerance ±8 keeps the measured error-page colours (#dddddd, #ff4a48, #db979c) out of both signals.\n- The one unmeasured link is whether the CLI capture includes out-of-process frame pixels. If it does not, the run fails rather than passing on silence, because the positive control cannot turn red.\n- The fallback, Page.captureScreenshot over DevTools, is the spike-measured channel. It can sit behind the same Shot signature, so the losing answer changes one test helper's body and no boundary.\n\nSo: the CLI assay is selected, with three things kept from practice:\n- the https sample well (lesson #933's rule that an http-only measurement does not stand in for production);\n- zero same-origin beacons at the hband server, made non-vacuous by the scripts control producing a beacon;\n- the same-layout byte-equality test.\n\nCrossdomain's 'Open in its own tab' anchor to /raw/<slug> is dropped. It advertises a second, bare URL for a report whose share URL is /reports/<slug>, and its whole value rests on top-level link navigation that nobody measured.\n\nReading the tree turned up a seam neither proposal saw. TestStoreErrorDeniesAdmin (admin_test.go:326-329) closes the store and requires GET / to answer 200, rendered anonymously with the sign-in anchor. The harness opens the library on the same *sql.DB, so Latest will fail, and both proposals' 'other error → 500' would break that pinned test. The redesign is in coherence_check.",
+  "components": [
+   {
+    "name": "Reader handlers",
+    "lives_at": "internal/server/reader.go",
+    "responsibility": "Replaces home.go (git mv). pageData moves here unchanged and gains a Next string field and a SignInNext() method, which returns Next, or \"/\" when Next is empty.\n\nhome:\n- calls Library.Latest;\n- found: the reader page;\n- ErrNotFound: 200, empty state 'No reports yet', no iframe;\n- any other error: logged, then the unavailable state at 503.\n\nreadReport:\n- calls PublishedBySlug(r.PathValue(\"slug\"));\n- found: the reader page;\n- ErrNotFound: http.NotFound, before any header is set;\n- any other error: logged, unavailable state at 503.\n\nrenderReader(w, r, status, readerData):\n- the only path either page takes;\n- builds readerData{pageData{Title, SignedIn, Viewer, Next}, Report, HasReport, Unavailable};\n- Title is rep.Title+\" - hband\" on both pages (\"hband\" when there is no report);\n- Next is \"/\" for the home page and \"/reports/\"+rep.Slug from the STORED slug for a report page, never from the request;\n- sets Cache-Control 'private, no-cache', then calls a.render(w, status, \"report.html\", d).",
+    "key_interactions": "Calls reports.Library.Latest and PublishedBySlug and auth.ViewerFrom. It never reads report bytes. adminData keeps embedding pageData, and its own Report field is unaffected because readerData is a separate struct. This is the seam where SC-010 and SC-011 add the like count and comments."
+   },
+   {
+    "name": "Public raw handler",
+    "lives_at": "internal/server/raw.go",
+    "responsibility": "readRaw sits beside serveRaw and rawCSP:\n- calls OpenRaw(r.Context(), r.PathValue(\"slug\"), true);\n- ErrNotFound: http.NotFound, before any report header is set, so the 404 keeps the site CSP with frame-ancestors 'none';\n- any other error, including a published row whose file is gone: logged, 500 'internal error' (adminRaw's pattern);\n- otherwise serveRaw(w, r, rep, f, \"no-cache\").\nIt reads no identity and sets no cookie.",
+    "key_interactions": "serveRaw is unchanged. It replaces the site CSP with rawCSP and hands off to http.ServeContent, which handles HEAD, If-None-Match/304 and Range. adminRaw and TestPreviewHeaders are untouched, so the owner previews exactly what readers get."
+   },
+   {
+    "name": "Routes",
+    "lives_at": "internal/server/router.go",
+    "responsibility": "Adds mux.HandleFunc(\"GET /reports/{slug}\", a.readReport) and mux.HandleFunc(\"GET /raw/{slug}\", a.readRaw) beside the existing GET /{$} → a.home, which now lives in reader.go. The GET patterns also answer HEAD. Nothing else in the chain changes.",
+    "key_interactions": "The routes sit inside securityHeaders(cop.Handler(Identify(mux))). Neither pattern is under /admin, so the gated-mount rule and the admin access matrix are unaffected."
+   },
+   {
+    "name": "Shared reader template",
+    "lives_at": "internal/server/templates/report.html",
+    "responsibility": "One page for / and /reports/<slug>. home.html is deleted. It uses {{template \"head\"}} and {{template \"header\"}}, then <main class=\"reader\">.\n\nWith HasReport:\n- <h1>{{.Report.Title}}</h1>;\n- 'Published {{.Report.PublishedAt.Format \"2 January 2006\"}}';\n- a permalink <a href=\"/reports/{{.Report.Slug}}\">, present on BOTH pages so they stay byte-identical;\n- exactly <iframe class=\"report-frame\" sandbox=\"allow-popups allow-popups-to-escape-sandbox\" referrerpolicy=\"no-referrer\" src=\"/raw/{{.Report.Slug}}\" title=\"{{.Report.Title}}\" width=\"100%\" height=\"800\"></iframe>.\n\nEmpty: <p>No reports yet.</p>, no iframe.\n\nUnavailable: <p>Reports cannot be shown right now. Try again in a moment.</p>, no iframe and no 'No reports yet'.\n\nThe template never names any other report and never carries data-hband-admin.",
+    "key_interactions": "html/template escapes title and slug for each context. The existing rule bans template.HTML. The frame is sized by attributes plus a class, never an inline style attribute: the spike measured that siteCSP's style-src 'self' blocks those."
+   },
+   {
+    "name": "Header sign-in return",
+    "lives_at": "internal/server/templates/layout.html",
+    "responsibility": "The anonymous anchor becomes <a class=\"signin\" href=\"/auth/github/login?next={{.SignInNext}}\">, replacing the hard-coded %2F. It stays an anchor, never a form.",
+    "key_interactions": "The spike signin-next-roundtrips-report-path measured that LocalPath, login and callback carry /reports/<slug> unchanged for 52,484 admitted slugs. Only the reader template renders \"header\" (today only home.html does), so admin pages never emit an empty next, and SignInNext falls back to \"/\" anyway."
+   },
+   {
+    "name": "Upload-form link hint",
+    "lives_at": "internal/server/templates/admin.html",
+    "responsibility": "One sentence inside the \"uploadform\" partial: links that leave the report need target=\"_blank\", because inside the reader's frame a plain link to another page is blocked. In-page #anchors work. This tells the only uploader about the link contract inside the app.",
+    "key_interactions": "Static text. The admin preview frame is under the same siteCSP frame-src 'self', so the owner sees a plain link fail in the preview exactly as a reader would."
+   },
+   {
+    "name": "Reader styles",
+    "lives_at": "internal/server/static/site.css",
+    "responsibility": "Adds:\n- main.reader { max-width: 72rem };\n- .report-frame { display:block; width:100%; height:80vh; min-height:24rem; border:1px solid #8884 }.\nThe frame has a fixed height and the report scrolls inside it; there is no auto-resize. The site CSS must not use pure #00ff00 or #ff0000, because the browser assay relies on that.",
+    "key_interactions": "Served from /static/ under style-src 'self'. The viewport-relative height works on phones."
+   },
+   {
+    "name": "Reader HTTP tests",
+    "lives_at": "internal/server/reader_test.go",
+    "responsibility": "New tests through newHarness, h.upload, h.mint, h.serve and the fake clock:\n- TestReaderHomeEmpty, TestReaderHomeShowsNewest, TestReportPage;\n- TestReaderPagesShareOneLayout, TestHiddenReportsAreIndistinguishable;\n- TestPublicRawHeaders, TestPublicRawAfterReplace, TestPublicRawMissingFile;\n- TestReaderStoreDown, TestReportBytesNeverInReaderPages;\n- TestReportPageSignInReturnsThere, TestReaderPathVariants.\nPath-variant expectations are written from the observed responses, never by changing routing (lesson #934).\n\nOne existing assertion changes, in admin_test.go TestStoreErrorDeniesAdmin 'after sign-in': `home.Status != 200` becomes `home.Status != 503`. Its anonymity checks stay, and it now also requires no '<iframe' and no 'No reports yet'.",
+    "key_interactions": "TestReportBytesNeverAppearInSitePages, TestPreviewHeaders and TestSecurityHeadersAndHealthz stay as they are. The reader routes do NOT join the access matrix automatically, because adminPaths enumerates only adminRoutes. TestReaderPathVariants is where their variants are pinned."
+   },
+   {
+    "name": "Headless browser helper",
+    "lives_at": "internal/testutil/headless/headless.go",
+    "responsibility": "Browser(t):\n- HBAND_TEST_BROWSER when set (then any launch failure is a test failure, never a skip);\n- else the default Edge path if it exists;\n- else t.Skip naming the variable.\n\nShot(t, browser, url, extraFlags...) image.Image:\n- runs '<browser> --headless=new --disable-gpu --no-first-run --no-default-browser-check --disable-extensions --hide-scrollbars --user-data-dir=<fresh temp> --window-size=1024,1400 --virtual-time-budget=5000 --screenshot=<temp>/shot.png [extra] <url>' under a 60 s context;\n- decodes the PNG with image/png;\n- copies it to $HBAND_TEST_ARTIFACTS/<name>.png when that is set;\n- on timeout kills only the process it started, never by name;\n- removes the temp profile with bounded retries, and a leftover is logged, not fatal.\n\nCount(img, rgb, tol) int counts pixels within tol on every channel.",
+    "key_interactions": "Test-only. The existing must_not_import internal/testutil* rule keeps it out of the binary, and the string-literal rule excepts internal/testutil/**. If the CLI capture proves blind to out-of-process frames, Shot's body is replaced by Page.captureScreenshot over a minimal DevTools client in this package and its signature stays. A later slice's real-browser check can reuse it."
+   },
+   {
+    "name": "Browser isolation assay",
+    "lives_at": "internal/server/browser_test.go",
+    "responsibility": "TestReportScriptsNeverRun.\n\nThe reagent is uploaded as slug 'probe' through the real POST /admin/reports:\n- an inline <style> paints html and body #00ff00;\n- <p id=s>SENTINEL-STATIC</p>;\n- <img src=/beacon/img>;\n- an inline <script> that repaints html and body #ff0000 and requests /beacon/script;\n- <img src=x onerror> that repaints red.\n\nServer P is the harness, wrapped in a request log. Server Q is a test-local httptest server on another port, with its own log, serving the control pages.\n\nWells:\n- W1: P(http)/reports/probe.\n- W1s: the same reagent on a second harness over https, with --ignore-certificate-errors.\n- W2: P/raw/probe opened top-level, testing the CSP alone.\n- W3: Q frames a CSP-less copy of the reagent under the sandbox attribute value parsed out of W1's real HTML, testing the attribute alone.\n- W4: as W3 but sandbox=\"allow-scripts\", the positive control.\n- W5: Q frames P/raw/probe with the real attribute, the blank, so the real frame-ancestors must refuse it.\n\nVerdicts (tolerance ±8):\n- W1, W1s, W2, W3: green ≥ 40,000 px and red = 0.\n- W4: red ≥ 40,000 px and Q logged /beacon/script.\n- W5: green = 0 and red = 0.\n- P's log holds no /beacon/ request at all.\n\nRun acceptance: if W4 is not red, Q saw no script beacon, or W5 shows either colour, the test FAILS as an invalid run. It never passes on silence.",
+    "key_interactions": "It drives the real securityHeaders, siteCSP, report.html, readRaw, serveRaw and rawCSP. The default Edge path is present on this machine, as measured, so `go test ./...` here runs it. Screenshots go to HBAND_TEST_ARTIFACTS for a person's look (lesson #184)."
+   },
+   {
+    "name": "Fitness tripwires",
+    "lives_at": ".taad/fitness.yaml and internal/fitnessrules/testdata/rule_spellings.json",
+    "responsibility": "The three architecture_rules of this design are appended to fitness.yaml. Their names are added to rules_under_test, each with at least one fire row and one quiet row:\n- the ServeContent rule fires on http.ServeContent at internal/server/reader.go and stays quiet at internal/server/raw.go and on http.FileServerFS;\n- the template rule fires on sandbox=\"allow-scripts\", sandbox=\"allow-popups allow-same-origin\" and srcdoc=, and stays quiet on admin_report.html:22 verbatim and on report.html's iframe;\n- the draft rule fires on OpenRaw(r.Context(), slug, false), .BySlug( and .ListAll( at internal/server/reader.go, and stays quiet on OpenRaw(…, true), .PublishedBySlug( and the same calls at internal/server/admin.go.\n\nA bounded_by entry names what is not bounded: io.Copy of a file, a sandbox value assembled from template variables, and a publishedOnly flag held in a variable.",
+    "key_interactions": "Pinned by TestRuleSpellingsCorpus and checked over the tree by TestRulesHoldOnTheTree and by Fitness op=check. Per lesson #931, these are tripwires and not proofs."
+   }
+  ],
+  "contracts": [
+   {
+    "name": "GET / (reader page, newest report)",
+    "kind": "ui",
+    "auth_model": "Public. Identify only personalises the header.",
+    "error_cases": "- Something is published: 200 with the newest published report (Latest).\n- Nothing is published, drafts included: 200 'No reports yet' and no iframe.\n- A Latest error other than ErrNotFound: logged, then 503 through the same template, with the header intact and the anchor shown when the viewer could not be resolved, no iframe and no 'No reports yet'.\n- A template error: 500 via a.render.",
+    "notes": "Sends Cache-Control: private, no-cache. That is correct whichever way the open Q-007 goes, and it does not answer Q-007. HEAD is answered by the GET pattern."
+   },
+   {
+    "name": "GET /reports/{slug} (stable share URL)",
+    "kind": "ui",
+    "auth_model": "Public. A signed-in owner gets the same 404 for a draft as anyone else.",
+    "error_cases": "- A published slug: 200, the same template and render path as /, with Next=/reports/<slug>.\n- A draft, unpublished, deleted, unknown or malformed slug: exactly http.NotFound. Status, body ('404 page not found\\n') and headers minus Date are byte-identical across all of them, to /raw's 404 and to an unregistered path. The slug is never echoed.\n- A store error: 503 page.\n- Cleaned-path variants get the mux's 307, as observed.",
+    "notes": "The approved e001_1..6 tests assert its 200 (title plus an iframe that loads the report) and exact 404s, according to the spike acceptance-tests-match-reader-routes."
+   },
+   {
+    "name": "GET|HEAD /raw/{slug} (isolated report bytes)",
+    "kind": "rest",
+    "auth_model": "Public and identity-free. No cookie is read or set, so the __Host- cookie scope of lesson #933 and Q-006 does not arise on this path.",
+    "error_cases": "- 200: the exact uploaded bytes, with exactly one CSP equal to a.rawCSP(), text/html; charset=utf-8, nosniff, Referrer-Policy no-referrer, CORP same-origin, ETag \"<sha256>\" and Cache-Control no-cache.\n- HEAD: the same headers and no body.\n- If-None-Match matching the ETag: 304. Range is handled by ServeContent.\n- Not visible: the identical http.NotFound, which keeps the site CSP and frame-ancestors 'none'.\n- A published row whose file cannot be opened: logged, 500 'internal error'. The status filter runs first, so this reveals nothing about drafts.",
+    "notes": "Referenced only by the reader template's iframe src. e001_6 accepts any frame path other than '', /reports and /reports/<slug>."
+   },
+   {
+    "name": "Reader iframe markup",
+    "kind": "ui",
+    "notes": "Exactly sandbox=\"allow-popups allow-popups-to-escape-sandbox\" referrerpolicy=\"no-referrer\" src=\"/raw/<slug>\", sized by class report-frame plus width and height attributes.\n\nLink behaviour, all measured by the spike framed-report-links-still-work:\n- #fragment links scroll the frame;\n- target=_blank links open a new unsandboxed tab;\n- target-less links to another document are blocked, by the parent's frame-src 'self' for other origins and by siteCSP's frame-ancestors 'none' for site pages, and stay blocked on purpose.\nThe author adds target=_blank, and the upload form says so."
+   },
+   {
+    "name": "renderReader(w, r, status, readerData)",
+    "kind": "function",
+    "notes": "The one code path both reader routes take. It sets Cache-Control and calls a.render(\"report.html\"). A byte-equality test pins it as the 'same layout' property (C2), and SC-010 and SC-011 extend it."
+   },
+   {
+    "name": "Header sign-in anchor",
+    "kind": "ui",
+    "auth_model": "Anonymous viewers only.",
+    "notes": "href=/auth/github/login?next={{.SignInNext}}: / on the home page, /reports/<slug> on a report page (built from the stored slug), and / wherever Next is unset. It stays an anchor, as the rule 'no sign-in control is ever a form' requires."
+   },
+   {
+    "name": "HBAND_TEST_BROWSER / HBAND_TEST_ARTIFACTS",
+    "kind": "cli",
+    "error_cases": "- HBAND_TEST_BROWSER set: the test must run, and a launch failure, a 60 s timeout or an undecodable PNG fails it.\n- Unset: the default Edge path is used if present, otherwise the test skips naming the variable.\n- A failed control fails the run as invalid.",
+    "notes": "Test-only environment, read only in _test.go and internal/testutil, never by config.Load. The validator's command is: $env:HBAND_TEST_BROWSER='C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'; go test -count=1 -v -run TestReportScriptsNeverRun -timeout 10m ./internal/server"
+   },
+   {
+    "name": "headless.Shot / headless.Count",
+    "kind": "function",
+    "notes": "Shot(t, browser, url, extraFlags...) image.Image; Count(img, color.RGBA, tol uint8) int. Each Shot uses a fresh profile and a fresh process, so wells share no cache or state. The signature is the seam a DevTools-based capture can replace without touching the assay."
+   }
+  ],
+  "key_decisions": [
+   {
+    "decision": "The share URL is GET /reports/{slug}, answered only while the report is published. Report bytes are public only at GET /raw/{slug}, a separate top-level segment.",
+    "reversibility": "expensive",
+    "rationale": "/reports/<slug> is handed to readers and asserted by the approved e001 tests, so moving it breaks links already shared. /raw/<slug> is referenced only by our template and could move cheaply. It is fixed by the same two router lines."
+   },
+   {
+    "decision": "/ and /reports/{slug} go through one renderReader and one template, report.html. home.go becomes reader.go, and home.html is deleted. Both pages use the same Title and the same permalink, so they are byte-identical apart from the anonymous sign-in next.",
+    "reversibility": "cheap",
+    "rationale": "SC-004 says the home page is that same page fed the newest report. One path makes 'same layout' structural and testable by byte equality, and SC-010 and SC-011 extend one layout."
+   },
+   {
+    "decision": "Error mapping:\n- ErrNotFound on /reports/{slug} and /raw/{slug} gives the same http.NotFound, before any header is set.\n- A library error on a reader PAGE gives a 503 rendered through the shared template, with the header intact.\n- A non-ErrNotFound error on /raw gives 500 (adminRaw's pattern).\nTestStoreErrorDeniesAdmin's GET / expectation changes from 200 to 503, keeping its anonymity checks.",
+    "reversibility": "cheap",
+    "rationale": "Identical 404s leave no existence oracle for drafts. The home page now depends on the store, so the old 200 with the store down cannot hold without lying ('No reports yet' while the database is down). 503 matches what /admin, /healthz, logout and callback already answer when the store is down. A missing file under a published row is corruption, not a hidden report, so it stays visible as 500."
+   },
+   {
+    "decision": "For the spike's link no-go: neither siteCSP nor rawCSP changes, and report bytes are never rewritten. Links that leave a report must carry target=\"_blank\", the upload form says so, and in-page #anchors already work. There is no 'open in its own tab' anchor to /raw.",
+    "reversibility": "cheap",
+    "rationale": "The spike measured that target-less cross-origin links are blocked by frame-src 'self' and that _blank works.\n- Widening frame-src would let a report show another site inside hband's layout, and most sites refuse framing anyway.\n- Rewriting anchors needs an HTML parser over untrusted input, which the two-dependency rule forbids, and it breaks the sha256 ETag.\n- <base target> is impossible under base-uri 'none'.\n- A bare /raw link would advertise a second URL without header, likes or comments, resting on top-level link behaviour nobody measured.\nThis is the project's own policy, not an outside defect, so it is not a workaround setting."
+   },
+   {
+    "decision": "The header's sign-in anchor returns the reader to the page they were on, via pageData.Next and SignInNext() (default \"/\"), built from the stored slug.",
+    "reversibility": "cheap",
+    "rationale": "Otherwise a reader who signs in from a shared link lands on whatever is newest. The spike measured the round-trip intact for every admitted slug."
+   },
+   {
+    "decision": "Reader pages send Cache-Control: private, no-cache. /raw keeps serveRaw's no-cache with the ETag. 404s carry no Cache-Control.",
+    "reversibility": "cheap",
+    "rationale": "The page is personalised (login, the owner's Admin link) and changes on every publish. 'private' is correct under either answer to the open Q-007 and answers neither. Setting the header only in renderReader keeps the /reports and /raw 404s byte-identical."
+   },
+   {
+    "decision": "The frame is fixed-height and sized by a site.css class (80vh, min 24rem) plus attributes, with no auto-resize and no site JavaScript on reader pages.",
+    "reversibility": "cheap",
+    "rationale": "A script-free, opaque-origin frame cannot report its height. A resize bridge would need scripts or allow-same-origin, which undoes the isolation. Inline style attributes are blocked by siteCSP, as the spike measured."
+   },
+   {
+    "decision": "C8 is proved by a six-well colour assay read from headless Edge's own --screenshot PNG with image/png, using whole-image pixel counts. A failed positive control or blank fails the run, and the hband server must log zero /beacon requests. There is no DevTools client unless the CLI capture proves blind.",
+    "reversibility": "cheap",
+    "rationale": "The beacon proof is impossible under img-src data:, as build-check measured. The spike measured that frame pixels separate design, scripts and blocked. The CLI keeps the test stdlib-only and small, where practice's WebSocket client was its own flagged over-build. The controls make a blind or premature capture fail loudly. The measured CDP channel stays the fallback behind the same Shot signature."
+   },
+   {
+    "decision": "The browser assay runs wherever a browser is found: HBAND_TEST_BROWSER, else the default Edge path. With the variable set it can never skip. It runs the sample over http and over https.",
+    "reversibility": "cheap",
+    "rationale": "Edge is present here (measured), so the default go test exercises isolation instead of leaving it to someone remembering a flag. The https well honours lesson #933: production is https, and frame-ancestors is matched against an https origin."
+   },
+   {
+    "decision": "Three fitness tripwires, each with fire and quiet corpus rows:\n- report bytes are written only by serveRaw;\n- no template frames with allow-scripts, allow-same-origin, allow-top-navigation or allow-forms, and no template uses srcdoc;\n- only the gated admin calls the draft-returning library methods.",
+    "reversibility": "cheap",
+    "rationale": "Each forbids the defect's own token (lesson #931) at the seam this slice opens: the first public path for untrusted bytes."
+   }
+  ],
+  "proposals": [
+   {
+    "designer": "crossdomain",
+    "selected": "core",
+    "note": "Taken:\n- the handler, route and template shape;\n- readRaw in raw.go;\n- SignInNext() defaulting to \"/\";\n- Cache-Control private, no-cache;\n- the five-well colour assay with run-acceptance controls via Edge --screenshot and image/png;\n- the headless helper;\n- the two template and byte-path tripwires with corpus rows.\nDropped: the 'Open in its own tab' anchor to /raw/<slug>. Missed: TestStoreErrorDeniesAdmin's pinned 200 on GET / with the store down."
+   },
+   {
+    "designer": "practice",
+    "selected": "partial",
+    "note": "Taken:\n- the template name report.html;\n- the same-layout byte-equality test;\n- the https sample well (lesson #933);\n- zero-beacon assertions, non-vacuous through a flipping scripts control;\n- HBAND_TEST_BROWSER forcing a run once set;\n- the upload-time link warning as a later follow-up.\nNot taken: the hand-written DevTools/WebSocket client, which its own over_engineering_flag named as the piece to cut; it stays the fallback behind Shot. Also not taken: no Cache-Control on reader pages, and editing the existing inline-bytes test. Missed the same store-down seam."
+   }
+  ],
+  "coherence_check": "Two proposals, composed. Product code comes from both, the browser assay from crossdomain, and three test assertions from practice. Contradictory invariants checked at each seam:\n\n(1) Error contract against an existing pinned test. Both proposals map a non-ErrNotFound library error on reader pages to 500. TestStoreErrorDeniesAdmin 'after sign-in' (admin_test.go:326-329) closes the store and requires GET / to answer 200, rendered anonymously with the sign-in anchor. newHarness opens the library on st.DB(), so Latest fails once the store is closed, and either proposal as written turns that suite red.\n- Redesigned: a library error on a reader page renders the shared template at 503. The header is resolved as Identify left it, so it shows the anonymous anchor. There is no iframe and no 'No reports yet'.\n- That one assertion moves from 200 to 503, keeping its anonymity checks. 503 matches /admin, /healthz, logout and callback with the store down.\n- /raw keeps 500, following adminRaw. A frame's status is not read by a person.\n\n(2) Cache-Control against identical 404s. 'private, no-cache' is set only inside renderReader, which runs after a successful lookup. readReport's and readRaw's 404s are written before any header is set, so the /reports and /raw 404s stay byte-identical to each other and to an unregistered path.\n\n(3) Practice's beacon assertions came with its DevTools channel. Composed with the screenshot assay, the request log is independent of the capture method, so they compose. They are non-vacuous only because the scripts control (W4) must produce a beacon at Q, and that is kept as a run-acceptance condition.\n\n(4) Practice's https well and crossdomain's blank: W1s runs on a second, TLS harness. The blank W5 frames the http harness from Q's port, so frame-ancestors' port matching is exercised there and https origin matching in W1s.\n\n(5) Crossdomain's 'Open in its own tab' anchor conflicts with '/reports/<slug> is the share URL' and rests on unmeasured top-level link behaviour, so it was dropped rather than shipped beside the share link.\n\n(6) Next field against SignInNext(): the method was kept. Only the reader template renders \"header\" (grep: only home.html does today), so admin pages never emit it, and the fallback is \"/\" regardless.\n\n(7) The tripwire on Serve(Content|File|FileFS) was checked against router.go:62. http.FileServerFS does not match, and raw.go:37 is the only ServeContent call under internal/. The draft rule was checked against a grep: only admin.go in internal/server calls BySlug, ListAll or OpenRaw(…, false), and internal/reports/** is excepted, since upload.go:317 calls l.BySlug.\n\n(8) Lesson #934 says new reader routes join the access matrix automatically. The code says otherwise: adminPaths enumerates only adminRoutes. Their path variants are therefore pinned in TestReaderPathVariants, from observed responses.\n\nThere is no outside defect worked around here. The blocked plain link is this project's own frame-src policy doing its job, so there is no workaround setting and no notice.\n\nNot contested by anyone and not measured: whether Edge's CLI --screenshot captures out-of-process frame pixels. The assay's positive control turns a 'no' into a failing run, and the fallback channel is the spike-measured one. No empirically decidable disagreement forces a re-synthesis: the Shot signature absorbs the losing answer.",
+  "architecture_rules": [
+   {
+    "name": "report bytes are written only by serveRaw",
+    "files": "internal/**/*.go",
+    "must_not_match": [
+     "\\bhttp\\.Serve(Content|File|FileFS)\\("
+    ],
+    "except_files": [
+     "internal/server/raw.go",
+     "**/*_test.go"
+    ],
+    "because": "serveRaw is the one place that replaces the site CSP with rawCSP (sandbox, script-src 'none', frame-ancestors) and sets nosniff and CORP. A second ServeContent or ServeFile writes report bytes under the site policy: script-src 'self', no sandbox, and the site's own origin. Opened top-level, that page is unsandboxed same-origin HTML."
+   },
+   {
+    "name": "no site template frames a report with scripts or the site origin, or inlines it",
+    "files": "internal/**/templates/**",
+    "must_not_match": [
+     "(?i)\\bsrcdoc\\s*=",
+     "(?i)\\bsandbox\\s*=\\s*[\"']?[^\"'>]*\\ballow-(scripts|same-origin|top-navigation|forms)"
+    ],
+    "because": "The project constraint requires the report iframe to be sandboxed without allow-scripts. Isolation is path-based on the site origin, so allow-same-origin hands the report the site's cookies and parent DOM, and allow-top-navigation or allow-forms lets it drive the reader's page. srcdoc puts report bytes inside a site page, which the constraint forbids."
+   },
+   {
+    "name": "only the gated admin reaches drafts",
+    "files": "internal/**/*.go",
+    "must_not_match": [
+     "\\.OpenRaw\\(.*,\\s*false\\s*\\)",
+     "\\.BySlug\\(",
+     "\\.ListAll\\("
+    ],
+    "except_files": [
+     "internal/server/admin.go",
+     "internal/reports/**",
+     "**/*_test.go"
+    ],
+    "because": "BySlug, ListAll and OpenRaw(…, false) return drafts. A public handler that calls one serves an unpublished report or reveals that it exists, which defeats the identical 404s for draft, unpublished, deleted and unknown slugs. Only the owner-gated admin may see drafts."
+   }
+  ],
+  "cases": [
+   {
+    "behaviour": "read the home page",
+    "shape": "only drafts exist (and, first, nothing at all)",
+    "why": "Latest returns ErrNotFound for both, and the handler must turn that into a 200 empty state, not a 404 or 500. The drafts-only state is what proves the status filter hides a draft from /.",
+    "check": "go test -count=1 -run TestReaderHomeEmpty ./internal/server"
+   },
+   {
+    "behaviour": "read the home page",
+    "shape": "two published reports (A, then B with the clock advanced) and a draft C uploaded after both",
+    "why": "Latest orders by published_at then id. B must be shown with src=/raw/b, A's title must not appear, and the newer draft must not win.",
+    "check": "go test -count=1 -run TestReaderHomeShowsNewest ./internal/server"
+   },
+   {
+    "behaviour": "open a report by its link",
+    "shape": "a published report whose title carries <, & and a double quote",
+    "why": "This pins C1 and C5:\n- 200 with the title escaped in <title>, <h1> and the iframe's title attribute;\n- exactly one <iframe> whose sandbox token set is exactly {allow-popups, allow-popups-to-escape-sandbox}, with referrerpolicy=no-referrer and src=/raw/<slug>;\n- Cache-Control: private, no-cache.",
+    "check": "go test -count=1 -run TestReportPage ./internal/server"
+   },
+   {
+    "behaviour": "see the same layout on the home page and on the report's own page",
+    "shape": "the newest report opened at / and at /reports/<its slug>, by a signed-in reader and by an anonymous one",
+    "why": "C2 says both are one page and handler. Signed in, the bodies are byte-identical. Anonymous, they differ only in the sign-in anchor's next value, which decodes to / and to /reports/<slug>.",
+    "check": "go test -count=1 -run TestReaderPagesShareOneLayout ./internal/server"
+   },
+   {
+    "behaviour": "be refused a report that is not public",
+    "shape": "a draft, an unpublished, a deleted, an unknown and a malformed (upper-case, 81-character) slug, each on /reports/<slug> and on /raw/<slug>",
+    "why": "PublishedBySlug and OpenRaw(…, true) collapse all of them into ErrNotFound. Any header set before the 404, or a different body, is an existence oracle for drafts. Status, body and headers minus Date must be byte-equal across all ten responses and to GET /nowhere.",
+    "check": "go test -count=1 -run TestHiddenReportsAreIndistinguishable ./internal/server"
+   },
+   {
+    "behaviour": "load the framed report bytes",
+    "shape": "GET, HEAD, and a GET with If-None-Match equal to the current ETag, on a published report's /raw/<slug>, with no cookie",
+    "why": "C6:\n- exactly one Content-Security-Policy equal to a.rawCSP(), replacing siteCSP;\n- nosniff, Referrer-Policy no-referrer, CORP same-origin, ETag of the sha256 and Cache-Control no-cache;\n- the body equals the uploaded bytes and there is no Set-Cookie;\n- HEAD has the same headers and an empty body;\n- the conditional GET answers 304.",
+    "check": "go test -count=1 -run TestPublicRawHeaders ./internal/server"
+   },
+   {
+    "behaviour": "re-read a report after the author replaced it",
+    "shape": "the same slug re-uploaded with new bytes and a new title",
+    "why": "The share URL must survive a replace. /reports/<slug> shows the new title, and /raw serves the new bytes with a new ETag. A conditional GET with the old ETag answers 200, not 304, so no reader keeps stale bytes.",
+    "check": "go test -count=1 -run TestPublicRawAfterReplace ./internal/server"
+   },
+   {
+    "behaviour": "load the framed report bytes",
+    "shape": "a published row whose file has been removed from <data>/reports",
+    "why": "OpenRaw returns a wrapped error that is not ErrNotFound. /raw must answer 500 'internal error' (logged), never a 404 that hides corruption and never any bytes. /reports/<slug> still answers 200, because PublishedBySlug reads no file.",
+    "check": "go test -count=1 -run TestPublicRawMissingFile ./internal/server"
+   },
+   {
+    "behaviour": "read while the database is down",
+    "shape": "the store is closed, and a signed-in reader and an anonymous one ask for / and /reports/<slug>",
+    "why": "Latest and PublishedBySlug fail on the closed DB.\n- The pages must answer 503 through the shared template, rendered anonymous with the sign-in anchor, with no iframe and no 'No reports yet'.\n- /raw answers 500.\n- TestStoreErrorDeniesAdmin's pinned 200 is moved to 503, so its anonymity checks keep holding.",
+    "check": "go test -count=1 -run \"TestStoreErrorDeniesAdmin|TestReaderStoreDown\" ./internal/server"
+   },
+   {
+    "behaviour": "never see report bytes inside a site page",
+    "shape": "the report bytes carry a unique sentinel (kept out of the title), viewed anonymously, as a non-owner and as the owner",
+    "why": "C7, SC-006 'never inlined'. The sentinel must be absent from / and from /reports/<slug> for all three viewers, and present on /raw/<slug> as the positive control, so the check is not vacuous.",
+    "check": "go test -count=1 -run TestReportBytesNeverInReaderPages ./internal/server"
+   },
+   {
+    "behaviour": "sign in from a shared report link",
+    "shape": "an anonymous reader on /reports/<slug> for the longest admitted slug (80 characters, letters, digits and hyphens)",
+    "why": "The anchor's next, URL-decoded from the href, must equal /reports/<slug>, and on / it must be /. Signed in, there is no anchor, the logout form is present, and the Admin link appears for the owner only. No form may target the sign-in URL.",
+    "check": "go test -count=1 -run TestReportPageSignInReturnsThere ./internal/server"
+   },
+   {
+    "behaviour": "reach a report by a variant of its path",
+    "shape": "//reports/x, /reports/x/, /reports/, /REPORTS/x, /reports/x/../y, /raw/x/, /raw/ and POST /reports/x, each with x a draft and with x unknown",
+    "why": "go1.27.4's ServeMux answers cleaned paths with 307 and its own 404 or 405 before any handler runs (lesson #934). Each variant is pinned to its observed response, and the draft and unknown slugs must give the same outcome per variant, so no variant becomes an oracle.",
+    "check": "go test -count=1 -run TestReaderPathVariants ./internal/server"
+   },
+   {
+    "behaviour": "read a report in a real browser",
+    "shape": "the report carries an inline script, an onerror handler and same-origin beacons, and is opened framed on /reports/<slug> over http and over https, and top-level at /raw/<slug>",
+    "why": "C8. W1, W1s and W2 must show at least 40,000 pure-green pixels (it rendered) and no pure red (no script ran). The hband server must log no /beacon request. A script running under the shipped sandbox and CSP is the slice's central risk.",
+    "check": "$env:HBAND_TEST_BROWSER='C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'; go test -count=1 -v -run TestReportScriptsNeverRun -timeout 10m ./internal/server   (must print --- PASS, never SKIP)"
+   },
+   {
+    "behaviour": "trust the browser verdict",
+    "shape": "each isolation layer alone, plus the run controls:\n- the same bytes with no CSP, under the sandbox attribute parsed from the reader page (attribute alone);\n- the same under sandbox=allow-scripts (positive control);\n- /raw/<slug> framed from a foreign-port origin (blank)",
+    "why": "The attribute-alone well must stay green with no red, which proves the iframe layer on its own; W2 already proves the CSP layer on its own. The positive control must turn red and send /beacon/script, and the blank must show neither colour. If either control fails, the run is invalid and the test fails, so a blind or early capture can never pass as 'no script ran'.",
+    "check": "$env:HBAND_TEST_BROWSER='C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'; go test -count=1 -v -run TestReportScriptsNeverRun -timeout 10m ./internal/server   (must print --- PASS, never SKIP)"
+   }
+  ],
+  "code_claims": [
+   {
+    "path": "internal/server/router.go",
+    "symbol": "siteCSP",
+    "claim": "The site policy carries style-src 'self', frame-src 'self' and frame-ancestors 'none', so a same-origin /raw frame is allowed, inline style attributes are blocked, and site pages can never be framed."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "New",
+    "claim": "New registers GET /{$} to a.home, /healthz, /static/ via http.FileServerFS, the auth routes and the two RequireOwner admin mounts, and nothing for /reports or /raw."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "securityHeaders",
+    "claim": "securityHeaders sets siteCSP, nosniff and Referrer-Policy same-origin on every response before the mux runs, so a handler 404 written before any other header carries exactly the site headers."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "render",
+    "claim": "render executes the named template into a buffer, answers 500 'internal error' on a template error, and otherwise sets text/html; charset=utf-8 and writes the given status and the bytes."
+   },
+   {
+    "path": "internal/server/raw.go",
+    "symbol": "rawCSP",
+    "claim": "rawCSP is 'sandbox allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'; frame-ancestors ' + a.cfg.Origin."
+   },
+   {
+    "path": "internal/server/raw.go",
+    "symbol": "serveRaw",
+    "claim": "serveRaw defers f.Close, sets Content-Type, the rawCSP, nosniff, Referrer-Policy no-referrer, CORP same-origin, an ETag of rep.SHA256 and the caller's Cache-Control, then answers through http.ServeContent, the only ServeContent call under internal/."
+   },
+   {
+    "path": "internal/server/home.go",
+    "symbol": "pageData",
+    "claim": "pageData has only Title, SignedIn and Viewer, and home renders home.html from auth.ViewerFrom without touching the store."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminRaw",
+    "claim": "adminRaw calls OpenRaw(…, false), maps ErrNotFound to http.NotFound and any other error to a logged 500 'internal error', and otherwise calls serveRaw with \"no-store\"."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminData",
+    "claim": "adminData embeds pageData and declares its own Report field, so the reader needs its own data struct rather than a Report field on pageData."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "renderLanding",
+    "claim": "admin.go is the only non-test file under internal/server that calls ListAll, BySlug or OpenRaw with publishedOnly false."
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "symbol": "Latest",
+    "claim": "Latest selects the published report ORDER BY published_at DESC, id DESC LIMIT 1 through oneReport, so nothing published gives ErrNotFound."
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "symbol": "PublishedBySlug",
+    "claim": "PublishedBySlug selects by slug AND status = 'published' and reads no file."
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "symbol": "OpenRaw",
+    "claim": "OpenRaw holds writeMu.RLock, appends status = 'published' when publishedOnly, returns ErrNotFound for no row, and returns a wrapped 'open the file of report N' error, not ErrNotFound, when the file cannot be opened."
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "symbol": "oneReport",
+    "claim": "oneReport maps sql.ErrNoRows to ErrNotFound and passes every other error through unchanged."
+   },
+   {
+    "path": "internal/reports/upload.go",
+    "symbol": "sniffOK",
+    "claim": "The upload file check only requires http.DetectContentType of the head to be text/html or text/plain in UTF-8, so a test report carrying <script> and onerror is accepted by the real upload route."
+   },
+   {
+    "path": "internal/server/templates/layout.html",
+    "symbol": "header",
+    "claim": "The header partial shows the avatar, 'Signed in as @login', an /admin link only for Viewer.IsOwner and the POST /auth/logout form, and otherwise an anchor whose href hard-codes /auth/github/login?next=%2F."
+   },
+   {
+    "path": "internal/server/templates/home.html",
+    "symbol": "template \"header\"",
+    "claim": "home.html is today the only template that renders the \"header\" partial; the admin templates do not."
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "symbol": "allow-popups allow-popups-to-escape-sandbox",
+    "claim": "The admin preview iframe carries sandbox=\"allow-popups allow-popups-to-escape-sandbox\", referrerpolicy=\"no-referrer\", width=\"100%\" and height=\"600\", with no inline style."
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "symbol": "site-header",
+    "claim": "site.css styles body, main (max-width 48rem), the site header, brand, avatar and buttons, has no rule for an iframe, and uses no pure #00ff00 or #ff0000."
+   },
+   {
+    "path": "internal/server/admin_test.go",
+    "symbol": "TestStoreErrorDeniesAdmin",
+    "claim": "Its 'after sign-in' subtest closes the store and then requires GET / to answer 200 with no 'Signed in as' and with the sign-in anchor."
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "symbol": "newHarness",
+    "claim": "newHarness opens the report library on the store's own st.DB(), runs New on a real httptest listener over plain http or TLS (useTLS) with a fake GitHub and a fake clock, so closing h.store also fails library queries."
+   },
+   {
+    "path": "internal/server/admin_test.go",
+    "symbol": "adminPaths",
+    "claim": "The access matrix's paths are built only from adminRoutes patterns plus fixed admin variants, so public reader routes do not join it automatically."
+   },
+   {
+    "path": "internal/server/admin_test.go",
+    "symbol": "muxCleanStatus",
+    "claim": "The tests pin ServeMux's cleaned-path redirect to http.StatusTemporaryRedirect (307) on go1.27.4."
+   },
+   {
+    "path": "internal/server/signin_test.go",
+    "symbol": "anchorRE",
+    "claim": "anchorRE accepts any next value after /auth/github/login?next=, so a per-page, query-escaped next keeps TestHomeSignInIsAnchor and TestOwnerSignInReachesAdmin valid."
+   },
+   {
+    "path": "internal/server/admin_reports_test.go",
+    "symbol": "TestReportBytesNeverAppearInSitePages",
+    "claim": "The existing sentinel test checks /, /admin and /admin/reports/inline-check with the gated raw route as its positive control, and has no public reader case."
+   },
+   {
+    "path": "internal/server/admin_reports_test.go",
+    "symbol": "TestPreviewHeaders",
+    "claim": "TestPreviewHeaders pins the raw CSP directives, the other report headers, HEAD and a 304 on If-None-Match for the gated preview over both http and https."
+   },
+   {
+    "path": "internal/server/admin_reports_test.go",
+    "symbol": "upload",
+    "claim": "The harness upload helper posts the multipart upload form to POST /admin/reports with the owner's session, so tests create published or draft reports through the real route."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "site HTML is never built as a Go string literal",
+    "claim": "The rule forbids string literals starting with markup in Go files but excepts **/*_test.go and internal/testutil/**, so the assay's control pages and reagent may be literals in tests."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "production code never links the fake GitHub",
+    "claim": "The rule bans importing github.com/sshubham2/hband/internal/testutil* from non-test code, so a helper under internal/testutil/headless cannot reach the binary."
+   },
+   {
+    "path": "internal/fitnessrules/rules_test.go",
+    "symbol": "TestRuleSpellingsCorpus",
+    "claim": "Every rule named in rules_under_test must have at least one fire row and one quiet row, and the corpus must keep at least 100 rows."
+   }
+  ],
+  "outside_claims": [
+   {
+    "claim": "In Edge 158 headless, a sandboxed report iframe is an out-of-process iframe target. DOM.getDocument(pierce) cannot see its document, but Page.captureScreenshot pixels show the frame: green for the design variant, red for scripts allowed, #dddddd grey for frame-ancestors-blocked.",
+    "evidence": "measured",
+    "source": "spike frame-render-and-script-observable-without-beacons (Edge 158.0.4370.33, real serveRaw and rawCSP)",
+    "if_wrong": "The assay's pixel signal would not exist. It was measured, so this is the fallback channel the Shot signature can switch to."
+   },
+   {
+    "claim": "`msedge --headless=new --screenshot=<path> --virtual-time-budget=5000 --window-size=W,H <url>` writes a PNG of the composited page, out-of-process iframe pixels included, after the page and its frames have loaded, and then exits by itself.",
+    "evidence": "recalled",
+    "source": "memory (Chromium headless command-line switches); build-check measured only --dump-dom with --virtual-time-budget exiting in time",
+    "if_wrong": "W1 and W4 show no colour. The positive control fails, so the run fails rather than passing. Shot's body is replaced by Page.captureScreenshot over a minimal DevTools client in internal/testutil/headless, keeping the same signature."
+   },
+   {
+    "claim": "Under rawCSP (default-src 'none', img-src data:), Edge requests no same-origin <img>, CSS url() or prefetch from the report, framed or top-level, and runs no script, onload or onerror handler.",
+    "evidence": "measured",
+    "source": "build-check headless Edge probe (0 beacons under the design CSP, control with img-src 'self' fetched them); spike console 'Loading image ... violates img-src data:'",
+    "if_wrong": "The zero-beacon assertion at the hband server would fail, exposing that reports can fire cookie-bearing same-origin GETs."
+   },
+   {
+    "claim": "The CSP sandbox directive sent as an HTTP header keeps a top-level /raw/<slug> script-free and opaque-origin, without any parent frame.",
+    "evidence": "measured",
+    "source": "spike frame-render-and-script-observable-without-beacons: top-level /raw/design rendered SENTINEL-STATIC and green, with no ONERROR-RAN",
+    "if_wrong": "W2 turns red, and the CSP layer alone would not hold."
+   },
+   {
+    "claim": "Inside the framed report, target-less cross-origin links are blocked by the parent's frame-src 'self', target-less site links are blocked by siteCSP's frame-ancestors 'none', target=_blank opens a new unsandboxed page, and #fragment links scroll the frame.",
+    "evidence": "measured",
+    "source": "spike framed-report-links-still-work (Edg/158 headless, B log held only /ext-blank)",
+    "if_wrong": "The author contract of target=\"_blank\" and the upload-form hint would describe the wrong behaviour."
+   },
+   {
+    "claim": "CSP frame-ancestors source matching includes the port, so a page served from another port on 127.0.0.1 is refused when it frames /raw/<slug>.",
+    "evidence": "recalled",
+    "source": "memory (CSP Level 3 source matching); the spike measured refusal only for http://other.invalid",
+    "if_wrong": "The blank well W5 renders green and the run fails as invalid. The blank must then come from a different host name (for example localhost against 127.0.0.1), which is a test-only change."
+   },
+   {
+    "claim": "The Edge error page for a blocked frame is #dddddd with #ff4a48 and #db979c pixels, all more than 8 per channel away from pure #ff0000 and #00ff00.",
+    "evidence": "measured",
+    "source": "spike frame-render-and-script-observable-without-beacons pixel samples",
+    "if_wrong": "The blank well or a blocked sample could be miscounted as red. The tolerance would need tightening."
+   },
+   {
+    "claim": "Launching msedge.exe with its own fresh --user-data-dir starts a separate headless instance and leaves the person's running Edge processes untouched.",
+    "evidence": "measured",
+    "source": "spikes 1 and 3 and build-check: only processes holding the scratch profile were affected, and 5 other msedge processes were untouched",
+    "if_wrong": "A test run could hand its URL to the person's browser. The helper would need a different isolation flag."
+   },
+   {
+    "claim": "--ignore-certificate-errors lets headless Edge load the httptest self-signed https origin.",
+    "evidence": "recalled",
+    "source": "memory (Chromium switch)",
+    "if_wrong": "W1s cannot load and fails. The https well would have to trust the harness certificate another way, or be recorded as unmeasured."
+   },
+   {
+    "claim": "html/template percent-encodes a value placed after ?next= inside an href (for example, \"/reports/x\" becomes \"%2freports%2fx\"), and Go's query parsing decodes either hex case.",
+    "evidence": "recalled",
+    "source": "memory (html/template URL-query escaper)",
+    "if_wrong": "The value would land unencoded. /reports/<slug> is still a valid query value, and the test decodes the href and compares, so it settles this either way."
+   },
+   {
+    "claim": "go1.27.4's ServeMux redirects cleaned paths with 307 and answers unmatched paths with the same 19-byte '404 page not found\\n' text/plain response that http.NotFound writes.",
+    "evidence": "measured",
+    "source": "build-check live probe (every /reports and /raw path gave the same 19-byte 404); admin_test.go muxCleanStatus pins 307 (lesson #934)",
+    "if_wrong": "Handler 404s and mux 404s would differ. The identical-404 test would show it, and the handler would have to match the mux's bytes."
+   },
+   {
+    "claim": "http.ServeContent with a preset ETag answers HEAD without a body and answers 304 to a matching If-None-Match.",
+    "evidence": "measured",
+    "source": "TestPreviewHeaders passes in go test -count=1 ./... (build-check)",
+    "if_wrong": "The /raw HEAD and 304 cases would fail."
+   },
+   {
+    "claim": "Cache-Control: private forbids a shared cache, such as the VPS reverse proxy, from storing the personalised reader page.",
+    "evidence": "recalled",
+    "source": "memory (RFC 9111)",
+    "if_wrong": "If the proxy ignores it, one reader's header could reach another. That is the open Q-007, which this design does not answer."
+   },
+   {
+    "claim": "When the started browser process is killed on the timeout path, its Chromium child processes exit once their IPC channel to the browser closes.",
+    "evidence": "recalled",
+    "source": "memory",
+    "if_wrong": "Orphaned children could keep the temp profile locked. The helper logs the leftover directory and does not fail, but processes could linger until they exit on their own."
+   }
+  ],
+  "cross_domain_transfer": {
+   "source_domain": "Clinical laboratory assay quality control (colorimetric plate assays with run-acceptance controls, Westgard-style run validity)",
+   "pattern": "A negative result counts only when, in the same run, a positive control produced the signal and a blank produced none. The readout is a whole-well colour measurement with a dye chosen not to overlap the instrument's background, and the 'sample is present' signal does not depend on the chemistry under test.\n\nHere:\n- the report is a reagent, painted green by inline CSS (rendered and inert) and red by any script;\n- the wells are Edge screenshots: the reader page over http and https, top-level /raw, attribute-only, a scripts-allowed positive control, and a frame-ancestors blank;\n- the plate reader is image/png pixel counting;\n- a run whose positive control is not red, or whose blank shows colour, is invalid and the test fails.",
+   "transfer_found": true,
+   "rationale": "The planned beacon test failed the way an assay fails when the buffer holds an inhibitor: img-src data: suppressed the only signal that showed the frame rendered, so silence meant nothing. Lab QC's answer is structural:\n- separate the 'present' signal from the 'reaction' signal: green comes from style-src 'unsafe-inline', which rawCSP allows;\n- read the whole well: no coordinates, so the spike's inline-style and box-model traps cannot bite;\n- gate every run on controls.\nThe https well was added to the plate from the practice proposal.",
+   "invariants": [
+    {
+     "precondition": "Edge's --headless=new --screenshot output contains the pixels of out-of-process iframes.",
+     "status": "must-verify",
+     "evidence": "The spike measured Page.captureScreenshot showing frame pixels. The CLI capture is believed to use the same compositor path but was not measured. The positive control makes a 'no' fail the run, and the CDP capture is the fallback behind Shot."
+    },
+    {
+     "precondition": "The capture happens after the framed document has loaded and its inline script had its chance to run.",
+     "status": "must-verify",
+     "evidence": "The parent's load event waits for child frames, and --virtual-time-budget=5000 adds margin. Every run re-checks this: an early capture leaves the positive control not red, and the run fails."
+    },
+    {
+     "precondition": "The 'rendered' signal is not inhibited by the policy under test.",
+     "status": "holds",
+     "evidence": "rawCSP allows style-src 'unsafe-inline' (internal/server/raw.go), and the spike observed #00ff00 for the design variant."
+    },
+    {
+     "precondition": "Neither assay colour appears in the instrument's own background.",
+     "status": "holds",
+     "evidence": "site.css uses neither colour. The Edge blocked page is #dddddd, #ff4a48 and #db979c (measured), all outside ±8 of pure red and green."
+    },
+    {
+     "precondition": "The reagent travels the production path.",
+     "status": "holds",
+     "evidence": "sniffOK accepts the script-bearing HTML through the real POST /admin/reports. W1, W1s, W2 and W5 hit the real report.html, readRaw, serveRaw and rawCSP."
+    },
+    {
+     "precondition": "Wells are independent.",
+     "status": "holds",
+     "evidence": "Every Shot uses a fresh --user-data-dir and a fresh browser process."
+    },
+    {
+     "precondition": "Plain http stands for the production https frame.",
+     "status": "holds",
+     "evidence": "readRaw reads no identity, so the __Host- cookie question does not apply. The https origin match is exercised by W1s on the TLS harness."
+    },
+    {
+     "precondition": "The assay proves scripts never run in every browser readers use.",
+     "status": "fails",
+     "evidence": "Only this machine's Edge 158 is available. Firefox and Safari are a known limit. The HTTP-level tests pin the exact headers and attribute every browser receives."
+    }
+   ]
+  },
+  "channeled_experts": [
+   "Clinical laboratory QC scientist (assay controls, run acceptance)",
+   "Browser security engineer (CSP, iframe sandbox, navigation checks)",
+   "Mike West's least-privilege sandbox framing (web.dev): every sandbox token is a grant",
+   "Webmail HTML renderers: untrusted mail runs no scripts, loads nothing remote, and its links leave in a new context"
+  ],
+  "prior_art": [
+   {
+    "pattern": "Least privilege for embedded content: start from an empty sandbox and grant tokens one by one, and never allow-scripts together with allow-same-origin.",
+    "where": "https://web.dev/articles/sandboxed-iframes",
+    "authority": "official",
+    "basis": "cited"
+   },
+   {
+    "pattern": "Untrusted HTML is rendered in a sandboxed iframe isolated from the app. A separate per-artifact origin is stronger than this project's isolated path, and that gap is why the opaque-origin CSP sandbox header and the exact token strings are pinned here.",
+    "where": "https://artifact.cafe/docs/security",
+    "authority": "community",
+    "basis": "cited"
+   },
+   {
+    "pattern": "frame-ancestors and the CSP sandbox directive only work as HTTP headers, not in a meta CSP, which is why serveRaw sets the report policy as a response header.",
+    "where": "https://agentpatterns.ai/security/browser-sandbox-agent-generated-html/",
+    "authority": "community",
+    "basis": "cited"
+   },
+   {
+    "pattern": "Rendering untrusted HTML inline in the site's own page is unsafe; a sandboxed iframe is the boundary.",
+    "where": "https://joshua.hu/rendering-sandboxing-arbitrary-html-content-iframe-interacting",
+    "authority": "community",
+    "basis": "cited"
+   },
+   {
+    "pattern": "User-uploaded content is served with a 'Content-Security-Policy: sandbox' response header, so it stays script-free and opaque-origin even when opened top-level.",
+    "where": "googleusercontent.com / raw.githubusercontent.com serving practice",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "HTML mail views force links to open in a new top-level context and block remote loads, instead of letting links navigate the rendering frame.",
+    "where": "Gmail / Fastmail HTML message rendering",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Headless Chromium command-line capture (--headless=new --screenshot=<path> --window-size) with no DevTools client.",
+    "where": "Chromium headless mode command-line switches",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Run-acceptance quality control: an analytical run is accepted only when its controls fall within limits, and a run with a failed control is rejected, not reported.",
+    "where": "Clinical laboratory QC practice (Westgard rules)",
+    "authority": "community",
+    "basis": "recalled"
+   }
+  ],
+  "stack_chosen": [
+   {
+    "area": "testing",
+    "choice": "Real-browser checks drive the locally installed Chromium-family browser (Edge here) headless through its own command line (--headless=new --screenshot, fresh --user-data-dir per run) and read the PNG with Go's image/png. There is no browser-automation dependency. Test-only settings use the HBAND_TEST_* names: HBAND_TEST_BROWSER (which forces the run when set; otherwise the default Edge path is used if present, else the test skips) and HBAND_TEST_ARTIFACTS (where screenshots are written). config.Load never reads them.",
+    "why": "The stack block names Go testing and httptest but nothing for browser-level checks. The two-dependency rule excludes chromedp and Playwright. Later slices that need a real browser, such as SC-002's preview frame or the like and comment UI, inherit this instead of picking a second driver. If a check needs cookies or clicks, a DevTools capture goes behind the same internal/testutil/headless helper."
+   }
+  ],
+  "taste_disagreements": [
+   "Template name: practice report.html, crossdomain reader.html. report.html chosen, the name the epic design and the build check already use.",
+   "Where the public raw handler lives: practice reader.go, crossdomain raw.go beside serveRaw. raw.go chosen, so the whole byte path is one file.",
+   "Reader-page caching: practice adds no Cache-Control and defers to Q-007, crossdomain sends 'private, no-cache'. The latter chosen, because it is correct under either answer to Q-007 and answers neither.",
+   "An 'Open in its own tab' anchor to /raw/<slug> (crossdomain): dropped, because it advertises a second, bare URL and its value rests on unmeasured top-level link behaviour.",
+   "Sign-in return: a Next field (practice) or a SignInNext() method defaulting to '/' (crossdomain). The method chosen.",
+   "Sentinel coverage: extend the existing TestReportBytesNeverAppearInSitePages (practice) or add a reader-specific test and leave it untouched (crossdomain). The new test chosen.",
+   "Browser test gating: practice gates on HBAND_TEST_BROWSER only, crossdomain also uses the default Edge path. Merged: the default path is used when the variable is unset, and the variable, once set, forbids a skip.",
+   "Assay size: crossdomain offered to cut five wells to three. Kept at six, the https well included, because the attribute-alone and CSP-alone wells each prove one of the two layers the constraint names."
+  ],
+  "whats_new": [
+   "internal/server/reader.go (git mv of home.go): pageData with Next and SignInNext(), home on Latest, readReport on PublishedBySlug, renderReader, readerData, the empty and unavailable states, Cache-Control private, no-cache",
+   "readRaw in internal/server/raw.go: OpenRaw(slug, true) passed to serveRaw(…, \"no-cache\")",
+   "GET /reports/{slug} and GET /raw/{slug} registered in internal/server/router.go",
+   "internal/server/templates/report.html, shared by / and /reports/<slug>, with the exact sandboxed iframe to /raw/<slug> and a permalink (home.html deleted)",
+   "layout.html's sign-in anchor uses next={{.SignInNext}} in place of the hard-coded %2F",
+   "A one-sentence target=\"_blank\" link hint in admin.html's upload form",
+   "site.css: main.reader width and .report-frame fixed-height sizing",
+   "internal/server/reader_test.go: the twelve reader HTTP tests listed in cases, path variants pinned from observed responses",
+   "TestStoreErrorDeniesAdmin's GET / expectation moved from 200 to 503, with its anonymity checks kept",
+   "internal/testutil/headless: browser discovery, CLI screenshot capture, pixel counting",
+   "internal/server/browser_test.go: TestReportScriptsNeverRun, a six-well colour assay with run-acceptance controls and zero-beacon logging",
+   "Three fitness tripwires (the byte path, template sandbox tokens and srcdoc, draft-returning calls), with fire and quiet corpus rows and bounded_by entries"
+  ],
+  "whats_reused": [
+   "serveRaw and rawCSP (internal/server/raw.go), unchanged: the only writer of report bytes and the report policy",
+   "Library.Latest, PublishedBySlug and OpenRaw(…, publishedOnly), with oneReport's ErrNotFound mapping, unchanged and already tested",
+   "securityHeaders, siteCSP (frame-src 'self' kept on purpose) and a.render, unchanged",
+   "The head and header partials in layout.html",
+   "The iframe attribute set from admin_report.html:22",
+   "adminRaw's ErrNotFound → 404, else → 500 pattern, for readRaw",
+   "auth.ViewerFrom, plus LocalPath, login and callback for the return path (spike-proven for every admitted slug)",
+   "The test harness: newHarness over http and TLS, h.upload, h.mint, h.serve, reportHTML and the fake clock",
+   "The existing must_not_import internal/testutil* rule, which keeps the headless helper out of the binary",
+   "The spike's measured facts: the iframe-pixel separation, the error-page colours, inline styles blocked by siteCSP, and the link behaviour"
+  ],
+  "filed_for_later": [
+   {
+    "what": "Look at the HBAND_TEST_ARTIFACTS screenshots of the reader page (W1, desktop width) and at the page on a phone-width window, and judge whether the layout reads well: header, title, date, permalink and the framed report.",
+    "why": "Every gate in the loop is model-run (lesson #184). The assay proves the frame rendered and ran no script, not that the page is pleasant to read. That needs somebody's judgement.",
+    "who": "person"
+   },
+   {
+    "what": "An upload-time notice in the admin page listing target-less anchors in an uploaded report that point outside it, warning that they will be blocked inside the reader's frame. It would only warn, never refuse and never rewrite.",
+    "why": "The link contract (target=\"_blank\") is an author convention that this slice states but does not enforce. Detecting anchors needs scanning untrusted HTML at upload, which is separate work from serving reports.",
+    "who": "slice"
+   }
+  ],
+  "reason": "Two complete proposals that agree on the product shape. Composed: the routes and template come from both, the screenshot assay from crossdomain, and three test assertions from practice. One seam neither saw, the pinned 200 for GET / with the store down, was redesigned. Composition was checked at eight seams."
+ }
+}

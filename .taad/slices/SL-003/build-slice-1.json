@@ -1,0 +1,412 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-003",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-23T19:22:47.939Z",
+ "head": "db0c871ef2a3b0f2fd33f7fb2cd990cd65ae1710",
+ "run_id": 11715,
+ "summary": "Built the three routes: GET / on Library.Latest, GET /reports/{slug} on PublishedBySlug, and GET /raw/{slug} on OpenRaw(slug, true) feeding the existing serveRaw with \"no-cache\". / and /reports/<slug> share one report.html and one renderReader(w, r, page, rep, state) that derives status, title, sign-in return and viewer. Added reader HTTP tests, a headless-Edge helper, and TestReportScriptsNeverRun, a colour assay with instrument blanks, three controls, three verdict wells and per-Shot request logs. Revised the three fitness rules into five tripwires with 80 new corpus rows. The Edge CLI --screenshot does capture out-of-process iframe pixels (green, red and blank all read correctly), so no DevTools client was needed. Full vet and test pass, and the real binary served two real HTML files from disk.",
+ "payload": {
+  "status": "complete",
+  "summary": "Built the three routes: GET / on Library.Latest, GET /reports/{slug} on PublishedBySlug, and GET /raw/{slug} on OpenRaw(slug, true) feeding the existing serveRaw with \"no-cache\". / and /reports/<slug> share one report.html and one renderReader(w, r, page, rep, state) that derives status, title, sign-in return and viewer. Added reader HTTP tests, a headless-Edge helper, and TestReportScriptsNeverRun, a colour assay with instrument blanks, three controls, three verdict wells and per-Shot request logs. Revised the three fitness rules into five tripwires with 80 new corpus rows. The Edge CLI --screenshot does capture out-of-process iframe pixels (green, red and blank all read correctly), so no DevTools client was needed. Full vet and test pass, and the real binary served two real HTML files from disk.",
+  "files": [
+   {
+    "path": "internal/server/reader.go",
+    "change": "added",
+    "why": "replaces home.go: pageData with Next and SignInNext, home on Latest, readReport on PublishedBySlug, renderReader(page, rep, state), the empty and unavailable states, Cache-Control private, no-cache"
+   },
+   {
+    "path": "internal/server/home.go",
+    "change": "deleted",
+    "why": "replaced by reader.go (deleted and recreated rather than git mv, which would stage a rename)"
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "change": "added",
+    "why": "the one page for / and /reports/<slug>: sandboxed iframe to /raw/<slug>, permalink, empty and unavailable states"
+   },
+   {
+    "path": "internal/server/templates/home.html",
+    "change": "deleted",
+    "why": "replaced by report.html"
+   },
+   {
+    "path": "internal/server/templates/layout.html",
+    "change": "modified",
+    "why": "the sign-in anchor's next is {{.SignInNext}} instead of the hard-coded %2F"
+   },
+   {
+    "path": "internal/server/templates/admin.html",
+    "change": "modified",
+    "why": "one sentence in the upload form: links leaving the report need target=_blank"
+   },
+   {
+    "path": "internal/server/raw.go",
+    "change": "modified",
+    "why": "readRaw: public OpenRaw(slug, true) then serveRaw(..., no-cache); ErrNotFound is http.NotFound, any other error 500"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "modified",
+    "why": "registers GET /reports/{slug} and GET /raw/{slug}"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "main.reader width and the fixed-height .report-frame"
+   },
+   {
+    "path": "internal/server/admin_test.go",
+    "change": "modified",
+    "why": "TestStoreErrorDeniesAdmin: GET / with the store down is 503 (anonymous header kept, no iframe, no 'No reports yet')"
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "change": "added",
+    "why": "the twelve reader HTTP tests from the design, path variants pinned from observed responses"
+   },
+   {
+    "path": "internal/server/browser_test.go",
+    "change": "added",
+    "why": "TestReportScriptsNeverRun (colour assay with run-acceptance controls) and TestReagentShape"
+   },
+   {
+    "path": "internal/testutil/headless/headless.go",
+    "change": "added",
+    "why": "Browser, Shot and Count: Edge via its own command line, PNG read with image/png"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "the design's three SL-003 rules (already in the tree, uncommitted) revised per m4 and m5 into five tripwires"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "change": "modified",
+    "why": "80 fire and quiet rows for the five rules, three bounded_by entries, rules_under_test extended"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "TestReaderHomeEmpty feeds nothing at all, then only a draft, then a published-then-unpublished report. Each gives 200 'No reports yet', no iframe, no draft title, Cache-Control private, no-cache."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "TestReaderHomeShowsNewest uploads A, advances the fake clock, uploads B, advances it, uploads draft C. / frames exactly /raw/b, shows B's h1 and names no other report. Publishing C then makes it the newest."
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "TestReportPage uses a title with <, & and a double quote. Its decoded <title>, <h1> and iframe title attribute all equal the title and no raw <b> reaches the page. It asserts exactly one iframe with sandbox tokens exactly {allow-popups, allow-popups-to-escape-sandbox}, referrerpolicy no-referrer, src /raw/<slug>, no inline style, and Cache-Control private, no-cache."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "TestReaderPagesShareOneLayout: signed in as the owner and as a non-owner, / and /reports/<slug> are byte-identical in status, body and headers. Anonymous, they are identical once the sign-in anchor is masked, and the decoded next is / and /reports/<slug>."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "TestHiddenReportsAreIndistinguishable: a draft, an unpublished, a deleted, an unknown, an upper-case and an 81-character slug, on /reports/ and /raw/, anonymous and as owner. All equal GET /nowhere in status, body ('404 page not found\\n') and headers minus Date. The 404 keeps the site CSP and has no Cache-Control. Controls: the published slug gives 200 on both."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "TestPublicRawHeaders over http and https, with no cookie: 200 with the uploaded bytes, exactly one CSP equal to rawCSP and not the site CSP, nosniff, Referrer-Policy, CORP, ETag of the sha256, no-cache, no Set-Cookie. A signed-in request gets the identical response. HEAD has the same headers and an empty body, and If-None-Match gives 304."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "TestPublicRawAfterReplace re-uploads the same slug with new bytes and a new title. /reports/<slug> shows the new title, /raw serves the new bytes with a new ETag, and If-None-Match with the old ETag gets 200 with the new bytes, not 304."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "TestPublicRawMissingFile deletes the file under <data>/reports. /raw/<slug> answers 500 'internal error' with the site CSP and no bytes. /reports/<slug> still answers 200 with the frame."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "TestReaderStoreDown closes the store. For anonymous, owner and non-owner, / and /reports/<slug> answer 503 with 'Reports cannot be shown right now', the anonymous header and sign-in anchor (next /), no iframe and no 'No reports yet'. /raw answers 500. TestStoreErrorDeniesAdmin's GET / expectation moved from 200 to 503, anonymity checks kept, and it also requires no iframe and no 'No reports yet'."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "TestReportBytesNeverInReaderPages: a sentinel kept out of the title is absent from / and /reports/<slug> for anonymous, non-owner and owner. Each page frames /raw/<slug> (so the check is not vacuous) and /raw/<slug> carries the sentinel as the positive control."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "TestReportPageSignInReturnsThere uses an 80-character slug of letters, digits and hyphens. The anchor's decoded next equals /reports/<slug> and on / equals /. Following the whole sign-in flow returns to the report, signed in. Signed in there is no anchor, there is a logout form, the Admin link shows for the owner only, and no form targets the sign-in URL."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "TestReaderPathVariants pins //reports/x and //raw/x to a 307 to the cleaned path, /reports/x/../y to a 307 to /reports/y, and /raw/x/../y to a 307 to /raw/y. /reports/x/, /reports/, /reports, /REPORTS/x, /raw/x/, /raw/ and /raw are the mux 404, and POST to either is 405 with Allow GET, HEAD. Each is asked with x a draft and with x unknown, and the two must be the same response. Expectations are from observed go1.27.4 responses; no routing was changed."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "TestReportScriptsNeverRun: the reagent (inline script, onerror, tagged same-origin beacons) goes through the real upload route. W1 (reader page, http), W1s (the same over https with --ignore-certificate-errors) and W2 (top-level /raw) each show at least 40,000 green pixels, red = 0, GET /raw/probe in that Shot's own server log, and no /beacon/ request. Measured here: green 1.1M, 1.1M and 1.43M, red 0. Both layers were also made to fail separately: removing the report policy's script block turned W2 red (1,432,959 px), and an allow-scripts attribute turned the attribute-alone well W3 red."
+   },
+   {
+    "key": "O-014",
+    "done": true,
+    "how": "Same test. Controls are judged first and fail the run as INVALID. W4 (allow-scripts, no policy) must be red at least 40,000 px and Q must log /beacon/script?w=W4 (measured 805,759 red). W4b is the same with only the onerror handler and must be red. W5 (real /raw framed from another port) must show neither colour while P still logs GET /raw/probe. W3 (no policy, the attribute parsed from the real reader page) must be green with red = 0 (measured 805,754 green)."
+   },
+   {
+    "key": "O-017",
+    "done": true,
+    "how": "Built the critic's version, not the prescription: an empty-state blank (P's / before anything is published) and a found-state blank, an uploaded neutral #808080 report shot at /reports/blank anonymously. Both require green = 0 and red = 0 and fail as 'INVALID RUN: the site chrome contains a signal colour'. Mutation: a red frame border in site.css makes the found-state blank fail (red=16960), while the empty-state blank stays clean, which is why the found-state blank exists.",
+    "mutation": {
+     "file": "internal/server/static/site.css",
+     "find": "height: 24rem; border: 1px solid #8884;",
+     "replace": "height: 24rem; border: 4px solid #ff0000;",
+     "test_command": "go test -count=1 -run TestReportScriptsNeverRun ./internal/server"
+    }
+   },
+   {
+    "key": "O-018",
+    "done": true,
+    "how": "The reagent's green <style> is last in the body, after the script and the onerror image, with no !important. Both repaints set element.style. Added W4b (reagent without the inline script, sandbox=allow-scripts, no policy), which must be red, so the onerror channel is proven to fire within the capture. TestReagentShape pins the ordering, no !important, element.style repaints and tagged beacons.",
+    "mutation": {
+     "file": "internal/server/browser_test.go",
+     "find": "<style>html,body{background:#00ff00}</style>",
+     "replace": "<style>html,body{background:#00ff00!important}</style>",
+     "test_command": "go test -count=1 -run TestReagentShape ./internal/server"
+    }
+   },
+   {
+    "key": "O-019",
+    "done": true,
+    "how": "One reqLog type wraps P, the https harness S and the control server Q. P and S are wrapped by setting h.handler under h.mu, outside New's chain, so mux 404s are logged. Each Shot records every log's length before and judges only its own new entries. W1, W2 and W5 must each add GET /raw/probe to P, W1s must add it to S, and no Shot may add a /beacon/ entry to P or S. Mutation: not installing the wrapper makes the run fail as INVALID RUN (the blank never asked the hband server).",
+    "mutation": {
+     "file": "internal/server/browser_test.go",
+     "find": "h.handler = l.wrap(h.handler)",
+     "replace": "_ = l.wrap(h.handler)",
+     "test_command": "go test -count=1 -run TestReportScriptsNeverRun ./internal/server"
+    }
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "how": "Built the critic's version: a separate rule 'only the audited templates contain a frame element' on files internal/**, pattern (?i)<(iframe|frame|fencedframe|object|embed)\\b, excepting **/*.go, **/testdata/**, report.html and admin_report.html. The token rule (srcdoc and sandbox tokens) is widened to internal/** too, with Go and testdata excepted. The corpus has 11 fire and 7 quiet rows for the frame rule and 10 fire and 6 quiet for the token rule, including a new template, a static page, upper case, frame, object, embed, fencedframe, a newline after the tag, a bare tag, forbidden.html, and report.html and admin_report.html quiet. Run against the rules as handed over, the new rows failed; with the revised rules the corpus and the tree pass. Mutation: dropping 'embed' from the alternation fails frametag-f006.",
+    "corpus": "internal/fitnessrules/testdata/rule_spellings.json",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "- (?i)<(iframe|frame|fencedframe|object|embed)\\b",
+     "replace": "- (?i)<(iframe|frame|fencedframe|object)\\b",
+     "test_command": "go test -count=1 -run TestRuleSpellingsCorpus ./internal/fitnessrules"
+    }
+   },
+   {
+    "key": "O-021",
+    "done": true,
+    "how": "Built the critic's version: 'only raw.go and admin.go open report files' (pattern \\.OpenRaw\\b on **/*.go, excepting raw.go, admin.go, internal/reports/** and tests), a separate 'only the gated admin reaches drafts' with \\.BySlug\\b and \\.ListAll\\b (raw.go not excepted), and the byte-path rule widened to **/*.go with http.Dir, http.FileServer and os.DirFS added and internal/testutil/** excepted. http.FileServerFS(staticSub) in router.go stays quiet. Corpus rows cover the gofmt multi-line OpenRaw call, a method value at reader.go, a method value then called, a flag in a variable, http.FileServer(http.Dir(dir)) at cmd/hband/main.go, os.DirFS, ListAll split over lines, and raw.go not excepted from BySlug. Run against the rules as handed over, the new rows failed (bytes-f004..f008, frametok-f008, drafts-f004, f005, f007, plus the two rules that did not exist). The corpus and the tree pass with the revised rules. Mutation: \\.OpenRaw\\b to \\.OpenRaw\\( fails the method-value rows.",
+    "corpus": "internal/fitnessrules/testdata/rule_spellings.json",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "    - \\.OpenRaw\\b",
+     "replace": "    - \\.OpenRaw\\(",
+     "test_command": "go test -count=1 -run TestRuleSpellingsCorpus ./internal/fitnessrules"
+    }
+   },
+   {
+    "key": "O-022",
+    "done": true,
+    "how": "renderReader(w, r, page, rep, state) with page in {homePage, reportPage} and state in {stateFound, stateEmpty, stateUnavailable}, as the critic prescribed. Inside, it derives status (503 only for unavailable), Title, Next (/reports/<stored slug> only for reportPage and found, otherwise /), SignedIn and Viewer from auth.ViewerFrom. The handlers pass no status and no strings.",
+    "mutation": {
+     "file": "internal/server/reader.go",
+     "find": "if page == reportPage {",
+     "replace": "if true {",
+     "test_command": "go test -count=1 -run TestReaderPagesShareOneLayout ./internal/server"
+    }
+   },
+   {
+    "key": "O-024",
+    "done": true,
+    "how": "Each copy Q serves is tagged with its well (?w=W3, ?w=W4). Run-acceptance: Q must log /beacon/img?w=W3 (the reagent's image fires when nothing blocks it), must not log /beacon/script?w=W3, and must log /beacon/script?w=W4. The test comment states that P's zero-beacon check proves rawCSP's request blocking and that the red-pixel count is the only script verdict. Mutation: removing the reagent's image beacon fails the run as INVALID.",
+    "mutation": {
+     "file": "internal/server/browser_test.go",
+     "find": "fmt.Fprintf(&b, \"<img src=\\\"/beacon/img?w=%s\\\" alt=\\\"\\\">\\n\", tag)",
+     "replace": "_ = tag",
+     "test_command": "go test -count=1 -run TestReportScriptsNeverRun ./internal/server"
+    }
+   }
+  ],
+  "mandatory": [
+   {
+    "id": "PS-005",
+    "met": "yes",
+    "where": "GET /reports/{slug} in internal/server/reader.go (readReport) and router.go, one layout shared with /: TestReportPage, TestReaderPagesShareOneLayout, TestReportPageSignInReturnsThere"
+   },
+   {
+    "id": "SC-004",
+    "met": "yes",
+    "where": "home in internal/server/reader.go feeds the newest published report into the same renderReader and report.html; 'No reports yet' when none: TestReaderHomeEmpty, TestReaderHomeShowsNewest"
+   },
+   {
+    "id": "SC-006",
+    "met": "yes",
+    "where": "sandboxed iframe in templates/report.html, public byte path readRaw/serveRaw/rawCSP in raw.go, never inlined (TestReportBytesNeverInReaderPages), real-browser proof in TestReportScriptsNeverRun"
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "server.TestReaderHomeEmpty",
+    "test_command": "go test -count=1 -run TestReaderHomeEmpty ./internal/server"
+   },
+   {
+    "key": "C-002",
+    "test_name": "server.TestReaderHomeShowsNewest",
+    "test_command": "go test -count=1 -run TestReaderHomeShowsNewest ./internal/server"
+   },
+   {
+    "key": "C-003",
+    "test_name": "server.TestReportPage",
+    "test_command": "go test -count=1 -run ^TestReportPage$ ./internal/server"
+   },
+   {
+    "key": "C-004",
+    "test_name": "server.TestReaderPagesShareOneLayout",
+    "test_command": "go test -count=1 -run TestReaderPagesShareOneLayout ./internal/server"
+   },
+   {
+    "key": "C-005",
+    "test_name": "server.TestHiddenReportsAreIndistinguishable",
+    "test_command": "go test -count=1 -run TestHiddenReportsAreIndistinguishable ./internal/server"
+   },
+   {
+    "key": "C-006",
+    "test_name": "server.TestPublicRawHeaders",
+    "test_command": "go test -count=1 -run TestPublicRawHeaders ./internal/server"
+   },
+   {
+    "key": "C-007",
+    "test_name": "server.TestPublicRawAfterReplace",
+    "test_command": "go test -count=1 -run TestPublicRawAfterReplace ./internal/server"
+   },
+   {
+    "key": "C-008",
+    "test_name": "server.TestPublicRawMissingFile",
+    "test_command": "go test -count=1 -run TestPublicRawMissingFile ./internal/server"
+   },
+   {
+    "key": "C-009",
+    "test_name": "server.TestReaderStoreDown",
+    "test_command": "go test -count=1 -run TestReaderStoreDown ./internal/server"
+   },
+   {
+    "key": "C-010",
+    "test_name": "server.TestReportBytesNeverInReaderPages",
+    "test_command": "go test -count=1 -run TestReportBytesNeverInReaderPages ./internal/server"
+   },
+   {
+    "key": "C-011",
+    "test_name": "server.TestReportPageSignInReturnsThere",
+    "test_command": "go test -count=1 -run TestReportPageSignInReturnsThere ./internal/server"
+   },
+   {
+    "key": "C-012",
+    "test_name": "server.TestReaderPathVariants",
+    "test_command": "go test -count=1 -run TestReaderPathVariants ./internal/server"
+   },
+   {
+    "key": "C-013",
+    "test_name": "server.TestReportScriptsNeverRun",
+    "test_command": "go test -count=1 -run TestReportScriptsNeverRun -timeout 10m ./internal/server"
+   },
+   {
+    "key": "C-014",
+    "test_name": "server.TestReportScriptsNeverRun",
+    "test_command": "go test -count=1 -run TestReportScriptsNeverRun -timeout 10m ./internal/server"
+   }
+  ],
+  "deviations": [
+   "headless.Shot takes a name parameter, Shot(t, browser, name, url, extraFlags...), where the design had Shot(t, browser, url, extraFlags...). The design says each shot is copied to HBAND_TEST_ARTIFACTS/<name>.png but gave Shot nothing to name it from, and W1 and W1s could not be told apart by test name.",
+   "renderReader is (w, r, page, rep, state), not the design's (w, r, status, readerData): the accepted finding m6 and its critic's fix replaced the design's contract.",
+   "The design's three fitness rules (already in the working tree, uncommitted, when the build began) were revised as findings m4 and m5 prescribed. The template rule's glob widened from internal/**/templates/** to internal/**, a separate frame-element rule was added, the OpenRaw check became a token rule of its own, and the byte-path rule widened from internal/**/*.go to **/*.go with http.Dir, http.FileServer and os.DirFS added. The rule files and corpus carry the revised form.",
+   "The browser assay has more wells than the design's six: two instrument blanks (m1's critic version) and W4b (m2's critic version). Controls are judged before the verdict wells so a blind capture reports as INVALID RUN rather than 'script ran'. Added TestReagentShape, which is not in the design, to pin the reagent properties m2 depends on.",
+   "home.go and home.html were deleted and reader.go and report.html created rather than git mv'd, because the build must not touch version control state. The history will show a delete and an add.",
+   "Test-only: the shot profile is os.MkdirTemp with bounded-retry removal that only logs a leftover, and cmd.WaitDelay is set, as the design's Shot text says. N-023 (m7) was waived, so this is no obligation, only the design text built as written."
+  ],
+  "not_built": [
+   "The Page.captureScreenshot DevTools fallback behind Shot. Not needed: the CLI --screenshot capture shows out-of-process iframe pixels, measured here (W4 red 805,759, W3 green 805,754, W5 blank 0/0, W1 green 1.1M), and the controls would have failed the run had it not.",
+   "No 'open in its own tab' anchor and no rewrite of report links, as the design decided. The blocked target-less link is this project's own frame-src policy, so there is no workaround setting; the upload form carries the one-sentence target=_blank hint."
+  ],
+  "tests": [
+   {
+    "command": "go build ./... ; go vet ./... ; go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "Baseline before editing: all packages ok, vet clean. After the build the same command also passed: server 17s including the browser assay, fitnessrules and reports ok."
+   },
+   {
+    "command": "go test -count=1 -v -run TestReportScriptsNeverRun -timeout 10m ./internal/server (HBAND_TEST_BROWSER unset, then set to the Edge path)",
+    "outcome": "passed",
+    "note": "PASS in about 13s both ways, never SKIP. Pixels: blank-empty 0/0, blank-found 0/0, W4 red 805759, W4b red 805759, W5 0/0, W3 green 805754, W1 green 1110394, W1s green 1110394, W2 green 1432954; every verdict well red = 0. 0 Edge processes and 0 profile folders left behind."
+   },
+   {
+    "command": "HBAND_TEST_BROWSER=C:\\nope\\msedge.exe go test -count=1 -run TestReportScriptsNeverRun ./internal/server",
+    "outcome": "passed",
+    "note": "Expected failure: a forced browser that is missing fails the test instead of skipping it."
+   },
+   {
+    "command": "mutations: remove rawCSP's sandbox, default-src and script-src; put allow-scripts on the reader iframe; a red site.css border; no request-log wrapper; no reagent image beacon; green !important; reader.go next on the home page; readRaw publishedOnly=false; fitness embed and OpenRaw patterns",
+    "outcome": "passed",
+    "note": "Each mutation made the named test fail and every file was restored afterwards. Without the policy block, W2 read red 1,432,959 while W1 and W1s stayed green (the iframe attribute still held). With allow-scripts on the frame, W3 read red 805,759."
+   },
+   {
+    "command": "go test -count=1 -run TestRuleSpellingsCorpus ./internal/fitnessrules with the rules as handed over",
+    "outcome": "failed",
+    "note": "Shown on purpose, before the fix: the new rows failed (bytes-f004..f008, frametok-f008, drafts-f004/f005/f007, and the frame and OpenRaw rows had no rule). The revised fitness.yaml was then restored and the corpus passes."
+   },
+   {
+    "command": "hband.exe (go build ./cmd/hband) on a scratch data dir with go_spec.html (296 KB), wasm_exec.html (has a script) and asm.html (draft) from the Go install; GET / /reports/go-spec /raw/go-spec; If-None-Match; HEAD; draft, unknown and upper-case slugs; Edge screenshots",
+    "outcome": "passed",
+    "note": "/ showed the newest title (escaped '<with script> & quotes'), frame src /raw/wasm-exec. /raw/go-spec was 200 with 296253 bytes equal to the file, the report CSP with frame-ancestors http://127.0.0.1:18761, ETag, no-cache, no Set-Cookie. If-None-Match gave 304 and HEAD 200. The draft, unknown and upper-case slugs gave identical 19-byte 404s on both paths. The screenshots show the go spec rendered in the frame and wasm_exec's Run button inert. Server stopped, 0 left."
+   }
+  ],
+  "architecture": [
+   {
+    "block": "C-008",
+    "kind": "paths",
+    "add": [
+     "internal/server/reader.go",
+     "internal/server/templates/report.html",
+     "internal/server/reader_test.go"
+    ],
+    "why": "home.go and templates/home.html, the files the block's globs name, were deleted. internal/server/reader.go (home, readReport, renderReader) and templates/report.html replace them, with reader_test.go for the page's tests."
+   },
+   {
+    "block": "C-004",
+    "kind": "paths",
+    "add": [
+     "internal/server/raw.go",
+     "internal/server/browser_test.go"
+    ],
+    "why": "raw.go holds rawCSP, serveRaw and the new public readRaw, which are the block's sandboxed byte path; browser_test.go is the real-browser proof of that isolation. Both are matched today only by C-001's internal/server/**."
+   },
+   {
+    "block": "C-001",
+    "kind": "paths",
+    "add": [
+     "internal/testutil/headless/**"
+    ],
+    "why": "new test-only package (Browser, Shot, Count) that drives Edge for real-browser checks; no block's globs match it. internal/testutil/fakegithub/** is owned by C-002."
+   }
+  ],
+  "follow_ups": [
+   "A person should look at the reader page, the screenshots under HBAND_TEST_ARTIFACTS from TestReportScriptsNeverRun, and a phone-width window (lesson #184). I looked at desktop-width screenshots from the real binary: header, title, date, permalink and the framed report read correctly. Phone width was not looked at.",
+   "The reader page cannot be declared as a screen: the app starts only from HBAND_* environment variables (owner ID, GitHub client secret, data dir), which a bare command cannot carry, so `screens` and `app` are left empty rather than declared with a command that would exit 2. The page was opened by the browser assay and by my own Edge run of the built binary.",
+   "Q-007 stays open. The reader pages send Cache-Control: private, no-cache, which is correct under either answer but does not say whether the VPS proxy may cache them. Q-006 is untouched: /raw reads no identity, so the cookie question does not arise on this path.",
+   "An upload-time notice for target-less outward links in an uploaded report (warn only, never refuse or rewrite) is still a candidate; this slice only states the target=_blank contract in the upload form.",
+   "The assay covers Edge 158 only (Firefox and Safari are a known limit). The HTTP tests pin the exact headers and the iframe attribute every browser receives.",
+   "The widened rules use internal/** and **/testdata/** globs. I could only check them with the repository's own rules test, because PyYAML is not installed and I have no Fitness tool, so the engine's Fitness op=check should be run once to confirm it parses them and skips testdata the same way."
+  ]
+ }
+}

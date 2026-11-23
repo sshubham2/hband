@@ -54,6 +54,11 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", a.home)
+	// The share URL, and the isolated path its iframe loads. Neither is under
+	// /admin. Identify still runs in front of /raw as on every route, but
+	// readRaw never reads the viewer it resolves.
+	mux.HandleFunc("GET /reports/{slug}", a.readReport)
+	mux.HandleFunc("GET /raw/{slug}", a.readRaw)
 	mux.HandleFunc("GET /healthz", a.healthz)
 	staticSub, err := fs.Sub(staticFS, "static")
 	if err != nil {

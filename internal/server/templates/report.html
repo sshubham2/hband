@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "head" .}}
+</head>
+<body>
+{{template "header" .}}
+<main class="reader">
+{{if .HasReport}}<h1>{{.Report.Title}}</h1>
+<p class="meta">{{if .Report.HasPublishDate}}Published {{.Report.PublishedAt.Format "2 January 2006"}} &middot; {{end}}<a class="permalink" href="/reports/{{.Report.Slug}}">Link to this report</a></p>
+<iframe class="report-frame" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" src="/raw/{{.Report.Slug}}" title="{{.Report.Title}}" width="100%" height="800"></iframe>
+{{else if .Unavailable}}<h1>hband</h1>
+<p>Reports cannot be shown right now. Try again in a moment.</p>
+{{else}}<h1>hband</h1>
+<p>No reports yet.</p>
+{{end}}</main>
+</body>
+</html>
