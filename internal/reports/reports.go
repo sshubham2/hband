@@ -95,8 +95,11 @@ var writeMu sync.RWMutex
 // interrupted write and clears what it left behind:
 //
 //   - a file set aside by a replace (tmp/<id>.old) is put back when the row
-//     still describes it and the file in place does not, and is removed
-//     otherwise;
+//     still describes it and the file in place does not, and removed when it
+//     is provably not needed. If it can be neither restored nor judged (the
+//     row could not be read, the file could not be examined or read, or the
+//     rename back failed), it is kept and Open returns an error naming it, so
+//     the next start tries again;
 //   - everything else in tmp/ is removed;
 //   - a reports/<n>.html with no row is removed.
 func Open(o Options) (*Library, error) {
@@ -209,8 +212,10 @@ func (l *Library) sweep(ctx context.Context) error {
 // recovery names where recoverSetAside ended for one tmp/<id>.old. The error
 // it returns with the name is non-nil exactly when the set-aside file must be
 // KEPT: it may be the only copy of the bytes the row describes, and it was
-// neither restored nor proven unneeded. The corpus testdata/sweep_recovery.json
-// has a row for every name below; TestSweepRecoveryExits holds the two in step.
+// neither restored nor proven unneeded. Every name below is either planted by a
+// row of the corpus testdata/sweep_recovery.json or listed there, with a reason,
+// under unplantable_exits; TestSweepRecoveryCorpusCoversEveryExit keeps the two
+// in step.
 type recovery string
 
 const (
