@@ -9,6 +9,17 @@
 {{if .HasReport}}<h1>{{.Report.Title}}</h1>
 <p class="meta">{{if .Report.HasPublishDate}}Published {{.Report.PublishedAt.Format "2 January 2006"}} &middot; {{end}}<a class="permalink" href="/reports/{{.Report.Slug}}">Link to this report</a></p>
 <iframe class="report-frame" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" src="/raw/{{.Report.Slug}}" title="{{.Report.Title}}" width="100%" height="800"></iframe>
+<section class="votes" id="votes">
+<p class="likes">{{.Votes.Likes}} {{if eq .Votes.Likes 1}}like{{else}}likes{{end}}</p>
+{{if .SignedIn}}{{if eq .Votes.Mine "up"}}<p class="your-vote">Your vote: thumbs up.</p>
+{{else if eq .Votes.Mine "down"}}<p class="your-vote">Your vote: thumbs down.</p>
+{{end}}<form method="post" action="/reports/{{.Report.Slug}}/vote">
+<button type="submit" name="vote" value="up">Thumbs up</button>
+<button type="submit" name="vote" value="down">Thumbs down</button>
+{{if .Votes.Mine}}<button type="submit" name="vote" value="none">Take back my vote</button>
+{{end}}</form>
+{{else}}<p class="vote-hint">Sign in to vote.</p>
+{{end}}</section>
 {{else if .Unavailable}}<h1>hband</h1>
 <p>Reports cannot be shown right now. Try again in a moment.</p>
 {{else}}<h1>hband</h1>

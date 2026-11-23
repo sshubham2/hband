@@ -7,6 +7,7 @@ import (
 
 	"github.com/sshubham2/hband/internal/auth"
 	"github.com/sshubham2/hband/internal/reports"
+	"github.com/sshubham2/hband/internal/votes"
 )
 
 // pageData feeds every site template.
@@ -55,6 +56,8 @@ type readerData struct {
 	Report      reports.Report
 	HasReport   bool
 	Unavailable bool
+	// Votes is the like count and the viewer's own vote for the report shown.
+	Votes votes.PublicView
 }
 
 // home is the public landing page: the newest published report, laid out
@@ -97,6 +100,19 @@ func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPa
 	v, signedIn := auth.ViewerFrom(r.Context())
 	d := readerData{pageData: pageData{Title: "hband", SignedIn: signedIn, Viewer: v}}
 	status := http.StatusOK
+	if state == stateFound {
+		// The like count and the viewer's own vote. Only a PublicView reaches a
+		// reader page: it has no dislike count to show, to anyone. A count that
+		// cannot be read is never replaced by a zero: the page says it cannot be
+		// shown.
+		pub, err := a.votes.Public(r.Context(), rep.ID, v.GitHubID)
+		if err != nil {
+			slog.Error("reader: read the votes", "error", err)
+			state, rep = stateUnavailable, reports.Report{}
+		} else {
+			d.Votes = pub
+		}
+	}
 	switch state {
 	case stateFound:
 		d.HasReport = true

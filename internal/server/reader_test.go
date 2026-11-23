@@ -570,6 +570,21 @@ func TestReaderPathVariants(t *testing.T) {
 		}
 		return ""
 	}
+	// The vote route takes only POST, so another method on its exact path is
+	// the mux's 405 naming POST. A POST to it answers http.NotFound for a draft
+	// and for an unknown report alike (anonymous: the report is looked up first).
+	voteNotAllowed := func(r result) string {
+		if r.Status != 405 || r.Header.Get("Allow") != "POST" {
+			return "want 405 with Allow: POST"
+		}
+		return ""
+	}
+	hiddenVote := func(r result) string {
+		if r.Status != 404 || r.Body != "404 page not found\n" {
+			return "want http.NotFound's 404"
+		}
+		return ""
+	}
 	for _, v := range []struct {
 		method, target string
 		check          func(result) string
@@ -587,6 +602,15 @@ func TestReaderPathVariants(t *testing.T) {
 		{"GET", "/raw/x/../y", redirect("/raw/y")},
 		{"POST", "/reports/x", notAllowed},
 		{"POST", "/raw/x", notAllowed},
+		{"GET", "/reports/x/vote", voteNotAllowed},
+		{"HEAD", "/reports/x/vote", voteNotAllowed},
+		{"PUT", "/reports/x/vote", voteNotAllowed},
+		{"POST", "/reports/x/vote/", notFound},
+		{"POST", "/reports/x/vote/extra", notFound},
+		{"POST", "/reports/vote", notAllowed}, // a report whose slug is "vote": the page route, GET only
+		{"POST", "//reports/x/vote", redirect("/reports/x/vote")},
+		{"POST", "/reports/x/../y/vote", redirect("/reports/y/vote")},
+		{"POST", "/reports/x/vote", hiddenVote},
 	} {
 		a, b := withDraft.serve(v.method, v.target), unknown.serve(v.method, v.target)
 		if msg := v.check(a); msg != "" {

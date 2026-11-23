@@ -223,3 +223,49 @@ rules:
     - internal/server/admin.go
     - internal/reports/**
     - '**/*_test.go'
+
+  # settled by SL-004
+  - name: only the owner's admin page reads the dislike tally
+    files: '**/*.go'
+    must_not_match:
+    - \.\s*OwnerTally\b
+    because: 'OwnerTally is the only producer of a dislike count. A reader handler, template
+      helper or new endpoint that calls it (or takes its method value) serves dislikes to readers,
+      which the project''s privacy constraint forbids. Known hole: a dislike field added to
+      PublicView inside internal/votes. TestDislikesDoNotInterfere catches that; this rule does
+      not.'
+    except_files:
+    - internal/server/admin.go
+    - internal/votes/**
+    - '**/*_test.go'
+  - name: only internal/votes writes SQL on the votes table
+    files: '**/*.go'
+    must_not_match:
+    - \b(FROM|INTO|UPDATE|JOIN)\s+votes\b
+    - \bUPDATE\s+OR\s+[A-Z]+\s+votes\b
+    - '\bFROM\b[^"`;]*,\s*votes\b'
+    because: 'A second reader of the table can count kind=''down'' and bypass both the OwnerTally
+      fence and the PublicView type. A second writer bypasses Cast''s published-only check and
+      its single-statement discipline. Known holes (CC-001): lower-case SQL; a table name built
+      by concatenation; a quoted or schema-qualified name (FROM "votes", FROM main.votes); a
+      comma join whose FROM sits in another string literal than the table name; and a view or
+      trigger over votes created by a later .sql migration, which no Go-file glob can see.'
+    except_files:
+    - internal/votes/**
+    - '**/*_test.go'
+  - name: vote writes never open a transaction
+    files: internal/votes/**/*.go
+    must_not_match:
+    - \.Begin(Tx)?\(
+    - (?i)\b(BEGIN|SAVEPOINT)\b
+    - \bsql\.Tx\b
+    because: Spike concurrent-vote-upserts-no-busy measured a read-then-write transaction failing
+      215-253 times per run with SQLITE_BUSY/BUSY_SNAPSHOT, returned at once without waiting
+      on busy_timeout, and losing votes. Single statements had 0 errors under the same load.
+      SAVEPOINT starts the same deferred transaction in autocommit mode, so it is named beside
+      BEGIN. Known holes (CC-001) - a transaction opened OUTSIDE this package and handed in
+      through an interface other than sql.Tx (for example a DBTX interface the caller satisfies
+      with a transaction), a statement spelled by concatenation, and a Go identifier that
+      merely contains the keyword.
+    except_files:
+    - '**/*_test.go'

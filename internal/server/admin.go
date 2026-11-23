@@ -8,6 +8,7 @@ import (
 
 	"github.com/sshubham2/hband/internal/auth"
 	"github.com/sshubham2/hband/internal/reports"
+	"github.com/sshubham2/hband/internal/votes"
 )
 
 // adminRoute is one owner-only page or action. Handlers are registered only
@@ -50,6 +51,8 @@ type adminData struct {
 	Form    uploadForm
 	Reports []reports.Report
 	Report  reports.Report
+	// Tally is the report's likes and dislikes, shown on its admin page only.
+	Tally votes.Tally
 }
 
 func (a *app) adminPage(r *http.Request, o auth.Owner, title string) adminData {
@@ -112,8 +115,15 @@ func (a *app) adminReport(w http.ResponseWriter, r *http.Request, o auth.Owner) 
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	tally, err := a.votes.OwnerTally(r.Context(), rep.ID)
+	if err != nil {
+		slog.Error("admin: read the votes", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	d := a.adminPage(r, o, rep.Title+" - hband admin")
 	d.Report = rep
+	d.Tally = tally
 	d.Form = uploadForm{Title: rep.Title, Slug: rep.Slug, Status: rep.Status}
 	a.render(w, http.StatusOK, "admin_report.html", d)
 }

@@ -1,0 +1,141 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-004",
+ "title": "Reader signs in with GitHub from a report, comes back to it, and gives a thumbs up or down they can change or withdraw; likes are public, dislikes owner-only",
+ "status": "active",
+ "branch": "slice/SL-004",
+ "opened_at": "2026-11-23T20:12:48.245Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C3: A signed-in reader can give a report a thumbs up or a thumbs down; an anonymous reader cannot vote: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4: One vote per reader per report: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C5: A reader can change their vote (up ↔ down): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C6: A reader can withdraw their vote: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C7: The like count is shown publicly on the report page: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C8: The dislike count is shown only to the author (pinned owner), never to anonymous or non-owner readers: missing"
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Auth seam: practice's IdentifyErr(ctx) error vs crossdomain's Participant(ctx) (Viewer, error). Chose Participant: one call returns all three outcomes."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Anonymous vote POST: crossdomain's 303 into sign-in vs practice's 303 back to the report. Chose the report: the repo records that form-action 'self' blocks a form submission redirected to the identity provider, and a different measured answer would not change the design."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Vote button state: practice's aria-pressed vs crossdomain's 'Your vote: …' sentence with no toggle semantics. Chose the sentence."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Schema shape: crossdomain's WITHOUT ROWID plus a (report_id, kind) index vs practice's plain STRICT table. Chose plain; the PK prefix serves the count."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Names: column vote vs kind (chose kind); Book vs Box (chose Book); ForReader/ForOwner vs Public/OwnerTally (chose Public/OwnerTally); ErrNoReport vs ErrNotOpen (chose ErrNotOpen)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Anonymous prompt: crossdomain's second 'Sign in with GitHub to vote' anchor vs nothing (practice) vs plain hint text (chosen), which leaves the anchor-based tests alone."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Privacy oracle: practice's 'no number beside a dislike label' scan vs crossdomain's two-run noninterference comparison. Chose the comparison; the scan already lives in the finish-line test."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T22:56:19.301Z",
+     "head": "38e2b223b677051e148f8be4f1c6d20dfcdc20ef",
+     "summary": "Both proposals agree on the data model, and both match the tree: one STRICT votes row per (reports.id, users.github_id), withdrawing deletes the row, the wire carries the reader's desired state (up|down|none), every write is a single statement, counts are computed on read, and the dislike count appears only on the owner-gated /admin/reports/<slug>.",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T23:14:42.332Z",
+     "head": "38e2b223b677051e148f8be4f1c6d20dfcdc20ef",
+     "summary": "The design is sound in its substance, and I checked it against the tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T23:23:24.992Z",
+     "head": "38e2b223b677051e148f8be4f1c6d20dfcdc20ef",
+     "summary": "All four first-pass findings are real and correctly filed as minor.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}

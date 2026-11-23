@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"time"
@@ -66,6 +68,32 @@ func ViewerFrom(ctx context.Context) (Viewer, bool) {
 func identifyErrFrom(ctx context.Context) error {
 	err, _ := ctx.Value(identifyErrKey{}).(error)
 	return err
+}
+
+var (
+	// ErrSignedOut: the visitor is anonymous (no session cookie, a malformed
+	// one, or a session that is unknown or has expired).
+	ErrSignedOut = errors.New("auth: not signed in")
+	// ErrIdentityUnavailable: the session lookup failed, so nobody can say who
+	// the visitor is. It wraps the store's error.
+	ErrIdentityUnavailable = errors.New("auth: identity unavailable")
+)
+
+// Participant answers "who is this, and may they take part" for a handler that
+// acts on the visitor's behalf. It returns the signed-in Viewer, or
+// ErrIdentityUnavailable when the session lookup failed, or ErrSignedOut for an
+// anonymous visitor. A write handler uses it instead of ViewerFrom so that a
+// store outage is answered as an outage and not mistaken for an anonymous
+// visitor whose request is quietly dropped.
+func Participant(ctx context.Context) (Viewer, error) {
+	if err := identifyErrFrom(ctx); err != nil {
+		return Viewer{}, fmt.Errorf("%w: %w", ErrIdentityUnavailable, err)
+	}
+	v, ok := ViewerFrom(ctx)
+	if !ok {
+		return Viewer{}, ErrSignedOut
+	}
+	return v, nil
 }
 
 // Identify resolves the session cookie on every route. A cookie that does not
