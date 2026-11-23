@@ -1,0 +1,174 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-002",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-23T17:58:43.050Z",
+ "head": "eaeff1399841e8a9363e1dd6d852824566535840",
+ "run_id": 11683,
+ "summary": "Both defects on the card are fixed. O-002 and O-003 were one bug: Open's sweep deleted tmp/<id>.old after failing to restore it.\n- recoverSetAside (internal/reports/reports.go, the function after the `recovery` constants) now returns an error on three paths: a row lookup that fails with anything other than sql.ErrNoRows, a set-aside file that cannot be examined or read, and a failed rename back.\n- sweep marks those names as kept, skips RemoveAll for them, and returns the joined errors. Open therefore fails closed (a declared departure).\n\nMeasured on this PC:\n- `go vet ./...`: clean.\n- `go test -count=1 ./...`: every package ok.\n- The engine's two commands (`-run ^TestOpenKeepsTheOnlyCopyWhenRestoreFails$` and `-run ^TestSweepKeepsASetAsideFileItCouldNotRestore$`): both pass.\n- The corpus (12 rows) and the exit census: pass.\n- The same corpus and both review tests against the pre-fix reports.go from 93396be, through an overlay with the exits test removed: exactly the 4 rows that should fail do (non-empty directory, empty directory, held-open file, database down), both review tests fail, and the 8 rows that should pass do. The builder's before-and-after claim holds.\n\nReading the fix to break it turned up three things:\n1. The Open doc comment still says a set-aside file 'is removed otherwise'. That is now false.\n2. The doc on the new `recovery` type says the corpus has a row for every exit and that TestSweepRecoveryExits keeps the two in step. Two exits are listed as unplantable instead, and the census is TestSweepRecoveryCorpusCoversEveryExit.\n3. A neighbouring pre-existing path is still open, reproduced with an overlay test. After a replace fails at runtime both to commit and to put the old file back, the only copy of the row's bytes sits in tmp/<id>.old. replace's setAside then renames the next upload's displaced file over it. If that second replace's commit also fails, the row's bytes are gone, and upload.go's log line 'the next start recovers it' is false. It needs two rare failures in a row, so it is minor.\n\nIN-m2 and IN-m3 were waived to N-015. The code for them (sniffOK) is unchanged.\n\nSecond round: I walked the fix a second time, trying to break it, and found nothing beyond what round one already filed (t1, t2 and m2 still stand). Each area checked:\n\n- **Name matching in tmp/ and reports/.** I tried a leading zero (\"01.old\"), an upper-case \"1.OLD\", a directory, a symlink, and CreateTemp's \"upload-*\" names. None of them is something hband or an interrupted replace ever writes. Those that match are judged by id or removed as junk; none can be the only copy of a row's bytes.\n\n- **Every exit of recoverSetAside.** The read-back-to-back pairs are the file-in-place check followed by Lstat, and Lstat followed by fileSum. A file that vanishes between them ends as old-gone. A read that fails ends as old-unreadable, which keeps the file and fails Open. The file in place can be a directory, unreadable or held open, and each of those still ends in rename-failed and the file is kept.\n\n- **The sweep's partial failures.** A database that is down, or fails intermittently, is judged separately for each .old. When ReadDir or an orphan lookup fails after some files were already kept, all the errors are joined, so nothing is lost or silently cleared. RemoveAll of a no-longer-present restored name returns nil.\n\n- **Lock gaps.** sweep holds writeMu throughout. save runs its slug lookup and its write under the same lock after the unlocked streaming. Delete and Publish/Unpublish do lookup and write under one hold. OpenRaw does its row lookup and file open under one RLock. setAside sleeps while still holding the lock rather than releasing it. Nothing re-checks after a gap, because there is no gap.\n\n- **The callers.** cmd/hband/main.go turns Open's new error into exit 1 with the error logged, which is the declared fail-closed behaviour. No server path calls Open.\n\nThe corpus and census are test-only readers, and their CRLF and format handling is irrelevant to production. `go vet` and `go test -count=1 ./...` pass, the engine's two commands pass, and the corpus fails exactly the 4 rows it should against the pre-fix code.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "Both defects on the card are fixed. O-002 and O-003 were one bug: Open's sweep deleted tmp/<id>.old after failing to restore it.\n- recoverSetAside (internal/reports/reports.go, the function after the `recovery` constants) now returns an error on three paths: a row lookup that fails with anything other than sql.ErrNoRows, a set-aside file that cannot be examined or read, and a failed rename back.\n- sweep marks those names as kept, skips RemoveAll for them, and returns the joined errors. Open therefore fails closed (a declared departure).\n\nMeasured on this PC:\n- `go vet ./...`: clean.\n- `go test -count=1 ./...`: every package ok.\n- The engine's two commands (`-run ^TestOpenKeepsTheOnlyCopyWhenRestoreFails$` and `-run ^TestSweepKeepsASetAsideFileItCouldNotRestore$`): both pass.\n- The corpus (12 rows) and the exit census: pass.\n- The same corpus and both review tests against the pre-fix reports.go from 93396be, through an overlay with the exits test removed: exactly the 4 rows that should fail do (non-empty directory, empty directory, held-open file, database down), both review tests fail, and the 8 rows that should pass do. The builder's before-and-after claim holds.\n\nReading the fix to break it turned up three things:\n1. The Open doc comment still says a set-aside file 'is removed otherwise'. That is now false.\n2. The doc on the new `recovery` type says the corpus has a row for every exit and that TestSweepRecoveryExits keeps the two in step. Two exits are listed as unplantable instead, and the census is TestSweepRecoveryCorpusCoversEveryExit.\n3. A neighbouring pre-existing path is still open, reproduced with an overlay test. After a replace fails at runtime both to commit and to put the old file back, the only copy of the row's bytes sits in tmp/<id>.old. replace's setAside then renames the next upload's displaced file over it. If that second replace's commit also fails, the row's bytes are gone, and upload.go's log line 'the next start recovers it' is false. It needs two rare failures in a row, so it is minor.\n\nIN-m2 and IN-m3 were waived to N-015. The code for them (sniffOK) is unchanged.\n\nSecond round: I walked the fix a second time, trying to break it, and found nothing beyond what round one already filed (t1, t2 and m2 still stand). Each area checked:\n\n- **Name matching in tmp/ and reports/.** I tried a leading zero (\"01.old\"), an upper-case \"1.OLD\", a directory, a symlink, and CreateTemp's \"upload-*\" names. None of them is something hband or an interrupted replace ever writes. Those that match are judged by id or removed as junk; none can be the only copy of a row's bytes.\n\n- **Every exit of recoverSetAside.** The read-back-to-back pairs are the file-in-place check followed by Lstat, and Lstat followed by fileSum. A file that vanishes between them ends as old-gone. A read that fails ends as old-unreadable, which keeps the file and fails Open. The file in place can be a directory, unreadable or held open, and each of those still ends in rename-failed and the file is kept.\n\n- **The sweep's partial failures.** A database that is down, or fails intermittently, is judged separately for each .old. When ReadDir or an orphan lookup fails after some files were already kept, all the errors are joined, so nothing is lost or silently cleared. RemoveAll of a no-longer-present restored name returns nil.\n\n- **Lock gaps.** sweep holds writeMu throughout. save runs its slug lookup and its write under the same lock after the unlocked streaming. Delete and Publish/Unpublish do lookup and write under one hold. OpenRaw does its row lookup and file open under one RLock. setAside sleeps while still holding the lock rather than releasing it. Nothing re-checks after a gap, because there is no gap.\n\n- **The callers.** cmd/hband/main.go turns Open's new error into exit 1 with the error logged, which is the declared fail-closed behaviour. No server path calls Open.\n\nThe corpus and census are test-only readers, and their CRLF and format handling is irrelevant to production. `go vet` and `go test -count=1 ./...` pass, the engine's two commands pass, and the corpus fails exactly the 4 rows it should against the pre-fix code.",
+  "findings": [
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "file": "internal/reports/reports.go",
+    "line": 97,
+    "end_line": 99,
+    "claim": "Open's doc comment says a set-aside file 'is put back when the row still describes it and the file in place does not, and is removed otherwise'. After the fix that is false. Three cases now keep the file and make Open return an error naming it: the row could not be read, the file could not be examined or read, or the rename back failed. The doc also never says Open can fail because of the sweep, and callers (cmd/hband/main.go exits 1 on it) need to know that.",
+    "evidence": "reports.go:97-99 against the sweep's kept/stuck handling and recoverSetAside's recLookupFailed, recOldUnreadable and recRenameFailed exits",
+    "fix": "Reword the bullet: the set-aside file is put back when the row still describes it and the file in place does not, and removed when it is provably not needed. If it can be neither restored nor judged, it is kept and Open returns an error naming it, so the next start tries again.",
+    "quote": {
+     "path": "internal/reports/reports.go",
+     "line": 97,
+     "text": "//   - a file set aside by a replace (tmp/<id>.old) is put back when the row"
+    }
+   },
+   {
+    "id": "t2",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "file": "internal/reports/reports.go",
+    "line": 212,
+    "end_line": 213,
+    "claim": "The doc on the `recovery` type makes two false claims. It says the corpus 'has a row for every name below', but testdata/sweep_recovery.json plants no row for old-gone or old-unreadable: both are listed under unplantable_exits. It also says 'TestSweepRecoveryExits holds the two in step', but TestSweepRecoveryExits only checks each row's exit. The census that keeps the code's exits and the corpus in step is TestSweepRecoveryCorpusCoversEveryExit (sweep_recovery_exits_test.go:35).",
+    "evidence": "internal/reports/testdata/sweep_recovery.json:9-12 (unplantable_exits) and internal/reports/sweep_recovery_exits_test.go:13 and :35",
+    "fix": "Say that every name below is either planted by a corpus row or listed with a reason under unplantable_exits, and that TestSweepRecoveryCorpusCoversEveryExit keeps the two in step.",
+    "quote": {
+     "path": "internal/reports/reports.go",
+     "line": 213,
+     "text": "// has a row for every name below; TestSweepRecoveryExits holds the two in step."
+    }
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "defect",
+    "file": "internal/reports/upload.go",
+    "line": 374,
+    "end_line": 426,
+    "claim": "replace's setAside renames reports/<id>.html onto tmp/<id>.old without first checking whether a .old is already there, and os.Rename overwrites it on both Windows and Linux. A .old survives a running server when an earlier replace's commit failed and putting the old file back also failed (upload.go:383-385). It logs 'the next start recovers it', and in that state the .old holds the only copy of the bytes the row still describes. The next replace of the same report then overwrites that copy with the mismatched file in place. If that replace's commit fails too, restore() puts the mismatched bytes back, and the row's bytes are gone for good. The fixed startup sweep never sees them, so 'the next start recovers it' is false. Measured with an overlay test: row v1, v1 only in tmp/1.old, v2 in place, then a replace with v3 whose commit fails. Afterwards neither path holds v1. This is outside the fixed sweep and was there before the fix, but it is the same 'only copy in tmp/<id>.old' state the fix exists to protect.",
+    "evidence": "upload.go:374-386 (setAside(dst, old), then restore renames old back), upload.go:412-426 (setAside is a bare os.Rename retry loop with no existence check on dst), upload.go:384 (the log promising the next start recovers it). Overlay run: go test -overlay ... -run ^TestReplaceDoesNotOverwriteAnUnresolvedSetAside$ ./internal/reports -> FAIL 'a replace overwrote tmp/<id>.old while it still held the only copy of the bytes the row describes'.",
+    "fix": "Never rename over an unresolved tmp/<id>.old. Before setAside, if tmp/<id>.old exists, resolve it with the same rules as recoverSetAside: restore it when it is the row's bytes and the file in place is not, remove it when it is provably not needed. If it can be neither restored nor judged, refuse the replace with an error and change nothing.",
+    "quote": {
+     "path": "internal/reports/upload.go",
+     "line": 384,
+     "text": "slog.Error(\"reports: could not put the previous file back; the next start recovers it\", \"id\", id, \"error\", err)"
+    },
+    "repro": {
+     "path": "internal/reports/replace_unresolved_setaside_test.go",
+     "body": "package reports\n\nimport (\n\t\"bytes\"\n\t\"database/sql\"\n\t\"errors\"\n\t\"os\"\n\t\"testing\"\n)\n\n// A replace whose commit failed and whose put-back failed too leaves the row\n// describing v1 while v1 is only in tmp/<id>.old (upload.go logs \"the next start\n// recovers it\"). A later replace in the same run must not overwrite that file:\n// it is the only copy of the bytes the row still describes.\nfunc TestReplaceDoesNotOverwriteAnUnresolvedSetAside(t *testing.T) {\n\tr := newRig(t)\n\tv1, v2, v3 := htmlOf(300, \"v1\"), htmlOf(400, \"v2\"), htmlOf(500, \"v3\")\n\trep := r.mustSave(goodForm(\"steady\", \"Steady\", \"published\", v1))\n\tmust(t, os.Rename(r.lib.path(rep.ID), r.lib.setAsidePath(rep.ID)))\n\tmust(t, os.WriteFile(r.lib.path(rep.ID), v2, 0o600))\n\n\tr.lib.commit = func(tx *sql.Tx) error { tx.Rollback(); return errors.New(\"injected commit failure\") }\n\t_, _ = r.save(goodForm(\"steady\", \"Steady\", \"published\", v3))\n\tr.lib.commit = func(tx *sql.Tx) error { return tx.Commit() }\n\n\tcur, _ := os.ReadFile(r.lib.path(rep.ID))\n\told, _ := os.ReadFile(r.lib.setAsidePath(rep.ID))\n\tif !bytes.Equal(cur, v1) && !bytes.Equal(old, v1) {\n\t\tt.Fatal(\"a replace overwrote tmp/<id>.old while it still held the only copy of the bytes the row describes\")\n\t}\n}\n",
+     "command": "go test -count=1 -run ^TestReplaceDoesNotOverwriteAnUnresolvedSetAside$ ./internal/reports"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "This fix batch changed nothing that bears on the SC-002 build. Only internal/reports/reports.go's sweep and recoverSetAside moved, plus new tests. The full suite passes in the current tree: cmd/hband, auth, config, fitnessrules, reports, server and store are all ok, and TestOwnerReportLifecycle and the refusal, m4, m8, M-add-2 and sweep tests are all green."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "internal/reports/reports.go:\n- recoverSetAside returns (recRenameFailed, error) when the restoring os.Rename fails, and (recLookupFailed, error) on any Scan error other than sql.ErrNoRows.\n- sweep records those names in `kept`, the RemoveAll loop skips them (`if kept[e.Name()] { continue }`), and sweep returns errors.Join(stuck...), so Open fails.\n\nThe engine's command `go test -count=1 -run ^TestOpenKeepsTheOnlyCopyWhenRestoreFails$ ./internal/reports` passes. The test is in internal/reports/sweep_restore_failure_test.go unchanged.\n\nCorpus: internal/reports/testdata/sweep_recovery.json, with 12 rows and an unplantable_exits list. I ran it against the pre-fix reports.go through an overlay: the 4 rows that should fail do, as do both review tests. With the fix all of them pass."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "Same fix as O-002 in internal/reports/reports.go: a directory at reports/<id>.html makes the rename fail, which is recRenameFailed and keeps the file. Running `go test -count=1 -run ^TestSweepKeepsASetAsideFileItCouldNotRestore$ ./internal/reports` passes. The corpus rows 'a non-empty directory blocks the file in place' and 'an empty directory blocks the file in place' fail on the pre-fix code and pass now, including the heal-then-restore second start."
+   },
+   {
+    "key": "O-004",
+    "discharged": "no",
+    "evidence": "Waived to note N-015, and not built. sniffOK at internal/reports/upload.go:201-208 still accepts only \"text/html; charset=utf-8\" and \"text/plain; charset=utf-8\", so a leading <?xml declaration is still refused. This batch did not touch upload.go."
+   },
+   {
+    "key": "O-005",
+    "discharged": "no",
+    "evidence": "Waived to note N-015, and not built. streamFile (internal/reports/upload.go:213-262) still does no UTF-8 validation, and serveRaw (internal/server/raw.go:29) still sends charset=utf-8."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "internal/server/admin_reports_test.go TestOwnerReportLifecycle is unchanged by this batch and still passes. It drives upload (published), replace under the same slug keeping the id and published_at, unpublish and republish keeping the date, and delete removing the row and the file, all over HTTP as the owner."
+   }
+  ],
+  "drift": [
+   "internal/server/templates/admin_report.html:25-27 renders Unpublish when the report is published and Publish otherwise, not both. The design's edit page 'has publish, unpublish and delete forms', and the build did not declare this. The finish-line POSTs go to the action URLs directly, so they are unaffected. Carried from the first pass; still true of the tree.",
+   "internal/server/templates/admin_report.html:25-27 renders only one of Publish and Unpublish, depending on the status. The design's edit page has publish, unpublish and delete forms, and the build did not declare the difference. Carried from round one; still true of the tree."
+  ],
+  "unreviewed": [
+   "internal/reports/reports.go:149-280 -- the new sweep and recoverSetAside code was read through `git diff 93396be..eaeff13` (every changed line, with context) rather than with Read. Lines 89-148 were read with Read."
+  ],
+  "second_round": {
+   "run_id": 11684,
+   "filed": 0
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 4,
+    "changed": 5,
+    "listed": 1
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 5,
+   "read_whole": 4,
+   "deleted": [],
+   "runs": [
+    11679,
+    11683,
+    11684
+   ],
+   "range": {
+    "base": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+    "head": "eaeff1399841e8a9363e1dd6d852824566535840",
+    "source": "commits",
+    "hunk_base": "93396be15892a229121582b9d7b7424d656608e2",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [
+    {
+     "path": "internal/reports/reports.go",
+     "state": "partly-opened",
+     "section": "lines 160-180, 182-204, 206-302, 304-315, 318-437 of 437",
+     "reason": "a Read returned only part of it; seen only as 6 Grep lines; seen only through a shell command: $s (before the build), git log; 220 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 437,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

@@ -1,0 +1,102 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-002",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-23T17:55:22.918Z",
+ "head": "eaeff1399841e8a9363e1dd6d852824566535840",
+ "run_id": 11682,
+ "summary": "O-002 and O-003 are one defect and one fix. In internal/reports/reports.go, recoverSetAside now returns an exit name and an error, and the error is non-nil exactly when tmp/<id>.old must be kept: the row lookup failed with anything other than sql.ErrNoRows, the set-aside file could not be examined or read, or the restoring rename failed. sweep skips RemoveAll for those names, finishes the rest of the sweep, and returns the joined errors, so Open refuses to start instead of serving a file that does not match its row. The next start retries. A set-aside file is deleted only when the row has no such report, the committed file is in place, the file is gone or is not a regular file, or its bytes are not the row's. The corpus testdata/sweep_recovery.json has 12 rows. Run against the unfixed code, 4 failure rows (blocked directory, empty directory, held-open file, unreadable database) and both reviewer tests failed. With the fix everything passes; removing the keep-skip fails all of them again.",
+ "payload": {
+  "status": "complete",
+  "summary": "O-002 and O-003 are one defect and one fix. In internal/reports/reports.go, recoverSetAside now returns an exit name and an error, and the error is non-nil exactly when tmp/<id>.old must be kept: the row lookup failed with anything other than sql.ErrNoRows, the set-aside file could not be examined or read, or the restoring rename failed. sweep skips RemoveAll for those names, finishes the rest of the sweep, and returns the joined errors, so Open refuses to start instead of serving a file that does not match its row. The next start retries. A set-aside file is deleted only when the row has no such report, the committed file is in place, the file is gone or is not a regular file, or its bytes are not the row's. The corpus testdata/sweep_recovery.json has 12 rows. Run against the unfixed code, 4 failure rows (blocked directory, empty directory, held-open file, unreadable database) and both reviewer tests failed. With the fix everything passes; removing the keep-skip fails all of them again.",
+  "files": [
+   {
+    "path": "internal/reports/reports.go",
+    "change": "modified",
+    "why": "recoverSetAside returns (recovery, error); the sweep keeps and reports every set-aside file it could not restore or judge, and Open fails naming it"
+   },
+   {
+    "path": "internal/reports/sweep_restore_failure_test.go",
+    "change": "added",
+    "why": "the code review's two tests, TestOpenKeepsTheOnlyCopyWhenRestoreFails and TestSweepKeepsASetAsideFileItCouldNotRestore, as given"
+   },
+   {
+    "path": "internal/reports/testdata/sweep_recovery.json",
+    "change": "added",
+    "why": "the corpus: 12 plantable rows (crash points, blocked or held file in place, unreadable database, leftovers) with the expected exit, Open outcome and heal-then-retry result"
+   },
+   {
+    "path": "internal/reports/sweep_recovery_corpus_test.go",
+    "change": "added",
+    "why": "runs every corpus row through the real Open, checks the bytes-survive invariant, then heals the fault and runs Open again"
+   },
+   {
+    "path": "internal/reports/sweep_recovery_exits_test.go",
+    "change": "added",
+    "why": "checks each row's exit name against recoverSetAside and keeps the corpus in step with the exits declared in reports.go (census)"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "recoverSetAside returns (recovery, error) and the error is non-nil exactly when the set-aside file must be kept: lookup failure other than ErrNoRows, an unexaminable or unreadable file, or a failed rename. sweep skips RemoveAll for those names, finishes the rest, and returns the joined errors, so Open refuses to start and the next start retries. The engine's test TestOpenKeepsTheOnlyCopyWhenRestoreFails is at internal/reports/sweep_restore_failure_test.go and passes. The corpus has 12 rows, and every exit declared in reports.go is planted by a row or listed as unplantable (old-gone, old-unreadable), checked by TestSweepRecoveryCorpusCoversEveryExit. I ran the unfixed code first: 4 failure rows and both reviewer tests failed, then passed after the fix.",
+    "corpus": "internal/reports/testdata/sweep_recovery.json",
+    "mutation": {
+     "file": "internal/reports/reports.go",
+     "find": "\t\tif kept[e.Name()] {",
+     "replace": "\t\tif false && kept[e.Name()] {",
+     "test_command": "go test -count=1 -run ^TestOpenKeepsTheOnlyCopyWhenRestoreFails$ ./internal/reports"
+    }
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "Same fix as O-002. The directory planted at reports/<id>.html (the IN-m1 trigger) is covered by TestSweepKeepsASetAsideFileItCouldNotRestore at internal/reports/sweep_restore_failure_test.go and by the corpus rows for a blocking non-empty and an empty directory; each ends with the file in place absent, the .old kept and Open refusing, then removing the blocker and a second Open restoring the row's bytes.",
+    "corpus": "internal/reports/testdata/sweep_recovery.json",
+    "mutation": {
+     "file": "internal/reports/reports.go",
+     "find": "\t\tif kept[e.Name()] {",
+     "replace": "\t\tif false && kept[e.Name()] {",
+     "test_command": "go test -count=1 -run ^TestSweepKeepsASetAsideFileItCouldNotRestore$ ./internal/reports"
+    }
+   }
+  ],
+  "mandatory": [],
+  "tests": [
+   {
+    "command": "go test -count=1 -run '^TestSweepRecoveryCorpus$|^TestOpenKeepsTheOnlyCopyWhenRestoreFails$|^TestSweepKeepsASetAsideFileItCouldNotRestore$' ./internal/reports (before the fix)",
+    "outcome": "failed",
+    "note": "the unfixed code failed 4 corpus rows (blocked directory, empty directory, held-open file, database down) and both reviewer tests; the 8 quiet rows already passed"
+   },
+   {
+    "command": "go test -count=1 -run ^TestOpenKeepsTheOnlyCopyWhenRestoreFails$ ./internal/reports",
+    "outcome": "passed",
+    "note": "the engine's O-002 check; Open logs the Access-is-denied rename and keeps tmp/1.old"
+   },
+   {
+    "command": "go test -count=1 -run ^TestSweepKeepsASetAsideFileItCouldNotRestore$ ./internal/reports",
+    "outcome": "passed",
+    "note": "the engine's O-003 check"
+   },
+   {
+    "command": "mutation: reports.go `if kept[e.Name()] {` changed to `if false && kept[e.Name()] {`, then TestSweepRecoveryCorpus and both reviewer tests",
+    "outcome": "failed",
+    "note": "all three go red as they should; the file was restored and checked"
+   },
+   {
+    "command": "go vet ./... && go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "cmd/hband, auth, config, fitnessrules, reports, server and store all ok after the fix"
+   }
+  ],
+  "deviations": [
+   "Open now fails when a set-aside file cannot be restored or judged, in addition to keeping it. The review offered this as the alternative: a held-open or blocked file in place means the row and the served bytes disagree (ETag and size from v1, bytes v2). Fail closed, with the file named in the error and kept for the next start. The cost is that a stuck recovery blocks startup until a person clears the blocking file.",
+   "A directory or other non-regular file named tmp/<id>.old is treated as junk and swept, not kept and not an error. We never create one, and it holds no bytes to lose."
+  ],
+  "follow_ups": [
+   "The old-gone and old-unreadable exits of recoverSetAside cannot be planted portably (a race, and permissions or a sharing violation). They are listed with reasons under unplantable_exits in the corpus, not exercised by a row."
+  ]
+ }
+}

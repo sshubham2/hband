@@ -1,0 +1,302 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-002",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-23T18:05:38.593Z",
+ "head": "6cdab9650023d7b38b02079a5aed7dca6c8d2744",
+ "run_id": 11687,
+ "summary": "I checked SC-002 by building the real hband binary (CGO_ENABLED=0) on this Windows PC and driving it over TCP, from my own overlay test, against a fake GitHub. The test was kept outside the tree and has been deleted; git status shows only the engine's .taad files. Of 79 checks in that run, 77 passed.\n\n**What was measured on the real binary:**\n- **Admin landing:** it has the upload form: `<input type=\"file\" name=\"file\">`, title, slug, and a status select with published and draft.\n- **Accepted uploads:** a file of exactly the cap (200000 bytes) is accepted and stored byte-equal, with the right size and sha256, a published date, and an empty tmp/. A draft upload has published_at NULL. UTF-8 BOM HTML and HTML that starts with `<meta>` are accepted byte-equal.\n- **Refused uploads:** all 21 refusals left the rows unchanged, the reports/ listing unchanged and tmp/ empty. cap+1 gives 413 on an existing slug and on a new one, and so does a body well over the cap. These give 400:\n  - two file parts (same field or another field);\n  - a .zip name and a .txt name;\n  - zip bytes or PNG bytes named x.html;\n  - UTF-16LE and UTF-16BE BOM files;\n  - the slugs 'Bad Slug', '../x', '' and 81 characters;\n  - an empty title and a blank title;\n  - status 'live';\n  - an empty file, no file part, and a body that is not multipart.\n- **Replace:** it keeps the id and the original published_at, and swaps the bytes, sha256, size and title. That also holds when replacing as a draft.\n- **Unpublish and republish:** both keep the original date, including after a 1.2 s wait.\n- **Delete:** it removes the row, os.Stat reports the file gone, and the edit page and /raw both answer 404. A deleted newest id is not reused.\n- **Preview of a draft:** 200, byte-equal, Cache-Control: no-store, and a single sandbox CSP with script-src 'none' in place of the site CSP. The ETag is the row's sha256.\n- **Cross-origin:** an Origin of https://evil.example and a Sec-Fetch-Site of cross-site both get 403 and change nothing.\n- **Non-owner and anonymous:** both are refused on the preview, the edit page, delete, unpublish and upload, and nothing changes.\n- **Replace while another handle holds the file open (Windows):** 409 after about 1.9 s with nothing changed. It succeeds once the handle is closed.\n- **Restart:** after a kill and restart, the planted tmp/upload-planted and reports/999.html are swept and the existing reports still serve.\n- **Bad cap values:** HBAND_MAX_UPLOAD_BYTES set to 0, 209715201 or 25MB makes the binary exit 2 without creating the data directory.\n\n**Unit tests:** `go vet` and `go test -count=1 ./...` pass. These pass when run verbose: m8, M-add-2, the sweep, TestSchema, the 12-row recovery corpus and its census, the engine's two O-002/O-003 commands, and the server's access matrix, preview, cross-origin and lifecycle tests. Fitness: all 13 rules hold.\n\n**Why partial and not passes:** one clause of the design is literally not met. 'TestAdminAccessMatrix covers every new row with {slug}=x, **with no edits**' is false: admin_test.go's owner default branch was edited to use ownerRouteStatus, which expects 404, 405 or 400 depending on the path. The build check (surveys#187) measured before any SL-002 code existed that this clause cannot hold: with the design's own rows as stubs, the unedited owner branch fails 11 times (405 and 400 where it wants 404). The builder declared the deviation, and the anonymous and non-owner branches are unedited and cover every new row. This is a mistake in the design to fix there, not build work; another build lap cannot meet the clause as written.\n\n**Also observed, not required by this slice's criteria:**\n- The edit page renders only one of Publish and Unpublish, depending on the status. That is drift from design 219's wording, not part of this slice's acceptance list.\n- An Origin of http://hband.test (same host, wrong scheme) is let through by CrossOriginProtection. That is the Go standard library's documented check, which compares hosts only.\n\n**Contact:** graded `code`. This is a scratch instance on Windows with a fake GitHub, not the deployed home server, Docker on Linux, the VPS proxy or a browser.",
+ "payload": {
+  "status": "complete",
+  "verdict": "partial",
+  "contact": "code",
+  "summary": "I checked SC-002 by building the real hband binary (CGO_ENABLED=0) on this Windows PC and driving it over TCP, from my own overlay test, against a fake GitHub. The test was kept outside the tree and has been deleted; git status shows only the engine's .taad files. Of 79 checks in that run, 77 passed.\n\n**What was measured on the real binary:**\n- **Admin landing:** it has the upload form: `<input type=\"file\" name=\"file\">`, title, slug, and a status select with published and draft.\n- **Accepted uploads:** a file of exactly the cap (200000 bytes) is accepted and stored byte-equal, with the right size and sha256, a published date, and an empty tmp/. A draft upload has published_at NULL. UTF-8 BOM HTML and HTML that starts with `<meta>` are accepted byte-equal.\n- **Refused uploads:** all 21 refusals left the rows unchanged, the reports/ listing unchanged and tmp/ empty. cap+1 gives 413 on an existing slug and on a new one, and so does a body well over the cap. These give 400:\n  - two file parts (same field or another field);\n  - a .zip name and a .txt name;\n  - zip bytes or PNG bytes named x.html;\n  - UTF-16LE and UTF-16BE BOM files;\n  - the slugs 'Bad Slug', '../x', '' and 81 characters;\n  - an empty title and a blank title;\n  - status 'live';\n  - an empty file, no file part, and a body that is not multipart.\n- **Replace:** it keeps the id and the original published_at, and swaps the bytes, sha256, size and title. That also holds when replacing as a draft.\n- **Unpublish and republish:** both keep the original date, including after a 1.2 s wait.\n- **Delete:** it removes the row, os.Stat reports the file gone, and the edit page and /raw both answer 404. A deleted newest id is not reused.\n- **Preview of a draft:** 200, byte-equal, Cache-Control: no-store, and a single sandbox CSP with script-src 'none' in place of the site CSP. The ETag is the row's sha256.\n- **Cross-origin:** an Origin of https://evil.example and a Sec-Fetch-Site of cross-site both get 403 and change nothing.\n- **Non-owner and anonymous:** both are refused on the preview, the edit page, delete, unpublish and upload, and nothing changes.\n- **Replace while another handle holds the file open (Windows):** 409 after about 1.9 s with nothing changed. It succeeds once the handle is closed.\n- **Restart:** after a kill and restart, the planted tmp/upload-planted and reports/999.html are swept and the existing reports still serve.\n- **Bad cap values:** HBAND_MAX_UPLOAD_BYTES set to 0, 209715201 or 25MB makes the binary exit 2 without creating the data directory.\n\n**Unit tests:** `go vet` and `go test -count=1 ./...` pass. These pass when run verbose: m8, M-add-2, the sweep, TestSchema, the 12-row recovery corpus and its census, the engine's two O-002/O-003 commands, and the server's access matrix, preview, cross-origin and lifecycle tests. Fitness: all 13 rules hold.\n\n**Why partial and not passes:** one clause of the design is literally not met. 'TestAdminAccessMatrix covers every new row with {slug}=x, **with no edits**' is false: admin_test.go's owner default branch was edited to use ownerRouteStatus, which expects 404, 405 or 400 depending on the path. The build check (surveys#187) measured before any SL-002 code existed that this clause cannot hold: with the design's own rows as stubs, the unedited owner branch fails 11 times (405 and 400 where it wants 404). The builder declared the deviation, and the anonymous and non-owner branches are unedited and cover every new row. This is a mistake in the design to fix there, not build work; another build lap cannot meet the clause as written.\n\n**Also observed, not required by this slice's criteria:**\n- The edit page renders only one of Publish and Unpublish, depending on the status. That is drift from design 219's wording, not part of this slice's acceptance list.\n- An Origin of http://hband.test (same host, wrong scheme) is let through by CrossOriginProtection. That is the Go standard library's documented check, which compares hosts only.\n\n**Contact:** graded `code`. This is a scratch instance on Windows with a fake GitHub, not the deployed home server, Docker on Linux, the VPS proxy or a browser.",
+  "checks": [
+   {
+    "what": "go vet over the whole module",
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "evidence": "exit 0, no output"
+   },
+   {
+    "what": "Full test suite",
+    "command": "go test -count=1 ./... (TAAD3_HOME set to a new scratch folder)",
+    "outcome": "passed",
+    "evidence": "ok: cmd/hband, auth, config, fitnessrules, reports, server, store. fakegithub has no test files. Exit 0."
+   },
+   {
+    "what": "Architecture fitness rules",
+    "command": "mcp__taad3__Fitness op=check",
+    "outcome": "passed",
+    "evidence": "13 rules checked against 36 parsed files: every declared rule holds."
+   },
+   {
+    "what": "Real binary, admin landing: upload form with file, title, slug and status (published or draft), posting multipart to /admin/reports",
+    "command": "go test -overlay <scratch>/overlay.json -run ^TestZZValidateSL002$ -v ./cmd/hband (probe outside the tree: builds hband.exe with CGO_ENABLED=0, runs it on a free port, signs the owner in through fakegithub)",
+    "outcome": "passed",
+    "evidence": "PASS for each of: input type=file name=file, name=title, name=slug, select name=status, value=published, value=draft, action=/admin/reports, enctype=multipart/form-data"
+   },
+   {
+    "what": "Real binary, accepted uploads: exactly the cap, a draft, a UTF-8 BOM file, a <meta>-first file",
+    "command": "same overlay probe",
+    "outcome": "passed",
+    "evidence": "The exact-cap file (200000 bytes) answers 303 to /admin/reports/cap-exact. Its row is published with published_at > 0, size 200000, and sha256 equal to the upload. reports/<id>.html is byte-equal and tmp/ is empty. The draft row has published_at NULL. The BOM and <meta>-first files are stored byte-equal."
+   },
+   {
+    "what": "Real binary, 21 refusals each leave the rows, the reports/ listing and tmp/ unchanged",
+    "command": "same overlay probe (row map and directory listing compared before and after each request)",
+    "outcome": "passed",
+    "evidence": "413: cap+1 on an existing slug, cap+1 on a new slug, and a body 100000 bytes over the cap. 400: two file parts; two file parts in different fields; x.zip; x.txt; zip bytes and PNG bytes named x.html; UTF-16LE and UTF-16BE BOM; slugs 'Bad Slug', '../x', '' and 81 characters; empty and blank title; status live; empty file; no file part; a body that is not multipart. Afterwards the cap-exact bytes were untouched."
+   },
+   {
+    "what": "Real binary, cross-origin POSTs are refused",
+    "command": "same overlay probe",
+    "outcome": "passed",
+    "evidence": "An upload with Origin https://evil.example gets 403 with no row change and an empty tmp/. publish with Sec-Fetch-Site cross-site gets 403. delete with Origin https://evil.example gets 403 and the row and file are kept."
+   },
+   {
+    "what": "Real binary: an Origin of http://hband.test (scheme mismatch, same host) on unpublish",
+    "command": "same overlay probe",
+    "outcome": "failed",
+    "nature": "extra",
+    "evidence": "Answered 303 and the unpublish happened. Go's CrossOriginProtection compares only the Origin's host to the Host header when Sec-Fetch-Site is absent; that is the decided stack's documented behaviour, not code this slice wrote. Browsers that send Sec-Fetch-Site and use schemeful SameSite=Lax cover it. The probe's expectation was stricter than any criterion."
+   },
+   {
+    "what": "Real binary, preview of a draft: no-store, sandbox CSP in place of the site CSP (m4), ETag, byte-equal",
+    "command": "same overlay probe",
+    "outcome": "passed",
+    "evidence": "200 and byte-equal. Cache-Control is no-store. There is one Content-Security-Policy, containing sandbox and script-src 'none' and not script-src 'self'. Content-Type is text/html; charset=utf-8. The ETag is the quoted row sha256. The edit page's iframe has a sandbox attribute without allow-scripts and its src is /admin/reports/draft-one/raw. The report bytes are not inlined in the page."
+   },
+   {
+    "what": "Edit page offers both publish and unpublish forms (design 219 wording)",
+    "command": "same overlay probe",
+    "outcome": "failed",
+    "nature": "extra",
+    "evidence": "For a draft only the publish form is rendered (admin_report.html:25-27). Code review already flagged this as drift. It is not in this slice's acceptance list, and the action POSTs themselves work."
+   },
+   {
+    "what": "Real binary: replace keeps the id and published_at and swaps the bytes, sha256, size and title; replace as a draft keeps the date",
+    "command": "same overlay probe (1.2 s sleep before the replace)",
+    "outcome": "passed",
+    "evidence": "Same id, published_at equal to the original, title 'Cap Two', size 3000, sha256 of v2, file byte-equal, same row count, tmp/ empty. The draft replace gives status draft with the same id and published_at."
+   },
+   {
+    "what": "Real binary: unpublish then republish keeps the original date; the first publish of a draft sets one",
+    "command": "same overlay probe",
+    "outcome": "passed",
+    "evidence": "After republish, unpublish, a 1.2 s sleep and publish, published_at still equals the original. The first publish of draft-one sets a date, and unpublish/republish keeps it. Publishing an unknown slug gives 404."
+   },
+   {
+    "what": "Real binary: non-owner and anonymous are refused on every report page and action",
+    "command": "same overlay probe (second fake GitHub user 4343, plus a client with no cookie)",
+    "outcome": "passed",
+    "evidence": "For both: raw, the edit page, delete, unpublish and upload are refused (not 200 or 303). No report bytes or title appear in the response, the rows are unchanged and tmp/ is empty."
+   },
+   {
+    "what": "Real binary on Windows: replace while another handle holds reports/<id>.html open",
+    "command": "same overlay probe (os.Open on the file, then an upload under the same slug)",
+    "outcome": "passed",
+    "evidence": "409 after 1.91 s. The row, the file bytes and tmp/ are unchanged. After the handle closes the same replace answers 303 with the same id and published_at."
+   },
+   {
+    "what": "Real binary: delete removes row and file; a deleted newest id is not reused",
+    "command": "same overlay probe",
+    "outcome": "passed",
+    "evidence": "Delete answers 303 to /admin. The row is gone, os.Stat says IsNotExist, and the edit page and /raw both answer 404. Creating newest-a, deleting it and creating newest-b gives a greater id. The landing lists the remaining reports and not the deleted one."
+   },
+   {
+    "what": "Real binary: a restart sweeps a planted tmp file and an orphan 999.html, and the reports survive",
+    "command": "same overlay probe (process killed, files planted, binary restarted on the same data directory)",
+    "outcome": "passed",
+    "evidence": "tmp/upload-planted and reports/999.html are both IsNotExist. The draft preview still answers 200 byte-equal. Final reports/ is [2.html 3.html 4.html 6.html] and tmp/ is []."
+   },
+   {
+    "what": "Real binary refuses a bad HBAND_MAX_UPLOAD_BYTES with exit 2 and creates no data directory",
+    "command": "go build -o <scratch>/hband.exe ./cmd/hband; run with HBAND_MAX_UPLOAD_BYTES = 0, 209715201, 25MB",
+    "outcome": "passed",
+    "evidence": "Each exits 2 with 'HBAND_MAX_UPLOAD_BYTES: must be a positive decimal number of bytes, at most 209715200'. Test-Path on the data directory is False."
+   },
+   {
+    "what": "Deferred and library tests run verbose: m8, M-add-2, sweep, held-open replace, schema, recovery corpus and census, the engine's O-002/O-003 commands",
+    "command": "go test -count=1 -v -run '^(TestReplaceCommitFailureKeepsFileConsistent|TestDeletedIDNotReused|TestOpenSweeps|TestReplaceWhileTheFileIsOpen|TestSchema|TestOpenKeepsTheOnlyCopyWhenRestoreFails|TestSweepKeepsASetAsideFileItCouldNotRestore|TestSweepRecoveryCorpus|TestSweepRecoveryCorpusCoversEveryExit)$' ./internal/reports",
+    "outcome": "passed",
+    "evidence": "All PASS, including the 12 corpus rows. I read TestReplaceCommitFailureKeepsFileConsistent: it injects a commit failure and checks that the bytes, sha256, size and title are the old report's and that tmp/ is empty."
+   },
+   {
+    "what": "Server tests: access matrix, preview headers, cross-origin, owner-only, lifecycle, refusals over HTTP; store fresh database; config cap",
+    "command": "go test -count=1 -v -run '^(TestAdminAccessMatrix|TestPreviewHeaders|TestAdminReportPostsAreCrossOriginProtected|TestOnlyTheOwnerCanManageReports|TestOwnerReportLifecycle|TestUploadRefusalsOverHTTP)$' ./internal/server; same for TestOpenFreshDatabase and TestLoadUploadCap",
+    "outcome": "passed",
+    "evidence": "All PASS. TestOpenFreshDatabase asserts the user_version the embedded migrations end at, and that a reports table exists. TestLoadUploadCap covers the default 26214400, the bound 209715200, and 17 refused spellings."
+   },
+   {
+    "what": "TestAdminAccessMatrix covers the new rows 'with no edits'",
+    "command": "git diff 993d715..HEAD -- internal/server/admin_test.go",
+    "outcome": "failed",
+    "nature": "pre-existing",
+    "evidence": "admin_test.go was edited: ownerRouteStatus was added and the owner default branch now expects 404, 405 or 400 per row instead of 404 everywhere. The build check (surveys#187) measured before any SL-002 code existed that the unedited owner branch fails 11 times at admin_test.go:184 with the design's own rows as stubs, so the clause was infeasible before the build. The builder declared it as a deviation. The anonymous and non-owner branches are unedited and pass over every row, because adminPaths enumerates adminRoutes with {slug}=x."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "internal/store/migrations/0002_reports.sql, run under the possession runner",
+    "met": "yes",
+    "how": "The file exists (STRICT table, AUTOINCREMENT). TestOpenFreshDatabase asserts the final user_version and that the reports table exists. The real binary created a database whose reports table my read-only queries read throughout the probe."
+   },
+   {
+    "criterion": "HBAND_MAX_UPLOAD_BYTES: ^[1-9][0-9]*$, at most 209715200, default 26214400",
+    "met": "yes",
+    "how": "TestLoadUploadCap passes (default, bound, 17 refused spellings). The real binary exits 2 for 0, 209715201 and 25MB without creating the data directory. A cap of 200000 set through the environment was honoured end to end (exact cap accepted, cap+1 gives 413)."
+   },
+   {
+    "criterion": "internal/reports library: save by slug (create or replace), Publish, Unpublish, Delete, queries, package write mutex, Open sweep of tmp/* and orphan <id>.html",
+    "met": "yes",
+    "how": "All exercised through the real binary. save holds the package writeMu (upload.go:299). The restart sweep removed a planted tmp file and reports/999.html."
+   },
+   {
+    "criterion": "serveRaw in internal/server/raw.go with the cache parameter",
+    "met": "yes",
+    "how": "raw.go:26 takes a cache string. The admin preview passes no-store, which was measured on the binary. The public no-cache caller arrives with SC-005."
+   },
+   {
+    "criterion": "Admin rows and templates: landing (list plus upload form with file, title, slug, status published|draft), POST /admin/reports, GET /admin/reports/{slug}, GET /admin/reports/{slug}/raw (no-store, drafts included), POST publish/unpublish/delete",
+    "met": "yes",
+    "how": "All six rows are in adminRoutes (admin.go). Each answered as designed on the real binary. The draft preview is 200 with no-store."
+   },
+   {
+    "criterion": "Accepted: a body of exactly cap",
+    "met": "yes",
+    "how": "Real binary: a 200000-byte file with a 200000 cap answers 303 and is stored byte-equal with the right size and sha256."
+   },
+   {
+    "criterion": "Accepted: UTF-8 BOM HTML, and HTML that starts with <meta>",
+    "met": "yes",
+    "how": "Real binary: both answer 303 and are stored byte-equal."
+   },
+   {
+    "criterion": "status=published sets published_at, and <data>/reports/<id>.html is byte-equal to the upload",
+    "met": "yes",
+    "how": "Real binary: published_at > 0 and the file is byte-equal."
+   },
+   {
+    "criterion": "status=draft leaves published_at NULL",
+    "met": "yes",
+    "how": "Real binary: the draft-one row has published_at NULL."
+   },
+   {
+    "criterion": "Re-uploading an existing slug keeps the id and published_at, and swaps the bytes, sha256, size and title, on this Windows PC",
+    "met": "yes",
+    "how": "Real binary on Windows 11 after a 1.2 s wait: same id and published_at, with new title, size, sha256 and bytes. With the file held open the replace answers 409 with nothing changed, then succeeds once the handle closes."
+   },
+   {
+    "criterion": "Unpublish then republish keeps the original date",
+    "met": "yes",
+    "how": "Real binary: published_at is unchanged through unpublish and republish, across 1.2 s waits."
+   },
+   {
+    "criterion": "Delete removes the row, and os.Stat reports the file gone",
+    "met": "yes",
+    "how": "Real binary: the row is gone and os.Stat says IsNotExist. The edit page and /raw both answer 404."
+   },
+   {
+    "criterion": "Refused, each leaving no row change, no file and an empty tmp/: cap+1 (413); two file parts; .zip name; .txt name; zip or PNG bytes named x.html; UTF-16 BOM; slugs 'Bad Slug', '../x', '' and 81 characters; empty title; status 'live'",
+    "met": "yes",
+    "how": "Real binary: every listed case plus 6 extra ones. The row map and the reports/ listing are identical before and after each request, and tmp/ is empty. cap+1 answers 413 and the rest 400."
+   },
+   {
+    "criterion": "A cross-origin POST gets 403",
+    "met": "yes",
+    "how": "Real binary: an Origin of https://evil.example on upload and on delete, and Sec-Fetch-Site cross-site on publish, all get 403 with nothing changed."
+   },
+   {
+    "criterion": "Deferred m8: TestReplaceCommitFailureKeepsFileConsistent",
+    "met": "yes",
+    "how": "The test exists and passes. I read it: an injected commit failure leaves the old report's bytes, sha256, size and title in place and an empty tmp/. The failure cannot be injected into the running binary."
+   },
+   {
+    "criterion": "Deferred M-add-2: TestDeletedIDNotReused",
+    "met": "yes",
+    "how": "The test passes, also across a reopen. On the real binary a new id after deleting the newest was greater."
+   },
+   {
+    "criterion": "Deferred m4: the preview carries Cache-Control: no-store and the sandbox CSP in place of the site CSP",
+    "met": "yes",
+    "how": "Real binary: no-store, and a single CSP header with sandbox and script-src 'none' and without the site's script-src 'self'."
+   },
+   {
+    "criterion": "Startup removes a planted tmp file and an orphan 999.html",
+    "met": "yes",
+    "how": "Real binary killed and restarted: both planted files were gone and the existing reports still served."
+   },
+   {
+    "criterion": "TestAdminAccessMatrix covers every new row with {slug}=x",
+    "met": "yes",
+    "how": "adminPaths derives the paths from adminRoutes with {slug}=x. The test passes, and the anonymous and non-owner branches are unedited."
+   },
+   {
+    "criterion": "... with no edits (to TestAdminAccessMatrix)",
+    "met": "no",
+    "how": "admin_test.go's owner default branch was edited (ownerRouteStatus). The build check (surveys#187) measured that the clause cannot hold with the design's own rows: 11 owner-branch failures with stubs. The builder declared the deviation. This needs fixing in the design, not in the build."
+   }
+  ],
+  "planned": [
+   {
+    "ordinal": 1,
+    "met": "no",
+    "evidence": "Everything SC-002 builds and every accepted case, refusal, deferred item (m8, M-add-2, m4) and the startup sweep was measured. Most were driven through the real binary on this Windows PC (77 of 79 probe checks pass, and both failures are outside the criteria). The full suite, vet and fitness all pass. One clause is literally not met: 'TestAdminAccessMatrix covers every new row with {slug}=x, with no edits'. admin_test.go's owner branch was edited. The build check (surveys#187) had already measured that the unedited test cannot pass with the design's own rows (405 and 400 where it wants 404, 11 failures). Carrying this forward means fixing the design clause, not doing more build work. 'No headless-Edge preview test' holds: none exists, and spike 193 plus the open Q-006 cover that ground."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "verified": "yes",
+    "evidence": "Independently re-exercised SC-002 through the real binary (upload, replace, unpublish/republish, delete, refusals, cross-origin, sweep), and the full suite passes."
+   },
+   {
+    "key": "O-002",
+    "verified": "yes",
+    "evidence": "`go test -count=1 -run ^TestOpenKeepsTheOnlyCopyWhenRestoreFails$ ./internal/reports` passes on this PC. The fix is in tree even though the obligation was carried to SC-028."
+   },
+   {
+    "key": "O-003",
+    "verified": "yes",
+    "evidence": "`go test -count=1 -run ^TestSweepKeepsASetAsideFileItCouldNotRestore$ ./internal/reports` passes. The 12-row TestSweepRecoveryCorpus and its census pass."
+   },
+   {
+    "key": "O-004",
+    "verified": "cannot-tell",
+    "evidence": "Waived to N-015. sniffOK (upload.go:201-208) is unchanged and still accepts only text/html and text/plain with charset=utf-8, so an XML-declaration file would still be refused. I did not probe it."
+   },
+   {
+    "key": "O-005",
+    "verified": "cannot-tell",
+    "evidence": "Waived to N-015. sniffOK is unchanged. I did not probe a windows-1252 file."
+   },
+   {
+    "key": "O-006",
+    "verified": "yes",
+    "evidence": "Commit 6cdab96 rewrote the Open doc. reports.go:101 now says a file that cannot be restored 'is kept and Open returns an error naming it'. The phrase 'removed otherwise' no longer appears."
+   },
+   {
+    "key": "O-007",
+    "verified": "yes",
+    "evidence": "reports.go:217 now names unplantable_exits and TestSweepRecoveryCorpusCoversEveryExit."
+   },
+   {
+    "key": "O-008",
+    "verified": "no",
+    "evidence": "Still true of the tree and carried to SC-030: setAside (upload.go:412-426) renames onto tmp/<id>.old without checking for an existing .old. Read, not probed."
+   }
+  ],
+  "not_reached": [
+   "The deployed environment: Docker on Linux on the home server behind the VPS reverse proxy over WireGuard. All runs here were a scratch instance on Windows 11, where rename and sharing semantics differ from Linux.",
+   "Real GitHub OAuth: sign-in used the project's fakegithub.",
+   "A real browser: nothing checked that Edge, Firefox or Safari renders the sandboxed preview iframe, blocks scripts in it, or uses the file input and select as intended.",
+   "Q-006 (open): whether the Lax, Secure __Host- session cookie reaches the sandboxed GET /admin/reports/{slug}/raw frame in Edge over https. Not answered here, and no https listener was run.",
+   "How the reverse proxy treats Origin, Host and Sec-Fetch-Site. The cross-origin checks used direct requests whose Host was hband.test.",
+   "The m8 commit-failure path and the old-gone and old-unreadable sweep exits in the running binary. They can only be injected in unit tests, or cannot be planted at all.",
+   "The shipped 25 MiB default cap with a near-cap upload through the binary. I used a 200000-byte cap; cmd/hband's TestBinary covers the default-cap lifecycle and passes in the suite.",
+   "Finish lines 1 to 6, which also need SC-005's /reports/<slug> and public /raw."
+  ]
+ }
+}

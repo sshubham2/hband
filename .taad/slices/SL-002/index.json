@@ -42,91 +42,67 @@
   },
   {
    "stage": "build-slice",
-   "issue": "No headless-Edge preview test, as the design says. Lesson #933 asks for a preview-frame check over https with __Host- cookies. I covered the server half only: TestPreviewHeaders runs on a TLS-configured harness with the __Host- cookie name. Whether Edge sends that cookie for the sandboxed frame is Q-006, still open and not measured here."
+   "issue": "The old-gone and old-unreadable exits of recoverSetAside cannot be planted portably (a race, and permissions or a sharing violation). They are listed with reasons under unplantable_exits in the corpus, not exercised by a row."
   },
   {
    "stage": "build-slice",
-   "issue": "Report.Latest and Library.PublishedBySlug exist because the design lists them, but only tests call them. SC-005's reader pages are their callers."
+   "issue": "deviation: Open now fails when a set-aside file cannot be restored or judged, in addition to keeping it. The review offered this as the alternative: a held-open or blocked file in place means the row and the served bytes disagree (ETag and size from v1, bytes v2). Fail closed, with the file named in the error and kept for the next start. The cost is that a stuck recovery blocks startup until a person clears the blocking file."
   },
   {
    "stage": "build-slice",
-   "issue": "Decide Q-006 by driving Edge over https with the __Host- session cookie to the sandboxed preview frame. If the cookie is not sent, the preview needs the signed-URL contract the design avoided."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "The delete button has no confirmation step, because the site CSP rules out inline script and the admin page ships no script. A no-JS confirm (a checkbox or a confirm page) is worth ranking."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "The e001 finish-line tests are still not in the tree (Q-009). Run them against this build once tests/acceptance exists."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Windows refuses to rename a file another handle has open (measured by the build check). A replace therefore retries setting the old file aside for up to 2 s, then refuses with ErrBusy (HTTP 409, 'Nothing changed'), leaving the old report untouched. The design named only the commit-failure branch."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The Open sweep does not blindly clear tmp/: it first restores tmp/<id>.old when the row still describes it and the file in place does not, which is critique finding m10 (a crash mid-replace must not delete the only copy). Everything else in tmp/ and any orphan reports/<n>.html is then removed, as designed."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The library lock is a sync.RWMutex. Writes hold it exclusively, and OpenRaw holds it shared while it looks the row up and opens the file, so a reader never sees the empty canonical path during a replace. The design said 'package write mutex'."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: server.New now takes the opened library: New(cfg, st, lib, clock). main opens it so a data-directory failure exits 1, and harness_test.go is updated. The design left New's signature alone."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The design said TestAdminAccessMatrix needs no edits, but measurement showed the owner branch wanted 404 for every non-landing path. I replaced that with ownerRouteStatus, which quotes the observed responses (404, 405, and 400 for a bodyless POST /admin/reports); routing is unchanged. Per-row, per-method responses are asserted, not a blanket 'not 401/403/503'."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Existing store tests that assumed schema version 1 follow the embedded migration count. The injected-migration tests seed from 0001 only, so a real 0002 does not change what they prove."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Validation failures use 400 and wrong-type files use 400 rather than 415; only an oversize body is 413. Duplicate title, slug or status fields and an empty file are also refused. The design did not list these two."
+   "issue": "deviation: A directory or other non-regular file named tmp/<id>.old is treated as junk and swept, not kept and not an error. We never create one, and it holds no bytes to lose."
   },
   {
    "stage": "code-review",
-   "issue": "drift: internal/server/templates/admin_report.html:25-27 renders only one of the two forms: Unpublish when the report is published, Publish otherwise. The design's edit page 'has publish, unpublish and delete forms'. The build did not declare this. The finish-line POSTs go straight to the action URLs, so they are unaffected."
+   "issue": "drift: internal/server/templates/admin_report.html:25-27 renders Unpublish when the report is published and Publish otherwise, not both. The design's edit page 'has publish, unpublish and delete forms', and the build did not declare this. The finish-line POSTs go to the action URLs directly, so they are unaffected. Carried from the first pass; still true of the tree."
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): cmd/hband/main_test.go (not seen: lines 1-549 of 549) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "issue": "drift: internal/server/templates/admin_report.html:25-27 renders only one of Publish and Unpublish, depending on the status. The design's edit page has publish, unpublish and delete forms, and the build did not declare the difference. Carried from round one; still true of the tree."
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/config/config_test.go (not seen: lines 1-245 of 245) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/reports/reports.go (not seen: lines 160-180, 182-204, 206-302, 304-315, 318-437 of 437) -- partly-opened: a Read returned only part of it; seen only as 6 Grep lines; seen only through a shell command: $s (before the build), git log; 220 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/server/harness_test.go (not seen: lines 1-343 of 343) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "issue": "not reviewed: internal/reports/reports.go:149-280 -- the new sweep and recoverSetAside code was read through `git diff 93396be..eaeff13` (every changed line, with context) rather than with Read. Lines 89-148 were read with Read."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/store/store_test.go (not seen: lines 1-437 of 437) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: The deployed environment: Docker on Linux on the home server behind the VPS reverse proxy over WireGuard. All runs here were a scratch instance on Windows 11, where rename and sharing semantics differ from Linux."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: cmd/hband/main_test.go -- only the hunks in `git diff 993d715 HEAD` were read (startProcIn and the new TestBinary subtest), not the unchanged rest of the file"
+   "stage": "validate-slice",
+   "issue": "not reached: Real GitHub OAuth: sign-in used the project's fakegithub."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/store/store_test.go -- only the changed hunks from the diff were read (newestVersion, identityOnly, migrationsWith, seedTwoSessions, the openWith reopen)"
+   "stage": "validate-slice",
+   "issue": "not reached: A real browser: nothing checked that Edge, Firefox or Safari renders the sandboxed preview iframe, blocks scripts in it, or uses the file input and select as intended."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/config/config_test.go -- only the changed hunks were read (TestLoadIgnoresUnknownVariables edit, TestLoadUploadCap)"
+   "stage": "validate-slice",
+   "issue": "not reached: Q-006 (open): whether the Lax, Secure __Host- session cookie reaches the sandboxed GET /admin/reports/{slug}/raw frame in Edge over https. Not answered here, and no https listener was run."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/harness_test.go -- only the changed hunks were read (harness fields, newHarness data dir/cap/library, rebuild)"
+   "stage": "validate-slice",
+   "issue": "not reached: How the reverse proxy treats Origin, Host and Sec-Fetch-Site. The cross-origin checks used direct requests whose Host was hband.test."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/config/config.go:1-79 and 175-end -- read through the diff hunks only. The full read covered lines 80-179 (Load)"
+   "stage": "validate-slice",
+   "issue": "not reached: The m8 commit-failure path and the old-gone and old-unreadable sweep exits in the running binary. They can only be injected in unit tests, or cannot be planted at all."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The shipped 25 MiB default cap with a near-cap upload through the binary. I used a 200000-byte cap; cmd/hband's TestBinary covers the default-cap lifecycle and passes in the suite."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Finish lines 1 to 6, which also need SC-005's /reports/<slug> and public /raw."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "criterion not met: ... with no edits (to TestAdminAccessMatrix)"
   }
  ],
  "stages": [
@@ -209,7 +185,7 @@
    "stage": "build-slice",
    "title": "Build",
    "order": 7,
-   "state": "sent back",
+   "state": "passed",
    "attempts": [
     {
      "n": 1,
@@ -244,6 +220,35 @@
       "measured_by_git": 22
      },
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T17:55:22.918Z",
+     "head": "eaeff1399841e8a9363e1dd6d852824566535840",
+     "summary": "O-002 and O-003 are one defect and one fix.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "2 defect(s) in lines this slice wrote were accepted by the code review (O-002, O-003). None weighs a lap on its own, so they go back to the builder TOGETHER, once, before validation -- instead of to the backlog and from there to a send-back at the merge. Fix exactly these with the smallest change: one scoped re-check reads only your fix. Sent back with what raised them: O-002 (fix): m1 (minor): Open's sweep calls recoverSetAside for each tmp/<id>.old and then unconditionally RemoveAll's every tmp entry. recoverSetAside has two failure paths: the row lookup errors with something other than no-rows ('no row (or unreadable)'), or os.Rename(old, cur) fails, where it logs 'could not restore a set-aside file' and returns. Either way the sweep then deletes tmp/<id>.old, which in that state is the only copy of the bytes the row describes. The report's bytes are lost for good, and from then on the file in place no longer matches the row's sha256 and size: the ETag and the size advertise v1 while v2 is served. This contradicts the comment at lines 159-160, the declared m10 deviation ('a crash mid-replace must not delete the only copy'), and replace()'s restore-failure log 'the next start recovers it' (upload.go:384), which only holds if that next start's rename succeeds. Measured on this PC with an overlay probe: the file in place was held open, Open logged 'rename ...tmp\\1.old ...reports\\1.html: Access is denied.', and tmp/ was then empty with reports/1.html still v2. Have recoverSetAside return whether the .old must be kept: true when the rename back fails, and true when the row lookup fails with an error other than sql.ErrNoRows. The sweep should then skip RemoveAll for those names. Alternatively, return an error from Open so the server does not start serving a file that does not match its row. CLOSE THE CLASS, NOT THIS INSTANCE. m1 is one member of \"set-aside recovery failure paths that fall through to clearing tmp/\" (members come from ordinary input, by accident). Enumerate the class into a corpus committed with the code -- a table of inputs, fire/quiet plant rows, an alias list, a census of every type that carries the value -- in the repository or .taad/slices/SL-002/, make every row pass, and show the code before your fix failing the rows you claim to close. Bound the class by who produces its members, not by every exotic spelling. Answer this obligation with `corpus`: the corpus's path from the repository root. It is not discharged without one. [shown by a failing run] The engine ran the code review's test for this, internal/reports/sweep_restore_failure_test.go, with `go test -count=1 -run ^TestOpenKeepsTheOnlyCopyWhenRestoreFails$ ./internal/reports`, and it FAILED. Put that test at internal/reports/sweep_restore_failure_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestOpenKeepsTheOnlyCopyWhenRestoreFails$ ./internal/reports` again in your tree, and that run is what closes this; your word does not. The test: package reports import ( \"bytes\" \"os\" \"runtime\" \"testing\" ) // m10: when a restart finds tmp/<id>.old holding the bytes the row describes // but cannot put it back (here: the file in place is held open, so Windows // refuses the rename), the sweep must not then delete that set-aside file. It // is the only copy of the report the row describes. func TestOpenKeepsTheOnlyCopyWhenRestoreFails(t *testing.T) { if runtime.GOOS != \"windows\" { t.Skip(\"holding the target open makes the rename fail only on Windows\") } r := newRig(t) v1, v2 := htmlOf(300, \"v1\"), htmlOf(400, \"v2\") rep := r.mustSave(goodForm(\"crash\", \"Crash\", \"published\", v1)) // A crash after the new file was renamed in but before the commit: the row // still describes v1, v1 is set aside, v2 is in place. must(t, os.WriteFile(r.lib.setAsidePath(rep.ID), v1, 0o600)) must(t, os.WriteFile(r.lib.path(rep.ID), v2, 0o600)) held, err := os.Open(r.lib.path(rep.ID)) if err != nil { t.Fatal(err) } _, _ = Open(Options{DB: r.st.DB(), DataDir: r.root, MaxUploadBytes: testCap, Now: r.clock.Now}) held.Close() cur, _ := os.ReadFile(r.lib.path(rep.ID)) old, _ := os.ReadFile(r.lib.setAsidePath(rep.ID)) if !bytes.Equal(cur, v1) && !bytes.Equal(old, v1) { t.Fatal(\"the sweep deleted tmp/<id>.old after failing to restore it: the bytes the row describes are gone\") } } O-003 (fix): IN-m1 (minor): The sweep deletes the only copy of a report's bytes when it fails to restore it. A replace interrupted after setAside leaves the row's bytes only in tmp/<id>.old. recoverSetAside (lines 201-220) returns silently in two cases: when its row lookup errors (line 203-204, any error, not only ErrNoRows), and when the restoring os.Rename fails (line 215-218, which only logs). In both cases the second loop (lines 167-171) RemoveAll's every tmp entry, that .old included. The row survives with no file behind it, and the preview answers 500 for good. This is exactly the m10 'must not delete the only copy' state that the declared sweep deviation claims to protect. Make recoverSetAside report whether the set-aside file must be kept. Keep it when the restoring rename failed, or when the row lookup failed with anything other than sql.ErrNoRows. In the removal loop, skip those names so the next start can try again. [shown by a failing run] The engine ran the code review's test for this, internal/reports/sweep_restore_failure_test.go, with `go test -count=1 -run ^TestSweepKeepsASetAsideFileItCouldNotRestore$ ./internal/reports`, and it FAILED. Put that test at internal/reports/sweep_restore_failure_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestSweepKeepsASetAsideFileItCouldNotRestore$ ./internal/reports` again in your tree, and that run is what closes this; your word does not. The test: package reports import ( \"bytes\" \"os\" \"path/filepath\" \"testing\" ) // A crash while the canonical path is empty leaves the only copy of the bytes // the row describes in tmp/<id>.old. If the restart cannot put it back, it must // not delete it either. func TestSweepKeepsASetAsideFileItCouldNotRestore(t *testing.T) { r := newRig(t) v1 := htmlOf(300, \"v1\") rep := r.mustSave(goodForm(\"crash\", \"Crash\", \"published\", v1)) old, cur := r.lib.setAsidePath(rep.ID), r.lib.path(rep.ID) // The replace set v1 aside and stopped: the row still says v1. if err := os.Rename(cur, old); err != nil { t.Fatal(err) } // Something at the canonical path makes the restoring rename fail. if err := os.MkdirAll(filepath.Join(cur, \"blocker\"), 0o700); err != nil { t.Fatal(err) } // Restart. Refusing to start is acceptable; deleting the only copy is not. _, _ = Open(Options{DB: r.st.DB(), DataDir: r.root, MaxUploadBytes: testCap, Now: r.clock.Now}) for _, p := range []string{old, cur} { if b, err := os.ReadFile(p); err == nil && bytes.Equal(b, v1) { return } } t.Fatal(\"the only copy of the report's bytes was deleted after the restore failed\") }",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-002",
+       "O-003",
+       "O-004",
+       "O-005"
+      ]
+     },
+     "changed": {
+      "src": 4,
+      "tests": 1,
+      "listed": 5,
+      "measured_by_git": 8
+     },
+     "details": "build-slice-2.json"
     }
    ]
   },
@@ -262,6 +267,43 @@
      "caused_by": null,
      "changed": {},
      "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T17:58:43.050Z",
+     "head": "eaeff1399841e8a9363e1dd6d852824566535840",
+     "summary": "Both defects on the card are fixed.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-23T17:55:22.693Z, and build-slice has judged since (2026-11-23T17:58:42.455Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T18:05:38.593Z",
+     "head": "6cdab9650023d7b38b02079a5aed7dca6c8d2744",
+     "summary": "I checked SC-002 by building the real hband binary (CGO_ENABLED=0) on this Windows PC and driving it over TCP, from my own overlay test, against a fake GitHub.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
     }
    ]
   }
