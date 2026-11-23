@@ -1,0 +1,410 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-004",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-23T23:32:23.968Z",
+ "head": "cc05875fb54e5d35b1dcb87cdf82562991abbb7c",
+ "run_id": 11764,
+ "summary": "I built the voting feature as designed. It has migration 0003_votes.sql, a new internal/votes package (Cast, Withdraw, Public, OwnerTally; every write is one statement), and auth.Participant. It also adds POST /reports/{slug}/vote (303 back to /reports/<stored slug>#votes), a votes block on both reader pages, and the owner-only dislike tally on /admin/reports/<slug>. The tests listed under `tests` pass, including the E-003 acceptance test, which I read from the ledger in place and ran against a freshly built binary. Fourteen mutations of the fixes each turned their target test red. I kept the uncommitted fitness.yaml rules the tree arrived with and extended them per M-add-1. Two things differ from the design: the OwnerTally pattern is wider, and a cross-site request that carries the site's own Origin is allowed by CrossOriginProtection, so I dropped that assertion. My first full suite run started Edge by default, which the engine says not to do. After that I ran browser checks with Chrome.",
+ "payload": {
+  "status": "complete",
+  "summary": "I built the voting feature as designed. It has migration 0003_votes.sql, a new internal/votes package (Cast, Withdraw, Public, OwnerTally; every write is one statement), and auth.Participant. It also adds POST /reports/{slug}/vote (303 back to /reports/<stored slug>#votes), a votes block on both reader pages, and the owner-only dislike tally on /admin/reports/<slug>. The tests listed under `tests` pass, including the E-003 acceptance test, which I read from the ledger in place and ran against a freshly built binary. Fourteen mutations of the fixes each turned their target test red. I kept the uncommitted fitness.yaml rules the tree arrived with and extended them per M-add-1. Two things differ from the design: the OwnerTally pattern is wider, and a cross-site request that carries the site's own Origin is allowed by CrossOriginProtection, so I dropped that assertion. My first full suite run started Edge by default, which the engine says not to do. After that I ran browser checks with Chrome.",
+  "files": [
+   {
+    "path": "internal/store/migrations/0003_votes.sql",
+    "change": "added",
+    "why": "votes table: PK (report_id, github_id), kind up|down, cascades from reports and users; CREATE TABLE only"
+   },
+   {
+    "path": "internal/votes/votes.go",
+    "change": "added",
+    "why": "Book: Cast (single INSERT...SELECT...ON CONFLICT, ErrNotOpen), Withdraw, Public (PublicView has no dislike field), OwnerTally; no transactions"
+   },
+   {
+    "path": "internal/votes/votes_test.go",
+    "change": "added",
+    "why": "re-press, switch, withdraw, per-reader/per-report scoping, unpublished refusal, unknown kind, cascade, closed store, 50 voters + 10 sign-ins concurrency"
+   },
+   {
+    "path": "internal/auth/session.go",
+    "change": "modified",
+    "why": "Participant(ctx) (Viewer, error) with ErrSignedOut and ErrIdentityUnavailable"
+   },
+   {
+    "path": "internal/auth/participant_test.go",
+    "change": "added",
+    "why": "Participant's three outcomes plus outage-wins-over-viewer"
+   },
+   {
+    "path": "internal/auth/auth_test.go",
+    "change": "modified",
+    "why": "LocalPath corpus gains /reports/a-b#votes as accepted (the vote redirect's fragment)"
+   },
+   {
+    "path": "internal/server/vote.go",
+    "change": "added",
+    "why": "POST /reports/{slug}/vote handler: identity outage 503, lookup before identity, anonymous 303, strict one-value form parsing capped at 1 KiB, same 303 for every outcome"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "modified",
+    "why": "app.votes built from st.DB() inside New; registers POST /reports/{slug}/vote inside cop and Identify"
+   },
+   {
+    "path": "internal/server/reader.go",
+    "change": "modified",
+    "why": "readerData.Votes; renderReader reads Public for a found report and turns a failed read into stateUnavailable (503)"
+   },
+   {
+    "path": "internal/server/admin.go",
+    "change": "modified",
+    "why": "adminReport reads OwnerTally (error 500); adminData.Tally"
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "change": "modified",
+    "why": "votes section: like line for all, vote form for signed-in readers, plain 'Sign in to vote.' otherwise"
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "change": "modified",
+    "why": "Votes section with '<L> like(s)' and '<M> dislike(s)' in two separate <p class=tally>"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": ".votes rules using the existing #8884 border tone and inherited colours only (blank-found well stays green=0 red=0)"
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "change": "added",
+    "why": "signed-in flow, anonymous, cross-site, hidden slugs, bad forms, identity/votes-read failures, lifecycle, TestDislikesDoNotInterfere with owner reader-page observers"
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "change": "modified",
+    "why": "TestReaderPathVariants rows for the vote route (405 Allow POST, 404 trailing slash, 307 double slash, draft x == unknown x), pinned to observed go1.27.4 answers"
+   },
+   {
+    "path": "internal/store/votes_migration_test.go",
+    "change": "added",
+    "why": "a version-2 database with a session and report takes 0003 without losing rows; keys and cascade enforced on the serving pool"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "three SL-004 rules (OwnerTally fence, votes-table SQL confinement, no transactions in internal/votes), extended per M-add-1: UPDATE OR, comma join, (?i) BEGIN|SAVEPOINT, sql.Tx; known holes named"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "change": "modified",
+    "why": "39 fire/quiet rows for the three rules, three bounded_by entries, three names in rules_under_test; rule-3 rows all at internal/votes/votes.go"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "TestCastSameVoteTwice: three identical up casts leave one row and 1 like; a repeated down leaves 1 dislike. Proves RowsAffected is 1 on the conflict update. Mutation DO UPDATE -> DO NOTHING turns it red."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "TestCastSwitches: up then down gives 0 likes and 1 dislike on one row, and down then up swaps back. Mutation 'SET kind = votes.kind' turns it red."
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "TestWithdrawWithoutVote: withdrawing with no vote, twice, and from a missing report all return nil and leave the other reader's like. Mutation 'ErrNotOpen on 0 rows' turns it red."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "TestVotesScopedPerReaderAndReport: two readers on one report make 2 likes, one reader's likes count once on each of two reports, 4 rows in all. Mutation spanning reports in Public turns it red."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "TestVoteAnonymousRefused: no session, expired, unknown and malformed cookies get 303 to /reports/x#votes with no row; the anonymous page has the like count and 'Sign in to vote.' and no vote form. Mutation 'if false' on the ErrSignedOut branch turns it red."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "TestVoteCrossSiteRefused: Sec-Fetch-Site cross-site and same-site, and Origin https://evil.example, get 403 and write nothing; same-origin and the trusted Origin are accepted; a cross-site withdrawal keeps the vote. Mutation removing cop.Handler turns it red."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "TestVoteHiddenReportsAreIndistinguishable (draft, unpublished, deleted, unknown, odd slugs, anonymous/reader/owner all identical) and TestReaderPathVariants (GET/HEAD/PUT 405 Allow POST, trailing slash 404, double slash 307, draft x == unknown x). Mutation PublishedBySlug -> BySlug turns it red."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "TestVoteBadFormRefused: missing, other field, repeated, unknown, empty, wrong-case, query-string-only, no body, JSON, text/plain, 1025 B and 64 KiB bodies all 400 and no row; exactly 1024 B and a body value beating ?vote= are accepted. Mutation len(values) < 1 turns it red."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "TestVoteIdentityUnavailable (sessions table dropped so only identity fails: 503 for live and unknown sid, anonymous still 303; store closed: 503) and TestReaderVotesReadFails (votes table dropped: both reader pages 503 with no frame, count or form; vote POST 503; admin 500). Mutations on the identity branch and on the stateUnavailable switch each turn it red."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "TestCastRefusesUnpublished: draft, missing id, and a report unpublished after a first vote give ErrNotOpen and change nothing. Mutation removing the status check turns it red."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "TestVotesFollowReportLifecycle through the real admin routes: votes survive replace (same id), unpublish and republish, the owner still sees the tally on the draft, a vote on the unpublished report is 404, delete removes the votes, and a new report under the old slug starts at 0. Mutation dropping ON DELETE CASCADE turns it red."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "TestDislikesDoNotInterfere: anonymous, non-voter and up-voter observations (status, body, headers) over /, /reports/x, /reports/y, /reports, /admin, /admin/reports/x and their own vote POST are byte-identical before and after other readers' down votes. A second world compares an up->down switch with an up->none withdrawal. Sensitivity controls: an extra like changes the anonymous page and the owner's tally goes 0 -> 3 dislikes with each number in its own <p>. Mutation Public count -> COUNT(*) turns it red."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "TestConcurrentVotesNoBusy: 50 readers cast/switch/withdraw alongside 10 SignIn goroutines on the pool store.Open ships, two runs, 0 errors, COUNT=50 and 50 likes. This measures the INSERT...SELECT...ON CONFLICT shape the spike did not."
+   },
+   {
+    "key": "O-014",
+    "done": true,
+    "how": "Votes block is in the anonymous found-state page and styled with inherited colours and #8884 only. TestReportScriptsNeverRun passed with blank-found green=0 red=0 under Chrome, and the screenshot shows '0 likes' under the frame. Caveat: headless.Browser defaults to Edge when HBAND_TEST_BROWSER is unset, so the engine's run of this test should set it to the installed Chrome."
+   },
+   {
+    "key": "O-016",
+    "done": true,
+    "how": "TestDislikesDoNotInterfere records the owner's GET /, /reports/x and /reports/y before and after the other readers' down votes and requires them byte-identical. Each owner read must contain '<a href=\"/admin\">Admin</a>' and 'Signed in as @the-owner' or the test fails as INVALID. The same owner sid, minted once from testOwnerID, serves the readers pages and the /admin/reports/x sensitivity control.",
+    "mutation": {
+     "file": "internal/server/reader.go",
+     "find": "d.Votes = pub",
+     "replace": "d.Votes = pub; if v.IsOwner { if t, err := a.votes.OwnerTally(r.Context(), rep.ID); err == nil { d.Votes.Likes = t.Likes + t.Dislikes } }",
+     "test_command": "go test -count=1 -run ^TestDislikesDoNotInterfere$ ./internal/server/"
+    }
+   },
+   {
+    "key": "O-019",
+    "done": true,
+    "how": "Built the critic's version in .taad/fitness.yaml. Rule 3 now has (?i)\\b(BEGIN|SAVEPOINT)\\b and \\bsql\\.Tx\\b beside the Begin/BeginTx call pattern. Rule 2 adds \\bUPDATE\\s+OR\\s+[A-Z]+\\s+votes\\b and the keyword-anchored comma join '\\bFROM\\b[^\"`;]*,\\s*votes\\b'. Known holes are named in the because texts and in three bounded_by entries. The corpus has fire rows for each pattern (including SAVEPOINT, lowercase begin, sql.Tx, UPDATE OR IGNORE/REPLACE and both comma-join shapes). Quiet rows cover 'begins', render(w, votes), and the known holes pinned as quiet. Every rule-3 row carries path internal/votes/votes.go. Removing each pattern in turn fails a named fire row.",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "(?i)\\b(BEGIN|SAVEPOINT)\\b",
+     "replace": "\\bBEGIN\\b",
+     "test_command": "go test -count=1 -run ^TestRuleSpellingsCorpus$ ./internal/fitnessrules/"
+    }
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "how": "tests/acceptance is not in the tree, so I read the E-003 finish line from the ledger in place (file:<engine.db>?mode=ro, SELECT epics.finish WHERE key='E-003', epic id 41) before writing the admin tally. Facts confirmed: (a) beside() scans every non-owner page's text and markup for 2 or 3 beside a dislike label; (b) links[0] is the first anchor matching 'sign in with github', which is the unchanged header anchor, so the plain-text hint cannot disturb it; (c) the author's dislike count is read from /admin/reports/<slug>, one number beside its label, so the design stands and no IsOwner branch was added to report.html; (d) votes go to POST /reports/<slug>/vote with vote=up|down|none, the page must contain /reports/<slug>/vote for a signed-in reader, the like count must be exactly one number beside a like label on /reports/<slug> and on /, an anonymous or cross-site POST only has to answer below 500, and a CSRF token is sent only if the page has one. I ran the test locally from a scratch copy with ROOT pointed at this worktree: it builds ./cmd/hband, starts it and passes (1 test, OK).",
+    "not_mutable": "An investigation: it confirms what the finish-line test expects and changes no code. The behaviour it confirmed is pinned by TestDislikesDoNotInterfere (owner tally on /admin/reports/<slug>, none on reader pages) and TestVoteSignedInFlow."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "TestCastSameVoteTwice",
+    "test_command": "go test -count=1 -run '^TestCastSameVoteTwice$' ./internal/votes/"
+   },
+   {
+    "key": "C-002",
+    "test_name": "TestCastSwitches",
+    "test_command": "go test -count=1 -run '^TestCastSwitches$' ./internal/votes/"
+   },
+   {
+    "key": "C-003",
+    "test_name": "TestWithdrawWithoutVote",
+    "test_command": "go test -count=1 -run '^TestWithdrawWithoutVote$' ./internal/votes/"
+   },
+   {
+    "key": "C-004",
+    "test_name": "TestVotesScopedPerReaderAndReport",
+    "test_command": "go test -count=1 -run '^TestVotesScopedPerReaderAndReport$' ./internal/votes/"
+   },
+   {
+    "key": "C-005",
+    "test_name": "TestVoteAnonymousRefused",
+    "test_command": "go test -count=1 -run '^TestVoteAnonymousRefused$' ./internal/server/"
+   },
+   {
+    "key": "C-006",
+    "test_name": "TestVoteCrossSiteRefused",
+    "test_command": "go test -count=1 -run '^TestVoteCrossSiteRefused$' ./internal/server/"
+   },
+   {
+    "key": "C-007",
+    "test_name": "TestVoteHiddenReportsAreIndistinguishable and TestReaderPathVariants",
+    "test_command": "go test -count=1 -run '^(TestVoteHiddenReportsAreIndistinguishable|TestReaderPathVariants)$' ./internal/server/"
+   },
+   {
+    "key": "C-008",
+    "test_name": "TestVoteBadFormRefused",
+    "test_command": "go test -count=1 -run '^TestVoteBadFormRefused$' ./internal/server/"
+   },
+   {
+    "key": "C-009",
+    "test_name": "TestVoteIdentityUnavailable and TestReaderVotesReadFails",
+    "test_command": "go test -count=1 -run '^(TestVoteIdentityUnavailable|TestReaderVotesReadFails)$' ./internal/server/"
+   },
+   {
+    "key": "C-010",
+    "test_name": "TestCastRefusesUnpublished",
+    "test_command": "go test -count=1 -run '^TestCastRefusesUnpublished$' ./internal/votes/"
+   },
+   {
+    "key": "C-011",
+    "test_name": "TestVotesFollowReportLifecycle",
+    "test_command": "go test -count=1 -run '^TestVotesFollowReportLifecycle$' ./internal/server/"
+   },
+   {
+    "key": "C-012",
+    "test_name": "TestDislikesDoNotInterfere",
+    "test_command": "go test -count=1 -run '^TestDislikesDoNotInterfere$' ./internal/server/"
+   },
+   {
+    "key": "C-013",
+    "test_name": "TestConcurrentVotesNoBusy",
+    "test_command": "go test -count=1 -run '^TestConcurrentVotesNoBusy$' ./internal/votes/"
+   },
+   {
+    "key": "C-014",
+    "test_name": "TestReportScriptsNeverRun",
+    "test_command": "go test -count=1 -run '^TestReportScriptsNeverRun$' ./internal/server/"
+   }
+  ],
+  "mandatory": [
+   {
+    "id": "C3",
+    "met": "yes",
+    "where": "internal/server/vote.go (POST /reports/{slug}/vote); templates/report.html offers the form only when SignedIn; TestVoteSignedInFlow, TestVoteAnonymousRefused"
+   },
+   {
+    "id": "C4",
+    "met": "yes",
+    "where": "migrations/0003_votes.sql PRIMARY KEY (report_id, github_id); TestVotesScopedPerReaderAndReport, TestVotesMigrationOnAnExistingDatabase"
+   },
+   {
+    "id": "C5",
+    "met": "yes",
+    "where": "votes.Cast ON CONFLICT DO UPDATE; TestCastSwitches, TestVoteSignedInFlow"
+   },
+   {
+    "id": "C6",
+    "met": "yes",
+    "where": "votes.Withdraw via vote=none and the 'Take back my vote' button; TestWithdrawWithoutVote, TestVoteSignedInFlow"
+   },
+   {
+    "id": "C7",
+    "met": "yes",
+    "where": "templates/report.html <p class=\"likes\"> on / and /reports/<slug> for everyone; reader.go Votes.Likes; TestVoteSignedInFlow, acceptance test"
+   },
+   {
+    "id": "C8",
+    "met": "yes",
+    "where": "dislike count rendered only by admin_report.html via admin.go OwnerTally behind RequireOwner; PublicView has no dislike field; TestDislikesDoNotInterfere, acceptance test"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go build ./... ; go vet ./...",
+    "outcome": "passed",
+    "note": "both exit 0"
+   },
+   {
+    "command": "go test -count=1 ./...   (first full run, HBAND_TEST_BROWSER unset)",
+    "outcome": "passed",
+    "note": "all packages ok. I did not set a browser first, so TestReportScriptsNeverRun used the default Edge for that one run, which the engine says not to do. Every later browser run used Chrome."
+   },
+   {
+    "command": "go test -count=1 ./...   (HBAND_TEST_BROWSER=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe, HBAND_TEST_ARTIFACTS=scratch)",
+    "outcome": "passed",
+    "note": "cmd/hband, auth, config, fitnessrules, reports, server (10s), store, votes all ok"
+   },
+   {
+    "command": "go test -count=1 -v ./internal/votes/",
+    "outcome": "passed",
+    "note": "10 tests including TestConcurrentVotesNoBusy (2 runs of 50 voters + 10 SignIn, 0 errors, COUNT=50). Confirms INSERT...SELECT parses, a conflict update counts as 1 row, and no BUSY."
+   },
+   {
+    "command": "go test -count=1 -v -run 'TestVote|TestReaderVotesReadFails|TestDislikes|TestReaderPathVariants|TestReaderPagesShareOneLayout' ./internal/server/",
+    "outcome": "passed",
+    "note": "one first-run failure was my own wrong assertion: CrossOriginProtection exempts a request whose Origin is the trusted origin even when Sec-Fetch-Site says cross-site. I removed that assertion; no code changed."
+   },
+   {
+    "command": "go test -count=1 ./internal/fitnessrules/",
+    "outcome": "passed",
+    "note": "TestRuleSpellingsCorpus and TestRulesHoldOnTheTree pass on the extended rules. My own corpus row found that '\\.OwnerTally' missed a call split after the dot, so the pattern is now '\\.\\s*OwnerTally'."
+   },
+   {
+    "command": "python mut_sl004.py (14 mutations applied through go test -overlay, worktree untouched)",
+    "outcome": "passed",
+    "note": "all 14 mutations (O-001..O-012 targets, the owner-only reader leak, publish check, cascade) turned their target test red"
+   },
+   {
+    "command": "fitness.yaml pattern mutations (BEGIN|SAVEPOINT, sql.Tx, UPDATE OR, comma join), file restored byte-for-byte after each",
+    "outcome": "passed",
+    "note": "each removal fails a named fire row in TestRuleSpellingsCorpus; git diff shows only my intended additions afterwards"
+   },
+   {
+    "command": "python <scratch>/tests/acceptance/test_e003_1_sign_in_and_vote.py   (E-003 finish line read from the ledger in place, ROOT pointed at this worktree)",
+    "outcome": "passed",
+    "note": "Ran 1 test, OK in 4.6 s. It builds ./cmd/hband, starts the real binary on a free port with a stand-in GitHub, and drives sign-in, return-to-report, vote/re-press/switch/withdraw, anonymous and cross-site refusal, and the owner-only dislike count."
+   },
+   {
+    "command": "go test -count=1 -v -run '^TestReportScriptsNeverRun$' ./internal/server/   (Chrome)",
+    "outcome": "passed",
+    "note": "blank-found green=0 red=0; screenshot read: '0 likes' and the sign-in hint sit under the frame in neutral colours"
+   }
+  ],
+  "architecture": [
+   {
+    "block": "C-006",
+    "kind": "paths",
+    "add": [
+     "internal/votes/**",
+     "internal/server/vote.go",
+     "internal/server/vote_test.go",
+     "internal/store/migrations/0003_votes.sql",
+     "internal/store/votes_migration_test.go"
+    ],
+    "why": "internal/votes/** is the new package (votes.Book) that no block's globs match; vote.go, vote_test.go, 0003_votes.sql and votes_migration_test.go implement C-006's one-vote-per-reader behaviour (they fall under C-001's wider globs today)"
+   },
+   {
+    "block": "C-008",
+    "kind": "depends",
+    "add": [
+     "C-006"
+    ],
+    "why": "internal/server/reader.go imports internal/votes and renderReader calls votes.Book.Public; report.html renders PublicView"
+   },
+   {
+    "block": "C-009",
+    "kind": "depends",
+    "add": [
+     "C-006"
+    ],
+    "why": "internal/server/admin.go imports internal/votes and adminReport calls votes.Book.OwnerTally; admin_report.html renders the tally"
+   }
+  ],
+  "deviations": [
+   "Fitness rule 1's pattern is '\\.\\s*OwnerTally\\b', not the design's '\\.OwnerTally\\b'. Go allows a chain split after the dot ('a.votes.\\n\\tOwnerTally(...)'), which the design's pattern misses. My own corpus row tally-f003 found it, and the fix is one token wide.",
+   "TestVoteCrossSiteRefused does not assert that Sec-Fetch-Site: cross-site together with the site's own Origin is refused, as I had first written it. net/http CrossOriginProtection exempts a request whose Origin equals the trusted origin. A page on the site's own origin is the only one that can send that Origin, so this is not a hole. The test pins what the middleware actually does.",
+   "Added internal/store/votes_migration_test.go, which the design did not list: a version-2 database with a session and a report takes 0003 with no row lost and the keys enforced. It is cheap cover for the hot migrate.go path (#930).",
+   "The fitness.yaml in the tree already held the three SL-004 rules, uncommitted and unreviewed. I kept them and extended them per M-add-1 and its critic's version. No outside-defect workaround applies, so no setting or notice was added."
+  ],
+  "not_built": [
+   "m2 (publicRoutes table in router.go iterated by TestDislikesDoNotInterfere): deferred by decision, not built. The test still lists its routes by hand; the slice that adds the next public route (show-all or comments) must add it. O-015 stays owed to validate-slice.",
+   "m3 (a ViewerFrom token fence, O-017) and m4 (the optional quiet rows for FROM \"votes\" and FROM main.votes, O-018): waived to notes N-029 and N-028, not built. M-add-1 does require rule 2's bounded_by to name quoted and schema-qualified names and views, so those holes are named there and in the because text. I added no quiet rows for the first two, only for the holes M-add-1 listed: lower-case SQL, a quoted name, a schema-qualified name and a comma join across literals.",
+   "screens/app declaration for the engine's screen measurement: not given. The app is configured only by HBAND_* environment variables, so no '{port}' start command can be written, and the vote block shows only with a published report, which needs an owner sign-in. I measured the anonymous found-state page with the headless Chrome screenshot instead."
+  ],
+  "follow_ups": [
+   "internal/testutil/headless.Browser falls back to Edge whenever HBAND_TEST_BROWSER is unset, so go test ./... starts Edge on this machine. Make the default skip, or prefer another Chromium-family browser.",
+   "m2: register public routes from a table like adminRoutes and have TestDislikesDoNotInterfere iterate it, so a later public page cannot escape the noninterference check.",
+   "N-029: a ViewerFrom fence (any handler that acts on the visitor must use auth.Participant) when SC-011 comments adds the next public write handler.",
+   "C-006's blocked-account rule ('frozen but still counted') attaches in auth.Participant and the vote handler's signed-in branch when the moderation epic arrives.",
+   "The acceptance stand-in sets HBAND_TRUSTED_PROXIES=127.0.0.1, which config.Load does not read today. It is harmless now, but C-006's view counts will need the variable."
+  ]
+ }
+}

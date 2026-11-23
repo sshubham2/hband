@@ -119,5 +119,84 @@
     "result": "none beyond m1. CSRF: the route is inside cop.Handler (router.go:88) and the cross-site cases are tested. Open redirect: the Location is built from the stored slug and passes through LocalPath/SeeOther. SQL injection: the SQL is parameterised. Body DoS: MaxBytesReader at 1 KiB. Draft oracle: lookup comes before identity, and every hidden slug gets the same 404. The sandboxed report iframe has no allow-forms, so a report cannot submit a vote. Privacy: dislikes are rendered only behind RequireOwner+OwnerRoute (no-store). Timing channels are explicitly accepted as out of scope."
    }
   ]
+ },
+ "prescribed": {
+  "host": 681,
+  "at": "2026-11-23T23:29:06.901Z",
+  "runs": [
+   {
+    "run_id": 11763,
+    "resumed_from": "221d4871-db9b-4873-85c4-275d73c1a741",
+    "ending": "completed",
+    "cost_usd": 1.0988289999999994,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 1970,
+    "key": "M-add-1",
+    "digest": "5ea97490393b66ce"
+   },
+   {
+    "finding_id": 1971,
+    "key": "M-add-2",
+    "digest": "95b8d254132e196c"
+   },
+   {
+    "finding_id": 1966,
+    "key": "m1",
+    "digest": "ec58df17d7adab46"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 1970,
+    "key": "M-add-1",
+    "digest": "5ea97490393b66ce",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read internal/fitnessrules/rules_test.go whole:\n- globRegexp at 115-136: 'internal/votes/**/*.go' becomes ^internal/votes/(?:.*/)?[^/]*\\.go$, so it does match internal/votes/votes.go.\n- fires at 152-180: each pattern is compiled separately with Go regexp over the raw text, comments included, so an inline (?i) works.\n- The corpus row loop at 234-237: an empty path defaults to \"internal/server/x.go\".\n- The YAML item parser at 104-105: unquoted patterns like the proposed ones parse.\n\nRead .taad/fitness.yaml 241-261: rules 2 and 3 are exactly as the design wrote them.\n\nRan each proposed and existing pattern by hand against these spellings: FROM reports r, votes v; UPDATE OR IGNORE votes; INSERT OR REPLACE INTO votes; REPLACE INTO votes; DELETE FROM votes; LEFT JOIN votes; conn.ExecContext(ctx, \"SAVEPOINT s\"); \"begin\"; \"begins\"; .BeginTx(; and a *sql.Tx parameter.",
+    "why": "The new patterns do catch SAVEPOINT, lowercase begin and UPDATE OR <x> votes. \\bbegin\\b does not fire on 'begins' or on BeginTx. Three gaps remain.\n\n(1) Corpus path. The prescription says nothing about the corpus row path for rule 3. A row with no path is evaluated at internal/server/x.go, which rule 3's files glob excludes. A fire row written that way fails loudly. A quiet row written that way passes for the wrong reason: the rule never applied to it. Rule 3's quiet rows would then pin nothing.\n\n(2) Caller-supplied transaction. Rule 3 only sees tokens inside internal/votes. Suppose a later Book method takes a caller's *sql.Tx, for example a comment slice that wants 'post and upvote atomically', and does its read then write inside it. That is the deferred read-then-write upgrade the spike measured failing with 215-253 BUSY errors per run. The transaction would be opened by internal/server, which no rule fences. internal/votes would contain no Begin, BEGIN or SAVEPOINT token at all. 'The remaining holes for rule 3' does not name this one.\n\n(3) Comma joins. The finding itself calls the comma join the likely shape of a show-all ranking query and the m2 leak scenario. The prescription leaves it known-quiet, and nothing else covers it: the route list of the noninterference test does not observe pages that later slices add. The only reason given for not closing it is that a bare ',\\s*votes\\b' fires on f(w, votes). A pattern anchored on the SQL keyword avoids that.",
+    "instead": "Keep the prescription, plus three changes.\n\n(a) Give every rule-3 corpus row (fire and quiet) path \"internal/votes/votes.go\". Add a quiet row whose text has a word like 'begins', to prove the (?i) word boundary.\n\n(b) Add \\bsql\\.Tx\\b to rule 3's must_not_match: Book has no reason to name *sql.Tx. Add one fire row: func (b *Book) castIn(tx *sql.Tx, ...).\n\n(c) For rule 2, add the pattern \\bFROM\\b[^\"`;]*,\\s*votes\\b. It needs an uppercase FROM earlier in the same string literal: a quote, backtick or semicolon ends the match, so f(w, votes) stays quiet. Add a fire row for \"SELECT r.id FROM reports r, votes v WHERE v.report_id = r.id\" and a quiet row for \"render(w, votes)\". Keep quoted and schema-qualified identifiers and views as bounded_by entries."
+   },
+   {
+    "finding_id": 1971,
+    "key": "M-add-2",
+    "digest": "95b8d254132e196c",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "- Glob tests/** finds nothing: tests/ does not exist on this tree, and HEAD is uat after SL-003.\n- Grep for acceptance references outside .taad/slices: the only hits are rule_spellings.json:152 (path tests/acceptance/harness/page.go), cmd/hband/main_test.go:302 ('the finish line's environment shape') and admin_test.go:344. So the finish-line harness has existed somewhere, but it was never committed.\n- Read .taad/slices/SL-004/index.json and grepped design-slice-1.json: it quotes no line of test_e003_1, and it is the only record of beside() and links[0].\n- Lesson #928: for SL-001 the e001 finish-line tests 'were never in the tree for any stage'.\n- I could not read the ledger's E-003 epic row or find out when the engine plants the test: I had no shell for a read-only SELECT.",
+    "why": "(1) No fallback when the test is absent. The build is told to 'read the planted test_e003_1 before writing the admin tally'. The start state seen on this project so far is that the test is not in the worktree: tests/ is absent now, and #928 recorded the same for SL-001. If the engine plants it only at validate, the builder has nothing to read. The prescription then does nothing, and the premortem scenario (rework after the build) is unchanged. The fix as filed sent facts to the E-003 epic row, where a read-only SELECT could settle them. The triaged version dropped that source.\n\n(2) Only (c) has a disposition. Suppose the test expects an anonymous POST to answer 303 into /auth/github/login, the crossdomain alternative the design rejected. That is a person-approved contract against a design decision, and the builder is given no route. Improvising there either breaks the finish line or reverses the form-action decision without design.\n\n(3) The trigger for (c) is too broad. Say the test reads the owner's dislike count on another owner-gated page, such as the /admin list. That page is also in admin.go, which rule 1 excepts, and it sits behind RequireOwner and no-store. It needs no change to PublicView or to the privacy architecture. Yet 'anywhere other than /admin/reports/<slug>' sends the slice back to design-slice for a change the builder could make inside the design.",
+    "instead": "Order of sources at build start:\n1. If tests/acceptance/test_e003_1* is in the worktree, read it.\n2. Otherwise, read the E-003 epic's acceptance body from the ledger in place: file:<engine.db>?mode=ro, SELECT only, nothing copied.\n3. If neither is available, record that facts (a) to (d) are unconfirmed and that the build proceeds on the design's account. Do not report them as checked.\n\nGo back to design-slice when:\n- (c) shows the owner's dislike count expected on any page that a non-RequireOwner route serves: /, /reports/<slug>, or any other reader page.\n- (d) shows that the anonymous-POST behaviour the test expects differs from the 303 back to /reports/<slug>#votes.\n\nAdjust in the build, inside admin.go and the templates:\n- an owner-gated admin page other than /admin/reports/<slug>;\n- markup, labels and selectors."
+   },
+   {
+    "finding_id": 1966,
+    "key": "m1",
+    "digest": "ec58df17d7adab46",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "- layout.html 9-12: with SignedIn, the owner sees 'Signed in as @login', the Admin link (only when .Viewer.IsOwner) and the logout form. There is no per-request token: CrossOriginProtection uses no CSRF token, and siteCSP is a constant (router.go:29-31).\n- reader.go 96-117: renderReader builds from the row and the Viewer only, and Cache-Control is constant.\n- reader_test.go 34-60: sameResponse and headerSig ignore only Date.\n- harness_test.go 72-211: the clock is fixed. mint signs in through store.SignIn with an empty AvatarURL. withSID sets the cookie. serve uses httptest directly. rebuild can swap the owner.\n\nConclusion: the owner's reader pages are deterministic across the two recordings, so the prescription can be built and will not flake. Minting the down-voting readers between the recordings writes only users and sessions, which the owner's page does not show.",
+    "why": "The check targets exactly the case where rendering is gated on IsOwner, but nothing proves that the owner's reader GETs are drawn with IsOwner true. Suppose the observation uses a sid that resolves as anonymous or non-owner: a different variable, a cookie for a session that has since expired or been replaced, or a handler rebuilt with another owner through h.rebuild. Then the reader pages show no IsOwner branch, stay byte-identical, and the test passes without testing anything, which is the failure the design's sensitivity controls exist to prevent. The /admin/reports/x control does not settle it, because the prescription does not require the reader GETs to use the same sid. Even with the same sid, it proves the session at the admin request, not at each reader request.",
+    "instead": "As prescribed, plus a check that the observation is real. In both recordings, each owner GET of /, /reports/x and /reports/y must contain `<a href=\"/admin\">Admin</a>` and 'Signed in as @<owner login>', or the test fails as INVALID. Use the same sid value for those GETs and for the /admin/reports/x sensitivity control, minted once from testOwnerID before the first recording."
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:1970",
+   "finding:1971",
+   "finding:1966"
+  ],
+  "counts": {
+   "holds": 0,
+   "hole": 3,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "All three prescriptions can be built, and each one fixes what it targets. Each also leaves a small gap. Nothing here blocks the slice.\n\n- **M-add-1 (fitness rules 2 and 3):** the default corpus path is internal/server/x.go (rules_test.go:234-237). Rule 3 only covers internal/votes/**/*.go, so a quiet row for it written without a path passes without testing anything. Rule 3 also misses a transaction that a caller opens and passes into internal/votes. The comma join is left open even though the finding itself calls it the likely leak, and a cheap pattern anchored on FROM would close it without firing on f(w, votes).\n- **M-add-2 (finish-line test):** its only source is \"the planted test\". tests/ is absent from this tree, and lesson #928 says the finish-line tests were never in the tree, so there may be nothing to read. It gives a route back to design only for fact (c). The trigger \"anywhere other than /admin/reports/<slug>\" is too broad: another owner-gated admin page would send the slice back to design for nothing.\n- **m1 (owner as observer):** it can be built as written and the result is deterministic. The owner's reader page has no per-request value, and sameResponse ignores only Date. But no check proves that the owner's reader GETs are actually drawn with IsOwner set, so a wrong or stale cookie would pass without testing anything.\n\nNot checked: when the engine plants test_e003_1, and whether the E-003 epic row has a body. I had no shell, so I could not read the ledger read-only.",
+  "why": "",
+  "round": "landed"
  }
 }

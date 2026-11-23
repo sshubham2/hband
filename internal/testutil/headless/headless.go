@@ -1,5 +1,6 @@
-// Package headless drives the locally installed Chromium-family browser (Edge
-// on the author's machine) through its own command line, for checks that need
+// Package headless drives the locally installed Chromium-family browser
+// (Chrome by default; never Microsoft Edge unless HBAND_TEST_BROWSER names it)
+// through its own command line, for checks that need
 // a real browser: it loads a URL headless, takes the browser's own screenshot
 // and returns it as an image. There is no browser-automation dependency and no
 // DevTools client; the screenshot is read with image/png.
@@ -12,8 +13,11 @@
 //
 //	HBAND_TEST_BROWSER    the browser to run. When set, the check must run: a
 //	                      missing browser or a failed launch fails the test, it
-//	                      never skips. When unset, the default Edge path is used
-//	                      if it exists, and otherwise the test skips.
+//	                      never skips. When unset, the first Chrome install that
+//	                      exists is used, and otherwise the test skips. Edge is
+//	                      never a default: a new Edge profile signs in to the
+//	                      Windows Microsoft account and imports the person's old
+//	                      browsing history at its first run.
 //	HBAND_TEST_ARTIFACTS  a folder; every screenshot is also copied there as
 //	                      <name>.png (any run of characters in name other than
 //	                      letters, digits, '.', '_' and '-' becomes one '_'),
@@ -34,10 +38,11 @@ import (
 	"time"
 )
 
-// defaultBrowsers are where Edge installs on Windows.
+// defaultBrowsers are where Chrome installs on Windows. Microsoft Edge is
+// deliberately not listed (see the package comment).
 var defaultBrowsers = []string{
-	`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
-	`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
+	`C:\Program Files\Google\Chrome\Application\chrome.exe`,
+	`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
 }
 
 // shotTimeout bounds one browser run.
@@ -59,7 +64,7 @@ func Browser(t testing.TB) string {
 			return p
 		}
 	}
-	t.Skip("no browser found: set HBAND_TEST_BROWSER to a Chromium-family browser (for example msedge.exe) to run this check")
+	t.Skip("no Chrome found: set HBAND_TEST_BROWSER to a Chromium-family browser (for example chrome.exe) to run this check")
 	return ""
 }
 
