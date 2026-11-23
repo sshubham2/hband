@@ -1,0 +1,198 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-001",
+ "title": "Owner signs in with GitHub and only the pinned owner ID reaches admin pages (with the server, config, database and sessions it needs)",
+ "status": "active",
+ "branch": "slice/SL-001",
+ "opened_at": "2026-11-23T11:55:35.241Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "An HTTP server for hband exists and starts (the slice names 'the server'): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Config loading includes a pinned owner GitHub user ID (a numeric ID, not a login name): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "A GitHub OAuth sign-in flow (login redirect with state, callback that exchanges the code and fetches the GitHub user's numeric ID): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "The real sign-in works with the author's own GitHub account on github.com, using a registered OAuth app: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "A database stores what sign-in needs (users and/or sessions) (the slice names 'database'): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Sessions: after the callback, a session cookie identifies the signed-in GitHub user on later requests, and sign-out ends it: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Owner recognition: the signed-in user whose GitHub ID equals the pinned ID is treated as owner, and no other user is: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Admin pages are reachable only by the pinned owner: anonymous visitors and every other signed-in GitHub account are refused (redirect or 403) on every admin route, and the server refuses to start or fails closed if no owner ID is configured: missing"
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Migration runner: practice uses a dedicated Conn on the serving pool and closes the pool if the re-enable fails; crossdomain uses a separate handle closed before the pool opens. Chose the separate handle."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Validating next: practice checks verbatim, allows a query and refuses %5c; crossdomain cleans and escapes, then refuses '?' and '#'. Chose practice's, because the gate's next is RequestURI."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Helper names: LocalPath and SeeOther (practice) versus safeNext and redirectLocal (crossdomain). Chose practice's, with SeeOther exported for internal/server."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Whether TestSignInIsAtomic and the %5c refusal are worth their lines. Practice itself flagged both as belt-and-braces. Kept as cheap pins, and the first to trim."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "GET /admin/{$}: the same handler as GET /admin (chosen) or a 303 to /admin."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T12:02:00.572Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T12:48:14.492Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "Trip 1 of 2 back to the risk spike: the design left 1 fork that only a measurement can settle. O-002: unsettled design fork: Does a session cookie with SameSite=Lax reach the gated draft preview, GET /admin/reports/{id}/raw, when an iframe with sandbox=\"allow-popups allow-popups-to-escape-sandbox\" on the admin edit page loads it? Its context: Crossdomain moved the draft preview under the gate. Practice served drafts to the owner on public /raw/{slug}, which also depends on the cookie, so it does not escape the question. This design assumes yes: the frame's navigation request uses the parent's same-site context. It is settled in SC-002's build by headless Edge on this PC. Edge signs in through the fake GitHub, opens /admin/reports/{id}, and the test server logs whether /admin/reports/{id}/raw arrived with the session cookie. If not, the preview contract changes to a short-lived signed preview URL, which is a new contract and data. The synthesis marked this as forcing a re-synthesis: the losing answer moves a component boundary, a contract or the data model. How the fork decider would measure it: MEASURE IT IN THE RISK SPIKE, ON THIS PC, BEFORE THE DESIGN IS WRITTEN AGAIN. Do not leave it to SC-002's build. **Setup.** Copy the harness of the existing spike lax-cookies-survive-cross-site-oauth-redirect (spikes#192): - A throwaway `python -I` server bound only to 127.0.0.1, on random ports, with hosts gh.test and app.test mapped through `--host-resolver-rules`. - Edge 158 at C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe, run with `--headless=new`, `--no-first-run`, `--no-default-browser-check` and `--virtual-time-budget=8000`. - A fresh `--user-data-dir` under the scratch folder, and TAAD3_HOME set to an empty scratch folder. - No project code is involved, because none exists. - Worst case is a few MB and under a minute. Afterwards, kill any leftover msedge processes and delete the scratch tree. **Server routes.** - app `/login`: 302 to gh `/authorize`. - gh `/authorize`: a self-submitting form that POSTs to gh `/approve`. - gh `/approve`: 303 to app `/callback?code=c&state=abc`. - app `/callback`: sets `sid=1; SameSite=Lax; HttpOnly; Path=/` and, for information only, `sid_s=1; SameSite=Strict; HttpOnly; Path=/`. Answers 302 to `/admin/reports/1`. - app `/admin/reports/1`, the edit page: - Response headers: the design's site CSP verbatim (`default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://avatars.githubusercontent.com; frame-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`), plus `Cache-Control: no-store`. - Body: two iframes. A is `<iframe sandbox=\"allow-popups allow-popups-to-escape-sandbox\" referrerpolicy=\"no-referrer\" src=\"/admin/reports/1/raw\">`. B is a control with no sandbox attribute, `src=\"/admin/reports/1/raw?control=1\"`. - app `/admin/reports/1/raw`: answers 200 with these headers: - `Content-Type: text/html; charset=utf-8` - `Content-Security-Policy: sandbox allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'; frame-ancestors http://app.test:<port>` - `Cache-Control: no-store` **Logging.** For every request the server logs the path, the full Cookie header, and any Sec-Fetch-Site and Sec-Fetch-Dest headers. **Run two modes.** - Mode 1, the sign-in path: start at app `/login`. This is the hardest case, because the edit page itself arrives at the end of a cross-site POST-then-303 chain. - Mode 2, a later visit: launch the same profile again, straight at app `/admin/reports/1`. **How the result decides the fork.** UNDECIDED, so fix the harness and re-run; this is neither a pass nor a fail: - the edit-page request `/admin/reports/1` does not carry `sid` (the positive control, lesson #814), or - neither `/raw` request arrives. YES: in both modes the sandboxed request `/admin/reports/1/raw` (not the `?control=1` one) carries `sid`. - The design stands unchanged. The owner's draft preview stays the gated adminRoutes row `GET /admin/reports/{id}/raw`, served by serveRaw. The edit page frames it with `sandbox=\"allow-popups allow-popups-to-escape-sandbox\"`. - There is no signed preview URL, no preview key and no new data. - The outside_claim on the iframe's same-site cookie context moves from recalled to measured, citing the spike. - The headless-Edge preview item is dropped from SC-002's test list, because the spike is its evidence. The access matrix still covers that route for anonymous and non-owner visitors. - Record its scope as a constraint: Chromium only, plain http, not the __Host-/Secure variant. NO: in either mode the sandboxed `/raw` request lacks `sid`. - The design is re-synthesised with a preview reachable without the session cookie: the short-lived signed preview URL the synthesis named. - Whether `?control=1` carried `sid` tells the re-synthesis what caused it. If the control carried it, the cause is the sandbox attribute, and dropping the sandbox tokens from the preview frame is not an option, because the isolation constraint forbids it. If the control lacked it too, the cause is the frame context itself. Whether `sid_s` (Strict) arrives is recorded but decides nothing, because the architecture rules already forbid Strict. Neither spike measured this. The Lax-cookie spike measured top-level navigations after a cross-site redirect, not a request for a frame's content made from a same-site parent page. The design itself labels the yes answer recalled. The question is a browser behaviour this PC can answer in about a minute with no person: Edge is installed, and the harness already exists in spikes#192. The synthesis marked the losing answer as forcing a re-synthesis, because a no means a new contract and probably a preview route outside /admin. That has to be known while the design is being written, not discovered in SC-002. SC-002 gets no design or critique of its own, so a builder who hit a no there would settle the fork by writing code. The design's own plan, to settle this during SC-002's build, is the thing the rules forbid: a build is not where a design question gets measured. Nothing in SC-001's own build depends on the outcome, because SC-001 has no preview route. Measuring therefore blocks no SC-001 work. It costs one of the two laps back to the spike, and none has been used yet. The unsandboxed control frame and the edit-page positive control mean a broken harness cannot be mistaken for a no. The risk spike measures these first. Write the design again with what it measured: its experiments are under what reality already said about this slice.",
+      "cause": "fork-measure",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "design-slice-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T12:24:02.642Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "The core identity model holds.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T13:10:12.312Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "The rework answers every accepted finding from attempt 1: - **M1:** the access matrix now has one expected outcome per variant class, driven in-process without following redirects.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "critique passed on 2026-11-23T12:35:17.676Z, and design-slice has judged since (2026-11-23T13:10:10.472Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "design-slice",
+      "from": [
+       "design-slice"
+      ]
+     },
+     "changed": {},
+     "details": "critique-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T12:35:19.477Z",
+     "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+     "summary": "All ten first-pass findings hold at the severities filed.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "unrecorded",
+     "at": "2026-11-23T13:16:30.690Z",
+     "head": "",
+     "summary": "The rework answers all three of my earlier findings: - **M-add-1, open redirect after sign-in:** closed.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "critique-review passed on 2026-11-23T12:42:41.558Z, and design-slice has judged since (2026-11-23T13:10:10.472Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "design-slice",
+      "from": [
+       "design-slice"
+      ]
+     },
+     "changed": {},
+     "details": "critique-review-2.json"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "head" .}}
+</head>
+<body>
+<main data-hband-admin>
+<h1>Admin</h1>
+<p>{{if .Viewer.AvatarURL}}<img class="avatar" src="{{.Viewer.AvatarURL}}" alt="" width="24" height="24"> {{end}}@{{.Viewer.Login}} (owner)</p>
+<form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
+<p><a href="/">Back to the site</a></p>
+</main>
+</body>
+</html>

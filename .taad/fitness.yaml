@@ -1,0 +1,150 @@
+# Architecture rules for this project: seams a design settled, in a form
+# that fails. Checked on every slice by code-review and validate-slice.
+#
+# Add to this by hand freely -- the engine only ever APPENDS rules whose
+# name it has not seen, so your comments and your edits survive.
+rules:
+  # settled by SL-001
+  - name: no request header ever supplies scheme, host or client identity
+    files: '**/*.go'
+    must_not_match:
+    - (?i)"(x-forwarded-[a-z-]+|x-real-ip|forwarded)"
+    because: Scheme and host come only from HBAND_BASE_URL. A trusted forwarded header lets
+      any client spoof the callback URL, the Secure decision or the trusted CSRF origin. C-006
+      decides proxy trust deliberately when it needs the client IP.
+    except_files:
+    - '**/*_test.go'
+  - name: no cookie is ever SameSite=Strict
+    files: '**/*.go'
+    must_not_match:
+    - SameSiteStrictMode
+    - (?i)samesite=strict
+    because: The spike measured that Edge drops Strict state and session cookies on the GitHub
+      Authorize-button path (a form POST answered with 303). A Strict cookie breaks sign-in
+      for exactly the first-time user.
+    except_files:
+    - '**/*_test.go'
+  - name: being the owner is never stored in the database
+    files: internal/store/migrations/*.sql
+    must_not_match:
+    - (?i)(^|[(,])\s*"?(role|roles|is_owner|owner|is_admin|admin)"?\s+(INTEGER|INT|TEXT|BOOLEAN|BOOL|BLOB|NUMERIC|ANY)\b
+    - (?i)ADD\s+COLUMN\s+"?(role|roles|is_owner|owner|is_admin|admin)"?\b
+    because: The project constraint identifies the owner by the GitHub ID pinned in config.
+      A stored role is a second way to reach admin, which survives a pin change and can be written
+      by any SQL bug.
+  - name: an /admin route is only ever registered through the one gated mount
+    files: '**/*.go'
+    must_not_match:
+    - \.Handle(Func)?\(\s*"(?:[A-Z]+\s+)?/admin(?!/?",\s*auth\.RequireOwner\()
+    because: Admin handlers must be rows of adminRoutes, mounted once as mux.Handle("/admin/",
+      auth.RequireOwner(adminMux)). A pattern registered any other way escapes the access-matrix
+      test, and it may escape the gate.
+    except_files:
+    - '**/*_test.go'
+  - name: templates never bypass html/template escaping
+    files: internal/**/*.go
+    must_not_match:
+    - template\.(HTML|HTMLAttr|JS|JSStr|URL|CSS|Srcset)\(
+    - '\bimport\s+(?:\.|[A-Za-z_]\w*)\s+"html/template"'
+    - '\n[ \t]+(?:\.|[A-Za-z_]\w*)[ \t]+"html/template"'
+    because: Q-001 forbids passing user text through template.HTML. The epic forbids report
+      bytes ever appearing in site pages. A typed conversion is how both happen silently.
+    except_files:
+    - '**/*_test.go'
+  - name: production code never links the fake GitHub
+    files: '**/*.go'
+    must_not_import:
+    - github.com/sshubham2/hband/internal/testutil*
+    because: The fake GitHub issues a session for whatever user ID it is told. Compiled into
+      the binary, it is a sign-in-as-owner backdoor.
+    except_files:
+    - '**/*_test.go'
+    - internal/testutil/**
+
+  # settled by SL-001
+  - name: every cookie is written by the one cookie helper
+    files: '**/*.go'
+    must_not_match:
+    - http\.Cookie\s*\{
+    - http\.SetCookie\(
+    - (?i)Header\(\)\.(Set|Add)\("set-cookie"
+    because: A browser silently ignores a __Host- cookie (deletions included) that lacks Secure
+      or Path=/, and only in production. A cookie whose SameSite is left unset also escapes
+      the Strict rule. One constructor makes the attribute set a property of the code (m1).
+    except_files:
+    - '**/*_test.go'
+    - internal/auth/cookies.go
+  - name: site HTML is never rendered through text/template
+    files: '**/*.go'
+    must_not_import:
+    - text/template
+    because: text/template escapes nothing. A page rendered through it puts comment text, titles
+      or report-derived strings into site HTML unescaped. The existing template.HTML rule cannot
+      see an import (m5).
+    except_files:
+    - '**/*_test.go'
+  - name: no handler derives scheme or host from the request
+    files: '**/*.go'
+    must_not_match:
+    - \b(r|req|request)\.Host\b
+    - \b(r|req|request)\.TLS\b
+    - \b(r|req|request)\.URL\.(Host|Scheme)\b
+    - \b(r|req|request)\.Referer\(\)
+    - '(?i)Header\.(Get|Values)\(\s*["`](host|origin|referer)["`]\s*\)'
+    - '(?i)Header\[\s*["`](host|origin|referer)["`]\s*\]'
+    because: Scheme and host come only from HBAND_BASE_URL. Behind the VPS proxy, the Host header
+      and the TLS state are whatever the client or proxy sent, so an absolute URL, Secure decision
+      or trusted origin built from them can be spoofed. The existing rule only lists forwarded-header
+      names (m6).
+    except_files:
+    - '**/*_test.go'
+    - internal/testutil/**
+  - name: no redirect is written through http.Redirect
+    files: '**/*.go'
+    must_not_match:
+    - \bhttp\.Redirect\(
+    - \bhttp\.RedirectHandler\(
+    - '(?i)\.(Set|Add)\(\s*["`]location["`]'
+    - '(?i)\[\s*["`]location["`]\s*\]'
+    - \bhttp\.Status(SeeOther|Found|MovedPermanently|TemporaryRedirect|PermanentRedirect)\b
+    - \.WriteHeader\(\s*(30[0-3]|30[78])\s*\)
+    because: http.Redirect runs path.Clean on a validated local target. That turns `/./` plus
+      a backslash and `evil.example` into a Location that browsers follow off the site, an open
+      redirect right after a genuine GitHub sign-in (M-add-1). Redirects go through auth.SeeOther,
+      which writes the LocalPath-checked string verbatim.
+    except_files:
+    - '**/*_test.go'
+    - internal/testutil/**
+    - internal/auth/next.go
+  - name: the identity provider's endpoints are read only by the config loader
+    files: '**/*.go'
+    must_not_match:
+    - '"HBAND_[A-Z_]*(GITHUB|OAUTH)[A-Z_]*(URL|ENDPOINT|HOST|API)[A-Z_]*"'
+    because: This replaces the retired rule 'the identity provider's endpoints cannot be set
+      from the environment', which contradicted the person-approved finish line. The https-or-loopback
+      guard and the startup override warning live in config.Load, so a second reader of HBAND_GITHUB_URL
+      or HBAND_GITHUB_API_URL would point sign-in at an unvalidated identity provider.
+    except_files:
+    - '**/*_test.go'
+    - internal/config/config.go
+
+  - name: site HTML is never built as a Go string literal
+    files: '**/*.go'
+    must_not_match:
+    - '["`]\s*<[a-zA-Z!/]'
+    because: Site HTML comes only from template files under templates/, which html/template escapes
+      for the place each value lands. A page assembled in a Go string literal puts logins, titles
+      or comment text into markup unescaped (m5).
+    except_files:
+    - '**/*_test.go'
+    - internal/testutil/**
+    - tests/**
+  - name: no sign-in control is ever a form
+    files: internal/**/templates/**
+    must_not_match:
+    - '(?i)<form\b[^>]*\baction\s*=\s*["'']?[^"''\s>]*/auth/github/login'
+    - '(?i)\bformaction\s*=\s*["'']?[^"''\s>]*/auth/github/login'
+    because: Every sign-in control is an anchor to /auth/github/login. A form that submits there
+      has its redirect to the identity provider blocked by the site's form-action 'self' policy
+      in Chromium and Safari, so sign-in fails silently in the browser and no loop test can see
+      it (m3).

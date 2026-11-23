@@ -1,0 +1,695 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-001",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-23T12:02:00.572Z",
+ "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+ "run_id": 11606,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "selection_rationale": "The tree is empty. The survey measured it, and a Glob just now found only .git and .taad, so nothing is shaped yet and code_claims is empty. Selection therefore rests on four things: the stack and Q-001..Q-004 decisions, the two spikes (modernc + x/oauth2 build and round-trip with CGO_ENABLED=0; Lax cookies survive both GitHub redirect paths and Strict does not), simplicity, and reversibility.\n\n**Core comes from `practice`.** Its pieces are the smaller ones that already satisfy every criterion, and its designer raised over_engineering_flag against the popular stack (goth, scs, chi, golang-migrate, gorilla/csrf, Redis). That signal is honoured.\n- Stdlib ServeMux.\n- x/oauth2 with the state, the PKCE verifier and `next` held in one short-lived Lax cookie. There is no oauth_states table, so anonymous visitors cause no DB writes and there is no row cap that can fail sign-in under spam.\n- Report files keyed by integer id: replace is one rename and there is no reference counting.\n- An explicit base origin in frame-ancestors, because the meaning of 'self' under a CSP sandbox directive is recalled, not measured.\n\n**Taken from `crossdomain`, where it closes a real gap cheaply:**\n- The second interlock. RequireOwner places an Owner proof in the context under a private key, and every adminRoutes handler is adapted through OwnerRoute, so an admin handler wired around the gate answers 403 instead of serving. That is a few dozen lines, and it turns a future routing mistake from a bypass into a refusal.\n- A cookie-grammar check before any DB lookup.\n- 503 when the store fails at the gate.\n- /healthz.\n- The real-binary test (lesson #754: a stubbed GitHub seam needs one run of the real binary beside it). It checks that the production binary redirects to github.com and that no environment variable can redirect it elsewhere.\n- Draft preview behind the gate (/admin/reports/{id}/raw) rather than an owner branch on the public /raw path.\n- iframe sandbox tokens allow-popups and allow-popups-to-escape-sandbox, so the author's target=_blank links in reports work. They are cheap to tighten.\n\n**Dropped from `crossdomain`:**\n- The oauth_states table: more state, and a DoS-shaped cap.\n- Content-addressed report files: they need reference counting on delete and an orphan sweep for a benefit id-keying gets from rename.\n- The Decision enum and the unexported OwnerID type. IsOwner(ownerID, githubID) with ownerID > 0 is the same fail-closed rule in fewer moving parts.\n\nEvery outside behaviour not measured by a spike is labelled recalled in outside_claims. Each one either fails closed or is pinned by a loop test.",
+  "components": [
+   {
+    "name": "Config loader (C-001)",
+    "lives_at": "internal/config/config.go",
+    "responsibility": "`Load(getenv func(string) string) (Config, error)` validates everything at once and returns one error naming every bad variable. It never echoes a value of HBAND_GITHUB_CLIENT_SECRET.\n\n**Required:**\n- HBAND_OWNER_GITHUB_ID: accepted grammar is exactly `^[1-9][0-9]{0,18}$`, and strconv.ParseInt(…, 10, 64) must succeed. Everything else is refused (lesson #103).\n- HBAND_GITHUB_CLIENT_ID and HBAND_GITHUB_CLIENT_SECRET: non-empty.\n- HBAND_BASE_URL: an absolute URL with path empty or '/', and no query, fragment or userinfo. https is allowed for any host; http only for 127.0.0.1, ::1 or localhost.\n\n**Optional:**\n- HBAND_LISTEN_ADDR, default 127.0.0.1:8080. The container deploy sets :8080.\n- HBAND_DATA_DIR, default ./data. The container sets /data.\n- SC-002 adds HBAND_UPLOAD_MAX_BYTES: `^[1-9][0-9]*$`, at most 209715200, default 26214400.\n\n**Derived:** Origin (scheme://host[:port]), CallbackURL = Origin + /auth/github/callback, and SecureCookies = (scheme == https).\n\nThe GitHub struct {AuthURL, TokenURL, APIURL} defaults to https://github.com/login/oauth/authorize, https://github.com/login/oauth/access_token and https://api.github.com. No environment variable reads it; only in-process tests overwrite it.",
+    "key_interactions": "Called once by cmd/hband before the store opens or anything listens. Tests call it with a map-backed getenv and build Config literals to point GitHub at the fake."
+   },
+   {
+    "name": "Entrypoint",
+    "lives_at": "cmd/hband/main.go",
+    "responsibility": "`main()` is only `os.Exit(realMain(ctx, os.Getenv, os.Stderr))`, where ctx comes from signal.NotifyContext(SIGINT, SIGTERM). realMain:\n1. Loads config. On error it prints the error and returns 2.\n2. Creates the data dir (0700) and opens the store at <data>/hband.db. On error it returns 1.\n3. Builds server.New and runs net.Listen. A listen error returns 1.\n4. Logs with slog `owner_github_id=<n> base_url=<url>` and `listening addr=<actual addr>`.\n5. Serves with http.Server{ReadHeaderTimeout: 10s, IdleTimeout: 120s}. There is no global ReadTimeout or WriteTimeout, so SC-002 uploads over the WireGuard path are not cut off; the size cap bounds them instead.\n6. When ctx is done, runs Shutdown(10s), closes the DB and returns 0.\n\nIt never logs the client secret, OAuth codes, state, tokens or cookie values.",
+    "key_interactions": "cmd/hband/main_test.go calls realMain in-process with a bad env, and also builds the real binary into t.TempDir() and runs it (the lesson #754 real-binary run)."
+   },
+   {
+    "name": "Store and migrations (C-001)",
+    "lives_at": "internal/store/store.go, internal/store/migrate.go, internal/store/users.go, internal/store/sessions.go, internal/store/migrations/0001_identity.sql",
+    "responsibility": "`Open(path) (*Store, error)` uses driver \"sqlite\" (modernc.org/sqlite) with DSN `file:<path>?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)`, as Q-002 decided. Migrations are embedded `migrations/NNNN_*.sql` files. Each one numbered above `PRAGMA user_version` runs in its own transaction, and that transaction also sets user_version. Open refuses a database whose user_version is higher than the last embedded migration.\n\nSchema 0001 (STRICT tables):\n- `users(github_id INTEGER PRIMARY KEY CHECK(github_id>0), login TEXT NOT NULL, avatar_url TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`\n- `sessions(token_hash TEXT PRIMARY KEY, github_id INTEGER NOT NULL REFERENCES users(github_id) ON DELETE CASCADE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)`, with an index on expires_at.\n\nTimes are unix seconds UTC. No column anywhere records owner, admin or role.\n\nMethods:\n- UpsertUser (ON CONFLICT refreshes login, avatar_url and updated_at)\n- CreateSession(hash, githubID, expires)\n- LookupSession(hash, now): joins users and counts only rows with expires_at > now\n- DeleteSession(hash)\n- DeleteExpiredSessions(now)\n- Ping\n- DB() *sql.DB, for internal/reports in SC-002",
+    "key_interactions": "Opened once by cmd/hband. Used by internal/auth now and by internal/reports later. SC-002 appends migrations/0002_reports.sql to the same sequence."
+   },
+   {
+    "name": "GitHub OAuth flow (C-002)",
+    "lives_at": "internal/auth/github.go, internal/auth/handlers.go",
+    "responsibility": "**GET /auth/github/login**\n- Validates `next`, mints a 32-byte crypto/rand state (43 characters base64url) and an oauth2.GenerateVerifier().\n- Sets the OAuth cookie to `<state>.<verifier>.<base64url(next)>`.\n- Answers 302 to AuthCodeURL(state, S256ChallengeOption(verifier)). The oauth2.Config has RedirectURL = CallbackURL, no Scopes and AuthStyleInParams.\n\n**GET /auth/github/callback** (GET only, per the spike)\n1. Always clears the OAuth cookie.\n2. Splits the cookie into exactly 3 parts and requires a 43-character state, comparing it with the query state via crypto/subtle.ConstantTimeCompare after checking both are non-empty.\n3. Refuses an `error` query parameter or a missing code.\n4. Calls Exchange with VerifierOption and a 10 s http.Client passed through the oauth2.HTTPClient context key, and requires tok.AccessToken to be non-empty.\n5. Sends GET {APIURL}/user with Bearer, `Accept: application/vnd.github+json` and `X-GitHub-Api-Version: 2022-11-28`. The `id` must be a raw JSON integer literal (decoded via json.RawMessage, then ParseInt) and > 0, and `login` must be non-empty.\n6. Re-validates the decoded `next`, runs UpsertUser and DeleteExpiredSessions, deletes the session behind any incoming session cookie (rotation), creates a new session, sets the session cookie and answers 303 to `next`.\n\nThe access token is dropped after /user and never stored or logged.\n\n**POST /auth/logout** deletes the row, expires the cookie and answers 303 to /.",
+    "key_interactions": "Uses the endpoints in Config.GitHub, the Store and the injected clock. In tests every GitHub call goes to fakegithub."
+   },
+   {
+    "name": "Sessions and Identify middleware (C-002)",
+    "lives_at": "internal/auth/session.go",
+    "responsibility": "**Cookies.** Names are `__Host-hband_sid` and `__Host-hband_oauth` when SecureCookies is on, and `hband_sid` and `hband_oauth` otherwise (loopback http only). Every cookie is HttpOnly, SameSite=Lax set explicitly (never Strict, per the spike) and Path=/, with no Domain, and Secure when SecureCookies is on.\n- Session cookie: Max-Age 2592000, which matches expires_at (30 days absolute, no sliding renewal).\n- OAuth cookie: Max-Age 600.\n\n**Token.** 32 crypto/rand bytes, base64url without padding (43 characters). The DB key is hex(sha256(token)).\n\n**Identify** runs on every route:\n- A cookie value that does not match `^[A-Za-z0-9_-]{43}$` counts as anonymous with no DB call.\n- Otherwise it calls LookupSession(hash, now) and puts `Viewer{GitHubID, Login, AvatarURL, IsOwner}` in the context, with IsOwner = IsOwner(cfg.OwnerGitHubID, id).\n- A store error is recorded in the context as identifyErr. Public pages render as anonymous; the gate denies.\n\n`ViewerFrom(ctx) (Viewer, bool)` is the read API for later blocks.",
+    "key_interactions": "Wired by internal/server between CrossOriginProtection and the mux. Read by RequireOwner, the home page and, in later epics, by C-005, C-006 and C-007."
+   },
+   {
+    "name": "Owner gate: the vital logic (C-002)",
+    "lives_at": "internal/auth/owner.go",
+    "responsibility": "`IsOwner(ownerID, githubID int64) bool` returns `ownerID > 0 && githubID == ownerID`. It is the only allow rule in the codebase, and it is recomputed on every request from in-memory config.\n\n`RequireOwner(h)` sets `Cache-Control: no-store` first, then:\n- identifyErr: 503.\n- No viewer: 303 to /auth/github/login?next=<url.QueryEscape(r.URL.Path)> for GET and HEAD; 403 for any other method.\n- A viewer who is not the owner: 403 page 'This GitHub account cannot open admin pages', with a sign-out form and no admin markup.\n- The owner: stores an Owner{GitHubID, Login} under a private context key and calls h.\n\n`OwnerRoute(func(http.ResponseWriter, *http.Request, Owner)) http.Handler` is the second interlock. It reads the Owner from the private key and answers 403 when the Owner is absent. Only this package can put an Owner in the context.",
+    "key_interactions": "The router wraps the whole /admin/ subtree with RequireOwner exactly once, and adapts every adminRoutes handler with OwnerRoute. There is no admin token, DB role, header or dev-mode bypass."
+   },
+   {
+    "name": "HTTP server and router (C-001)",
+    "lives_at": "internal/server/router.go, internal/server/home.go, internal/server/templates/, internal/server/static/site.css",
+    "responsibility": "`New(cfg, store, clock) http.Handler`. The chain, from outside in:\n\n1. **securityHeaders.** Sets `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://avatars.githubusercontent.com; frame-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, plus nosniff and `Referrer-Policy: same-origin`, before calling next. No X-Frame-Options; frame-ancestors does that job, so the raw handlers only need to Set their own CSP.\n2. **CrossOriginProtection.** `http.NewCrossOriginProtection()` with AddTrustedOrigin(cfg.Origin).\n3. **auth.Identify.**\n4. **The mux.**\n\nThe package-level `adminRoutes []adminRoute{Method, Pattern string; Handler func(w, r, auth.Owner)}` table is registered into a private adminMux via auth.OwnerRoute. The outer mux mounts it exactly once, as `mux.Handle(\"/admin/\", auth.RequireOwner(adminMux))`. ServeMux's redirect of /admin to /admin/ is relied on.\n\nPublic routes:\n- `GET /{$}`: in SC-001 a minimal home page with 'Sign in with GitHub', or 'Signed in as @login', a sign-out form and an Admin link when IsOwner. SC-005 replaces it.\n- `GET /auth/github/login`, `GET /auth/github/callback`, `POST /auth/logout`.\n- `GET /static/`, from embed.\n- `GET /healthz`: 200 'ok', or 503 if Ping fails.\n\nScheme and host always come from HBAND_BASE_URL. No X-Forwarded-*, X-Real-IP or Forwarded header is read anywhere in this epic.",
+    "key_interactions": "Tests import adminRoutes, so every route SC-002 adds joins the access matrix without new test code. Templates use html/template only and never use template.HTML."
+   },
+   {
+    "name": "Admin console (C-009)",
+    "lives_at": "internal/server/admin.go, internal/server/templates/admin.html",
+    "responsibility": "SC-001 has one adminRoutes row: `GET /admin/{$}`. It renders `<main data-hband-admin>` with 'Signed in as @login (owner)', the avatar and a POST /auth/logout form. The data-hband-admin marker is what the tests check is absent from every refusal.\n\nSC-002 adds these rows:\n- GET /admin/{$}: the report list.\n- GET /admin/reports/new\n- POST /admin/reports\n- GET /admin/reports/{id}: the edit page with a sandboxed preview iframe.\n- GET /admin/reports/{id}/raw\n- POST /admin/reports/{id}/replace, /admin/reports/{id}/publish, /admin/reports/{id}/unpublish and /admin/reports/{id}/delete.\n\nUnknown paths under /admin/ answer 404 only after the gate has passed. Before that, anonymous visitors get 303 or 403 and non-owners get 403.",
+    "key_interactions": "Handlers receive auth.Owner. SC-002 handlers call internal/reports. Every form posts to the site's own origin, covered by form-action 'self' and CrossOriginProtection, with no CSRF tokens."
+   },
+   {
+    "name": "Fake GitHub (test seam)",
+    "lives_at": "internal/testutil/fakegithub/fakegithub.go",
+    "responsibility": "An httptest.Server bound to `localhost`. The app under test uses 127.0.0.1, so the cookiejar keeps their cookies apart. Endpoints:\n- `/login/oauth/authorize`: requires client_id, the exact redirect_uri, state, a code_challenge and code_challenge_method=S256. It records the challenge against a fresh single-use code and answers 302 to redirect_uri?code&state as the configured user, the way GitHub does for an already-approved app.\n- `/login/oauth/access_token`: checks client_id, client_secret, code, redirect_uri and that S256(code_verifier) equals the challenge. Like GitHub, it answers 200 with `error=bad_verification_code` when a check fails, and a form-encoded access_token when they pass.\n- `/user`: checks the Bearer token and returns `{id, login, avatar_url}`.\n\nSwitchable failures: DenyAtAuthorize (error=access_denied), TokenError200, Token500, User401, UserMissingID, UserIDZero, UserIDString, UserIDFloat, UserEmptyLogin.",
+    "key_interactions": "Imported only by _test.go files (an architecture rule enforces this). The server tests pick the app's port with net.Listen before New, so CallbackURL is known, and drive the real handler over TCP with a cookiejar client that follows redirects across both hosts."
+   },
+   {
+    "name": "Report library (C-003, built by SC-002)",
+    "lives_at": "internal/reports/reports.go, internal/store/migrations/0002_reports.sql",
+    "responsibility": "**Schema.** `reports(id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('draft','published')), published_at INTEGER NULL, size_bytes INTEGER NOT NULL, sha256 TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL) STRICT`.\n\n**Storage.** Files live at `<data>/reports/<id>.html`. Uploads stream into `<data>/tmp/` (same volume) and are fsynced. The row change and the os.Rename into place happen in one transaction, with rename before commit. On any failure the transaction rolls back and the temp file is removed.\n\n**Lifecycle.**\n- published_at = COALESCE(published_at, now) on publish. Replace, unpublish and republish never change it.\n- Replace keeps id, slug, status and published_at, and swaps the bytes, sha256 and size.\n- Delete commits the row removal, then removes the file.\n- Open sweeps `tmp/*` and any `^[0-9]+\\.html$` file that has no row.\n\n**Rules.**\n- Slug: `^[a-z0-9]+(-[a-z0-9]+)*$`, 1 to 80 characters, immutable after create.\n- Title: 1 to 200 characters after trimming, no control characters.\n- Upload: read with r.MultipartReader under http.MaxBytesReader(cap + 64 KiB). Exactly one part has a filename, and its field name must be `file`. The name must end in .html or .htm, case-insensitively. Size must be at most cap.\n- Sniff: after stripping one leading UTF-8 BOM, http.DetectContentType of the first 512 bytes must be `text/html; charset=utf-8` or `text/plain; charset=utf-8`. That refuses zip, png and other binaries and UTF-16, while accepting HTML that starts with `<meta>`.\n\n**Queries.** Latest() (published, ORDER BY published_at DESC, id DESC), BySlug(slug), ByID(id), ListAll().",
+    "key_interactions": "Called by the SC-002 admin handlers and the SC-005 reader and raw handlers. Later epics' votes and comments reference reports.id, which is why replace keeps the id."
+   },
+   {
+    "name": "Raw report serving: the isolation path (C-004, built by SC-005; reused by SC-002's preview)",
+    "lives_at": "internal/server/raw.go",
+    "responsibility": "`serveRaw(w, r, report, file)` is the only code that ever writes report bytes. It uses Header().Set, so it replaces the site CSP, and sets:\n- `Content-Type: text/html; charset=utf-8`\n- `Content-Security-Policy: sandbox allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'; frame-ancestors <cfg.Origin>`\n- `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin`, `Cache-Control: no-cache`, and `ETag: \"<sha256>\"`\n\nIt then calls http.ServeContent.\n\n`GET /raw/{slug}` serves published reports only. Drafts, unknown slugs and deleted reports get an identical 404. The owner's draft preview is the gated adminRoutes row GET /admin/reports/{id}/raw, which calls the same function, so the public path has no owner branch.",
+    "key_interactions": "Framed by the reader page and the admin edit page via `<iframe sandbox=\"allow-popups allow-popups-to-escape-sandbox\">`. The CSP sandbox directive carries the same tokens, so a direct top-level visit is just as isolated."
+   },
+   {
+    "name": "Reader pages (C-008 part, built by SC-005)",
+    "lives_at": "internal/server/reader.go, internal/server/templates/report.html",
+    "responsibility": "`GET /{$}` replaces the SC-001 home page. It and `GET /reports/{slug}` render one template.\n- Home gets Latest(). With nothing published it answers 200 'No reports yet'.\n- /reports/{slug} gets BySlug and answers the same 404 unless the report is published.\n\nThe page shows the title, the publish date, the header's sign-in, sign-out and Admin link, and `<iframe src=\"/raw/{slug}\" sandbox=\"allow-popups allow-popups-to-escape-sandbox\" referrerpolicy=\"no-referrer\" title=\"{title}\">`, sized by site.css so it works on phones. It never contains report bytes.",
+    "key_interactions": "Uses html/template escaping for title and slug. Later epics add the like count and comments under the iframe in this same template."
+   }
+  ],
+  "key_decisions": [
+   {
+    "decision": "Identity is the GitHub numeric user ID, the INTEGER PRIMARY KEY of users. The owner is whoever's ID equals HBAND_OWNER_GITHUB_ID, recomputed on every request by IsOwner(ownerID, githubID) = ownerID > 0 && githubID == ownerID. No role, owner or admin column exists anywhere. An architecture rule and a schema test enforce that.",
+    "reversibility": "irreversible",
+    "rationale": "The project constraint pins the owner by ID, not by a stored role. Logins can be renamed and reclaimed, so pinning a login would hand admin to whoever claims it (DevNotion [1] pins the numeric id for the same reason). Every later block keys on this ID. Recomputing per request means a pin change revokes the old owner at the next restart, which BuhlOS [4] does for the same reason."
+   },
+   {
+    "decision": "Configuration comes only from HBAND_* environment variables, validated all at once before the store opens or anything listens. Exit is 2 on config errors and 1 on other startup failures. The owner ID's accepted grammar is exactly ^[1-9][0-9]{0,18}$ fitting int64, and everything else is refused. Plain http is allowed only on a loopback base URL. HBAND_BASE_URL is the only source of scheme and host, so no forwarded header is read in this epic.",
+    "reversibility": "cheap",
+    "rationale": "Lesson #103 asks first what grammar is accepted and what refuses everything else. A gate that silently passes is the worst outcome here, so deny is the default and the grammar is strict. Allowing http only on loopback stops a production deploy running with non-Secure cookies. Ignoring forwarded headers removes a spoofing surface until C-006 needs the client IP and decides proxy trust deliberately. Renaming a variable later costs one env file."
+   },
+   {
+    "decision": "The GitHub endpoints are Config struct fields defaulting to github.com and api.github.com. No environment variable or flag sets them. Only in-process tests overwrite them, pointing at fakegithub, which production code may not import.",
+    "reversibility": "cheap",
+    "rationale": "An env override of the identity provider would be a one-line way to sign anyone in as the owner in production. Two architecture rules and the real-binary test, which sets plausible override names and still sees github.com, enforce that the switch does not exist."
+   },
+   {
+    "decision": "OAuth uses golang.org/x/oauth2 (v0.38.0, built by the spike).\n- A 256-bit state, the PKCE verifier and the validated `next` travel in one HttpOnly, SameSite=Lax, 600 s cookie that is cleared on every callback outcome. There is no oauth_states table.\n- PKCE is S256, no scopes are requested and the callback is GET-only.\n- The access token is used once for /user and dropped.",
+    "reversibility": "cheap",
+    "rationale": "The spike settled the constraints: Lax, never Strict, and a GET callback. Keeping the flow state in the cookie means anonymous visitors cause no DB writes and there is no row cap to exhaust. Replay is bounded because the cookie is cleared and GitHub codes are single-use. Requesting no scope keeps the token to public profile data, and not storing it leaves nothing to leak. PKCE support on GitHub OAuth apps is recalled, so if the person's real sign-in fails at the token step, removing it is two lines."
+   },
+   {
+    "decision": "Sessions are SQLite rows keyed by hex(sha256(token)), where the token is 32 crypto/rand bytes and lives only in the cookie. They last 30 days absolute with no sliding renewal. Every sign-in mints a new session and deletes the one behind any incoming cookie. Logout deletes the row. A malformed cookie is anonymous without a DB call.",
+    "reversibility": "cheap",
+    "rationale": "Server-side sessions in an HttpOnly cookie are the decided stack. Hashing at rest means a backup copy of the volume holds no live sessions, and rotation closes session fixation. Changing the table later costs one re-login."
+   },
+   {
+    "decision": "The admin gate is structural, with two interlocks:\n- One RequireOwner wraps the whole /admin/ subtree, mounted on exactly one line of router.go.\n- Admin handlers exist only as rows of the adminRoutes table, adapted through OwnerRoute, which answers 403 unless the gate put an Owner in the context under a private key.\n\nThe access-matrix test walks that same table. On refusal, anonymous GET or HEAD gets 303 to login, anonymous with any other method gets 403, a non-owner gets 403 and a store error gets 503. Every gated response carries Cache-Control: no-store.",
+    "reversibility": "expensive",
+    "rationale": "A per-handler check breaks the first time someone forgets it. The subtree gate makes every SC-002 route protected by construction. Because ServeMux routes on the decoded, cleaned path, encoded variants (buxx.me [2] documents that bypass class) meet the same gate, and the tests pin it. The second interlock, from the crossdomain fail-safe pattern, turns a future registration mistake into a 403 instead of a bypass. Later admin and moderation blocks build on this shape."
+   },
+   {
+    "decision": "Migrations are forward-only embedded SQL files numbered NNNN_name.sql and tracked by PRAGMA user_version, each in its own transaction. Open refuses a database newer than the binary. Every connection gets WAL, busy_timeout(5000) and foreign_keys(1) through _pragma DSN parameters. No migration library.",
+    "reversibility": "expensive",
+    "rationale": "Every later slice appends to this convention, so changing it means migrating a live volume. Q-002 decided the engine and the pragmas, and the spike measured the build and readback. Refusing a newer schema makes a rolled-back binary fail closed instead of writing against a schema it does not understand."
+   },
+   {
+    "decision": "Cross-site request protection is the standard library's http.CrossOriginProtection, with AddTrustedOrigin(cfg.Origin), wrapping every route, plus SameSite=Lax cookies. No per-form CSRF tokens.",
+    "reversibility": "cheap",
+    "rationale": "It covers logout now, every SC-002 admin POST and later comment and vote POSTs with no template plumbing. AddTrustedOrigin keeps the Origin fallback working if the VPS proxy rewrites Host. If HBAND_BASE_URL does not match the public URL, POSTs fail closed with 403."
+   },
+   {
+    "decision": "Report identity and storage (SC-002):\n- Integer id with a unique slug that cannot change after create.\n- published_at is set on first publish and never changed by replace, unpublish or republish.\n- Files live at <data>/reports/<id>.html, written via temp file, fsync, rename and commit.\n- Startup sweeps tmp leftovers and orphan id files.\n- Upload acceptance: one `file` part named .html or .htm, at most HBAND_UPLOAD_MAX_BYTES, and after an optional UTF-8 BOM it must sniff as UTF-8 text/html or text/plain.",
+    "reversibility": "irreversible",
+    "rationale": "The report is the product's primary entity, and later votes and comments reference reports.id. The epic requires that replace keeps the publish date. Keying files by id makes replace one rename and delete one remove, with no reference counting (the content-addressed alternative needed it). The sniff rule refuses binaries and UTF-16 without refusing real reports that start with a BOM or a <meta> tag, which DetectContentType alone would classify as text/plain."
+   },
+   {
+    "decision": "Report isolation (SC-005):\n- Report bytes leave the server only through serveRaw, at the public GET /raw/{slug} (published reports only) and the gated GET /admin/reports/{id}/raw (owner draft preview).\n- The response CSP carries `sandbox allow-popups allow-popups-to-escape-sandbox`, script-src 'none', inline styles, data: images and fonts, and frame-ancestors set to the explicit base origin.\n- Pages embed it in an iframe with the same sandbox tokens: no allow-scripts, no allow-same-origin.\n- Same origin, no separate subdomain.",
+    "reversibility": "cheap",
+    "rationale": "This meets the project's isolation constraint without the author adding DNS, TLS or proxy config for a second origin. The CSP sandbox directive covers a direct top-level visit. The explicit origin avoids depending on what 'self' means for an opaque-origin document. allow-popups lets target=_blank links in the author's reports open; dropping both tokens is a one-line change. Keeping the draft preview under /admin leaves the public path with no owner branch."
+   }
+  ],
+  "proposals": [
+   {
+    "designer": "practice",
+    "selected": "core",
+    "note": "Core taken:\n- Package layout: config, store, auth, server, reports, testutil/fakegithub.\n- Stdlib ServeMux and the adminRoutes table.\n- The state, verifier and next carried in one cookie, with no DB table.\n- The strict owner-ID grammar and loopback-only http.\n- Hashed sessions with rotation.\n- Id-keyed report files.\n- The explicit frame-ancestors origin.\n- The config-change and DB-error tests.\n\nIts over_engineering_flag was honoured: no goth, scs, chi, golang-migrate, gorilla/csrf or Redis. Changed:\n- The gate's store-error answer is 503, not 500.\n- Config errors exit 2.\n- The owner's draft preview moved off public /raw to a gated admin route.\n- X-Frame-Options was dropped in favour of CSP frame-ancestors."
+   },
+   {
+    "designer": "crossdomain",
+    "selected": "partial",
+    "note": "Taken:\n- The fail-safe interlocking structure: the OwnerRoute second interlock behind the prefix gate, with the Owner proof under a private context key.\n- The cookie-grammar check before the DB lookup.\n- 503 on a store error and /healthz.\n- The real-binary test with endpoint-override names.\n- The gated admin draft preview.\n- The iframe and CSP sandbox tokens allow-popups and allow-popups-to-escape-sandbox.\n- Binding the fake GitHub to localhost.\n\nNot taken: the oauth_states table and its 1000-row cap, content-addressed report files with reference counting, the Decision enum with the unexported OwnerID type (IsOwner with ownerID > 0 is the same fail-closed rule), and frame-ancestors 'self'."
+   }
+  ],
+  "coherence_check": "There were two proposals. They agreed on the substance: numeric-ID identity, owner recomputed per request, a subtree gate, hashed server-side sessions, Lax cookies, x/oauth2 with PKCE, user_version migrations, a CSP-sandboxed /raw. Seven seams were checked.\n\n1. **OAuth flow state.** Practice keeps it in a cookie; crossdomain keeps it in an oauth_states DB row. Shipping both would mean two sources of truth for the verifier, so the cookie was kept. oauth_states is gone from schema 0001 and the 1000-row cap went with it. Replay now rests on the cookie being cleared on every callback outcome plus GitHub's single-use codes, and the callback re-validates the decoded `next` because it now comes back from the browser.\n2. **Gate error contract.** The proposals disagreed on anonymous non-GET (401 vs 403), store error (500 vs 503), config exit (1 vs 2) and access_denied (400 vs 403). Unified as:\n   - anonymous GET or HEAD: 303 to /auth/github/login?next=…\n   - anonymous with any other method: 403\n   - a non-owner: 403\n   - a store error: 503\n   - OwnerRoute without proof: 403\n   - callback state or cancel problems: 400; GitHub failures: 502\n   - config errors: exit 2; other startup failures: exit 1\n\n   The case rows assert exactly these.\n3. **Second interlock against practice's single gate.** Redesigned so there is one mechanism, not two. RequireOwner is the only writer of the Owner context key, and OwnerRoute is applied by the router when it registers the adminRoutes table, not by handlers themselves. The table's Handler type takes auth.Owner, so a handler outside the table cannot be adapted without the gate.\n4. **Draft preview.** Practice gave public /raw an owner branch for drafts; crossdomain put the preview at a gated /admin path. Those are two ownership models for the same bytes. Crossdomain's was kept: /raw is published-only, and preview goes through the same serveRaw under the gate.\n5. **Headers.** The site middleware sets its CSP before handlers run, and serveRaw replaces it with Header().Set. X-Frame-Options was dropped entirely, because it would have had to be deleted on /raw and CSP frame-ancestors covers it. The gate's Cache-Control: no-store is compatible with the raw headers.\n6. **Sandbox tokens.** The iframe attribute and the CSP sandbox directive are set to the same token list. Browsers intersect them, so a mismatch would silently make the iframe's tokens meaningless.\n7. **Report files.** They are id-keyed, and crossdomain's sha256 column is kept for the ETag. There is no reference counting, so delete removes the file and the epic's 'stored file is gone' holds.\n\nDefaults were reconciled to the fail-safe side: listen on 127.0.0.1:8080, data in ./data, an upload cap of 25 MiB with a 200 MiB maximum.\n\n**Workaround rule.** It does not apply. No outside defect is worked around: Edge dropping Strict cookies on the Authorize-button path is SameSite behaving as specified, and is a constraint, not a bug. So there is no settings list in this epic.\n\n**Stale facts in the project's answers.** The Q-001 to Q-004 summary says 'Go not installed here' and that 'uat has no commits'. The survey and spike measured go1.27.4 installed and working, and uat at ba7102d, the empty-tree commit. The measurement wins. These are stale notes, not decisions, and nothing here builds against them.\n\n**What nobody contested.** Three things rest on recall, and neither proposal disagreed about them:\n- ServeMux path-cleaning behaviour, pinned by loop tests.\n- GitHub's PKCE acceptance and https behaviour with Secure / __Host- cookies, settled only by the person's real sign-in check that is already on the backlog and is not filed again.\n- How a CSP sandbox combines with frame-ancestors, settled by SC-005's headless-Edge test.\n\n**Architecture rules.** Seven, each a defect rather than untidiness:\n- forwarded headers\n- SameSite=Strict\n- a stored owner or role column\n- an /admin route registered outside the gated mount\n- an env-configurable GitHub endpoint\n- escaping-bypass template conversions\n- production imports of the fake IdP\n\nLesson #73: this first slice carries the irreversible identity model and the migration convention, so expect several laps. Do not size SC-002 or SC-005 by it.",
+  "stack_chosen": [
+   {
+    "area": "ui",
+    "choice": "HTTP routing on the Go standard library's net/http ServeMux with Go 1.22+ method and wildcard patterns. No third-party router or middleware framework.",
+    "why": "Q-001 settled server-rendered html/template with no framework, but left routing open. Every later slice adds routes and has to use the same router. The stdlib mux's decoded-path matching is also what the admin subtree gate relies on."
+   },
+   {
+    "area": "storage",
+    "choice": "Schema migrations are forward-only, embedded internal/store/migrations/NNNN_name.sql files tracked by PRAGMA user_version, each in its own transaction. A binary refuses a database newer than itself. No migration library.",
+    "why": "Q-002 settled SQLite with modernc and its pragmas, not how the schema evolves. Every later slice with a table appends to this sequence, so it has to be one project-wide convention."
+   },
+   {
+    "area": "runtime",
+    "choice": "Configuration is HBAND_* environment variables only, with no config file. Startup refuses to listen on any invalid required variable: exit 2 for config, 1 for other startup failures.",
+    "why": "Q-004 decided a Docker container. Every later setting (upload cap, future toggles) joins the same loader and the same fail-closed startup."
+   },
+   {
+    "area": "ui",
+    "choice": "Cross-site request protection is net/http CrossOriginProtection (Go 1.25+), trusted origin = HBAND_BASE_URL's origin, plus SameSite=Lax cookies. No CSRF-token library or per-form tokens.",
+    "why": "Every later state-changing form (comments, votes, feedback, moderation) inherits this. Picking a token library in a later slice would give two CSRF schemes."
+   },
+   {
+    "area": "build",
+    "choice": "Module path github.com/sshubham2/hband. The go directive is whatever go mod init writes on the installed go1.27.4 (the spike recorded go 1.27.4), and never below 1.26.3. The only third-party dependencies are golang.org/x/oauth2 and modernc.org/sqlite.",
+    "why": "The module path follows the origin remote. The 1.26.3 floor covers Q-001's GO-2026-4982 html/template fix and CrossOriginProtection's 1.25 minimum. Any later Docker build image has to be at least this go directive."
+   }
+  ],
+  "contracts": [
+   {
+    "name": "HBAND_* environment configuration",
+    "kind": "cli",
+    "auth_model": "The person who deploys controls the environment. HBAND_GITHUB_CLIENT_SECRET is never logged or echoed.",
+    "error_cases": "Exit 2, with one stderr block naming every bad variable, before the DB opens or a port binds, if any of these holds:\n- HBAND_OWNER_GITHUB_ID is missing, or is any of \"\", \"0\", \"-1\", \"+5\", \" 5\", \"5 \", \"05\", \"octocat\", \"@octocat\", \"a@b.c\", \"1e5\", \"12.0\" or \"9223372036854775808\".\n- HBAND_GITHUB_CLIENT_ID or HBAND_GITHUB_CLIENT_SECRET is missing or empty.\n- HBAND_BASE_URL is missing or not absolute, is http on a non-loopback host, or carries a path other than '/', a query, a fragment or userinfo.\n\nExit 1 if the data dir cannot be created, the DB cannot be opened (including a newer schema) or the listen fails.",
+    "notes": "Required: HBAND_OWNER_GITHUB_ID (from `gh api /user --jq .id`), HBAND_GITHUB_CLIENT_ID, HBAND_GITHUB_CLIENT_SECRET, HBAND_BASE_URL. The OAuth app's callback must be <BASE>/auth/github/callback.\n\nOptional: HBAND_LISTEN_ADDR (default 127.0.0.1:8080), HBAND_DATA_DIR (default ./data), and HBAND_UPLOAD_MAX_BYTES (added by SC-002, default 26214400, at most 209715200).\n\nNo variable can change the GitHub endpoints."
+   },
+   {
+    "name": "GET /auth/github/login?next=<path>",
+    "kind": "rest",
+    "auth_model": "Public. Starting a flow grants nothing.",
+    "error_cases": "A `next` that is not a local path becomes '/' silently. That covers: empty, not starting with '/', starting with '//' or '/\\', having a scheme or host after url.Parse, containing control characters, or longer than 512 bytes.\n\nA method other than GET or HEAD gets 405 from the mux.",
+    "notes": "Sets the OAuth cookie (`__Host-hband_oauth` on https, `hband_oauth` on loopback http): HttpOnly, SameSite=Lax, Path=/, Max-Age=600, Secure on https.\n\nAnswers 302 to {AuthURL} with: client_id; redirect_uri exactly CallbackURL; a 43-character state; code_challenge; code_challenge_method=S256; no scope parameter."
+   },
+   {
+    "name": "GET /auth/github/callback?code&state",
+    "kind": "rest",
+    "auth_model": "Public. Bound to the browser by the OAuth cookie. The GitHub ID comes only from the server-to-server /user call.",
+    "error_cases": "Every refusal writes zero users rows and zero sessions rows, sets no session cookie, and clears the OAuth cookie:\n- 400 'Sign-in expired, try again': missing OAuth cookie, malformed cookie, or state mismatch.\n- 400 'Sign-in cancelled': `error` query parameter such as access_denied.\n- 400: missing code.\n- 502: token endpoint returns 200 with an error body, returns 500, or returns an empty access_token; wrong PKCE verifier; /user answers non-200; id missing, a string, a float, or not above 0; empty login.\n- 405: a method other than GET or HEAD.",
+    "notes": "On success:\n1. UpsertUser refreshes login and avatar_url.\n2. DeleteExpiredSessions runs.\n3. The session behind any incoming session cookie is deleted.\n4. A new token is minted and only its sha256 is stored, with expires_at = now + 30 days.\n5. The session cookie (`__Host-hband_sid` or `hband_sid`) is set: HttpOnly, SameSite=Lax, Path=/, Max-Age=2592000, Secure on https.\n6. The OAuth cookie is cleared and the response is 303 to the re-validated `next`."
+   },
+   {
+    "name": "POST /auth/logout",
+    "kind": "rest",
+    "auth_model": "Any session, behind CrossOriginProtection.",
+    "error_cases": "- A cross-origin POST (Sec-Fetch-Site: cross-site, or Origin https://evil.example) gets 403, and the session row survives.\n- GET gets 405.\n- With no session, or an invalid one, it answers 303 to / and does nothing.",
+    "notes": "Deletes the sessions row for sha256(cookie), expires the cookie and answers 303 to /. Replaying the old cookie value afterwards counts as anonymous."
+   },
+   {
+    "name": "/admin and /admin/* (the owner gate)",
+    "kind": "rest",
+    "auth_model": "Owner = a live session whose github_id equals the pinned HBAND_OWNER_GITHUB_ID: IsOwner(cfg.OwnerGitHubID, viewer.GitHubID), recomputed on every request. Two interlocks: RequireOwner on the subtree, and OwnerRoute on every adminRoutes handler.",
+    "error_cases": "- Anonymous, expired or malformed cookie: 303 to /auth/github/login?next=<escaped path> for GET and HEAD, 403 for any other method.\n- Signed in but not the owner: 403 under every method.\n- Identify store error: 503.\n- A handler reached without the gate's Owner proof: 403.\n\nNo refusal carries the data-hband-admin marker or a 2xx status, and every gated response carries Cache-Control: no-store.",
+    "notes": "What happens when an assumption fails (lesson #41):\n- Owner ID missing or zero: exit 2 at startup, and IsOwner(0, 0) is false anyway.\n- A GitHub call fails: no session is created.\n- A session outlives a pin change: it gets 403.\n- A proxy header claims the owner: no header is ever read.\n- The DB fails: 503, the request is denied.\n- A route is registered outside the table: an architecture rule fails the build, and OwnerRoute answers 403 if the gate is skipped.\n\n/admin with no trailing slash is answered by ServeMux's redirect to /admin/."
+   },
+   {
+    "name": "internal/auth API for other blocks",
+    "kind": "function",
+    "auth_model": "A read-only view of the identity resolved for this request.",
+    "error_cases": "- ViewerFrom returns ok=false for anonymous visitors.\n- IsOwner returns false for ownerID <= 0, githubID <= 0, or a mismatch.\n- OwnerFrom returns ok=false unless RequireOwner allowed the request.\n- Only package auth can put an Owner into the context, because the key is private.",
+    "notes": "- auth.ViewerFrom(ctx) (Viewer{GitHubID int64; Login, AvatarURL string; IsOwner bool}, bool)\n- auth.IsOwner(ownerID, githubID int64) bool\n- auth.RequireOwner(http.Handler) http.Handler\n- auth.OwnerRoute(func(http.ResponseWriter, *http.Request, auth.Owner)) http.Handler\n- auth.OwnerFrom(ctx) (Owner, bool)\n\nLater epics (comments, votes, feedback) consume ViewerFrom. C-005 adds the blocked flag in its own migration."
+   },
+   {
+    "name": "store.Open(path) and the migration convention",
+    "kind": "function",
+    "auth_model": "In-process only. The DB file lives on a local volume under HBAND_DATA_DIR.",
+    "error_cases": "- user_version higher than the last embedded migration: error, and the process exits 1.\n- A failed migration: its transaction rolls back and user_version is unchanged.",
+    "notes": "- A fresh DB reaches user_version=1, and PRAGMA journal_mode and foreign_keys read wal and 1 on a pooled connection.\n- Reopening is idempotent.\n- Deleting a users row cascades to its sessions.\n- LookupSession ignores rows with expires_at <= now.\n- token_hash is never the cookie value.\n- SC-002 appends 0002_reports.sql."
+   },
+   {
+    "name": "SC-002 admin report routes",
+    "kind": "rest",
+    "auth_model": "The owner gate, inherited because each route is a row in adminRoutes. CrossOriginProtection covers every POST.",
+    "error_cases": "Each refusal leaves no reports row and no file under reports/, and tmp/ empty:\n- 413: body over HBAND_UPLOAD_MAX_BYTES.\n- 400: zero or two file parts, a missing `file` part, a name not ending .html or .htm, a binary or UTF-16 sniff, a bad slug ('Bad Slug', '../x', '', 81 characters), or an empty or control-character title.\n- 409: a duplicate slug on create, with a page linking to that report's replace form.\n- 404: an unknown id.\n- 403: a cross-origin POST.",
+    "notes": "- GET /admin/{$}: the list (title, slug, status, published date, size).\n- GET /admin/reports/new: the form.\n- POST /admin/reports: fields file, title, slug and action=publish|draft.\n- GET /admin/reports/{id}: the edit page with a preview iframe.\n- GET /admin/reports/{id}/raw: serveRaw, drafts included.\n- POST /admin/reports/{id}/replace: keeps id, slug, status and published_at.\n- POST /admin/reports/{id}/publish: published_at = COALESCE(published_at, now).\n- POST /admin/reports/{id}/unpublish: status draft, published_at kept.\n- POST /admin/reports/{id}/delete: removes the row, then the file.\n\nAll POSTs answer 303."
+   },
+   {
+    "name": "SC-005 GET / and GET /reports/{slug}",
+    "kind": "ui",
+    "auth_model": "Public. No sign-in is needed. Drafts are never shown here, not even to the owner, who previews them under /admin.",
+    "error_cases": "A draft, unpublished, deleted or unknown slug gets an identical 404 body. GET / with nothing published answers 200 'No reports yet'.",
+    "notes": "One handler and one template. Home is fed Latest(). The page holds `<iframe src=\"/raw/{slug}\" sandbox=\"allow-popups allow-popups-to-escape-sandbox\" referrerpolicy=\"no-referrer\">` and never the report bytes. Title and slug are escaped by html/template."
+   },
+   {
+    "name": "SC-005 GET /raw/{slug}",
+    "kind": "rest",
+    "auth_model": "Public, and only for published reports. The CSP sandbox gives the document an opaque origin, even when it is opened directly.",
+    "error_cases": "404 for any slug that is not published. 405 for methods other than GET or HEAD. 304 on a matching If-None-Match.",
+    "notes": "Headers:\n- `Content-Type: text/html; charset=utf-8`\n- `Content-Security-Policy: sandbox allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'; frame-ancestors <base origin>`\n- `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin`, `Cache-Control: no-cache`, and `ETag: \"<sha256>\"`"
+   }
+  ],
+  "cases": [
+   {
+    "behaviour": "pin the owner in config",
+    "shape": "HBAND_OWNER_GITHUB_ID is anything other than a strictly positive decimal int64: \"\", \"0\", \"-1\", \"+5\", \" 5\", \"5 \", \"05\", \"octocat\", \"@octocat\", \"a@b.c\", \"1e5\", \"12.0\" or \"9223372036854775808\". The same table also checks that \"1\" and \"9223372036854775807\" are accepted.",
+    "why": "Lesson #103. A gate whose pinned value is read loosely silently pins nobody, or pins somebody else. A login or email accepted here would grant admin to whoever owns that name.",
+    "check": "go test -count=1 ./internal/config -run TestLoadOwnerIDGrammar",
+    "material": true
+   },
+   {
+    "behaviour": "set where the site is reached",
+    "shape": "HBAND_BASE_URL takes each of these forms:\n- https://host: SecureCookies on, so the cookies are `__Host-hband_sid` and `__Host-hband_oauth` with Secure.\n- http://127.0.0.1:port, http://localhost or http://[::1]: plain names, no Secure.\n- Refused: http on a non-loopback host, a path, a query, a fragment, userinfo, or a non-absolute URL.",
+    "why": "The scheme decides the Secure flag and the cookie prefix, and the origin decides the callback URL and the trusted origin. An http production URL would ship non-Secure cookies, and a path would break redirect_uri matching.",
+    "check": "go test -count=1 ./internal/config -run TestLoadBaseURL ; go test -count=1 ./internal/server -run TestCookieAttributes",
+    "material": true
+   },
+   {
+    "behaviour": "start the server",
+    "shape": "The real compiled cmd/hband binary, with two environments:\n- Bad: no owner ID, or owner 'octocat', plus a marker client secret. It exits 2 within 10 s, names HBAND_OWNER_GITHUB_ID, never prints the secret and never logs 'listening'.\n- Good: also sets HBAND_GITHUB_AUTH_URL, HBAND_GITHUB_TOKEN_URL and HBAND_GITHUB_API_URL to http://evil.example. It logs 'listening addr=', /healthz answers 200, and /auth/github/login answers 302 to https://github.com/login/oauth/authorize with the configured client_id, redirect_uri = BASE/auth/github/callback, code_challenge_method=S256 and no scope.",
+    "why": "Lesson #754. Every other test stubs GitHub in-process. This run is the one that proves the shipped wiring refuses bad config and cannot be pointed at another identity provider.",
+    "check": "go test -count=1 ./cmd/hband -run 'TestRealMainRefusesBadConfig|TestBinary'",
+    "material": true
+   },
+   {
+    "behaviour": "owner signs in with GitHub",
+    "shape": "The fake GitHub returns the pinned ID. The cookiejar client starts at /admin/, is sent to login, goes through the fake's authorize step and the callback, and ends on /admin/ with 200 and the data-hband-admin marker showing @login. Exactly one sessions row exists, and its token_hash equals hex(sha256(cookie)) and differs from the cookie.",
+    "why": "This is the slice's main claim. It also proves that `next` round-trips through the OAuth cookie, that the fake's S256 and redirect_uri checks accept the app's request, and that the raw token is never stored.",
+    "check": "go test -count=1 ./internal/server -run TestOwnerSignInReachesAdmin",
+    "material": true
+   },
+   {
+    "behaviour": "keep admin pages from anonymous visitors",
+    "shape": "No session cookie. The requests are:\n- every adminRoutes entry\n- /admin, /admin/, /admin/does-not-exist\n- path variants /%61dmin/, /admin/%2e%2e/admin/, //admin/, /ADMIN/, /admin/../admin/\n\nEach is sent with GET, HEAD and POST. GET and HEAD answer 303 to /auth/github/login?next=…, POST answers 403, and no response is 2xx or carries the marker. Every response from the gate carries Cache-Control: no-store.",
+    "why": "This is the anonymous branch of RequireOwner. The path variants pin the claim that the decoded, cleaned path always meets the gate, the bypass class buxx.me documents.",
+    "check": "go test -count=1 ./internal/server -run 'TestAdminAccessMatrix/anonymous'",
+    "material": true
+   },
+   {
+    "behaviour": "keep admin pages from every other GitHub account",
+    "shape": "A real session for a GitHub ID that is not the pinned one. The same route, path-variant and method set as the anonymous row gets 403, never 2xx and never the marker. The same session still shows '@login' on the home page, so the visitor is signed in, just not the owner.",
+    "why": "This is the non-owner branch. The project lets anyone sign in with GitHub later, so 'signed in' must never mean 'admin'.",
+    "check": "go test -count=1 ./internal/server -run 'TestAdminAccessMatrix/non_owner'",
+    "material": true
+   },
+   {
+    "behaviour": "change which account is the owner",
+    "shape": "A session minted while the owner was 42. The handler is rebuilt on the same DB with the owner set to 43. That session gets 403 on /admin/, and ViewerFrom still reports it signed in.",
+    "why": "Ownership must be recomputed from config on every request, never cached in the session or the DB. Otherwise a session outlives the pin.",
+    "check": "go test -count=1 ./internal/server -run TestPinChangeRevokesAdmin",
+    "material": true
+   },
+   {
+    "behaviour": "refuse a callback the browser did not start",
+    "shape": "Each of these reaches the callback:\n- no OAuth cookie\n- a malformed cookie (not 3 parts, or the wrong state length)\n- a state mismatch\n- error=access_denied from the fake's DenyAtAuthorize\n- a missing code\n\nEach answers 400 with no call to the fake's token endpoint, 0 users rows, 0 sessions rows, and the OAuth cookie cleared.",
+    "why": "These branches defend against login CSRF and replay. A fall-through here mints a session for an attacker-chosen code.",
+    "check": "go test -count=1 ./internal/server -run TestCallbackRefusesBadState",
+    "material": true
+   },
+   {
+    "behaviour": "refuse a sign-in GitHub did not vouch for",
+    "shape": "The fake answers:\n- TokenError200 (200 with error=bad_verification_code)\n- Token500\n- a wrong PKCE verifier\n- User401\n- UserMissingID, UserIDZero, UserIDString (\"42\"), UserIDFloat (42.0)\n- UserEmptyLogin\n\nEach answers 502, with 0 users rows and 0 sessions rows.",
+    "why": "x/oauth2 and the JSON decoder each have a path that can turn a failure into a zero or default value. A zero or string ID that is accepted becomes a users row and a session. The ID must be a raw JSON integer greater than 0.",
+    "check": "go test -count=1 ./internal/server -run TestCallbackRefusesGitHubFailures",
+    "material": true
+   },
+   {
+    "behaviour": "fail closed when the database is unavailable",
+    "shape": "The store is closed after sign-in, and the owner's own cookie is sent. /admin/ answers 503 with no marker. GET / still renders as anonymous with 200. /healthz answers 503.",
+    "why": "An Identify error must read as deny at the gate, never as 'no error, so continue'.",
+    "check": "go test -count=1 ./internal/server -run TestStoreErrorDeniesAdmin",
+    "material": true
+   },
+   {
+    "behaviour": "recognise a session",
+    "shape": "The session cookie names no live session:\n- expired: an injected clock moved past expires_at\n- malformed: not 43 base64url characters, so no DB query runs\n- rotated away: a cookie the browser carried into a new sign-in no longer resolves, and the new token differs\n\nEach counts as anonymous on /admin/ (303 to login).",
+    "why": "LookupSession's expiry filter, the grammar short-circuit and fixation rotation are three separate branches, and any one of them failing open keeps a dead credential alive.",
+    "check": "go test -count=1 ./internal/server -run 'TestDeadSessionIsAnonymous|TestSignInRotatesSession'",
+    "material": true
+   },
+   {
+    "behaviour": "sign out",
+    "shape": "Three requests:\n- A same-origin POST /auth/logout deletes the row, expires the cookie and answers 303 to /. Replaying the old value on /admin/ then answers 303 to login.\n- A POST carrying Sec-Fetch-Site: cross-site, or Origin https://evil.example, answers 403 and the session still opens /admin/.\n- GET /auth/logout answers 405.",
+    "why": "Logout is the first state-changing POST. It proves CrossOriginProtection is in the chain before SC-002's admin POSTs depend on it.",
+    "check": "go test -count=1 ./internal/server -run TestLogout",
+    "material": true
+   },
+   {
+    "behaviour": "return to where sign-in started",
+    "shape": "next is //evil.example, /\\evil.example, https://evil.example/x, javascript:alert(1), a value with a control character, or 513 bytes. The flow ends on '/', and no Location header points off-site.",
+    "why": "The validated `next` is written into the cookie and read back at the callback. An unchecked value is an open redirect on the site's own sign-in.",
+    "check": "go test -count=1 ./internal/server -run TestLoginNextIsLocalOnly",
+    "material": true
+   },
+   {
+    "behaviour": "open the database",
+    "shape": "Three databases:\n- a fresh file: reaches user_version=1, journal_mode reads wal and foreign_keys reads 1, and reopening is idempotent\n- a file whose user_version is set to 99: Open returns an error, and realMain returns 1\n- a users row deleted: its sessions rows go with it\n\nPRAGMA table_info(users) has no column named role, owner, is_owner, admin or is_admin.",
+    "why": "The migration convention is the contract every later slice appends to. Running an old binary against a newer volume must fail closed, and the schema must not grow a stored owner role.",
+    "check": "go test -count=1 ./internal/store",
+    "material": true
+   }
+  ],
+  "architecture_rules": [
+   {
+    "name": "no request header ever supplies scheme, host or client identity",
+    "files": "**/*.go",
+    "must_not_match": [
+     "(?i)\"(x-forwarded-[a-z-]+|x-real-ip|forwarded)\""
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "Scheme and host come only from HBAND_BASE_URL. A trusted forwarded header lets any client spoof the callback URL, the Secure decision or the trusted CSRF origin. C-006 decides proxy trust deliberately when it needs the client IP."
+   },
+   {
+    "name": "no cookie is ever SameSite=Strict",
+    "files": "**/*.go",
+    "must_not_match": [
+     "SameSiteStrictMode",
+     "(?i)samesite=strict"
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "The spike measured that Edge drops Strict state and session cookies on the GitHub Authorize-button path (a form POST answered with 303). A Strict cookie breaks sign-in for exactly the first-time user."
+   },
+   {
+    "name": "being the owner is never stored in the database",
+    "files": "internal/store/migrations/*.sql",
+    "must_not_match": [
+     "(?i)(^|[(,])\\s*\"?(role|roles|is_owner|owner|is_admin|admin)\"?\\s+(INTEGER|INT|TEXT|BOOLEAN|BOOL|BLOB|NUMERIC|ANY)\\b",
+     "(?i)ADD\\s+COLUMN\\s+\"?(role|roles|is_owner|owner|is_admin|admin)\"?\\b"
+    ],
+    "because": "The project constraint identifies the owner by the GitHub ID pinned in config. A stored role is a second way to reach admin, which survives a pin change and can be written by any SQL bug."
+   },
+   {
+    "name": "an /admin route is only ever registered through the one gated mount",
+    "files": "**/*.go",
+    "must_not_match": [
+     "\\.Handle(Func)?\\(\\s*\"(?:[A-Z]+\\s+)?/admin(?!/?\",\\s*auth\\.RequireOwner\\()"
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "Admin handlers must be rows of adminRoutes, mounted once as mux.Handle(\"/admin/\", auth.RequireOwner(adminMux)). A pattern registered any other way escapes the access-matrix test, and it may escape the gate."
+   },
+   {
+    "name": "the identity provider's endpoints cannot be set from the environment",
+    "files": "**/*.go",
+    "must_not_match": [
+     "\"HBAND_[A-Z_]*(GITHUB|OAUTH)[A-Z_]*(URL|ENDPOINT|HOST|API)[A-Z_]*\""
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "An env override of the GitHub authorize, token or API URL lets a fake identity provider sign anyone in as the pinned owner in production."
+   },
+   {
+    "name": "templates never bypass html/template escaping",
+    "files": "internal/**/*.go",
+    "must_not_match": [
+     "template\\.(HTML|HTMLAttr|JS|JSStr|URL|CSS|Srcset)\\("
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "Q-001 forbids passing user text through template.HTML. The epic forbids report bytes ever appearing in site pages. A typed conversion is how both happen silently."
+   },
+   {
+    "name": "production code never links the fake GitHub",
+    "files": "**/*.go",
+    "must_not_import": [
+     "github.com/sshubham2/hband/internal/testutil*"
+    ],
+    "except_files": [
+     "**/*_test.go",
+     "internal/testutil/**"
+    ],
+    "because": "The fake GitHub issues a session for whatever user ID it is told. Compiled into the binary, it is a sign-in-as-owner backdoor."
+   }
+  ],
+  "outside_claims": [
+   {
+    "claim": "With CGO_ENABLED=0 on go1.27.4, modernc.org/sqlite v1.63.0 and golang.org/x/oauth2 v0.38.0 fetch, build and run. A row written to a WAL database reads back after reopen, and the program cross-compiles for linux amd64 and arm64.",
+    "evidence": "measured",
+    "source": "spike pure-go-sqlite-builds-and-cross-compiles (spikes#192)",
+    "if_wrong": "The storage choice and the static container binary fall."
+   },
+   {
+    "claim": "In Edge 158, explicit SameSite=Lax HttpOnly Path=/ cookies are sent on the callback and on the redirect after it, both on GitHub's plain 302 chain and on its form-POST-then-303 path. Strict cookies are dropped on the POST path.",
+    "evidence": "measured",
+    "source": "spike lax-cookies-survive-cross-site-oauth-redirect (spikes#192)",
+    "if_wrong": "The state and session cookies would not survive sign-in."
+   },
+   {
+    "claim": "Over https, browsers accept and send __Host- prefixed cookies that are Secure, Path=/ and have no Domain, as they do the plain Lax cookies the spike tested over http. Only the person's existing real sign-in check, behind the VPS proxy, settles this.",
+    "evidence": "recalled",
+    "source": "memory (RFC 6265bis cookie prefixes)",
+    "if_wrong": "Sign-in fails closed in production. The fallback is plain cookie names with Secure kept, changed in one function."
+   },
+   {
+    "claim": "Go 1.22+ ServeMux matches patterns against the unescaped path, redirects paths containing '..' or '//' to their clean form, redirects /admin to /admin/ when only /admin/ is registered, and lets a GET pattern also match HEAD.",
+    "evidence": "recalled",
+    "source": "memory (net/http ServeMux docs, Go 1.22 release)",
+    "if_wrong": "A path variant could miss the gate's mount. It can only reach a 404, because admin handlers exist only behind the gate and OwnerRoute. The anonymous and non-owner matrix rows pin it."
+   },
+   {
+    "claim": "net/http CrossOriginProtection (Go 1.25+): NewCrossOriginProtection, AddTrustedOrigin and Handler exist. For unsafe methods it rejects with 403 when Sec-Fetch-Site is cross-site, or when the Origin header mismatches Host and the origin is not trusted. It lets requests carrying neither header through.",
+    "evidence": "recalled",
+    "source": "memory (Go 1.25 net/http)",
+    "if_wrong": "CSRF protection for logout and SC-002 POSTs would need tokens. The logout case row exercises it."
+   },
+   {
+    "claim": "x/oauth2 v0.38.0 provides GenerateVerifier, S256ChallengeOption, VerifierOption, AuthStyleInParams and the HTTPClient context key. Exchange reports a 200 token response that carries an error field as an error.",
+    "evidence": "recalled",
+    "source": "memory (golang.org/x/oauth2 docs)",
+    "if_wrong": "PKCE would be hand-rolled. A 200-with-error response is still caught, because the callback requires a non-empty AccessToken and the TokenError200 case asserts 502."
+   },
+   {
+    "claim": "GitHub OAuth apps accept PKCE (code_challenge with S256) on the web flow, return form-encoded token responses with 200 and error=bad_verification_code on failure, require redirect_uri to match the app's callback, and return /user with a JSON integer id.",
+    "evidence": "recalled",
+    "source": "memory (GitHub OAuth apps docs and changelog)",
+    "if_wrong": "The real sign-in fails at the token step. Remove the two PKCE options, and the state cookie still defends against CSRF. The fake's fidelity is only as good as this recall (lesson #754)."
+   },
+   {
+    "claim": "A GitHub numeric user ID never changes and is never reassigned, while logins can be renamed and later claimed by someone else.",
+    "evidence": "recalled",
+    "source": "memory; DevNotion [1] pins OWNER_GITHUB_ID as numeric for this reason",
+    "if_wrong": "Pinning by ID could hand admin to another account. Nothing better is available from GitHub."
+   },
+   {
+    "claim": "modernc.org/sqlite applies _pragma=busy_timeout(5000) and _pragma=foreign_keys(1) from the DSN on every new pooled connection, as it did journal_mode(WAL) in the spike.",
+    "evidence": "recalled",
+    "source": "memory; journal_mode via _pragma measured in the spike",
+    "if_wrong": "Writers would collide and replies would not cascade. The store case row reads both pragmas back on a pooled connection."
+   },
+   {
+    "claim": "net/http/cookiejar treats 127.0.0.1 and localhost as different hosts and never sends a Secure cookie to an http URL.",
+    "evidence": "recalled",
+    "source": "memory (net/http/cookiejar)",
+    "if_wrong": "The end-to-end tests would mix app and fake cookies, or would test the Secure variant meaninglessly. The TLS cookie-attribute test reads Set-Cookie headers directly."
+   },
+   {
+    "claim": "http.DetectContentType returns application/zip for PK\\x03\\x04 and image/png for PNG. It returns text/plain; charset=utf-8 both for UTF-8 text with a BOM and for HTML that starts with a tag outside its list, such as <meta>.",
+    "evidence": "recalled",
+    "source": "memory (net/http sniff.go)",
+    "if_wrong": "SC-002 would refuse real reports or accept binaries. Its upload test feeds BOM, <meta>-first, zip and png shapes."
+   },
+   {
+    "claim": "A Content-Security-Policy response header with the sandbox directive gives the document an opaque origin and blocks scripts, even when it is opened top-level. Its tokens intersect with the iframe sandbox attribute. frame-ancestors with an explicit origin is enforced on such a document.",
+    "evidence": "recalled",
+    "source": "memory (W3C CSP Level 3, HTML sandboxing)",
+    "if_wrong": "Report isolation weakens on a direct visit. SC-005's headless-Edge beacon test settles it on this PC."
+   },
+   {
+    "claim": "A sandboxed iframe's own navigation request (its src) is made with the parent's site for cookies, so a SameSite=Lax session cookie is sent to the gated /admin/reports/{id}/raw preview.",
+    "evidence": "recalled",
+    "source": "memory (HTML/Fetch same-site computation)",
+    "if_wrong": "The owner's draft preview would show a login redirect inside the frame. That is a usability failure, not a leak. It is recorded as a decidable disagreement for SC-002."
+   },
+   {
+    "claim": "os.Rename atomically replaces an existing target on Linux, and on Windows through MoveFileEx with REPLACE_EXISTING, when source and target are on the same volume.",
+    "evidence": "recalled",
+    "source": "memory (Go os package)",
+    "if_wrong": "SC-002 replace would need delete-then-rename, which has a window with no file. Its replace test runs on this Windows PC."
+   }
+  ],
+  "decidable_disagreements": [
+   {
+    "question": "Does a session cookie with SameSite=Lax reach the gated draft preview, GET /admin/reports/{id}/raw, when an iframe with sandbox=\"allow-popups allow-popups-to-escape-sandbox\" on the admin edit page loads it?",
+    "positions": "Crossdomain moved the draft preview under the gate. Practice served drafts to the owner on public /raw/{slug}, which also depends on the cookie, so it does not escape the question. This design assumes yes: the frame's navigation request uses the parent's same-site context. It is settled in SC-002's build by headless Edge on this PC. Edge signs in through the fake GitHub, opens /admin/reports/{id}, and the test server logs whether /admin/reports/{id}/raw arrived with the session cookie. If not, the preview contract changes to a short-lived signed preview URL, which is a new contract and data.",
+    "would_force_resynthesis": true
+   }
+  ],
+  "taste_disagreements": [
+   "Package layout. Practice uses internal/{config,store,auth,server}. Crossdomain uses internal/{config,store,identity,app,admin,web,reader}. Practice's fewer packages were chosen, with admin, reader and raw inside internal/server.",
+   "Where OAuth flow state lives. Practice keeps state, verifier and next in one cookie; crossdomain uses a single-use oauth_states DB row with a 1000-row cap. The cookie was chosen as simpler, with no anonymous DB writes.",
+   "Report file naming. Practice keys files by id (<id>.html); crossdomain uses content-addressed <sha256>.html with reference counting. Id was chosen.",
+   "iframe and CSP sandbox tokens. Practice uses sandbox=\"\"; crossdomain uses allow-popups and allow-popups-to-escape-sandbox. The popup tokens were chosen so the author's target=_blank links work. Tightening is one line.",
+   "Refusal status codes. Anonymous non-GET: 403 (practice) vs 401 (crossdomain). Store error at the gate: 503 (crossdomain) vs 500 (practice). Config exit: 2 (crossdomain) vs 1 (practice). Sign-in cancelled: 400 (practice) vs 403 (crossdomain).",
+   "Whether the second interlock, an OwnerRoute proof on every admin handler, is worth its lines. Crossdomain yes, practice absent. Kept.",
+   "Defaults. Listen 127.0.0.1:8080 vs :8080; data ./data vs /data; upload cap 25 MiB vs 20 MiB, with a maximum of 512 vs 200 MiB. Chose 127.0.0.1:8080, ./data, 25 MiB and 200 MiB. The container sets listen and data explicitly.",
+   "Route and parameter names. /auth/github/login?next= vs /login?return_to=; /auth/logout vs /logout; the hband_sid vs hband_session cookie name; admin report routes keyed by {id} vs {slug}. Chose the former in each pair."
+  ],
+  "cross_domain_transfer": {
+   "source_domain": "Railway signalling: fail-safe interlockings (vital vs non-vital logic, home signal protecting an area)",
+   "pattern": "Proceed only while every required condition is positively present. Any lost input drops to danger. Keep the vital logic tiny and exhaustively tested. Protect the whole area with one home signal that has no other wiring into it, and check the proof again at the point of use.\n\nHere:\n- IsOwner is the only allow rule, and every error reads as deny.\n- RequireOwner on the /admin/ subtree is the home signal.\n- OwnerRoute's context proof is the second, independent check.\n- Ownership is recomputed on every request, the way a track circuit reports now rather than history.",
+   "rationale": "The slice's failure mode is the signalling failure mode: wrongly showing proceed, which here means letting a non-owner through. That is far worse than wrongly showing danger, which only means signing in again. Building the safe state into the structure makes 'no other account can ever reach admin pages' hold for SC-002's routes before they exist, and answers lesson #41's question of what happens when an assumption fails. The parts carried over: fail-safe defaults, the subtree gate, the second interlock and per-request evaluation. The decision-enum machinery was not carried over.",
+   "transfer_found": true,
+   "invariants": [
+    {
+     "precondition": "Every zero or missing input to the decision reads as a non-owner.",
+     "status": "holds",
+     "evidence": "IsOwner requires ownerID > 0. users.github_id has CHECK(github_id > 0). The config grammar refuses '' and '0', and a config error exits 2 before listening. Pinned by the owner-ID grammar row and the config row of the binary case."
+    },
+    {
+     "precondition": "The GitHub ID never comes from anything the browser sends.",
+     "status": "holds",
+     "evidence": "The ID comes only from the server-to-server /user call, made with a token from a code exchange that needs the client secret and the PKCE verifier. Session tokens are 256-bit, and only their hash is stored. No header feeds identity (architecture rule), and endpoints cannot be overridden from the environment (architecture rule plus the binary case)."
+    },
+    {
+     "precondition": "Every request that can reach an admin handler passes the gate, whatever the path encoding, case, dot-segments or doubled slashes.",
+     "status": "must-verify",
+     "evidence": "Loop-checkable, with no person needed. The anonymous and non-owner matrix case rows cover the path variants, and the gated-mount architecture rule forbids any other registration."
+    },
+    {
+     "precondition": "Losing the store reads as deny.",
+     "status": "holds",
+     "evidence": "An Identify error is recorded, and RequireOwner answers 503 for it. Pinned by the store-unavailable case row."
+    },
+    {
+     "precondition": "Ownership is re-proven on every request, so a session cannot outlive a change of the pinned owner.",
+     "status": "holds",
+     "evidence": "There is no stored role (architecture rule and store case). The pin-change case row expects 403."
+    },
+    {
+     "precondition": "The app never offers a cached 'proceed': every response from the gate forbids storage.",
+     "status": "holds",
+     "evidence": "RequireOwner sets Cache-Control: no-store before it decides, which the anonymous matrix row asserts. Whether the person's VPS proxy honours that header is filed for the person."
+    },
+    {
+     "precondition": "The authority behind the proof, GitHub, is itself fail-safe.",
+     "status": "fails",
+     "evidence": "A compromised GitHub account for the pinned ID is a compromised admin. This is accepted under the decided stack, and mitigated outside the system by the author's own GitHub 2FA. Pinning the numeric ID rather than the login prevents takeover through a renamed or recycled login."
+    }
+   ]
+  },
+  "prior_art": [
+   {
+    "pattern": "Owner-only GitHub OAuth. Mint a random state into a cookie, verify it in constant time, exchange the code, fetch /user, check that id equals a numeric OWNER_GITHUB_ID, and refuse partial OAuth env config at startup.",
+    "where": "https://github.com/yashksaini-coder/DevNotion/commit/20cfd35791f63544c635cd9bb95593c0ef65fa16",
+    "authority": "oss",
+    "basis": "cited",
+    "source_date": "2026-06-29"
+   },
+   {
+    "pattern": "The owner gate must test the decoded pathname the router uses, so that encoded variants like /%64ev/ and /%2564ev/ meet the same gate.",
+    "where": "https://buxx.me/docs/platform/auth",
+    "authority": "community",
+    "basis": "cited"
+   },
+   {
+    "pattern": "The session cookie carries only the user identity, and the role is looked up on every request so changes apply immediately. Cookie flags httpOnly, secure, sameSite=lax, path=/.",
+    "where": "https://github-wiki-see.page/m/oskar-ott/BuhlOS/wiki/Auth-and-Access-Control",
+    "authority": "community",
+    "basis": "cited",
+    "source_date": "2026-06-12"
+   },
+   {
+    "pattern": "net/http CrossOriginProtection (Go 1.25+), using Sec-Fetch-Site with an Origin fallback and AddTrustedOrigin, in place of CSRF tokens.",
+    "where": "Go standard library net/http (Go 1.25 release)",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "PKCE helpers GenerateVerifier, S256ChallengeOption and VerifierOption, plus AuthStyleInParams, in golang.org/x/oauth2.",
+    "where": "golang.org/x/oauth2",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Browser-bound state against login CSRF, plus PKCE even for confidential clients against authorization-code injection.",
+    "where": "IETF RFC 9700 (OAuth 2.0 Security Best Current Practice)",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Store only the SHA-256 of a high-entropy session token, and regenerate the session at sign-in to prevent fixation.",
+    "where": "OWASP Session Management Cheat Sheet / The Copenhagen Book",
+    "authority": "community",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "A CSP sandbox directive in the response header gives untrusted HTML an opaque origin even when it is opened top-level, and it combines with the iframe sandbox attribute.",
+    "where": "W3C Content Security Policy Level 3; HTML sandboxing",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Forward-only SQLite migrations tracked with PRAGMA user_version instead of a migrations table or library.",
+    "where": "SQLite PRAGMA user_version documentation / common practice",
+    "authority": "community",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Fail-safe defaults and complete mediation: base access on permission rather than exclusion, and check every access. Fail-safe signalling (proceed only while positively energised, a home signal protecting an area) is the same idea in railway form.",
+    "where": "Saltzer & Schroeder 1975; railway interlocking practice",
+    "authority": "official",
+    "basis": "recalled"
+   }
+  ],
+  "epic_parts": [
+   {
+    "key": "SC-002",
+    "builds": "Builds the report library and the admin report routes.\n\n**What it adds:**\n- Migration internal/store/migrations/0002_reports.sql: the reports table, STRICT, with sha256 and published_at NULL.\n- HBAND_UPLOAD_MAX_BYTES in internal/config.\n- internal/reports: Create, Replace, Publish, Unpublish, Delete, ByID, BySlug, Latest, ListAll, and the startup sweep of tmp/ and orphan <id>.html files.\n- The admin report rows in internal/server/admin.go's adminRoutes, with their templates: GET /admin/{$} list, GET /admin/reports/new, POST /admin/reports, GET /admin/reports/{id}, GET /admin/reports/{id}/raw (via serveRaw, drafts included), POST /admin/reports/{id}/replace, /publish, /unpublish and /delete.\n- serveRaw in internal/server/raw.go, if SC-005 has not landed yet. It is one function shared by both parts.\n\n**Tests** (go test ./internal/reports ./internal/server):\n- action=publish: a published row with published_at set, and <data>/reports/<id>.html byte-equal to the upload.\n- action=draft: published_at is NULL.\n- Replace: same id and slug, unchanged published_at, new bytes, sha256 and size. Run on this Windows PC, so the rename-over-existing claim is exercised.\n- Unpublish, then republish: published_at keeps its original value.\n- Delete: the row is gone and os.Stat on the file reports not-exist.\n- A body of exactly cap is accepted.\n- These shapes are refused with no row, no file and an empty tmp/: cap+1 (413); two file parts; a .zip or .txt name; zip bytes or PNG bytes named x.html; a UTF-16 BOM file; slugs 'Bad Slug', '../x', '' and 81 characters; an empty title (all 400); a duplicate slug (409).\n- These are accepted: UTF-8-BOM HTML, and HTML that starts with <meta>.\n- A cross-origin POST gets 403.\n- Startup removes a planted tmp file and an orphan 999.html.\n- The existing TestAdminAccessMatrix covers every new row for anonymous and non-owner visitors with no edits, and a non-owner gets 403 on /admin/reports/{id}/raw.\n- The decidable disagreement is settled here: a headless-Edge test (HBAND_TEST_BROWSER set to the installed msedge.exe) signs in through the fake and checks that the preview iframe's request reaches /admin/reports/{id}/raw with the session cookie."
+   },
+   {
+    "key": "SC-005",
+    "builds": "Builds the public reader and the isolated report path.\n\n**What it adds:**\n- internal/server/reader.go: GET /{$}, replacing SC-001's minimal home page, and GET /reports/{slug}, both rendered by templates/report.html.\n- internal/server/raw.go: serveRaw and GET /raw/{slug}, published only.\n\nIt keeps the header's sign-in, sign-out and owner Admin link from SC-001.\n\n**Tests** (go test ./internal/server):\n- With nothing published, GET / answers 200 'No reports yet'.\n- With two published reports and a newer draft, home shows the newest published one.\n- Draft, unpublished, deleted and unknown slugs answer byte-identical 404s on /reports/{slug} and /raw/{slug}.\n- The iframe's sandbox attribute is exactly 'allow-popups allow-popups-to-escape-sandbox'. It contains no allow-scripts, allow-same-origin, allow-top-navigation or allow-forms, and its src is /raw/<slug>.\n- A sentinel string planted in the report bytes appears in neither / nor /reports/<slug>.\n- A title of `<script>x</script>` appears only escaped.\n- The /raw headers are parsed and asserted directive by directive: sandbox tokens as above, script-src 'none', default-src 'none', style-src 'unsafe-inline', img-src data:, font-src data:, frame-ancestors equal to the base origin. The site CSP is not present. nosniff, Content-Type text/html; charset=utf-8, CORP same-origin and the ETag are present.\n- HEAD works, and If-None-Match gets 304.\n- End to end, through the SC-002 routes: the owner POSTs /admin/reports with action=publish, then an anonymous client gets 200 on /reports/<slug> and /raw/<slug> bytes equal to the upload. After a replace, /raw/<slug> serves the new bytes and the page's publish date is unchanged.\n- Headless Edge on this PC: HBAND_TEST_BROWSER='C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe' go test ./internal/server -run TestReportScriptsNeverRun. A report containing `<script>new Image().src='/beacon-script'</script>`, `<img src=x onerror=\"this.src='/beacon-onerror'\">`, `<body onload=\"location='/beacon-onload'\">` and `<img src=\"/beacon-img\">` is loaded both framed via /reports/<slug> and top-level via /raw/<slug>. The server logs the /raw request and zero /beacon-* requests."
+   }
+  ],
+  "filed_for_later": [
+   {
+    "what": "Check on the deployed VPS reverse proxy that it does not cache admin responses, and that it passes the Cache-Control: no-store, Set-Cookie and Sec-Fetch-Site headers through unchanged.",
+    "why": "The proxy configuration lives on the author's VPS, which this machine cannot see or change. The loop can only assert that the app sends no-store, which the anonymous matrix case does. The real sign-in check already on the backlog covers __Host- and Secure cookies over https, PKCE acceptance by github.com and CrossOriginProtection behind the proxy, so it is not filed again.",
+    "who": "person"
+   }
+  ],
+  "retier": {
+   "tier": "high",
+   "why": "This design is the only design and critique the whole epic gets. SC-002 and SC-005 are built from it with no review of their own. It therefore settles report isolation, which the project's own Process constraint marks high-risk: the CSP sandbox, the iframe tokens and the no-inlining guarantee. It also settles three seams every later slice passes through: the irreversible identity model (numeric GitHub ID, no stored role), the owner gate and session contract consumed by every later admin and moderation block, and the forward-only migration convention every schema change appends to. Lessons #103 and #41 both apply to the gate."
+  },
+  "channeled_experts": [
+   "Go net/http maintainers (ServeMux patterns, CrossOriginProtection, cookies)",
+   "OAuth 2.0 security reviewer (RFC 9700: state binding, PKCE, code injection)",
+   "Railway signalling engineer (fail-safe interlocking, home signal, vital logic)",
+   "W3C CSP Level 3 / HTML sandboxing (sandbox directive, frame-ancestors)"
+  ],
+  "whats_new": [
+   "go.mod: module github.com/sshubham2/hband, depending on golang.org/x/oauth2 and modernc.org/sqlite",
+   "cmd/hband/main.go: realMain validates config (exit 2) before opening the store (exit 1) and listening, logs the pinned owner ID and the actual address, and shuts down gracefully",
+   "internal/config: HBAND_* loader with the strict owner-ID grammar, loopback-only http, derived Origin, CallbackURL and SecureCookies, and GitHub endpoints that no env var can set",
+   "internal/store: _pragma DSN, embedded user_version migrations that refuse a newer schema, 0001_identity.sql (users, sessions), and the user and session queries",
+   "internal/auth/github.go and handlers.go: login (state, verifier and next in one Lax cookie, plus PKCE), the GET-only callback with a strict /user decode, and POST logout",
+   "internal/auth/session.go: hashed 256-bit session tokens, 30-day absolute expiry, rotation at sign-in, the cookie-grammar short-circuit, the Identify middleware and ViewerFrom",
+   "internal/auth/owner.go: IsOwner, RequireOwner (303, 403, 503, no-store) and the OwnerRoute second interlock with a private context key",
+   "internal/server: router with the site CSP, CrossOriginProtection and Identify; the adminRoutes table with its single gated mount; the minimal home page, /healthz, the admin landing page with the data-hband-admin marker; and site.css",
+   "internal/testutil/fakegithub: stand-in authorize, access_token and /user endpoints with S256 checking and switchable failures",
+   "Tests: config grammar and base URL tables, the realMain and real-binary runs, the store, end-to-end owner sign-in, the anonymous and non-owner access matrices with path variants, pin-change revocation, callback refusals with row counts, store-error denial, dead and rotated sessions, logout with cross-origin refusal, open-redirect next, and cookie attributes over http and TLS",
+   "SC-002 (later, from this design): 0002_reports.sql, internal/reports, the admin report routes and templates, and the upload and lifecycle tests",
+   "SC-005 (later, from this design): reader.go, raw.go and report.html, the header and no-inlining tests, and the headless-Edge beacon test"
+  ],
+  "whats_reused": [
+   "Go standard library: net/http ServeMux patterns, http.CrossOriginProtection, html/template, embed, crypto/rand, crypto/subtle, crypto/sha256, database/sql, log/slog, os/signal, net/http/httptest, net/http/cookiejar",
+   "golang.org/x/oauth2 v0.38.0 and modernc.org/sqlite v1.63.0, which the spike resolved and built with CGO_ENABLED=0 on go1.27.4, including the linux amd64 and arm64 cross-builds",
+   "Spike constraints as stated: SameSite=Lax set explicitly on the state and session cookies, never Strict, and the callback handled as GET",
+   "Q-001: server-rendered html/template, no front-end build, never template.HTML for user text, site CSP script-src 'self', a separate block-all-scripts CSP on the report path",
+   "Q-002: SQLite through modernc with the WAL, busy_timeout(5000) and foreign_keys(1) pragmas on every connection, on a local volume",
+   "Q-003: Go testing with httptest, GitHub faked with httptest.NewServer and never called live from tests",
+   "Q-004: a static CGO_ENABLED=0 binary with one data volume. Packaging itself is not built in this epic",
+   "Lessons #103 (strict grammar, deny by default), #41 (what happens when an assumption fails), #73 (sizing), #754 (a real-binary run beside the stubbed seam) and #420 (person checks are filed, not made loop obligations)"
+  ],
+  "open_questions": [],
+  "code_claims": [],
+  "reason": "Composed from two proposals that agree on substance. Practice provides the core and crossdomain adds the fail-safe second interlock, the real-binary run and the gated draft preview. Seven seams were reconciled, and every recalled outside behaviour is labelled. Raised to high because this one design also settles SC-005's report isolation, which the project marks high-risk, and the identity and migration contracts every later slice uses."
+ }
+}

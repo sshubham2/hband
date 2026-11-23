@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not allowed - hband</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<main>
+<h1>Not allowed</h1>
+<p>This GitHub account cannot open admin pages.</p>
+{{if .Login}}<p>You are signed in as @{{.Login}}.</p>{{end}}
+<p><a href="/">Back to the site</a></p>
+{{if .Login}}<form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>{{end}}
+</main>
+</body>
+</html>

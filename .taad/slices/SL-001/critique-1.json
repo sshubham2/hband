@@ -1,0 +1,209 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-001",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-23T12:24:02.642Z",
+ "head": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+ "run_id": 11611,
+ "summary": "The core identity model holds. The owner is identified by numeric ID, there is no stored role, ownership is recomputed on every request, the gate covers the whole /admin/ subtree, sessions are stored hashed, cookies are Lax, PKCE is used and config is refused at startup when invalid. The outside claims it leans on check out: GitHub's July 2025 changelog confirms PKCE with S256 only, the Go csrf.go source confirms how CrossOriginProtection decides, and the buxx.me citation says what the design says it says.\n\nOne major defect. The access-matrix case expects every path variant to answer 303 for GET or HEAD and 403 for POST. Go's ServeMux answers //admin/, /admin/../admin/ and /admin with a 301 before the gate is reached, and /ADMIN/ gets a 404 because routing is case-sensitive. As written, the central security test cannot pass. Its must-verify precondition also holds by construction rather than needing to be verified.\n\nMinor gaps:\n- Cookie attributes are a rule the builder has to remember at five or more call sites. A deletion of a __Host- cookie that leaves out Secure fails silently, and only in production.\n- No planned case exercises OwnerRoute's 403 or the IsOwner(0, …) branch.\n- The site CSP's form-action 'self' will block a form-based sign-in in Chromium, which checks form-action against redirects.\n- serveRaw's no-cache overwrites the gate's no-store on the draft preview, which contradicts the coherence check.\n- Two architecture rules pass falsely for their commonest accidental spelling: an import of text/template, and r.Host.\n- Store failure at the callback has no defined status.\n- SC-002's replace has a commit-failure window.\n\nLesson #73 asked for a large size or a cut. The design acknowledged it but neither resized nor cut the slice. That is noted, not filed.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The core identity model holds. The owner is identified by numeric ID, there is no stored role, ownership is recomputed on every request, the gate covers the whole /admin/ subtree, sessions are stored hashed, cookies are Lax, PKCE is used and config is refused at startup when invalid. The outside claims it leans on check out: GitHub's July 2025 changelog confirms PKCE with S256 only, the Go csrf.go source confirms how CrossOriginProtection decides, and the buxx.me citation says what the design says it says.\n\nOne major defect. The access-matrix case expects every path variant to answer 303 for GET or HEAD and 403 for POST. Go's ServeMux answers //admin/, /admin/../admin/ and /admin with a 301 before the gate is reached, and /ADMIN/ gets a 404 because routing is case-sensitive. As written, the central security test cannot pass. Its must-verify precondition also holds by construction rather than needing to be verified.\n\nMinor gaps:\n- Cookie attributes are a rule the builder has to remember at five or more call sites. A deletion of a __Host- cookie that leaves out Secure fails silently, and only in production.\n- No planned case exercises OwnerRoute's 403 or the IsOwner(0, …) branch.\n- The site CSP's form-action 'self' will block a form-based sign-in in Chromium, which checks form-action against redirects.\n- serveRaw's no-cache overwrites the gate's no-store on the draft preview, which contradicts the coherence check.\n- Two architecture rules pass falsely for their commonest accidental spelling: an import of text/template, and r.Host.\n- Store failure at the callback has no defined status.\n- SC-002's replace has a commit-failure window.\n\nLesson #73 asked for a large size or a cut. The design acknowledged it but neither resized nor cut the slice. That is noted, not filed.",
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "major",
+    "dimension": "unfounded-assumptions",
+    "nature": "defect",
+    "claim": "The anonymous and non-owner access-matrix rows expect every path variant to answer 303 for GET or HEAD (anonymous) and 403 for POST or for any method (non-owner). That contradicts ServeMux behaviour, which the design's own outside_claims recall correctly.\n- //admin/ and /admin/../admin/ get a 301 to /admin/ from the outer mux before RequireOwner runs, for POST as well.\n- /admin (no slash) gets the mux's 301 to /admin/.\n- /ADMIN/ matches no pattern, because ServeMux is case-sensitive, so it gets a 404.\n- Only /%61dmin/ and /admin/%2e%2e/admin/ reach the gate. The ServeMux docs say %2e is preserved and is not treated as a dot segment.\n\nSo four of the six variants assert a status that cannot occur, in both matrix rows. The builder then either loosens the assertions ad hoc or bends routing to fit them, for example by lowercasing paths. Either way it happens in the slice's most important test.\n\nThe imported must-verify precondition ('every request that can reach an admin handler passes the gate, whatever the encoding') actually holds BY CONSTRUCTION. adminMux is referenced only inside the single RequireOwner mount, so a variant that misses the mount can only reach a 404 or a mux redirect, never an admin handler. If it proves false, nothing leaks; what breaks is the test spec.",
+    "evidence": "The design's case 'keep admin pages from anonymous visitors', and the non_owner row that reuses 'the same route, path-variant and method set'. The ServeMux doc (Go commit d6df73ce, 'clarify ServeMux path sanitization', https://go.googlesource.com/go/+/d6df73ce406669b75ef9957160dd8fd4070354f4%5E%21/) says it is 'redirecting any request containing . or .. segments or repeated slashes to an equivalent, cleaner URL. Escaped path elements such as \"%2e\" for \".\" and \"%2f\" for \"/\" are preserved and aren't considered separators for request routing.' It can be settled by running a 20-line httptest program with the planned mux, using a client whose CheckRedirect returns ErrUseLastResponse, and printing the status for each variant and method.",
+    "file": ".taad/slices/SL-001/design-slice-1.json",
+    "line": 282,
+    "quote": {
+     "path": ".taad/slices/SL-001/design-slice-1.json",
+     "line": 282,
+     "text": "path variants /%61dmin/, /admin/%2e%2e/admin/, //admin/, /ADMIN/, /admin/../admin/"
+    },
+    "fix": "Give each variant class its own expected outcome. Variants the mux cleans (//admin/, /admin/../admin/, /admin) get 301 with Location exactly /admin/, under every method. Case variants (/ADMIN/) get 404. Variants that reach the gate (/%61dmin/, /admin/%2e%2e/admin/, /admin/, every adminRoutes path) get 303 or 403 as now. On top of that, assert one invariant for every response: no 2xx, no data-hband-admin marker, and any Location is either the cleaned /admin/ path or /auth/github/login?…. Restate the precondition as 'holds: adminMux is referenced only inside the RequireOwner mount'."
+   },
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "defect",
+    "claim": "The cookie attribute set is a rule each call site has to remember, and there are at least five of them:\n- set the OAuth cookie at login;\n- clear it on every callback outcome, which is many branches;\n- set the session cookie;\n- expire it at logout;\n- any later cookie.\n\nBrowsers reject every Set-Cookie for a __Host- name that lacks Secure or Path=/, and that includes a deletion. So a clear written as {Name, MaxAge:-1} is silently ignored in production. The OAuth cookie then survives the callback (the design leans on 'cleared on every callback outcome' for replay), and logout leaves the sid cookie in the browser.\n\nThe tests cannot see this:\n- The end-to-end tests run on loopback http with the plain names, where no prefix rule applies.\n- TestCookieAttributes is specified only for the set path.\n\nThe spike's 'set Lax explicitly' constraint is likewise not enforced for future cookies: the Strict rule does not catch an unset SameSite.",
+    "evidence": "In the session component, cookie attributes are described as a property every cookie must carry. No single constructor is named. The callback contract says 'Always clears the OAuth cookie' on every branch.",
+    "file": ".taad/slices/SL-001/design-slice-1.json",
+    "line": 41,
+    "quote": {
+     "path": ".taad/slices/SL-001/design-slice-1.json",
+     "line": 41,
+     "text": "Every cookie is HttpOnly, SameSite=Lax set explicitly (never Strict, per the spike) and Path=/, with no Domain, and Secure when SecureCookies is on."
+    },
+    "fix": "Put one setCookie(w, cfg, name, value, maxAge) and one clearCookie(w, cfg, name) in internal/auth that always apply HttpOnly, SameSite=Lax, Path=/, no Domain, Secure when SecureCookies is on, and the __Host- prefix. Add an architecture rule forbidding `http.Cookie{` and `http.SetCookie(` outside that file. Extend TestCookieAttributes, under an https config, to every Set-Cookie on every path, including each callback refusal and logout."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "required",
+    "claim": "The second interlock is kept as a security control, but no planned case exercises it. Every case check targets ./internal/config, ./cmd/hband, ./internal/server or ./internal/store; none targets ./internal/auth. Both of these can therefore be wrong with every test green:\n- OwnerRoute answering 403 when no Owner is in the context. A pass-through implementation passes every listed case, because every admin request in the tests arrives through RequireOwner.\n- IsOwner's ownerID <= 0 branch. Config makes it unreachable end to end, but Config literals in tests and later callers can reach it.",
+    "evidence": "The design's unified error contract lists the OwnerRoute refusal. The cases list has no row that calls OwnerRoute without the gate, and none that tables IsOwner(0,0), IsOwner(-1,-1), IsOwner(42,0) or IsOwner(42,43).",
+    "file": ".taad/slices/SL-001/design-slice-1.json",
+    "line": 151,
+    "quote": {
+     "path": ".taad/slices/SL-001/design-slice-1.json",
+     "line": 151,
+     "text": "OwnerRoute without proof: 403"
+    },
+    "fix": "Add a case row: go test ./internal/auth -run 'TestOwnerRouteWithoutProof|TestIsOwner'. Wrap a handler that records its calls in OwnerRoute and serve a bare request; expect 403 and zero calls. Also table IsOwner over zero, negative, mismatched and matching IDs."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "security",
+    "nature": "defect",
+    "claim": "The site CSP sets form-action 'self', and Chromium and Safari enforce form-action against every redirect in the chain after a form submission. If the 'Sign in with GitHub' control on the home page, or any later 'sign in to vote' control, is a <form> (a common pattern), its 302 to https://github.com/login/oauth/authorize is blocked and sign-in silently fails in the browser.\n\nThe design leaves the control's shape unspecified. No loop test can catch this: the cookiejar client does not enforce CSP, and the spike started /login from the command line. Only the person's real sign-in would show it.",
+    "evidence": "The site CSP contains `form-action 'self'`. MDN's form-action page says Chrome blocks redirects after form submission (https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/form-action). GitLab MR !90082 hit exactly this on an OAuth redirect: 'Chrome takes the redirection target into account when evaluating CSP violations' (https://gitlab.com/gitlab-org/gitlab/-/merge_requests/90082).",
+    "file": ".taad/slices/SL-001/design-slice-1.json",
+    "line": 53,
+    "quote": {
+     "path": ".taad/slices/SL-001/design-slice-1.json",
+     "line": 53,
+     "text": "`GET /{$}`: in SC-001 a minimal home page with 'Sign in with GitHub', or 'Signed in as @login', a sign-out form and an Admin link when IsOwner."
+    },
+    "fix": "State that every sign-in control is an <a href=\"/auth/github/login?next=…\"> and never a form, and have the home-page test assert the anchor. The alternative is to add https://github.com to form-action."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "claim": "The coherence check says the gate's no-store is compatible with the raw headers, but it is not. RequireOwner sets Cache-Control: no-store first, and then serveRaw calls Header().Set(\"Cache-Control\", \"no-cache\"), which replaces it. The gated draft preview GET /admin/reports/{id}/raw therefore goes out storable, against the contract that every gated response carries no-store and against the transfer invariant 'every response from the gate forbids storage'.\n\nThe design's own retier rationale says SC-002 is built from this design with no critique of its own, so nothing later will catch the contradiction.",
+    "evidence": "serveRaw's header list includes `Cache-Control: no-cache`, and it uses Header().Set so that it can replace the site CSP. The gate component says 'RequireOwner(h) sets Cache-Control: no-store first'.",
+    "file": ".taad/slices/SL-001/design-slice-1.json",
+    "line": 151,
+    "quote": {
+     "path": ".taad/slices/SL-001/design-slice-1.json",
+     "line": 151,
+     "text": "The gate's Cache-Control: no-store is compatible with the raw headers."
+    },
+    "fix": "Have serveRaw take the cache policy as a parameter: no-cache for public /raw/{slug} and no-store for the admin preview. Alternatively, have it set Cache-Control only when the header is still empty. Then add the owner-preview response to the no-store assertion."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The rule 'templates never bypass html/template escaping' passes falsely for the commonest accidental bypass: importing text/template. A page rendered through text/template has no escaping at all and never spells template.HTML(. goimports and gopls can resolve a bare `template.` to text/template.",
+    "evidence": "In fitness.yaml, the rule's only check is a regex on typed conversions, with no must_not_import.",
+    "file": ".taad/fitness.yaml",
+    "line": 55,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 55,
+     "text": "template\\.(HTML|HTMLAttr|JS|JSStr|URL|CSS|Srcset)\\("
+    },
+    "fix": "Add `must_not_import: [text/template]` to this rule for internal/** and cmd/**, keeping the _test.go exception.",
+    "class_of": "escaping-bypass spellings",
+    "threat": "accident"
+   },
+   {
+    "id": "m6",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The rule is named 'no request header ever supplies scheme, host or client identity', but it only forbids the forwarded-header names. The Host header, read as r.Host or req.Host, and the scheme inferred from r.TLS both pass it. A later handler that builds an absolute URL or a redirect from r.Host, which is the most natural spelling, defeats 'scheme and host come only from HBAND_BASE_URL' without the rule firing.",
+    "evidence": "fitness.yaml, rule 1, the only must_not_match pattern.",
+    "file": ".taad/fitness.yaml",
+    "line": 11,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 11,
+     "text": "(?i)\"(x-forwarded-[a-z-]+|x-real-ip|forwarded)\""
+    },
+    "fix": "Add the patterns `\\b(r|req)\\.Host\\b`, `\\b(r|req)\\.TLS\\b` and `(?i)Header\\.Get\\(\"(host|origin|referer)\"\\)` to the same rule, keeping the _test.go exception. CrossOriginProtection's own use of the Host header is inside the standard library, outside the repository, so the rule does not flag it.",
+    "class_of": "request-derived scheme/host spellings",
+    "threat": "accident"
+   },
+   {
+    "id": "m7",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "extra",
+    "claim": "The callback contract lists every refusal (400, 502, 405) but gives no status and no cookie ordering for a store failure on the success path: UpsertUser, DeleteExpiredSessions, deleting the incoming session, or CreateSession returning an error. The logout contract likewise does not say what a DeleteSession error does. Without a stated rule, a builder can set the session cookie before CreateSession has succeeded. Logout can also expire the cookie and answer 303 while the row survives. That is harmless to the gate, but 'sign-out ends it' becomes untrue.",
+    "evidence": "The callback contract's error_cases and the logout contract's error_cases. The store-error case row only covers Identify at the gate.",
+    "fix": "Add the rule: if any store call in the callback fails, answer 503, set no session cookie and clear the OAuth cookie. If logout's DeleteSession fails, answer 503 and keep the cookie. Extend TestStoreErrorDeniesAdmin with a callback that runs after the store is closed."
+   },
+   {
+    "id": "m8",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "claim": "SC-002's replace renames the new file over <id>.html before commit. If the commit then fails (disk full, I/O error), the transaction rolls back to the old sha256 and size_bytes while the file on disk already holds the new bytes. The stated recovery, 'the temp file is removed', no longer applies, because the temp file has been renamed. Afterwards the ETag and the size describe bytes that are not served, and a client that holds the old ETag gets a 304 for content that has changed. The design itself says SC-002 gets no critique of its own.",
+    "evidence": "The report library's storage paragraph.",
+    "file": ".taad/slices/SL-001/design-slice-1.json",
+    "line": 71,
+    "quote": {
+     "path": ".taad/slices/SL-001/design-slice-1.json",
+     "line": 71,
+     "text": "The row change and the os.Rename into place happen in one transaction, with rename before commit. On any failure the transaction rolls back and the temp file is removed."
+    },
+    "fix": "For replace, compute the ETag from the served file's sha256 at serve time, or keep the old file aside (<id>.html renamed to tmp/<id>.old) and restore it if the commit fails. Add a replace test that injects a commit failure."
+   },
+   {
+    "id": "m9",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "extra",
+    "claim": "The structural gate protects only /admin/. Viewer.IsOwner is exported to later blocks (C-005, C-006 and C-007), and the project's own constraints imply owner-only behaviour on public pages: 'Dislikes are visible only to the author', and moderation of threads. Any owner-only ACTION placed outside /admin, such as POST /comments/{id}/delete or POST /users/{id}/block, will be guarded by `if v.IsOwner` written from memory at each call site. That is exactly the per-handler check the design rejects for /admin.",
+    "evidence": "The Identify component makes Viewer{…, IsOwner} available to later epics. The key decision on the gate says 'A per-handler check breaks the first time someone forgets it.'",
+    "fix": "Record the convention in architecture_rules now: owner-only state changes exist only as adminRoutes rows, and Viewer.IsOwner may be read only to choose what to display. For example, forbid `\\.IsOwner\\b` in internal/** outside internal/auth and templates. That way later slices inherit the convention instead of reinventing it."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "M1: the matrix expects 303 and 403 where ServeMux answers 301 or 404. I checked the load-bearing recalled claims against the web.\n- GitHub PKCE: GitHub's 2025-07-14 changelog confirms it is supported, recommended and not required, with 'Only the S256 code challenge method is accepted'. It holds.\n- CrossOriginProtection: the go1.25.0 csrf.go doc confirms safe methods are always allowed, the decision uses Sec-Fetch-Site or Origin compared with the Host hostname, and requests carrying neither header pass. It holds.\n- The cited buxx.me page says 'The gate tests the decoded pathname Astro routes, so /%64ev/… and /%2564ev/… meet it too', which supports the design's citation.\n- The modernc DSN now carries a file: prefix and two more pragmas than the spike measured. The store case reads the pragmas back, so a failure would show there; no finding."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "m8: SC-002's replace has a commit-failure window. The `next` validation is sound: it covers //, /\\, a scheme or host, control characters (which blocks /\\t/ being stripped to //) and length. The owner-ID grammar table is complete for int64 limits and signs."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "m1: cookie attributes are enforced by remembering at five or more call sites, and a __Host- deletion that drops Secure fails silently only in production. Lesson #73 (size large or cut) was acknowledged in the design but neither acted on nor resized. That is noted here, not filed."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "none: the second interlock, the cookie-grammar short-circuit, /healthz and the real-binary run each cost little and each closes a named gap. The only dependencies are x/oauth2 and modernc, as decided. The detail on SC-002 and SC-005 is the engine's epic model, not scope creep in SC-001."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "m4: serveRaw's no-cache overwrites the gate's no-store on the admin draft preview, contradicting the coherence check."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "m7: store failure in the callback or logout has no status and no cookie ordering. The config exit codes (2 and 1), the Identify store error (503 at the gate, anonymous elsewhere) and the GitHub failures (502 with zero rows) are all specified and covered by cases."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "none: the build follows every decided stack item. That covers the stdlib ServeMux, HBAND_* env vars with exit 2 and 1, CrossOriginProtection trusting the BASE origin, user_version migrations, the module path and go floor, and the two-dependency limit. It also follows the Q-001 to Q-004 answers and the spike constraints: Lax set explicitly, never Strict, and a GET callback. The stale 'Go not installed' note is correctly set aside in favour of the measurement."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "m5: the text/template import gets past the escaping rule. m6: r.Host and r.TLS get past the forwarded-header rule. m9: Viewer.IsOwner invites per-handler owner checks outside /admin in later epics. The /admin registration rule relies on a negative lookahead, which works in Python's re but not in RE2. Which engine runs the rules is not visible from the repository, so it is not filed."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "m2: no case targets internal/auth, so OwnerRoute's 403 without proof and IsOwner's ownerID <= 0 branch are untested. The rest of the case list maps one to one onto the build-check criteria. The person-only real sign-in is correctly not filed again, and the VPS proxy check is filed for the person as lesson #420 requires."
+   },
+   {
+    "dimension": "security",
+    "result": "m3: form-action 'self' blocks a form-based sign-in in Chromium. Checked and sound:\n- 256-bit state compared in constant time, plus S256 PKCE whose verifier is held in an HttpOnly cookie. Code injection still fails, because the attacker's verifier does not match.\n- __Host- cookies prevent cookie tossing.\n- Hashed session tokens, with rotation at sign-in.\n- The ID comes only from the server-to-server /user call, decoded as a raw integer greater than 0.\n- No headers are trusted.\n- The fake IdP is import-banned.\n- Ownership is recomputed on every request, so a pin change revokes it.\n- javascript: links in sandboxed reports stay blocked by the initiator's script-src 'none', even with allow-popups-to-escape-sandbox."
+   }
+  ]
+ }
+}
