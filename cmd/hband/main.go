@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/sshubham2/hband/internal/config"
+	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/server"
 	"github.com/sshubham2/hband/internal/store"
 )
@@ -50,6 +51,16 @@ func realMain(ctx context.Context, getenv func(string) string, stderr io.Writer)
 	}
 	defer st.Close()
 
+	// The report library creates reports/ and tmp/ under the data directory and
+	// sweeps what an interrupted write left behind before anything is served.
+	lib, err := reports.Open(reports.Options{
+		DB: st.DB(), DataDir: cfg.DataDir, MaxUploadBytes: cfg.MaxUploadBytes, Now: time.Now,
+	})
+	if err != nil {
+		log.Error("cannot prepare the report library", "error", err)
+		return 1
+	}
+
 	ln, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
 		log.Error("cannot listen", "error", err)
@@ -63,7 +74,7 @@ func realMain(ctx context.Context, getenv func(string) string, stderr io.Writer)
 	}
 
 	srv := &http.Server{
-		Handler:           server.New(cfg, st, time.Now),
+		Handler:           server.New(cfg, st, lib, time.Now),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}

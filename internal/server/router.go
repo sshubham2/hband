@@ -14,6 +14,7 @@ import (
 
 	"github.com/sshubham2/hband/internal/auth"
 	"github.com/sshubham2/hband/internal/config"
+	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/store"
 )
 
@@ -30,22 +31,25 @@ const siteCSP = "default-src 'self'; script-src 'self'; style-src 'self'; " +
 	"object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
 type app struct {
-	cfg   config.Config
-	store *store.Store
-	auth  *auth.Auth
-	pages *template.Template
+	cfg     config.Config
+	store   *store.Store
+	reports *reports.Library
+	auth    *auth.Auth
+	pages   *template.Template
 }
 
 // New builds the whole handler. The chain from outside in: security headers,
 // cross-origin protection (trusted origin = the base URL's origin), identity,
 // then the mux. Scheme and host come only from cfg; no handler reads them
-// from the request.
-func New(cfg config.Config, st *store.Store, clock func() time.Time) http.Handler {
+// from the request. lib is the opened report library (it has already swept
+// the data directory).
+func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() time.Time) http.Handler {
 	a := &app{
-		cfg:   cfg,
-		store: st,
-		auth:  auth.New(cfg, st, clock),
-		pages: template.Must(template.ParseFS(templateFS, "templates/*.html")),
+		cfg:     cfg,
+		store:   st,
+		reports: lib,
+		auth:    auth.New(cfg, st, clock),
+		pages:   template.Must(template.ParseFS(templateFS, "templates/*.html")),
 	}
 
 	mux := http.NewServeMux()

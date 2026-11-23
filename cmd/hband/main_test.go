@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"mime/multipart"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -195,7 +197,15 @@ type proc struct {
 // startProc runs the binary with exactly the given HBAND_* environment.
 func startProc(t *testing.T, bin string, env map[string]string) *proc {
 	t.Helper()
+	return startProcIn(t, bin, "", env)
+}
+
+// startProcIn is startProc with a working directory (the default data
+// directory, ./data, is relative to it).
+func startProcIn(t *testing.T, bin, dir string, env map[string]string) *proc {
+	t.Helper()
 	cmd := exec.Command(bin)
+	cmd.Dir = dir
 	for _, kv := range os.Environ() {
 		if !strings.HasPrefix(kv, "HBAND_") {
 			cmd.Env = append(cmd.Env, kv)
@@ -383,6 +393,136 @@ func TestBinary(t *testing.T) {
 			if !strings.Contains(out, name) || strings.Contains(out, secretMarker) || strings.Contains(out, "listening") {
 				t.Fatalf("%s: unexpected output: %s", name, out)
 			}
+		}
+	})
+
+	// The shipped defaults (#929): no HBAND_DATA_DIR and no HBAND_MAX_UPLOAD_BYTES.
+	// The data directory is ./data under the working directory, the cap is
+	// 26214400, and the whole upload lifecycle works through the real binary.
+	t.Run("reports through the real binary with the default data directory and cap", func(t *testing.T) {
+		cwd := t.TempDir()
+		// What an interrupted run leaves behind: swept at startup.
+		for _, d := range []string{"tmp", "reports"} {
+			if err := os.MkdirAll(filepath.Join(cwd, "data", d), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		planted := []string{filepath.Join(cwd, "data", "tmp", "upload-planted"), filepath.Join(cwd, "data", "reports", "999.html")}
+		for _, p := range planted {
+			if err := os.WriteFile(p, []byte("left behind"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		fake := fakegithub.New("cid", secretMarker, "https://hband.test/auth/github/callback")
+		defer fake.Close()
+		addr := freeAddr(t)
+		env := baseEnv("", addr)
+		delete(env, "HBAND_DATA_DIR")
+		env["HBAND_GITHUB_URL"] = fake.URL()
+		env["HBAND_GITHUB_API_URL"] = fake.URL()
+		p := startProcIn(t, bin, cwd, env)
+		p.waitListening(t)
+		for _, path := range planted {
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Fatalf("startup did not sweep %s: %v", path, err)
+			}
+		}
+
+		fake.SetUser(fakegithub.User{ID: 4242, Login: "the-owner"})
+		owner := browser(addr, true)
+		if status, _, body := fetch(t, owner, "https://hband.test/auth/github/login?next="+url.QueryEscape("/admin")); status != 200 ||
+			!strings.Contains(body, `<input type="file" name="file"`) {
+			t.Fatalf("the owner's admin page has no upload form: %d", status)
+		}
+		c := browser(addr, false)
+		c.Jar = owner.Jar
+
+		upload := func(slug, title, status string, data []byte) (int, http.Header, string) {
+			t.Helper()
+			var buf bytes.Buffer
+			mw := multipart.NewWriter(&buf)
+			mw.WriteField("title", title)
+			mw.WriteField("slug", slug)
+			mw.WriteField("status", status)
+			w, _ := mw.CreateFormFile("file", slug+".html")
+			w.Write(data)
+			mw.Close()
+			resp, err := c.Post("https://hband.test/admin/reports", mw.FormDataContentType(), &buf)
+			if err != nil {
+				t.Fatalf("upload %s: %v", slug, err)
+			}
+			defer resp.Body.Close()
+			b, _ := io.ReadAll(resp.Body)
+			return resp.StatusCode, resp.Header, string(b)
+		}
+		act := func(slug, action string) int {
+			t.Helper()
+			resp, err := c.PostForm("https://hband.test/admin/reports/"+slug+"/"+action, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+			return resp.StatusCode
+		}
+		fileOf := func(id int) ([]byte, error) {
+			return os.ReadFile(filepath.Join(cwd, "data", "reports", strconv.Itoa(id)+".html"))
+		}
+		sized := func(n int, tag string) []byte {
+			head := "<!doctype html><title>" + tag + "</title><p>"
+			return []byte(head + strings.Repeat("x", n-len(head)))
+		}
+
+		v1 := sized(2000, "v1")
+		if status, hdr, body := upload("first", "First", "published", v1); status != 303 || hdr.Get("Location") != "/admin/reports/first" {
+			t.Fatalf("upload: %d %q %s", status, hdr.Get("Location"), body)
+		}
+		if got, err := fileOf(1); err != nil || !bytes.Equal(got, v1) {
+			t.Fatalf("data/reports/1.html under the working directory: %v", err)
+		}
+		status, hdr, body := fetch(t, c, "https://hband.test/admin/reports/first/raw")
+		if status != 200 || body != string(v1) || hdr.Get("Cache-Control") != "no-store" ||
+			!strings.HasPrefix(hdr.Get("Content-Security-Policy"), "sandbox ") || !strings.Contains(hdr.Get("Content-Security-Policy"), "script-src 'none'") {
+			t.Fatalf("preview: %d cache %q csp %q", status, hdr.Get("Cache-Control"), hdr.Get("Content-Security-Policy"))
+		}
+
+		// Replace keeps the id.
+		v2 := sized(3000, "v2")
+		if status, _, body := upload("first", "First, replaced", "published", v2); status != 303 {
+			t.Fatalf("replace: %d %s", status, body)
+		}
+		if got, _ := fileOf(1); !bytes.Equal(got, v2) {
+			t.Fatal("replace did not swap the file")
+		}
+		if _, err := fileOf(2); !os.IsNotExist(err) {
+			t.Fatalf("a replace created a second file: %v", err)
+		}
+
+		// The default cap is 26214400: exactly that is accepted, one more is not.
+		if status, _, body := upload("at-cap", "At cap", "draft", sized(26214400, "cap")); status != 303 {
+			t.Fatalf("a file of exactly 26214400 bytes: %d %.200s", status, body)
+		}
+		if status, _, _ := upload("over-cap", "Over cap", "draft", sized(26214401, "over")); status != 413 {
+			t.Fatalf("a file of 26214401 bytes: %d, want 413", status)
+		}
+		if _, err := fileOf(3); !os.IsNotExist(err) {
+			t.Fatalf("the refused upload left a file: %v", err)
+		}
+
+		if act("first", "unpublish") != 303 || act("first", "publish") != 303 {
+			t.Fatal("unpublish or publish failed")
+		}
+		if act("first", "delete") != 303 {
+			t.Fatal("delete failed")
+		}
+		if _, err := fileOf(1); !os.IsNotExist(err) {
+			t.Fatalf("the deleted report's file survives: %v", err)
+		}
+		if es, _ := os.ReadDir(filepath.Join(cwd, "data", "tmp")); len(es) != 0 {
+			t.Fatalf("data/tmp is not empty: %v", es)
+		}
+		if strings.Contains(p.out.String(), secretMarker) {
+			t.Fatal("the client secret reached the log")
 		}
 	})
 

@@ -12,12 +12,14 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/sshubham2/hband/internal/config"
+	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/store"
 	"github.com/sshubham2/hband/internal/testutil/fakegithub"
 )
@@ -25,6 +27,9 @@ import (
 const (
 	testOwnerID = 42
 	testSecret  = "test-secret-value"
+	// testUploadCap is the harness's HBAND_MAX_UPLOAD_BYTES: small enough that a
+	// body of exactly the cap and one byte over are cheap to send.
+	testUploadCap = 100000
 )
 
 var bg = context.Background()
@@ -51,9 +56,11 @@ func (c *fakeClock) Advance(d time.Duration) {
 type harness struct {
 	t      *testing.T
 	cfg    config.Config
-	store  *store.Store
-	dbPath string
-	fake   *fakegithub.Fake
+	store   *store.Store
+	lib     *reports.Library
+	dbPath  string
+	dataDir string
+	fake    *fakegithub.Fake
 	srv    *httptest.Server
 	clock  *fakeClock
 	base   *url.URL
@@ -64,7 +71,8 @@ type harness struct {
 
 func newHarness(t *testing.T, useTLS bool) *harness {
 	t.Helper()
-	dbPath := filepath.Join(t.TempDir(), "hband.db")
+	dataDir := t.TempDir()
+	dbPath := filepath.Join(dataDir, "hband.db")
 	st, err := store.Open(dbPath)
 	if err != nil {
 		t.Fatalf("store.Open: %v", err)
@@ -83,15 +91,21 @@ func newHarness(t *testing.T, useTLS bool) *harness {
 		"HBAND_BASE_URL":             baseURL,
 		"HBAND_GITHUB_URL":           fake.URL(),
 		"HBAND_GITHUB_API_URL":       fake.URL(),
+		"HBAND_DATA_DIR":             dataDir,
+		"HBAND_MAX_UPLOAD_BYTES":     strconv.Itoa(testUploadCap),
 	}
 	cfg, err := config.Load(func(k string) string { return env[k] })
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)
 	}
 	fake.SetRedirectURI(cfg.CallbackURL)
-	h := &harness{t: t, cfg: cfg, store: st, dbPath: dbPath, fake: fake, srv: ts,
+	h := &harness{t: t, cfg: cfg, store: st, dbPath: dbPath, dataDir: dataDir, fake: fake, srv: ts,
 		clock: &fakeClock{t: time.Unix(1_800_000_000, 0)}}
-	h.handler = New(cfg, st, h.clock.Now)
+	h.lib, err = reports.Open(reports.Options{DB: st.DB(), DataDir: cfg.DataDir, MaxUploadBytes: cfg.MaxUploadBytes, Now: h.clock.Now})
+	if err != nil {
+		t.Fatalf("reports.Open: %v", err)
+	}
+	h.handler = New(cfg, st, h.lib, h.clock.Now)
 	ts.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h.mu.Lock()
 		cur := h.handler
@@ -117,7 +131,7 @@ func (h *harness) rebuild(owner int64) {
 	cfg := h.cfg
 	cfg.OwnerGitHubID = owner
 	h.mu.Lock()
-	h.handler = New(cfg, h.store, h.clock.Now)
+	h.handler = New(cfg, h.store, h.lib, h.clock.Now)
 	h.mu.Unlock()
 }
 

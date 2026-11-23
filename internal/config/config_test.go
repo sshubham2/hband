@@ -172,7 +172,7 @@ func TestLoadGitHubEndpoints(t *testing.T) {
 
 func TestLoadIgnoresUnknownVariables(t *testing.T) {
 	asked := map[string]bool{}
-	base := env(map[string]string{"HBAND_TRUSTED_PROXIES": "127.0.0.1", "HBAND_SOMETHING_ELSE": "x", "HBAND_MAX_UPLOAD_BYTES": "nonsense"})
+	base := env(map[string]string{"HBAND_TRUSTED_PROXIES": "127.0.0.1", "HBAND_SOMETHING_ELSE": "x"})
 	cfg, err := Load(func(k string) string { asked[k] = true; return base(k) })
 	if err != nil {
 		t.Fatalf("HBAND_TRUSTED_PROXIES caused an error: %v", err)
@@ -186,7 +186,7 @@ func TestLoadIgnoresUnknownVariables(t *testing.T) {
 	for k := range asked {
 		switch k {
 		case "HBAND_OWNER_GITHUB_ID", "HBAND_GITHUB_CLIENT_ID", "HBAND_GITHUB_CLIENT_SECRET", "HBAND_BASE_URL",
-			"HBAND_ADDR", "HBAND_DATA_DIR", "HBAND_GITHUB_URL", "HBAND_GITHUB_API_URL":
+			"HBAND_ADDR", "HBAND_DATA_DIR", "HBAND_GITHUB_URL", "HBAND_GITHUB_API_URL", "HBAND_MAX_UPLOAD_BYTES":
 		default:
 			t.Errorf("Load read %s, which is not one of its variables", k)
 		}
@@ -196,6 +196,41 @@ func TestLoadIgnoresUnknownVariables(t *testing.T) {
 	}
 	if _, err = Load(env(map[string]string{"HBAND_ADDR": "not-an-address"})); err == nil {
 		t.Fatal("a malformed HBAND_ADDR was accepted")
+	}
+}
+
+// The upload cap is a positive decimal number of bytes, at most 200 MiB, and
+// 25 MiB when the variable is unset (the shipped default).
+func TestLoadUploadCap(t *testing.T) {
+	cfg, err := Load(env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.MaxUploadBytes != 26214400 {
+		t.Fatalf("unset HBAND_MAX_UPLOAD_BYTES gave %d, want 26214400", cfg.MaxUploadBytes)
+	}
+	if cfg, err = Load(env(map[string]string{"HBAND_MAX_UPLOAD_BYTES": ""})); err != nil || cfg.MaxUploadBytes != 26214400 {
+		t.Fatalf("empty HBAND_MAX_UPLOAD_BYTES: %d %v", cfg.MaxUploadBytes, err)
+	}
+
+	accepted := map[string]int64{"1": 1, "65536": 65536, "26214400": 26214400, "209715200": 209715200}
+	for v, want := range accepted {
+		cfg, err := Load(env(map[string]string{"HBAND_MAX_UPLOAD_BYTES": v}))
+		if err != nil || cfg.MaxUploadBytes != want {
+			t.Errorf("%q: got %d, %v; want %d", v, cfg.MaxUploadBytes, err, want)
+		}
+	}
+	refused := []string{"0", "-1", "+5", "05", " 5", "5 ", "5\n", "1e6", "25MB", "nonsense", "0x10", "1_000", "12.0", "٣",
+		"209715201", "9223372036854775808", "99999999999999999999"}
+	for _, v := range refused {
+		_, err := Load(env(map[string]string{"HBAND_MAX_UPLOAD_BYTES": v}))
+		if err == nil {
+			t.Errorf("%q accepted", v)
+			continue
+		}
+		if got := problemNames(t, err); !strings.Contains(got, "HBAND_MAX_UPLOAD_BYTES") {
+			t.Errorf("%q: error does not name the variable: %s", v, got)
+		}
 	}
 }
 

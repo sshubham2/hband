@@ -1,0 +1,149 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-002",
+ "title": "Author uploads, replaces, unpublishes and deletes HTML reports from the admin pages",
+ "status": "active",
+ "branch": "slice/SL-002",
+ "opened_at": "2026-11-23T15:17:30.452Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "The admin page offers an upload form for one .html file with title, slug and a publish-now-or-draft choice (derived from 'From the admin page the author uploads ... gives it a title and slug, and publishes it now or saves it as a draft'): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "The owner uploads a single self-contained .html file under a title and slug, and it is stored as a report (row plus file under the data dir): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Only one .html file is accepted. Other files and bad fields are refused and leave nothing behind (derived from 'a single self-contained .html file' and 'gives it a title and slug'): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Publish now sets the report published with a date; save as draft leaves it unpublished: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Replacing a report: uploading again under the same slug swaps the bytes and title and keeps the report's identity (id and original publish date), so later likes and comments stay attached (from merged SC-003): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Unpublish a report (and republish it, keeping the original date): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Delete a report: its record and its file are both removed: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Every report admin page and action is reachable only by the pinned owner, and cross-origin POSTs are refused: missing"
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T15:22:12.059Z",
+     "head": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+     "summary": "Composed by the engine from E-001's design (design 219, made by SL-001 for the whole epic and attacked once, whole).",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T15:22:12.446Z",
+     "head": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T15:22:13.283Z",
+     "head": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "waiting",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "waiting",
+     "at": "2026-11-23T15:22:13.983Z",
+     "head": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+     "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 11:10pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
+     "caused_by": null,
+     "changed": {},
+     "details": "build-slice-1.json"
+    },
+    {
+     "n": 1,
+     "state": "waiting",
+     "at": "2026-11-23T15:27:44.559Z",
+     "head": "993d715bc1b9a241a8cd012b69dfeea79b60ff82",
+     "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 11:10pm (Asia/Kolkata)",
+     "caused_by": null,
+     "changed": {},
+     "details": "build-slice-1.json"
+    }
+   ]
+  }
+ ]
+}
