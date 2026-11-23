@@ -69,6 +69,37 @@ func invariant(t *testing.T, who, method, path string, res result) {
 	}
 }
 
+// ownerRouteStatus is what the owner gets on a gated path that is not the
+// landing page, per the responses observed once the report rows existed:
+//   - a path no row has (/admin/does-not-exist, /admin/%2e%2e/admin/): 404 from the admin mux;
+//   - a path some row has, asked with a method that row does not accept: 405
+//     (GET and HEAD on the POST-only rows, POST on the GET-only rows);
+//   - a row asked with its own method, with no report "x" stored: 404 from the
+//     handler, except POST /admin/reports with no body, which is not a
+//     multipart form: 400.
+//
+// A GET row also answers HEAD. Routing is not changed to fit this table.
+func ownerRouteStatus(method, path string) int {
+	matched := false
+	for _, rt := range adminRoutes(nil) {
+		p := routeParam.ReplaceAllString(strings.ReplaceAll(rt.Pattern, "{$}", ""), "x")
+		if p != path {
+			continue
+		}
+		matched = true
+		if rt.Method == method || (method == "HEAD" && rt.Method == "GET") {
+			if rt.Method == "POST" && rt.Pattern == "/admin/reports" {
+				return http.StatusBadRequest
+			}
+			return http.StatusNotFound
+		}
+	}
+	if matched {
+		return http.StatusMethodNotAllowed
+	}
+	return http.StatusNotFound
+}
+
 func TestAdminAccessMatrix(t *testing.T) {
 	h := newHarness(t, false)
 	ownerSID := h.mint(testOwnerID, "the-owner")
@@ -180,8 +211,8 @@ func TestAdminAccessMatrix(t *testing.T) {
 					t.Errorf("owner POST %s: %d, want 405", path, res.Status)
 				}
 			default:
-				if res.Status != 404 {
-					t.Errorf("owner %s %s: %d, want 404 from the admin mux", method, path, res.Status)
+				if want := ownerRouteStatus(method, path); res.Status != want {
+					t.Errorf("owner %s %s: %d, want %d from the admin mux", method, path, res.Status, want)
 				}
 			}
 		})

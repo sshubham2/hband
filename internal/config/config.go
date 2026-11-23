@@ -2,9 +2,9 @@
 //
 // Load validates every variable and reports all the bad ones at once. It reads
 // only HBAND_OWNER_GITHUB_ID, HBAND_GITHUB_CLIENT_ID, HBAND_GITHUB_CLIENT_SECRET,
-// HBAND_BASE_URL, HBAND_ADDR, HBAND_DATA_DIR, HBAND_GITHUB_URL and
-// HBAND_GITHUB_API_URL; every other name (including HBAND_TRUSTED_PROXIES,
-// which is left for a later block) is ignored.
+// HBAND_BASE_URL, HBAND_ADDR, HBAND_DATA_DIR, HBAND_GITHUB_URL,
+// HBAND_GITHUB_API_URL and HBAND_MAX_UPLOAD_BYTES; every other name (including
+// HBAND_TRUSTED_PROXIES, which is left for a later block) is ignored.
 package config
 
 import (
@@ -22,11 +22,19 @@ const (
 	defaultGitHubURL = "https://github.com"
 	defaultGitHubAPI = "https://api.github.com"
 
+	// defaultMaxUpload is 25 MiB; maxUploadLimit is the largest cap that may be
+	// configured (200 MiB).
+	defaultMaxUpload = 26214400
+	maxUploadLimit   = 209715200
+
 	// CallbackPath is where GitHub sends the browser back to.
 	CallbackPath = "/auth/github/callback"
 )
 
-var ownerIDPattern = regexp.MustCompile(`^[1-9][0-9]{0,18}$`)
+var (
+	ownerIDPattern   = regexp.MustCompile(`^[1-9][0-9]{0,18}$`)
+	uploadCapPattern = regexp.MustCompile(`^[1-9][0-9]*$`)
+)
 
 // GitHubEndpoints are the three URLs the sign-in flow talks to.
 type GitHubEndpoints struct {
@@ -39,6 +47,9 @@ type GitHubEndpoints struct {
 type Config struct {
 	Addr    string
 	DataDir string
+	// MaxUploadBytes is the largest report file accepted, in bytes: at least 1
+	// and at most 209715200 for a Config returned by Load.
+	MaxUploadBytes int64
 
 	// BaseURL is the public origin of the site, without a trailing slash.
 	BaseURL string
@@ -130,6 +141,18 @@ func Load(getenv func(string) string) (Config, error) {
 	c.DataDir = getenv("HBAND_DATA_DIR")
 	if c.DataDir == "" {
 		c.DataDir = defaultDataDir
+	}
+
+	// Upload cap: a positive decimal number of bytes, nothing else.
+	const capVar = "HBAND_MAX_UPLOAD_BYTES"
+	c.MaxUploadBytes = defaultMaxUpload
+	if raw := getenv(capVar); raw != "" {
+		n, err := strconv.ParseInt(raw, 10, 64)
+		if !uploadCapPattern.MatchString(raw) || err != nil || n > maxUploadLimit {
+			bad(capVar, "must be a positive decimal number of bytes, at most 209715200")
+		} else {
+			c.MaxUploadBytes = n
+		}
 	}
 
 	// Identity provider endpoints. These are the finish line's test seam, so

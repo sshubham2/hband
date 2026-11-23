@@ -53,10 +53,28 @@ func signIn(t *testing.T, s *Store, id int64, login, newHash, oldHash string, no
 	})
 }
 
+// newestVersion is the number of embedded migrations, which is the
+// user_version a fresh database ends at.
+func newestVersion(t *testing.T) int64 {
+	t.Helper()
+	all, err := loadMigrations(embeddedMigrations())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return int64(len(all))
+}
+
 func TestOpenFreshDatabase(t *testing.T) {
 	s, path := openTemp(t)
-	if v := scalarInt(t, s.DB(), "PRAGMA user_version"); v != 1 {
-		t.Fatalf("user_version = %d, want 1", v)
+	want := newestVersion(t)
+	if want < 2 {
+		t.Fatalf("the embedded migrations stop at %d: 0002_reports.sql is missing", want)
+	}
+	if v := scalarInt(t, s.DB(), "PRAGMA user_version"); v != want {
+		t.Fatalf("user_version = %d, want %d", v, want)
+	}
+	if n := scalarInt(t, s.DB(), "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'reports'"); n != 1 {
+		t.Fatalf("a fresh database has no reports table")
 	}
 	if m := scalarString(t, s.DB(), "PRAGMA journal_mode"); m != "wal" {
 		t.Fatalf("journal_mode = %q, want wal", m)
@@ -69,8 +87,8 @@ func TestOpenFreshDatabase(t *testing.T) {
 		t.Fatalf("reopen: %v", err)
 	}
 	defer s2.Close()
-	if v := scalarInt(t, s2.DB(), "PRAGMA user_version"); v != 1 {
-		t.Fatalf("user_version after reopen = %d, want 1", v)
+	if v := scalarInt(t, s2.DB(), "PRAGMA user_version"); v != want {
+		t.Fatalf("user_version after reopen = %d, want %d", v, want)
 	}
 }
 
@@ -160,17 +178,23 @@ func TestUsersHasNoStoredOwnerColumn(t *testing.T) {
 	}
 }
 
-// migrationsWith returns the embedded 0001 plus an extra injected migration.
-func migrationsWith(t *testing.T, name, body string) fstest.MapFS {
+// identityOnly is the embedded 0001 on its own: the schema the injected
+// migrations below are applied on top of, whatever migrations ship after it.
+func identityOnly(t *testing.T) fstest.MapFS {
 	t.Helper()
 	first, err := embeddedFS.ReadFile("migrations/0001_identity.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fstest.MapFS{
-		"0001_identity.sql": {Data: first},
-		name:                {Data: []byte(body)},
-	}
+	return fstest.MapFS{"0001_identity.sql": {Data: first}}
+}
+
+// migrationsWith returns the embedded 0001 plus an extra injected migration.
+func migrationsWith(t *testing.T, name, body string) fstest.MapFS {
+	t.Helper()
+	fsys := identityOnly(t)
+	fsys[name] = &fstest.MapFile{Data: []byte(body)}
+	return fsys
 }
 
 const rebuildUsers = `
@@ -188,9 +212,10 @@ DROP TABLE users;
 ALTER TABLE users_new RENAME TO users;
 `
 
+// seedTwoSessions creates a database at schema version 1 holding two sessions.
 func seedTwoSessions(t *testing.T, path string) {
 	t.Helper()
-	s, err := Open(path)
+	s, err := openWith(path, identityOnly(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +298,7 @@ func TestMigrationOrphanFailsOpen(t *testing.T) {
 		t.Fatalf("error does not name the migration and the table: %v", err)
 	}
 
-	s2, err := Open(path)
+	s2, err := openWith(path, identityOnly(t))
 	if err != nil {
 		t.Fatalf("reopen after the failed migration: %v", err)
 	}
