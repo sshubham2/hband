@@ -82,6 +82,11 @@ func migrate(path string, migrations fs.FS) (err error) {
 	if err := conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&current); err != nil {
 		return fmt.Errorf("read schema version: %w", err)
 	}
+	if current < 0 {
+		// user_version is a signed 32-bit integer; a negative one was not
+		// written by this program.
+		return fmt.Errorf("database schema version %d is not one this binary wrote: refusing to start", current)
+	}
 	if current > len(all) {
 		return fmt.Errorf("database schema version %d is newer than this binary understands (%d): refusing to start", current, len(all))
 	}

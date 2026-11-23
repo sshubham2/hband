@@ -42,6 +42,13 @@ func Open(path string) (*Store, error) {
 
 // openWith is Open with an injectable migration set (tests).
 func openWith(path string, migrations fs.FS) (*Store, error) {
+	// A file: URI cannot carry a relative path (the first segment would be read
+	// as the URI authority, or as the root of the current drive), so the path is
+	// resolved against the working directory once, here, for both handles.
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolve database path: %w", err)
+	}
 	if err := migrate(path, migrations); err != nil {
 		return nil, err
 	}
@@ -62,8 +69,9 @@ const (
 	migrationPragmas = "_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
 )
 
-// dsn builds a file: URI for the driver. The path is percent-escaped, so a
-// data directory containing '?', '#' or spaces still names the right file.
+// dsn builds a file: URI for the driver from an ABSOLUTE path (openWith
+// resolves it). The path is percent-escaped, so a data directory containing
+// '?', '#' or spaces still names the right file.
 func dsn(path, pragmas string) string {
 	p := filepath.ToSlash(path)
 	if runtime.GOOS == "windows" && !strings.HasPrefix(p, "/") {

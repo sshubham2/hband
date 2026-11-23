@@ -1,0 +1,626 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-001",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-23T13:53:58.758Z",
+ "head": "057fd7c2144bf560ac462ff9908a24c84df25018",
+ "run_id": 11639,
+ "summary": "I read every changed Go file, template, go.mod, .gitignore, site.css and fitness.yaml in full. I ran `go vet ./...` and `go test -count=1 -timeout 10m ./...` with CGO_ENABLED=0 on go1.27.4. All six test packages pass, and the engine's Fitness check says all 13 rules hold.\n\nThe code does what design 2 says, apart from the declared deviations:\n- **Config:** loads exactly the finish-line names, refuses a remote-http identity provider with exit 2, and ignores HBAND_TRUSTED_PROXIES.\n- **Store:** migrations run on a separate handle with foreign keys off, foreign_key_check before COMMIT, and the handle closed before the serving pool opens.\n- **SignIn:** one transaction, and the session cookie is set only after it commits. A store failure answers 503.\n- **Cookies:** one helper writes every cookie, with __Host- and Secure on https, deletions included.\n- **Redirects:** LocalPath checks the string that goes out and SeeOther writes it verbatim. ToProvider is the only absolute 302.\n- **Gate:** two RequireOwner mounts over one adminMux that only a table loop fills, with OwnerRoute's context proof as the second interlock. The login URL falls back to the plain path when next would not fit.\n\nEvery case-matrix test I read feeds the shape its row names, with positive controls where the assertion is \"nothing happened\".\n\n**One defect, minor.** The Go mirror of the architecture rules (internal/fitnessrules/rules_test.go) only checks imports in a file whose text starts with `package `. Every file that opens with a doc comment is skipped for the import rules. I ran a probe: the same text/template import fires as plain text and stays quiet once a `// Package x` line comes first. Five files in the tree open that way, and the corpus has no row of that shape. The engine's own matcher is unaffected.\n\n**Two comment corrections:**\n- config.go's package comment names a `knownVariables` list that does not exist.\n- owner.go says only package auth can create an Owner. Owner is an exported struct with exported fields; the real proof is the unexported context key.\n\n**Undeclared departures, all small, listed under drift:**\n- A malformed HBAND_ADDR exits 2.\n- The OAuth cookie's verifier length is checked.\n- avatar_url values that are not https are stored empty.\n- Migration names must be NNNN_name.sql with contiguous version numbers.\n\nThe slice made a single build attempt, so the history shows no loop.\n\nSecond reader, for inputs: I read the code looking for inputs it does not expect, and built and ran each one I could.\n\n**Two runtime defects, each confirmed by a test that fails on this tree:**\n- **M1, major.** `store.dsn` builds the `file:` URI from a relative path without making it absolute, so the default `HBAND_DATA_DIR` (`./data`) cannot be opened.\n  - On Linux the path becomes `file://data/hband.db`, which SQLite rejects with \"invalid uri authority: data\".\n  - On Windows it becomes `file:///data/hband.db`, the root of the current drive.\n  - I built `cmd/hband` and ran it with no `HBAND_DATA_DIR`: it exited 1 with \"unable to open database file (14)\".\n  - Every test passes an absolute temp dir, so none of them uses the default.\n- **m1.** A database whose `PRAGMA user_version` is negative makes `migrate` panic on `all[current:]`. Go exits a panic with status 2, which the contract reserves for bad configuration.\n\n**One fitness-rule gap in the family the build declared closed (redirect-writing spellings):**\n- **m2.** A `Refresh` header gets past the redirect rule, although `bounded_by` claims \"every way ordinary code answers a redirect\". Confirmed under the project's own rule runner.\n\n**Three extras, outside what was declared or required:**\n- **m3.** The request-host rule misses `r.URL.Hostname()`/`Port()`, and forwarded-header names written in backticks.\n- **m4.** The markup-literal rule only catches a literal that starts with a tag, so `\"Signed in as <b>%s</b>\"` gets past it.\n- **m5.** The migration runner reads `user_version` outside the transaction it then writes in, so two processes starting on one data dir can both apply the same migration.\n\n**Inputs that held up:**\n- **`LocalPath`:** encoded slashes and tabs, `%255c`, `@` and `:` paths, CR/LF, non-ASCII.\n- **Gate:** the `loginTarget` round-trip, with queries, `+` and `%`.\n- **OAuth cookie parsing:** empty values, wrong part counts, bad base64 in the `next` part.\n- **`fetchUser`'s id check:** null, `-0`, `1e3`, quoted, overflow.\n- **Config URL parsing:** uppercase scheme, bare `?`, userinfo with a backslash, percent-encoded host, CRLF from an env file, a `5\\n` owner id.\n- **Cookie reading:** duplicate names, quoted values.\n- **Fake GitHub:** its S256 verifier check.\n\n**Clean-up:** each probe and repro file was written into the tree, run, and removed in the same command. `git status` matches the start of the review.\n\nReading pass: I read go.sum (lines 1-52) and all of internal/fitnessrules/testdata/rule_spellings.json (lines 1-186).\n\ngo.sum holds only module checksums that match go.mod: the direct x/oauth2 v0.38.0 and modernc sqlite v1.63.0 plus their module graph. Nothing there to judge.\n\nIn the corpus, I checked each row's expectation against the patterns in .taad/fitness.yaml. Every pattern behaves as its row's why-note says, for example redir-q004 Content-Location, redir-q015 StatusFoundation, form-f008 and lit-q012. TestRuleSpellingsCorpus passed when I ran it.\n\nOne new item, a wording fix only (m4). The bounded_by entry for request-derived scheme and host says the spellings it does not cover have a structural answer: no handler is given a URL builder other than the one that reads the configured base URL. No such builder exists in the tree. Config exposes Origin and CallbackURL as plain strings, and nothing structural stops a handler reading the request. So the uncovered spellings have no backstop, while the text tells later readers they do.\n\nThe earlier finding m1 stands: the Go-side import check skips files that open with a doc comment. The corpus has no such row, as filed.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "I read every changed Go file, template, go.mod, .gitignore, site.css and fitness.yaml in full. I ran `go vet ./...` and `go test -count=1 -timeout 10m ./...` with CGO_ENABLED=0 on go1.27.4. All six test packages pass, and the engine's Fitness check says all 13 rules hold.\n\nThe code does what design 2 says, apart from the declared deviations:\n- **Config:** loads exactly the finish-line names, refuses a remote-http identity provider with exit 2, and ignores HBAND_TRUSTED_PROXIES.\n- **Store:** migrations run on a separate handle with foreign keys off, foreign_key_check before COMMIT, and the handle closed before the serving pool opens.\n- **SignIn:** one transaction, and the session cookie is set only after it commits. A store failure answers 503.\n- **Cookies:** one helper writes every cookie, with __Host- and Secure on https, deletions included.\n- **Redirects:** LocalPath checks the string that goes out and SeeOther writes it verbatim. ToProvider is the only absolute 302.\n- **Gate:** two RequireOwner mounts over one adminMux that only a table loop fills, with OwnerRoute's context proof as the second interlock. The login URL falls back to the plain path when next would not fit.\n\nEvery case-matrix test I read feeds the shape its row names, with positive controls where the assertion is \"nothing happened\".\n\n**One defect, minor.** The Go mirror of the architecture rules (internal/fitnessrules/rules_test.go) only checks imports in a file whose text starts with `package `. Every file that opens with a doc comment is skipped for the import rules. I ran a probe: the same text/template import fires as plain text and stays quiet once a `// Package x` line comes first. Five files in the tree open that way, and the corpus has no row of that shape. The engine's own matcher is unaffected.\n\n**Two comment corrections:**\n- config.go's package comment names a `knownVariables` list that does not exist.\n- owner.go says only package auth can create an Owner. Owner is an exported struct with exported fields; the real proof is the unexported context key.\n\n**Undeclared departures, all small, listed under drift:**\n- A malformed HBAND_ADDR exits 2.\n- The OAuth cookie's verifier length is checked.\n- avatar_url values that are not https are stored empty.\n- Migration names must be NNNN_name.sql with contiguous version numbers.\n\nThe slice made a single build attempt, so the history shows no loop.\n\nSecond reader, for inputs: I read the code looking for inputs it does not expect, and built and ran each one I could.\n\n**Two runtime defects, each confirmed by a test that fails on this tree:**\n- **M1, major.** `store.dsn` builds the `file:` URI from a relative path without making it absolute, so the default `HBAND_DATA_DIR` (`./data`) cannot be opened.\n  - On Linux the path becomes `file://data/hband.db`, which SQLite rejects with \"invalid uri authority: data\".\n  - On Windows it becomes `file:///data/hband.db`, the root of the current drive.\n  - I built `cmd/hband` and ran it with no `HBAND_DATA_DIR`: it exited 1 with \"unable to open database file (14)\".\n  - Every test passes an absolute temp dir, so none of them uses the default.\n- **m1.** A database whose `PRAGMA user_version` is negative makes `migrate` panic on `all[current:]`. Go exits a panic with status 2, which the contract reserves for bad configuration.\n\n**One fitness-rule gap in the family the build declared closed (redirect-writing spellings):**\n- **m2.** A `Refresh` header gets past the redirect rule, although `bounded_by` claims \"every way ordinary code answers a redirect\". Confirmed under the project's own rule runner.\n\n**Three extras, outside what was declared or required:**\n- **m3.** The request-host rule misses `r.URL.Hostname()`/`Port()`, and forwarded-header names written in backticks.\n- **m4.** The markup-literal rule only catches a literal that starts with a tag, so `\"Signed in as <b>%s</b>\"` gets past it.\n- **m5.** The migration runner reads `user_version` outside the transaction it then writes in, so two processes starting on one data dir can both apply the same migration.\n\n**Inputs that held up:**\n- **`LocalPath`:** encoded slashes and tabs, `%255c`, `@` and `:` paths, CR/LF, non-ASCII.\n- **Gate:** the `loginTarget` round-trip, with queries, `+` and `%`.\n- **OAuth cookie parsing:** empty values, wrong part counts, bad base64 in the `next` part.\n- **`fetchUser`'s id check:** null, `-0`, `1e3`, quoted, overflow.\n- **Config URL parsing:** uppercase scheme, bare `?`, userinfo with a backslash, percent-encoded host, CRLF from an env file, a `5\\n` owner id.\n- **Cookie reading:** duplicate names, quoted values.\n- **Fake GitHub:** its S256 verifier check.\n\n**Clean-up:** each probe and repro file was written into the tree, run, and removed in the same command. `git status` matches the start of the review.\n\nReading pass: I read go.sum (lines 1-52) and all of internal/fitnessrules/testdata/rule_spellings.json (lines 1-186).\n\ngo.sum holds only module checksums that match go.mod: the direct x/oauth2 v0.38.0 and modernc sqlite v1.63.0 plus their module graph. Nothing there to judge.\n\nIn the corpus, I checked each row's expectation against the patterns in .taad/fitness.yaml. Every pattern behaves as its row's why-note says, for example redir-q004 Content-Location, redir-q015 StatusFoundation, form-f008 and lit-q012. TestRuleSpellingsCorpus passed when I ran it.\n\nOne new item, a wording fix only (m4). The bounded_by entry for request-derived scheme and host says the spellings it does not cover have a structural answer: no handler is given a URL builder other than the one that reads the configured base URL. No such builder exists in the tree. Config exposes Origin and CallbackURL as plain strings, and nothing structural stops a handler reading the request. So the uncovered spellings have no backstop, while the text tells later readers they do.\n\nThe earlier finding m1 stands: the Go-side import check skips files that open with a doc comment. The corpus has no such row, as filed.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "The Go mirror of the architecture rules evaluates must_not_import only when the file text, trimmed, starts with `package `. Any Go file that opens with its package doc comment is never import-checked. Five non-test files in the tree open that way: internal/server/router.go, internal/config/config.go, internal/store/store.go, cmd/hband/main.go and internal/testutil/fakegithub/fakegithub.go. So TestRulesHoldOnTheTree, documented as running 'every rule Go can evaluate over the repository's own files', stays green there whatever they import. That covers 'site HTML is never rendered through text/template' and 'production code never links the fake GitHub'. The corpus that pins the text/template ban has no row of this shape: all twelve ttpl rows start with `package`. A probe calling rule.fires on the same import printed fired=true for plain text and fired=false when the text opens with `// Package server ...`. The engine's own matcher reads imports from the code graph and is unaffected (Fitness op=check: all 13 hold), so the Go-side pin, and the class-closing evidence it backs, pass falsely for the commonest real file shape.",
+    "file": "internal/fitnessrules/rules_test.go",
+    "line": 166,
+    "quote": {
+     "path": "internal/fitnessrules/rules_test.go",
+     "line": 166,
+     "text": "if len(r.MustNotImport) > 0 && strings.HasPrefix(strings.TrimSpace(text), \"package \") {"
+    },
+    "evidence": "internal/fitnessrules/rules_test.go:166, the guard on the ParseFile(ImportsOnly) branch. Probe run in a scratch module: `plain=true withDocComment=false`. Corpus rows ttpl-f001..f008 all begin with \"package x\".",
+    "fix": "Drop the `strings.HasPrefix(..., \"package \")` condition and keep ignoring parse errors, which the code already does, so any parseable Go text is import-checked. Add a corpus row: {\"id\":\"ttpl-f009\",\"rule\":\"site HTML is never rendered through text/template\",\"expect\":\"fire\",\"text\":\"// Package x does y.\\npackage x\\nimport \\\"text/template\\\"\\n\",\"why\":\"a file that opens with its package doc comment\"}.",
+    "class_of": "escaping-bypass spellings",
+    "threat": "accident",
+    "repro": {
+     "path": "internal/fitnessrules/import_doc_comment_test.go",
+     "body": "package fitnessrules\n\nimport \"testing\"\n\n// A Go file almost always opens with its package doc comment. The import\n// rules must still see what such a file imports.\nfunc TestImportRuleSeesFileThatStartsWithDocComment(t *testing.T) {\n\tr := &rule{\n\t\tName:          \"site HTML is never rendered through text/template\",\n\t\tFiles:         \"**/*.go\",\n\t\tMustNotImport: []string{\"text/template\"},\n\t\tExceptFiles:   []string{\"**/*_test.go\"},\n\t}\n\tplain, _ := r.fires(\"internal/server/router.go\", \"package server\\nimport \\\"text/template\\\"\\n\")\n\tif !plain {\n\t\tt.Fatal(\"control: a plain text/template import is not caught\")\n\t}\n\tdoc, _ := r.fires(\"internal/server/router.go\", \"// Package server builds the HTTP handler.\\npackage server\\n\\nimport \\\"text/template\\\"\\n\")\n\tif !doc {\n\t\tt.Fatal(\"a file that starts with its package doc comment is never import-checked\")\n\t}\n}\n",
+     "command": "go test -count=1 -run TestImportRuleSeesFileThatStartsWithDocComment ./internal/fitnessrules"
+    }
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "The package comment says Load reads 'only the names listed in knownVariables'. No such identifier exists anywhere in the tree; Load reads its names inline. The behaviour is right: TestLoadIgnoresUnknownVariables pins the set it reads. The comment points a reader at a list that is not there.",
+    "file": "internal/config/config.go",
+    "line": 4,
+    "quote": {
+     "path": "internal/config/config.go",
+     "line": 4,
+     "text": "// only the names listed in knownVariables; every other name (including"
+    },
+    "evidence": "A Grep for knownVariables over *.go finds only this comment.",
+    "fix": "Reword to say Load reads only HBAND_OWNER_GITHUB_ID, HBAND_GITHUB_CLIENT_ID, HBAND_GITHUB_CLIENT_SECRET, HBAND_BASE_URL, HBAND_ADDR, HBAND_DATA_DIR, HBAND_GITHUB_URL and HBAND_GITHUB_API_URL."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "Owner's doc comment says 'Only this package can create one'. The design's internal/auth contract says the same. But Owner is an exported struct with exported fields, so any package can write auth.Owner{GitHubID: 1, Login: \"x\"} and hand it to an adminRoutes handler. What only package auth can do is attach the proof to a request context, because ownerKey is unexported, and OwnerRoute reads only that. The code is safe because handlers are reachable only through OwnerRoute. The comment, though, presents the Owner value itself as unforgeable proof, which later slices (SC-002 handlers taking auth.Owner) may lean on.",
+    "file": "internal/auth/owner.go",
+    "line": 24,
+    "end_line": 29,
+    "quote": {
+     "path": "internal/auth/owner.go",
+     "line": 24,
+     "text": "// Owner is the proof that RequireOwner let this request through. Only this\n// package can create one."
+    },
+    "evidence": "internal/auth/owner.go:26-29 declares `type Owner struct { GitHubID int64; Login string }`. Only the context key `ownerKey struct{}` (line 31) is unexported.",
+    "fix": "Reword to: 'Owner is what RequireOwner attaches to the request context when it lets the owner through. Only this package can attach it (ownerKey is unexported); an Owner value on its own proves nothing.'"
+   },
+   {
+    "id": "IN-M1",
+    "severity": "major",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": "internal/store/store.go",
+    "line": 67,
+    "end_line": 74,
+    "claim": "dsn() builds the SQLite file: URI from a relative path without making it absolute, so any relative data directory, including the configured default HBAND_DATA_DIR=./data (config.go:19), cannot be opened.\n- Linux: url.URL{Scheme:\"file\", Path:\"data/hband.db\"}.String() gives \"file://data/hband.db\". SQLite reads \"data\" as the URI authority and refuses: \"invalid uri authority: data (1)\". Measured by opening that exact DSN through modernc here.\n- Windows: the added '/' prefix turns \"data/hband.db\" into \"file:///data/hband.db\", the root of the current drive.\n\nMeasured: I built cmd/hband (CGO_ENABLED=0) and ran it in a scratch dir with valid owner, client and base URL and no HBAND_DATA_DIR. It exits 1 with \"cannot open the database ... unable to open database file (14)\", after MkdirAll has already created .\\data.\n\nIf <drive>:\\data happens to exist, SQLite instead creates the live database there, outside the working directory, and nothing reports it.\n\nEvery test (TestBinary, the store tests, the server harness) passes an absolute t.TempDir(), so none of them uses the shipped default.",
+    "evidence": "internal/store/store.go dsn(); internal/config/config.go:19 defaultDataDir = \"./data\"; cmd/hband/main.go:46 store.Open(filepath.Join(cfg.DataDir, \"hband.db\")); .gitignore lists /data/ as the expected default location",
+    "quote": {
+     "path": "internal/store/store.go",
+     "line": 69,
+     "text": "if runtime.GOOS == \"windows\" && !strings.HasPrefix(p, \"/\") {"
+    },
+    "fix": "In dsn() (or at the top of openWith), resolve the path first with `abs, err := filepath.Abs(path)`, return that error, and build the URI from abs. The existing Windows '/' prefix then applies only to drive-letter paths, as intended.",
+    "repro": {
+     "path": "internal/store/relative_data_dir_test.go",
+     "body": "package store\n\nimport (\n\t\"os\"\n\t\"path/filepath\"\n\t\"testing\"\n)\n\n// The configured default HBAND_DATA_DIR is the relative ./data, and realMain\n// passes filepath.Join(DataDir, \"hband.db\") to Open. A relative path must name\n// a file under the working directory.\nfunc TestOpenAcceptsRelativeDataDir(t *testing.T) {\n\tdir := t.TempDir()\n\tt.Chdir(dir)\n\tif err := os.MkdirAll(\"data\", 0o700); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tst, err := Open(filepath.Join(\"./data\", \"hband.db\"))\n\tif err != nil {\n\t\tt.Fatalf(\"Open refused the default relative data directory: %v\", err)\n\t}\n\tdefer st.Close()\n\tif _, err := os.Stat(filepath.Join(dir, \"data\", \"hband.db\")); err != nil {\n\t\tt.Fatalf(\"the database is not under the working directory's data folder: %v\", err)\n\t}\n}\n",
+     "command": "go test -count=1 -run TestOpenAcceptsRelativeDataDir ./internal/store"
+    }
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": "internal/store/migrate.go",
+    "line": 85,
+    "end_line": 96,
+    "claim": "PRAGMA user_version is a signed 32-bit integer. migrate() only refuses current > len(all), so a database file whose user_version is negative (written by another tool, or a foreign hband.db placed in the data dir) reaches `all[current:]` and panics with \"slice bounds out of range [-1:]\". Measured with user_version = -1.\n\nThe process dies with a stack trace instead of the startup error the contract promises. A Go panic exits with status 2, the code the contract reserves for invalid configuration, so it is misreported as a config error.",
+    "evidence": "internal/store/migrate.go:81-96: the version is read, only the upper bound is checked, then the slice is taken",
+    "quote": {
+     "path": "internal/store/migrate.go",
+     "line": 96,
+     "text": "for _, m := range all[current:] {"
+    },
+    "fix": "Change the guard to `if current < 0 || current > len(all)` and return an error naming the version. realMain then exits 1 as for a newer schema.",
+    "repro": {
+     "path": "internal/store/negative_version_test.go",
+     "body": "package store\n\nimport (\n\t\"database/sql\"\n\t\"path/filepath\"\n\t\"testing\"\n)\n\n// PRAGMA user_version is a signed 32-bit integer. A database whose version is\n// negative was not written by this binary: Open must refuse it with an error,\n// not panic.\nfunc TestOpenRefusesNegativeSchemaVersion(t *testing.T) {\n\tp := filepath.Join(t.TempDir(), \"hband.db\")\n\tdb, err := sql.Open(\"sqlite\", \"file:\"+filepath.ToSlash(p))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif _, err := db.Exec(\"PRAGMA user_version = -1\"); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tdb.Close()\n\n\tvar st *Store\n\tfunc() {\n\t\tdefer func() {\n\t\t\tif r := recover(); r != nil {\n\t\t\t\tt.Fatalf(\"Open panicked on user_version -1: %v\", r)\n\t\t\t}\n\t\t}()\n\t\tst, err = Open(p)\n\t}()\n\tif err == nil {\n\t\tst.Close()\n\t\tt.Fatal(\"Open accepted a database whose user_version is -1\")\n\t}\n}\n",
+     "command": "go test -count=1 -run TestOpenRefusesNegativeSchemaVersion ./internal/store"
+    }
+   },
+   {
+    "id": "IN-m2",
+    "severity": "minor",
+    "dimension": "security",
+    "nature": "defect",
+    "file": ".taad/fitness.yaml",
+    "line": 102,
+    "end_line": 118,
+    "claim": "The redirect rule's corpus claims, in bounded_by \"redirect-writing (m11, M-add-1)\", to cover \"Every way ordinary code answers a redirect\". A Refresh header slips past every pattern:\n- `w.Header().Set(\"Refresh\", \"0; url=\"+next)`\n- `Header().Add(`refresh`, ...)`\n- `w.Header()[\"Refresh\"] = ...`\n\nBrowsers follow a Refresh header's url= target as a navigation. A handler outside next.go can therefore send the browser to an off-site URL without LocalPath ever seeing it, which is the invariant M-add-1's fix depends on.\n\nConfirmed by running the rule through the project's own loadRules/fires (and Python re): all three spellings stay quiet.\n\nA `<meta http-equiv=\"refresh\">` in a template is outside this **/*.go rule altogether.",
+    "evidence": ".taad/fitness.yaml redirect rule patterns at lines 105-110; internal/fitnessrules/testdata/rule_spellings.json bounded_by 'redirect-writing (m11, M-add-1)'",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 107,
+     "text": "- '(?i)\\.(Set|Add)\\(\\s*[\"`]location[\"`]'"
+    },
+    "class_of": "redirect-writing spellings",
+    "threat": "accident",
+    "fix": "Edit the redirect rule in place and add the patterns `'(?i)\\.(Set|Add)\\(\\s*[\"`]refresh[\"`]'` and `'(?i)\\[\\s*[\"`]refresh[\"`]\\s*\\]'`. Add corpus fire rows for the three spellings above, and a quiet row `w.Header().Set(\"Cache-Control\", \"no-store\")`. Optionally add a templates rule `(?i)<meta\\b[^>]*http-equiv\\s*=\\s*[\"']?refresh` over internal/**/templates/**.",
+    "repro": {
+     "path": "internal/fitnessrules/refresh_redirect_test.go",
+     "body": "package fitnessrules\n\nimport \"testing\"\n\n// A Refresh header navigates the browser to its url= target exactly as a\n// Location does, so it must not get past the redirect rule outside next.go.\nfunc TestRedirectRuleCatchesRefreshHeader(t *testing.T) {\n\trules := loadRules(t, repoRoot(t))\n\tr, ok := rules[\"no redirect is written through http.Redirect\"]\n\tif !ok {\n\t\tt.Fatal(\"fitness.yaml has no redirect rule\")\n\t}\n\tfor _, text := range []string{\n\t\t`w.Header().Set(\"Refresh\", \"0; url=\"+next)`,\n\t\t\"w.Header().Add(`refresh`, \\\"0;url=\\\"+target)\",\n\t\t`w.Header()[\"Refresh\"] = []string{\"0; url=\" + next}`,\n\t} {\n\t\tif fired, _ := r.fires(\"internal/server/admin.go\", text); !fired {\n\t\t\tt.Errorf(\"a Refresh header redirects to an unchecked URL, but the rule stays quiet on: %s\", text)\n\t\t}\n\t}\n\tif fired, _ := r.fires(\"internal/server/admin.go\", `w.Header().Set(\"Cache-Control\", \"no-store\")`); fired {\n\t\tt.Error(\"the rule fires on an ordinary header write\")\n\t}\n}\n",
+     "command": "go test -count=1 -run TestRedirectRuleCatchesRefreshHeader ./internal/fitnessrules"
+    }
+   },
+   {
+    "id": "IN-m3",
+    "severity": "minor",
+    "dimension": "security",
+    "nature": "extra",
+    "file": ".taad/fitness.yaml",
+    "line": 86,
+    "end_line": 94,
+    "claim": "Two spellings get past the request-host rules, both outside what bounded_by lists:\n- The accessors r.URL.Hostname() and r.URL.Port() carry the same absolute-form request-target value as r.URL.Host. `\\b(r|req|request)\\.URL\\.(Host|Scheme)\\b` misses them, because there is no word boundary between \"Host\" and \"name\".\n- The older forwarded-header rule (line 11) matches only double-quoted names, so `r.Header.Get(`X-Forwarded-Host`)` slips. The new rule was widened to backticks for host/origin/referer, but the older one was not.\n\nAll three stay quiet under Python re.",
+    "evidence": ".taad/fitness.yaml lines 11 and 91; rule_spellings.json bounded_by 'Request-derived scheme and host (m6)'",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 91,
+     "text": "- \\b(r|req|request)\\.URL\\.(Host|Scheme)\\b"
+    },
+    "class_of": "request-derived scheme/host spellings",
+    "threat": "accident",
+    "fix": "Change line 91 to `\\b(r|req|request)\\.URL\\.(Host|Hostname|Port|Scheme)\\b`. Change line 11 to `(?i)[\"`](x-forwarded-[a-z-]+|x-real-ip|forwarded)[\"`]`. Add fire rows `h := r.URL.Hostname()` and ``h := r.Header.Get(`X-Forwarded-Host`)``."
+   },
+   {
+    "id": "IN-m4",
+    "severity": "minor",
+    "dimension": "security",
+    "nature": "extra",
+    "file": ".taad/fitness.yaml",
+    "line": 131,
+    "end_line": 141,
+    "claim": "'site HTML is never built as a Go string literal' (`[\"`]\\s*<[a-zA-Z!/]`) only fires when the literal STARTS with a tag, so the most natural hand-built markup still passes. Two examples: `fmt.Fprintf(w, \"Signed in as <b>%s</b>\", v.Login)` and `\"Report: <h2>\" + title + \"</h2>\"`, where the first literal begins with text and the closing tags are only literal fragments. The corpus bounds itself honestly to literals that start with markup. But this rule is the only guard against untrusted titles and comment bodies arriving unescaped in later slices, and it misses the spelling the critic's m5 example was meant to stand for.",
+    "evidence": ".taad/fitness.yaml line 134; rule_spellings.json bounded_by 'escaping bypass (m5)': 'a Go string literal ... that starts with markup'",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 134,
+     "text": "- '[\"`]\\s*<[a-zA-Z!/]'"
+    },
+    "class_of": "escaping-bypass spellings",
+    "threat": "accident",
+    "fix": "Add a second pattern matching a tag anywhere inside one interpreted literal, such as `\"[^\"\\n]*<[a-zA-Z/][a-zA-Z0-9]*[\\s>/]`. Add a fire row `fmt.Fprintf(w, \"Signed in as <b>%s</b>\", v.Login)` and quiet rows for the existing CSP and comparison strings."
+   },
+   {
+    "id": "IN-m5",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "file": "internal/store/migrate.go",
+    "line": 81,
+    "end_line": 121,
+    "claim": "The pending set is decided from a user_version read outside any transaction. The write transaction is then opened with a deferred BEGIN, and the version is not checked again inside it.\n\nIf two processes start on the same data dir (an overlapping container restart, or two dev runs), both can read version N. The second's transaction can then begin after the first has committed N+1, and it re-applies migration N+1:\n- a DDL migration fails, so the process exits 1;\n- a data migration (INSERT) is applied twice.\n\nThe check is let go of between the read and the write.",
+    "evidence": "migrate.go:82 reads user_version on the conn before applyMigration; applyMigration line 111 issues a plain BEGIN and never re-reads it",
+    "quote": {
+     "path": "internal/store/migrate.go",
+     "line": 82,
+     "text": "if err := conn.QueryRowContext(ctx, \"PRAGMA user_version\").Scan(&current); err != nil {"
+    },
+    "fix": "In applyMigration, use `BEGIN IMMEDIATE`, re-read PRAGMA user_version inside the transaction, and skip (commit nothing) if it is already >= m.version."
+   },
+   {
+    "id": "RD-m4",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "The corpus's bounded_by entry for the request-host rule lists what is not bounded (a request under another name, a header key assembled at run time, a copied header map). It then says 'The structural answer for those is that no handler is given a URL builder other than the one that reads the configured base URL.' Nothing in the tree is a URL builder. config.Config exposes Origin and CallbackURL as plain strings (internal/config/config.go:44-46), and handlers concatenate them or not as they please. So nothing structural backs the unbounded spellings, and a reviewer reading this bounded_by would take the class as closed by a mechanism that was never built. Distinct from IN-m3, which concerns spellings missing from the bounded list itself.",
+    "file": "internal/fitnessrules/testdata/rule_spellings.json",
+    "line": 4,
+    "quote": {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "line": 4,
+     "text": "The structural answer for those is that no handler is given a URL builder other than the one that reads the configured base URL."
+    },
+    "evidence": "Searching the changed Go files finds no URL-building helper. The only absolute URLs come from config.Load (config.go:115-117, 137-141), handed out as string fields, and from oauthConfig().AuthCodeURL in internal/auth/github.go:19-31.",
+    "fix": "Replace the sentence with what holds: 'These are not caught by this rule; the only absolute URLs the code builds come from config.Config fields (Origin, CallbackURL, GitHub), and reading the request for them is left to review.' The other option is to add the builder it describes."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-045",
+    "discharged": "yes",
+    "evidence": "internal/config/config.go:135-136, 150-161: githubBase runs parseBase (lines 166-190): https on any host or http only on 127.0.0.1/::1/localhost, with no path beyond '/', no query, fragment or userinfo. Otherwise bad(name, why) names the variable, Load fails, and cmd/hband/main.go:36-39 returns 2. Load reads only its own names (TestLoadIgnoresUnknownVariables records every name asked for). The TestBinary subtest 'a remote http identity provider is refused' shows exit 2 naming each variable with no 'listening'. The 'without overrides' subtest sets HBAND_GITHUB_AUTH_URL/TOKEN_URL to evil.example and still sees a 302 to github.com. I ran both: pass."
+   },
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "Voided by the redesign. Its replacement holds by construction: internal/server/router.go:65-70 fills adminMux only through the adminRoutes loop with OwnerRoute, and references it only in the two RequireOwner mounts."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "Voided. Spike 193 measured YES, and SC-001 has no preview route (internal/server/admin.go holds only the two landing rows), so nothing here depended on it."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "internal/config/config.go:27, 81-96: the regexp ^[1-9][0-9]{0,18}$ plus ParseInt. config_test.go TestLoadOwnerIDGrammar feeds every listed value plus extras, accepts \"1\" and \"9223372036854775807\", and requires each refusal to name the variable."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "config.go parseBase and lines 109-119 (SecureCookies = https). TestLoadBaseURL covers the accepted and refused forms. TestCookieAttributes checks __Host- names with Secure on an https base and plain names on loopback http."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "Retired in favour of O-045. cmd/hband/main_test.go TestBinary 'no owner ID' runs both no owner and 'octocat': exit 2 within 10 s, names the variable, never prints the secret, never logs 'listening'. 'without overrides' checks healthz 200 and the authorize parameters (client_id, redirect_uri, S256, no scope)."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "internal/server/signin_test.go TestOwnerSignInReachesAdmin: 'sent to sign-in from /admin/' follows the flow through the fake to 200 with the marker. The first subtest checks exactly one sessions row with token_hash == sha256Hex(cookie) != cookie."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "internal/server/admin_test.go TestAdminAccessMatrix/anonymous: GET, HEAD and POST over the cleaned, case and gated classes plus every adminRoutes path. Gated paths give 303 to login or 403, with Cache-Control no-store. The invariant is no 2xx, no marker and a restricted Location. Per M1, the cleaned and case classes answer per class."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "admin_test.go TestAdminAccessMatrix/non_owner: every gated path gives 403 with the explanatory page and never the marker. The same session's home page shows 'Signed in as @somebody'."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "admin_test.go TestPinChangeRevokesAdmin: h.rebuild(43) on the same store gives 403 with no marker, and home still shows the account signed in. IsOwner is recomputed in Identify (session.go:88)."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "handlers.go:51-62: the clear comes first, then parseOAuthCookie and the constant-time state compare, then the error/code check. TestCallbackRefusesBadState: each case gives 400 with zero token calls, zero rows and the OAuth clear present. The genuine-flow control is there."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "github.go:35-91: exchange requires a non-empty token; fetchUser requires a 200, a raw integer id > 0 and a non-empty login. TestCallbackRefusesGitHubFailures covers all nine switches: 502, token endpoint reached, zero rows, OAuth cleared, no sid, no secret in the body."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "admin_test.go TestStoreErrorDeniesAdmin 'after sign-in': /admin gives 503 without the marker, / gives 200 anonymous with the anchor, /healthz gives 503. The 503 comes from owner.go:53-56 and router.go:110-112."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "TestDeadSessionIsAnonymous covers expired (via the clock), malformed (with the store closed and a well-formed control giving 503) and unknown. TestSignInRotatesSession checks that the first cookie is dead and the token differs. The code is the session.go:21 grammar, sessions.go:24 expires_at > now, and signin.go:54-58 dropping the old hash."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "handlers.go:123-139 and router.go:72-79 (CrossOriginProtection). admin_test.go TestLogout covers same-origin and no-header requests, the trusted Origin, cross-site, same-site and an evil Origin (403, row kept), and GET giving 405."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "next.go:27-47 LocalPath. signin_test.go TestLoginNextIsLocalOnly runs the full flow and a tampered-cookie variant for every listed value, keeps /admin and /reports/a-b?x=1 verbatim, and covers the gate case."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "store_test.go TestOpenFreshDatabase, TestRefusesNewerSchema, TestUserDeleteCascadesToSessions and TestUsersHasNoStoredOwnerColumn. main_test.go 'a database from a newer binary' returns 1."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "admin_test.go:26-41: per-class variants, with muxCleanStatus = 307 observed and declared. The invariant at lines 58-70 allows /admin, /admin/, exactly /auth/github/login, or a /auth/github/login? prefix. The owner's marker is a positive control (line 79)."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "internal/auth/cookies.go:31-50 is the only cookie writer, and the fitness rule 'every cookie is written by the one cookie helper' holds (Fitness check). TestCookieAttributes runs on an https base with httptest TLS and parses every Set-Cookie with a minimum-count control."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "auth_test.go TestOwnerRouteWithoutProof serves a bare request, a non-owner Viewer, and a Viewer with IsOwner=true but no proof: each gives 403 with zero calls, and the positive control with ownerKey gives one call. TestIsOwner tables the listed pairs. owner.go:100-110 reads only ownerKey."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "layout.html:12 is an anchor. TestHomeSignInIsAnchor asserts the anchor and that no form targets the login URL. The rule 'no sign-in control is ever a form' sits at fitness.yaml:142-150, with corpus rows."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "fitness.yaml:44-53 (alias and dot imports of html/template), 77-85 (text/template import ban) and 131-141 (markup literal). The engine's Fitness check holds them. The Go-side mirror of the import ban misses files that open with a doc comment: finding m1, same class, with the corpus row to add."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "fitness.yaml:86-101: the r|req|request receivers; Host, TLS, URL.Host, URL.Scheme and Referer(); Header.Get, Values and index with any case and quoting. Corpus host-f001.. rows. No such read exists in the tree (Fitness check)."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "Waived to note N-004, but the code holds it anyway. handlers.go:88-100: SignIn error gives 503 with no sid, and setCookie runs only after a nil error. handlers.go:131-135: a DeleteSession error gives 503 with no Set-Cookie. Pinned by TestStoreErrorDeniesAdmin."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "next.go:27-57: the whole-string check and a verbatim Location. The fitness rule bans http.Redirect, RedirectHandler, Location writes and redirect statuses outside next.go. TestLoginNextIsLocalOnly asserts the callback's final Location for /./\\, /x/../\\ and /admin/../\\."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "migrate.go:56-137: a separate *sql.DB with SetMaxOpenConns(1); FK OFF, BEGIN, SQL, foreign_key_check, user_version, COMMIT; a deferred FK ON; the handle closed before store.go:48 opens the serving pool. TestMigrationRebuildKeepsChildRows with its positive control TestRebuildWithForeignKeysOnWouldCascade, plus TestMigrationOrphanFailsOpen and TestServingPoolHasForeignKeys."
+   },
+   {
+    "key": "O-026",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice, and needs a real browser over https behind the proxy. In the loop, TestCookieAttributes parses every Set-Cookie on an https base (cookies.go:31-50 applies Secure and Path=/ to deletions too). TestBinary showed the cookie jar storing and returning __Host- cookies through the rewriting transport."
+   },
+   {
+    "key": "O-027",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice, and needs the real proxy. In the loop, config refuses http on non-loopback hosts (config.go:186-188), and TestLogout checks CrossOriginProtection with synthetic Sec-Fetch-Site and Origin headers."
+   },
+   {
+    "key": "O-028",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice and the person. The app side holds: RequireOwner sets no-store first (owner.go:51) and the matrix asserts it on every gated response. Whether the VPS proxy honours it is not visible here."
+   },
+   {
+    "key": "O-029",
+    "discharged": "yes",
+    "evidence": "Same as O-003: TestLoadOwnerIDGrammar."
+   },
+   {
+    "key": "O-030",
+    "discharged": "yes",
+    "evidence": "TestLoadBaseURL, TestLoadGitHubEndpoints (defaults, loopback and https overrides, refused forms named per variable), and TestLoadIgnoresUnknownVariables (HBAND_TRUSTED_PROXIES and the 127.0.0.1:8080 default)."
+   },
+   {
+    "key": "O-031",
+    "discharged": "yes",
+    "evidence": "cmd/hband/main_test.go TestBinary compiles with CGO_ENABLED=0 and runs the four shapes. I ran it: pass."
+   },
+   {
+    "key": "O-032",
+    "discharged": "yes",
+    "evidence": "TestHomeSignInIsAnchor, plus TestOwnerSignInReachesAdmin: exact GET /admin with a no-follow client gives 200 with the marker and @octocat, one sessions row, and the hash checked."
+   },
+   {
+    "key": "O-033",
+    "discharged": "yes",
+    "evidence": "TestAdminAccessMatrix/anonymous, including the slash-dense path, the 512-byte boundary and the 513-byte fallback rows (admin_test.go:127-142)."
+   },
+   {
+    "key": "O-034",
+    "discharged": "yes",
+    "evidence": "TestAdminAccessMatrix/non_owner (admin_test.go:145-164)."
+   },
+   {
+    "key": "O-035",
+    "discharged": "yes",
+    "evidence": "auth_test.go TestOwnerRouteWithoutProof and TestIsOwner."
+   },
+   {
+    "key": "O-036",
+    "discharged": "yes",
+    "evidence": "TestPinChangeRevokesAdmin, TestDeadSessionIsAnonymous (expired, malformed with no DB query proved by the closed store) and TestSignInRotatesSession."
+   },
+   {
+    "key": "O-037",
+    "discharged": "yes",
+    "evidence": "TestCallbackRefusesBadState (400 cases) and TestCallbackRefusesGitHubFailures (502 cases), each with zero rows and the OAuth clear."
+   },
+   {
+    "key": "O-038",
+    "discharged": "yes",
+    "evidence": "TestStoreErrorDeniesAdmin covers all three moments, with reopenCount after the store was closed."
+   },
+   {
+    "key": "O-039",
+    "discharged": "yes",
+    "evidence": "TestLogout."
+   },
+   {
+    "key": "O-040",
+    "discharged": "yes",
+    "evidence": "TestLoginNextIsLocalOnly."
+   },
+   {
+    "key": "O-041",
+    "discharged": "yes",
+    "evidence": "TestCookieAttributes, with the https and loopback-http subtests and minimum-count controls (clears >= 5, sets >= 4)."
+   },
+   {
+    "key": "O-042",
+    "discharged": "yes",
+    "evidence": "internal/store/store_test.go covers every listed row. TestSignInRollsBackOnInsertFailure checks that the login upsert and the old-session delete are both rolled back."
+   },
+   {
+    "key": "O-043",
+    "discharged": "yes",
+    "evidence": "fitness.yaml:102-118: the redirect rule edited in place, with next.go its only non-test exception. ToProvider is at next.go:63-70, and handlers.go writes no Location. The engine's Fitness check holds it."
+   },
+   {
+    "key": "O-044",
+    "discharged": "yes",
+    "evidence": "owner.go:85-95 loginTarget falls back to exactly /auth/github/login. TestLoginTargetFallsBackToPlainLogin and the matrix rows pin 'a/'x200, 512 bytes (next kept and decoded) and 513 bytes (fallback)."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "Pin the owner. internal/config/config_test.go TestLoadOwnerIDGrammar feeds each of the 13 listed refusals plus extras, asserts each names HBAND_OWNER_GITHUB_ID, and accepts \"1\" and \"9223372036854775807\" with parsed values checked."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "Base and GitHub URLs. TestLoadBaseURL accepts https on any host and http on 127.0.0.1, localhost and [::1]. It refuses http on non-loopback hosts, a path, a query, a fragment, userinfo and relative URLs. TestLoadGitHubEndpoints covers the unset defaults, loopback and https overrides, and the same refusals for each variable. TestLoadIgnoresUnknownVariables sets HBAND_TRUSTED_PROXIES=127.0.0.1 and checks the 127.0.0.1:8080 default."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "cmd/hband/main_test.go TestBinary builds with CGO_ENABLED=0 and runs the four environments:\n- the finish-line shape, with https://hband.test rewritten to the port: owner 200 with the marker, another ID 403, anonymous 303;\n- no overrides: 302 to github.com;\n- each endpoint set to http://evil.example: exit 2;\n- no owner and 'octocat': exit 2 within 10 s, secret not printed."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "TestHomeSignInIsAnchor checks the anchor and that no form targets the login URL. TestOwnerSignInReachesAdmin signs in through the fake, then GETs exact /admin with a no-follow client: 200, marker and @octocat. It then checks one sessions row with token_hash = sha256 hex of the cookie."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "TestAdminAccessMatrix/anonymous sends no cookie, with GET, HEAD and POST over the cleaned, case and gated variants and every adminRoutes path. Cleaned variants are asserted at the observed 307 (declared deviation from 301). The invariant and Cache-Control no-store are checked on gated responses."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "TestAdminAccessMatrix/non_owner uses a minted session for ID 7, with the same classes and methods. Every gated path gives 403 and never the marker, and the home page shows '@somebody'."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "auth_test.go TestOwnerRouteWithoutProof serves a counting handler a bare request (403, zero calls) and two Viewer-only contexts, with a proof control. TestIsOwner tables (0,0), (-1,-1), (42,0), (42,43) and (42,42)."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "TestPinChangeRevokesAdmin (minted as 42, rebuilt with 43: 403, still signed in); TestDeadSessionIsAnonymous (clock advanced past expiry; malformed values with the store closed, so a 303 proves no query ran); TestSignInRotatesSession (the first cookie is dead after a second sign-in)."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "TestCallbackRefusesBadState feeds no cookie, 2 and 4 parts, a 42-character state, a mismatch, a missing query state, access_denied, and a missing or empty code: each 400 with no token calls. TestCallbackRefusesGitHubFailures flips each of the nine fake switches: each 502, with the token endpoint reached. Every case checks zero users and sessions rows and the OAuth clear."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "TestStoreErrorDeniesAdmin closes the store before a callback that reaches the token endpoint (503, no sid, OAuth clear, zero rows on reopen), before logout (503, no Set-Cookie, row kept), and after sign-in (/admin 503 without the marker, / 200 anonymous, /healthz 503)."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "TestLogout: same-origin with and without Sec-Fetch-Site deletes the row, clears the cookie and answers 303 to /; replaying the old cookie gives 303 to login. Sec-Fetch-Site cross-site or same-site, or Origin https://evil.example, gives 403 and the session still opens /admin. GET gives 405."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "TestLoginNextIsLocalOnly drives the full flow for every listed bad next, and again with the cookie's next part tampered after login, asserting the callback's final 303 Location is '/'. /admin and /reports/a-b?x=1 are kept verbatim. The gate case /admin/%2e%2e/%5Cevil.example ends on '/'."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "TestCookieAttributes on httptest NewTLSServer with an https base collects Set-Cookie from login, a 502 refusal, a 400 refusal, the 503 callback, success, logout success and logout failure. It parses each with http.ParseSetCookie and checks __Host-, Secure, HttpOnly, Path=/, Lax, no Domain, and Max-Age < 0 for clears, with minimum-count controls. A loopback http subtest checks plain names and no Secure."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "internal/store/store_test.go:\n- fresh file: user_version 1, wal;\n- six pooled connections each read foreign_keys=1;\n- reopen is idempotent; 99 is refused (realMain returns 1 in main_test);\n- deleting a user cascades to sessions; no owner column;\n- an injected 0002 users rebuild keeps both sessions, with a foreign-keys-on positive control;\n- an injected orphan fails Open with user_version 1 and no row;\n- a duplicate token_hash rolls back the upsert and the old-session delete."
+   }
+  ],
+  "drift": [
+   "config.Load refuses a malformed HBAND_ADDR (not host:port) with exit 2 (internal/config/config.go:122-127; pinned by TestLoadIgnoresUnknownVariables). The design gives HBAND_ADDR only a default, and its contract leaves the exit-2 list without it and puts a failed listen at exit 1. This departure was not declared.",
+   "parseOAuthCookie also refuses an OAuth cookie whose verifier part is shorter than 43 or longer than 128 characters, answering 400 (internal/auth/handlers.go:111-113). The design's refusal list names only 'not 3 parts' and 'a state that is not 43 characters'. Undeclared, harmless hardening.",
+   "fetchUser stores avatar_url as '' unless it is an absolute https URL of 512 bytes or fewer (internal/auth/github.go:94-103), where the design stores GitHub's avatar_url as given. Undeclared.",
+   "loadMigrations refuses any migration file not named NNNN_name.sql and any set whose versions do not run 1, 2, 3 without gaps (internal/store/migrate.go:32-48). The design says only forward-only NNNN_name.sql files tracked by user_version. Undeclared, and it constrains every later slice's migrations."
+  ],
+  "unreviewed": [
+   "internal/fitnessrules/testdata/rule_spellings.json -- opened in part: the bounded_by, rules_under_test and retired_rules blocks, the host-f001..f017 rows and the ttpl rows. The remaining ~120 corpus rows were not judged one by one. Their pass/fail is mechanically checked by TestRuleSpellingsCorpus, which I ran (pass); I judged their coverage only through finding m1."
+  ],
+  "second_round": {
+   "run_id": 11640,
+   "filed": 6,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "never-opened product file",
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 11641,
+   "session": "29658618-5799-448b-a924-43eb65b6bed3",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "go.sum",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       52
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      52
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       186
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      186
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 2,
+   "named": [],
+   "before": {
+    "read_whole": 33,
+    "changed": 35,
+    "listed": 2
+   },
+   "filed": 1,
+   "read_after": 2,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 35,
+   "read_whole": 35,
+   "deleted": [],
+   "runs": [
+    11639,
+    11640,
+    11641
+   ],
+   "range": {
+    "base": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+    "head": "057fd7c2144bf560ac462ff9908a24c84df25018",
+    "source": "commits",
+    "hunk_base": "ba7102d2f90495e90787a5701b59ba685a6a1be9",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [],
+   "notes": []
+  }
+ }
+}

@@ -59,6 +59,98 @@
   {
    "stage": "design-slice",
    "issue": "GET /admin/{$}: the same handler as GET /admin (chosen) or a 303 to /admin."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "SC-002 (0002_reports.sql, internal/reports, serveRaw, report admin routes, HBAND_MAX_UPLOAD_BYTES) and SC-005 (reader pages, /raw/{slug}, headless-Edge isolation test): later slices per the design's epic parts."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No screens or app launch command declared for measurement: the binary is configured only by HBAND_* environment variables (decided, no flags and no config file), and the declared launch command cannot carry environment variables or a {port} argument, so the engine could not start it. The home, admin and 403 pages were exercised through the real binary and the test suites instead."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The finish-line tests (tests/acceptance/e001_*) are not in the tree, so they were not run; TestBinary reproduces their environment shape (https://hband.test rewritten to a loopback port, HBAND_TRUSTED_PROXIES set, stand-in GitHub, no redirects followed)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The race detector was not run: -race needs cgo and this machine has CGO_ENABLED=0 as the project requires."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The /admin registration rule's lookahead cannot be compiled by Go's regexp, so the Go corpus skips it. It was checked under Python re (the engine's matcher) against the whole tree with 0 violations, but it has no corpus rows."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Declare how the engine can start the app for screen measurement: either a documented launcher that supplies HBAND_* for a scratch run or an engine-side environment for the launch command. Until then the home, admin and 403 pages are unmeasured for readability."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Add a corpus row set for the '/admin route is only ever registered through the one gated mount' rule by running it under Python re, since Go's regexp cannot evaluate its lookahead."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "C-008 Reader Site has no path globs: internal/server/home.go and templates/home.html, layout.html belong to it (the 3-edit limit here went to C-001, C-002 and C-009)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The C-002 line says sessions live in an 'HttpOnly Secure cookie'; Secure is on only for an https base URL, and a loopback http base gets plain names. Reword when the record is next edited."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Person's checks already on the backlog still apply: real sign-in against github.com with the OAuth app (PKCE S256, __Host- cookies over https behind the VPS proxy, Sec-Fetch-Site through the proxy) and that the proxy does not cache admin responses."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The cleaned-variant class (//admin/, /admin/../admin/, //admin) answers 307, not the 301 the design recalled. go1.27.4's net/http/server.go passes StatusTemporaryRedirect at all three mux redirects (lines 2747, 2763, 2772) and the observed response was 307 for GET, HEAD and POST. The matrix pins the observed code through muxCleanStatus; routing was not changed, as the design requires."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The one absolute 302 to GitHub is written by auth.ToProvider in internal/auth/next.go, not directly in github.go or handlers.go as design 2 wrote it. The critic's prescription on m11 (O-043) says to move it so that handlers.go, which holds the callback's 303, is not exempt from the redirect rule. The redirect rule's only non-test exception is next.go."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The new markup-literal rule excepts tests/** as well as _test.go and internal/testutil/**, because the finish-line helpers planted under tests/ are not site code. The critic's text did not list it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Extra patterns beyond the critic's lists, to close the class: receiver name 'request', r.URL.Host and r.URL.Scheme (an absolute-form request target carries its own), Header.Values and index forms with backtick keys, numeric WriteHeader(301/302/303/307/308), formaction on buttons in the sign-in form rule, and alias/dot imports of html/template."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The retired rule 'the identity provider's endpoints cannot be set from the environment' was removed from .taad/fitness.yaml by name, as design 2 prescribes; the replacement 'read only by the config loader' was already appended. It would otherwise fail config.go on every validate."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: server.New returns http.Handler as designed; if AddTrustedOrigin rejects the origin it returns a handler that answers 500, so the failure is closed rather than a panic. config.Load already guarantees a valid origin, so this is unreachable with a loaded Config."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The non-owner 403 page lives in internal/auth/templates/forbidden.html (an embedded html/template in package auth), because RequireOwner is a package-level function used as auth.RequireOwner( by the existing /admin registration rule and cannot take a renderer without changing that spelling."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Standing workaround rule: not applicable. No outside defect is worked around: the backslash and %5c refusals follow the WHATWG URL parser as specified, Lax-not-Strict is SameSite as specified, and the foreign-key runner follows SQLite's documented pragma and rebuild semantics. No settings list or notice was added."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: config.Load refuses a malformed HBAND_ADDR (not host:port) with exit 2 (internal/config/config.go:122-127; pinned by TestLoadIgnoresUnknownVariables). The design gives HBAND_ADDR only a default, and its contract leaves the exit-2 list without it and puts a failed listen at exit 1. This departure was not declared."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: parseOAuthCookie also refuses an OAuth cookie whose verifier part is shorter than 43 or longer than 128 characters, answering 400 (internal/auth/handlers.go:111-113). The design's refusal list names only 'not 3 parts' and 'a state that is not 43 characters'. Undeclared, harmless hardening."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: fetchUser stores avatar_url as '' unless it is an absolute https URL of 512 bytes or fewer (internal/auth/github.go:94-103), where the design stores GitHub's avatar_url as given. Undeclared."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: loadMigrations refuses any migration file not named NNNN_name.sql and any set whose versions do not run 1, 2, 3 without gaps (internal/store/migrate.go:32-48). The design says only forward-only NNNN_name.sql files tracked by user_version. Undeclared, and it constrains every later slice's migrations."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/fitnessrules/testdata/rule_spellings.json -- opened in part: the bounded_by, rules_under_test and retired_rules blocks, the host-f001..f017 rows and the ttpl rows. The remaining ~120 corpus rows were not judged one by one. Their pass/fail is mechanically checked by TestRuleSpellingsCorpus, which I ran (pass); I judged their coverage only through finding m1."
   }
  ],
  "stages": [
@@ -191,6 +283,48 @@
      },
      "changed": {},
      "details": "critique-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T13:25:09.869Z",
+     "head": "057fd7c2144bf560ac462ff9908a24c84df25018",
+     "summary": "Built the SC-001 Go project from an empty tree: config loader, possession-style migration runner and store, cookie and redirect helpers, GitHub OAuth flow (PKCE, state cookie), hashed sessions, the two-mount owner gate with the OwnerRoute interlock, the router and home/admin pages, a fake GitHub, and realMain.",
+     "caused_by": null,
+     "changed": {
+      "src": 32,
+      "config": 1,
+      "tests": 2,
+      "listed": 35,
+      "measured_by_git": 42
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T13:53:58.758Z",
+     "head": "057fd7c2144bf560ac462ff9908a24c84df25018",
+     "summary": "I read every changed Go file, template, go.mod, .gitignore, site.css and fitness.yaml in full.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
     }
    ]
   }
