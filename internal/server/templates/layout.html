@@ -9,6 +9,6 @@
 {{if .SignedIn}}{{if .Viewer.AvatarURL}}<img class="avatar" src="{{.Viewer.AvatarURL}}" alt="" width="24" height="24"> {{end}}<span class="who">Signed in as @{{.Viewer.Login}}</span>
 {{if .Viewer.IsOwner}}<a href="/admin">Admin</a>{{end}}
 <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
-{{else}}<a class="signin" href="/auth/github/login?next=%2F">Sign in with GitHub</a>
+{{else}}<a class="signin" href="/auth/github/login?next={{.SignInNext}}">Sign in with GitHub</a>
 {{end}}</nav>
 </header>{{end}}

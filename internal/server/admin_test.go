@@ -324,8 +324,12 @@ func TestStoreErrorDeniesAdmin(t *testing.T) {
 			t.Fatalf("/admin with the store down: %d marker %v", res.Status, hasMarker(res.Body))
 		}
 		home := h.serve("GET", "/", h.withSID(sid))
-		if home.Status != 200 || strings.Contains(home.Body, "Signed in as") || !anchorRE.MatchString(home.Body) {
-			t.Fatalf("GET / with the store down should render as anonymous: %d", home.Status)
+		// The home page needs the library, so with the store down it says so
+		// (503) rather than claim there is nothing to read. It still renders as
+		// anonymous, and shows no report and no empty state.
+		if home.Status != 503 || strings.Contains(home.Body, "Signed in as") || !anchorRE.MatchString(home.Body) ||
+			strings.Contains(home.Body, "<iframe") || strings.Contains(home.Body, "No reports yet") {
+			t.Fatalf("GET / with the store down should render as anonymous, unavailable: %d", home.Status)
 		}
 		if hz := h.serve("GET", "/healthz"); hz.Status != 503 {
 			t.Fatalf("/healthz with the store down: %d", hz.Status)

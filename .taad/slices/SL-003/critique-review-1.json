@@ -1,0 +1,69 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-003",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-23T19:13:11.505Z",
+ "head": "611f1bbc1322b9607377a1d52265d4657a7be830",
+ "run_id": 11712,
+ "summary": "All eight first-review findings hold, and all are correctly filed as minor. None is over-reach. The approach itself is sound. The design uses three routes over library calls that already exist and are tested: / on Latest, /reports/{slug} on PublishedBySlug, and /raw/{slug} on OpenRaw(true) plus serveRaw. One template serves both pages. Isolation is layered: an iframe sandbox without allow-scripts, plus a CSP sandbox header with script-src 'none'. Interview constraints fixed the path-based isolation, and the brief asks for proof in a real browser, so neither a separate origin nor a check with no browser is a simpler valid frame.\n\n**Premortem.** Assume the slice shipped and failed. Every failure path I traced is fail-closed:\n- A script running under the shipped policy turns W1 or W2 red.\n- A blind or early screenshot leaves W4 not red, so the run is rejected as invalid.\n- A frame-ancestors mismatch leaves W1 with no green.\n\n**The two imported preconditions.** If either is false, nothing passes silently.\n- If the CLI screenshot leaves out out-of-process frame pixels, W4 cannot turn red and every run fails. The cost is building the DevTools fallback in this same slice. That is the ~200-line piece the selection cut, so the simplicity argument for choosing the CLI disappears.\n- From memory, not measured: Chromium's new-headless command handler takes its --screenshot with Page.captureScreenshot, the channel the spike measured. So precondition 1 probably holds.\n- If the capture comes early, the runs are flaky-red rather than falsely green. m2's reorder makes each well check this for itself.\n\n**One gap the first reviewer missed, from re-derivation.** The design says the zero-beacon check on server P is made non-vacuous by W4's /beacon/script at server Q. W4 runs on another server with no CSP, so it cannot control P's check:\n- Any beacon a running script sent from P's /raw would still be blocked by default-src 'none' and img-src data:.\n- So P's zero-beacon check tests rawCSP's blocking of requests, not whether a script ran.\n- Its real control is the reagent's /beacon/img reaching Q in W3 or W4, and nothing asserts that.\n\nThis is minor, because the red-pixel verdict still covers C8.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "All eight first-review findings hold, and all are correctly filed as minor. None is over-reach. The approach itself is sound. The design uses three routes over library calls that already exist and are tested: / on Latest, /reports/{slug} on PublishedBySlug, and /raw/{slug} on OpenRaw(true) plus serveRaw. One template serves both pages. Isolation is layered: an iframe sandbox without allow-scripts, plus a CSP sandbox header with script-src 'none'. Interview constraints fixed the path-based isolation, and the brief asks for proof in a real browser, so neither a separate origin nor a check with no browser is a simpler valid frame.\n\n**Premortem.** Assume the slice shipped and failed. Every failure path I traced is fail-closed:\n- A script running under the shipped policy turns W1 or W2 red.\n- A blind or early screenshot leaves W4 not red, so the run is rejected as invalid.\n- A frame-ancestors mismatch leaves W1 with no green.\n\n**The two imported preconditions.** If either is false, nothing passes silently.\n- If the CLI screenshot leaves out out-of-process frame pixels, W4 cannot turn red and every run fails. The cost is building the DevTools fallback in this same slice. That is the ~200-line piece the selection cut, so the simplicity argument for choosing the CLI disappears.\n- From memory, not measured: Chromium's new-headless command handler takes its --screenshot with Page.captureScreenshot, the channel the spike measured. So precondition 1 probably holds.\n- If the capture comes early, the runs are flaky-red rather than falsely green. m2's reorder makes each well check this for itself.\n\n**One gap the first reviewer missed, from re-derivation.** The design says the zero-beacon check on server P is made non-vacuous by W4's /beacon/script at server Q. W4 runs on another server with no CSP, so it cannot control P's check:\n- Any beacon a running script sent from P's /raw would still be blocked by default-src 'none' and img-src data:.\n- So P's zero-beacon check tests rawCSP's blocking of requests, not whether a script ran.\n- Its real control is the reagent's /beacon/img reaching Q in W3 or W4, and nothing asserts that.\n\nThis is minor, because the red-pixel verdict still covers C8.",
+  "assessments": [
+   {
+    "finding": "m1",
+    "classification": "valid",
+    "note": "Real and correctly minor. The failure is a false alarm, not a false pass. The risk is that the reflex fix is to loosen the red=0 threshold, and SC-010/SC-011 extend this exact layout. A blank shot of the 'No reports yet' state has no h1, date, permalink or frame border. A neutral-report blank (for example a #808080 report through the real route) would cover all the chrome that surrounds a framed report. The fitness-rule alternative also works but must include the CSS keywords 'red' and 'lime', which the fix already lists."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "Correctly minor. An inline <script> is parser-blocking, so a paint between the green <style> and the script is unlikely. But the design lists this precondition as must-verify and checks it only across processes (W4). The reorder costs nothing and makes every green well self-certifying for the script vector. Residual gap: `<img src=x onerror>` fires asynchronously after the load fails, so green-at-end does not prove the onerror handler had its chance. Only the synchronous script vector becomes self-checking."
+   },
+   {
+    "finding": "m3",
+    "classification": "valid",
+    "note": "Correct. Each harness builds its own httptest server, so a log on P cannot see W1s. Requiring GET /raw/probe in each server's log is the right wiring check. See the separate missed item: even with that wiring, W4's beacon at Q does not make P's zero-beacon check non-vacuous."
+   },
+   {
+    "finding": "m4",
+    "classification": "valid",
+    "note": "Correctly minor. An unsandboxed iframe to /raw is still covered by rawCSP's sandbox header and script-src 'none'. The rule failing to see the most direct breach of the stated constraint is a CC-001 gap. The tag allowlist is the right RE2-compatible form, and `<frame\\b` does not match <frameset>."
+   },
+   {
+    "finding": "m5",
+    "classification": "valid",
+    "note": "Correct under CC-001. In the runner's whole-file match, `.` does not cross newlines, and the trailing comma also defeats `\\s*\\)`. FileServer(http.Dir) is the likeliest accidental exposure. The prescribed replacements have smaller CC-001 gaps of their own:\n- an import alias (`nethttp \"net/http\"`) evades `\\bhttp\\.`;\n- a method value (`open := lib.OpenRaw`, and likewise for BySlug and ListAll) evades `\\.OpenRaw\\(`.\nThese are acceptable for tripwires, but they belong in bounded_by."
+   },
+   {
+    "finding": "m6",
+    "classification": "valid",
+    "note": "The component text both receives readerData and 'builds' it. The C2 byte-equality property and the rule that Next comes from the stored slug are only structural if one function derives Title, Next and Viewer. The proposed signature does that."
+   },
+   {
+    "finding": "m7",
+    "classification": "valid",
+    "note": "Correctly minor. The t.TempDir half is partly answered already: the design's contract says 'bounded retries, a leftover is logged, not fatal', which rules t.TempDir out, so that half is a builder warning. The WaitDelay half is new and concrete. If output is captured through pipes, exec.Cmd.Wait can block after the kill while children hold an inherited handle, and the only bound left is the package -timeout."
+   },
+   {
+    "finding": "m8",
+    "classification": "valid",
+    "note": "A real new interaction. This slice makes the file-holding path anonymous, where before only the owner's preview held the file. The design does not mention it. Production is a Linux container (Q-004), so it is correctly minor, and recording it in a comment is proportionate."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "claim": "The design says the zero-beacon assertion on server P is made non-vacuous because the scripts control W4 produces /beacon/script at server Q. That reasoning does not hold. W4 runs on Q with no CSP, while any beacon a running script sent from P's /raw/probe would still be blocked by rawCSP's default-src 'none' and img-src data:. So P's zero-beacon result does not detect a script run (only the red pixel does). What it actually tests is the outside claim that reports cannot fire cookie-bearing same-origin GETs, carried by the reagent's plain <img src=/beacon/img>. For that property its control is not asserted: nothing requires the reagent's /beacon/img to be fetched when no CSP blocks it. Q's log also merges W3 and W4, so a /beacon/script at Q cannot be attributed to the well that sent it.",
+    "evidence": "Design selection_rationale: 'zero same-origin beacons at the hband server, made non-vacuous by the scripts control producing a beacon'. coherence_check (3): 'non-vacuous only because the scripts control (W4) must produce a beacon at Q'. Verdicts: 'W4: red ≥ 40,000 px and Q logged /beacon/script'. outside_claims: 'if wrong: the zero-beacon assertion would fail, exposing that reports can fire cookie-bearing same-origin GETs'. Build-check, measured: under the design CSP no plain-img beacon is requested, while the img-src 'self' control fetched its img, CSS-background and prefetch beacons.",
+    "fix": "State that P's zero-beacon check proves rawCSP's request blocking, and that the red-pixel count is the only script verdict. Add a run-acceptance condition: Q's log must hold /beacon/img from W3, the CSP-less copy whose scripts the attribute blocks. That shows the reagent's image tag fires when nothing blocks it, which is the real control for P's zero /beacon/img. Tag Q's served copies with the well name (for example /beacon/script?w=W4) so that W3 must log no /beacon/script and W4 must log one.",
+    "route": "re-derivation"
+   }
+  ],
+  "frame_challenged": false,
+  "notes": "The first reviewer's eight findings line up with the critique stage's own summary and are accurate. All are concrete, all carry a fix, and none overstates its severity. They cluster in the browser assay and the fitness tripwires, which is where the synthesis created new seams. The product code is composed of existing, tested calls and drew no findings, consistent with the build-check. The first reviewer applied CC-001 to the design's regexes but not to its own prescribed replacements: import aliases and method values still slip past `\\bhttp\\.` and `\\.OpenRaw\\(`. The first reviewer treated the beacon log only as a wiring problem (m3). It did not question the design's claim that W4 makes P's zero-beacon check non-vacuous; that gap is the missed item filed here. Nothing was checked against the tree in this pass, because no file tools were available. The assessments rest on the measured stage records quoted in the brief, and nothing here contradicts a measurement."
+ }
+}

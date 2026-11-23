@@ -1,0 +1,157 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-003",
+ "title": "Anyone reads reports: the home page shows the newest, /reports/<slug> opens any, each in a script-free sandboxed iframe from an isolated path",
+ "status": "active",
+ "branch": "slice/SL-003",
+ "opened_at": "2026-11-23T18:23:51.210Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C1 (derived from 'Each report has a stable URL (/reports/<slug>)'): GET /reports/{slug} answers 200 for a published report and shows that report: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C2 (derived from 'with the same layout as the reader page' / SC-004 'the home page is that same page and handler'): / and /reports/<slug> render one shared template with the site header (anchor sign-in, sign-out form, owner's Admin link): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C3 (from SC-004): GET / shows the newest published report (its title and its framed report, no other report's title), and 200 'No reports yet' when nothing is published: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4 (derived from the slice's isolation statements): draft, unpublished, deleted and unknown slugs get byte-identical 404s on /reports/{slug} and /raw/{slug}: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C5 (from the title and SC-006): the reader pages frame the report in an iframe sandboxed WITHOUT allow-scripts (exactly 'allow-popups allow-popups-to-escape-sandbox', no allow-same-origin/top-navigation/forms) with src /raw/<slug>: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C6 (from the title and SC-006 'from an isolated path, with a CSP that blocks all scripts'): GET /raw/{slug} serves published report bytes only, through serveRaw with the report CSP (sandbox tokens, default-src 'none', script-src 'none', style-src 'unsafe-inline', img-src data:, font-src data:, frame-ancestors <origin>) replacing the site CSP, with nosniff, Content-Type, CORP, ETag, no-cache, HEAD and 304: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C7 (from SC-006 'never inlined into the site's pages'): a sentinel in the report bytes appears in neither / nor /reports/<slug>: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C8 (from the title 'script-free' and SC-006): in a real browser no report script runs, framed via /reports/<slug> or top-level via /raw/<slug> (design: TestReportScriptsNeverRun, headless Edge): missing"
+  },
+  {
+   "stage": "risk-spike",
+   "issue": "framed-report-links-still-work: needs first: A design decision on how reader-page external links will work. The reader page's CSP has `frame-src 'self'`. It blocks plain target-less links in the framed report whenever they point to another origin, and `frame-ancestors 'none'` blocks plain same-site links too. The options are to widen the reader page's `frame-src` (this stops the block on external links but weakens the policy), to rewrite report anchors to target=\"_blank\" at upload or serve time, or to tell authors to add target=\"_blank\". Note that `<base target>` is not available because `rawCSP` sets base-uri 'none'. None of these options was tested here."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Template name: practice report.html, crossdomain reader.html. report.html chosen, the name the epic design and the build check already use."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Where the public raw handler lives: practice reader.go, crossdomain raw.go beside serveRaw. raw.go chosen, so the whole byte path is one file."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Reader-page caching: practice adds no Cache-Control and defers to Q-007, crossdomain sends 'private, no-cache'. The latter chosen, because it is correct under either answer to Q-007 and answers neither."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "An 'Open in its own tab' anchor to /raw/<slug> (crossdomain): dropped, because it advertises a second, bare URL and its value rests on unmeasured top-level link behaviour."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Sign-in return: a Next field (practice) or a SignInNext() method defaulting to '/' (crossdomain). The method chosen."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Sentinel coverage: extend the existing TestReportBytesNeverAppearInSitePages (practice) or add a reader-specific test and leave it untouched (crossdomain). The new test chosen."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Browser test gating: practice gates on HBAND_TEST_BROWSER only, crossdomain also uses the default Edge path. Merged: the default path is used when the variable is unset, and the variable, once set, forbids a skip."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Assay size: crossdomain offered to cut five wells to three. Kept at six, the https well included, because the attribute-alone and CSP-alone wells each prove one of the two layers the constraint names."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T18:41:18.099Z",
+     "head": "611f1bbc1322b9607377a1d52265d4657a7be830",
+     "summary": "The two proposals agree on everything the user can see.",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T19:02:08.097Z",
+     "head": "611f1bbc1322b9607377a1d52265d4657a7be830",
+     "summary": "The product design is sound and matches the tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T19:13:11.505Z",
+     "head": "611f1bbc1322b9607377a1d52265d4657a7be830",
+     "summary": "All eight first-review findings hold, and all are correctly filed as minor.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,165 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-003",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-23T19:02:08.097Z",
+ "head": "611f1bbc1322b9607377a1d52265d4657a7be830",
+ "run_id": 11710,
+ "summary": "The product design is sound and matches the tree. The three routes compose calls that already exist: GET / uses Library.Latest, GET /reports/{slug} uses PublishedBySlug, and GET /raw/{slug} uses OpenRaw(slug, true) followed by serveRaw(…, \"no-cache\"). The two-state error mapping is right, and so is moving TestStoreErrorDeniesAdmin from 200 to 503 with its anonymity checks kept. html/template escapes the sign-in next value, and the link no-go is settled as an author contract. I read router.go, raw.go, home.go, admin.go, harness_test.go, signin_test.go, admin_test.go, layout.html, home.html, reports.go, the fitness rules and the rule runner. Every code claim I checked holds. No existing test breaks except the one the design names.\n\nThe fixes are all minor, in the browser assay and the new tripwires:\n- **Unenforced background colour.** The assay's \"the site chrome shows neither signal colour\" precondition holds today only because someone remembers it. SC-010 adds likes to this exact layout, and a CSS `red` is pure #ff0000, which the assay would read as \"a script ran\".\n- **The second must-verify is not checked per run.** It is checked only by a different Edge process (W4), not within W1's own run.\n- **The https well has no beacon log.** The zero-beacon assertion covers server P only. W1s runs on a second harness whose log is never named.\n- **Two tripwires miss common spellings (CC-001):**\n  - the template rule stays quiet on an iframe with no sandbox attribute at all, and on object, embed and frame tags;\n  - the draft rule misses the gofmt multi-line OpenRaw(…, false,) call;\n  - the byte-path rule misses http.FileServer(http.Dir(…)) and os.DirFS.\n- **Contradictory renderReader contract.** It both receives and \"builds\" readerData.\n\nOn the two must-verify preconditions:\n- **If Edge's command-line screenshot leaves out out-of-process frame pixels**, or virtual time does not wait for them, the frames never paint. W4 cannot turn red and the run fails loudly, so it never passes falsely. The cost is building the DevTools fallback, which is the ~200-line piece the selection cut.\n- **If a capture comes too early**, W4 catches that only in its own process. Reordering the reagent makes \"green\" itself prove that the parser got past the script, so the check holds in every well.\n\nSearches found nothing against the headless claims:\n- Chromium's headless command handler exists (https://github.com/chromium/chromium/blob/main/components/headless/command_handler/headless_command_handler.cc).\n- One project reports that --virtual-time-budget forces a --headless=new --screenshot capture to finish (https://github.com/convenientlymike/svgsafe/commit/b1ca16ec8b9122064e31e14b07cff9f32fe88972).\n\nWhether that capture includes out-of-process frame pixels can only be settled by running Shot against W4 on this machine's Edge.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The product design is sound and matches the tree. The three routes compose calls that already exist: GET / uses Library.Latest, GET /reports/{slug} uses PublishedBySlug, and GET /raw/{slug} uses OpenRaw(slug, true) followed by serveRaw(…, \"no-cache\"). The two-state error mapping is right, and so is moving TestStoreErrorDeniesAdmin from 200 to 503 with its anonymity checks kept. html/template escapes the sign-in next value, and the link no-go is settled as an author contract. I read router.go, raw.go, home.go, admin.go, harness_test.go, signin_test.go, admin_test.go, layout.html, home.html, reports.go, the fitness rules and the rule runner. Every code claim I checked holds. No existing test breaks except the one the design names.\n\nThe fixes are all minor, in the browser assay and the new tripwires:\n- **Unenforced background colour.** The assay's \"the site chrome shows neither signal colour\" precondition holds today only because someone remembers it. SC-010 adds likes to this exact layout, and a CSS `red` is pure #ff0000, which the assay would read as \"a script ran\".\n- **The second must-verify is not checked per run.** It is checked only by a different Edge process (W4), not within W1's own run.\n- **The https well has no beacon log.** The zero-beacon assertion covers server P only. W1s runs on a second harness whose log is never named.\n- **Two tripwires miss common spellings (CC-001):**\n  - the template rule stays quiet on an iframe with no sandbox attribute at all, and on object, embed and frame tags;\n  - the draft rule misses the gofmt multi-line OpenRaw(…, false,) call;\n  - the byte-path rule misses http.FileServer(http.Dir(…)) and os.DirFS.\n- **Contradictory renderReader contract.** It both receives and \"builds\" readerData.\n\nOn the two must-verify preconditions:\n- **If Edge's command-line screenshot leaves out out-of-process frame pixels**, or virtual time does not wait for them, the frames never paint. W4 cannot turn red and the run fails loudly, so it never passes falsely. The cost is building the DevTools fallback, which is the ~200-line piece the selection cut.\n- **If a capture comes too early**, W4 catches that only in its own process. Reordering the reagent makes \"green\" itself prove that the parser got past the script, so the check holds in every well.\n\nSearches found nothing against the headless claims:\n- Chromium's headless command handler exists (https://github.com/chromium/chromium/blob/main/components/headless/command_handler/headless_command_handler.cc).\n- One project reports that --virtual-time-budget forces a --headless=new --screenshot capture to finish (https://github.com/convenientlymike/svgsafe/commit/b1ca16ec8b9122064e31e14b07cff9f32fe88972).\n\nWhether that capture includes out-of-process frame pixels can only be settled by running Shot against W4 on this machine's Edge.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "defect",
+    "claim": "The assay's validity depends on an invariant that nothing enforces: no element of the real reader chrome may render pure #00ff00 or #ff0000. The design records this precondition as 'holds' only because today's site.css uses neither colour; the 'Reader styles' component itself says 'The site CSS must not use pure #00ff00 or #ff0000'. W1, W1s and W2 require exactly red = 0 over the WHOLE image. SC-010 and SC-011 will add the like count and comments to this same shared layout, and a heart styled `color: red` is #ff0000. The assay would then report 'a script ran under the shipped sandbox', a false alarm on the slice's central risk, and the obvious 'fix' for it is to loosen the threshold. No well measures the site chrome on its own, so the cause cannot be told apart from a real script run.",
+    "evidence": "Design: Reader styles ('The site CSS must not use pure #00ff00 or #ff0000, because the browser assay relies on that'). cross_domain_transfer invariant 'Neither assay colour appears in the instrument's own background. holds: site.css uses neither colour'. Verdicts 'W1, W1s, W2, W3: green ≥ 40,000 px and red = 0'. A grep of internal/server for #0f0, #00ff00, #f00, #ff0000, red, lime and rgb( found nothing today. The slice brief says SC-010 and SC-011 add the like count and comments to this shared layout.",
+    "fix": "Add an instrument-blank well that shoots the real reader chrome with nothing framed (P's GET / before the reagent is uploaded, i.e. the 'No reports yet' state). Require green = 0 and red = 0 in it, and fail as 'invalid run: the site chrome contains a signal colour'. Alternatively, add a fitness rule over internal/server/static/** and internal/**/templates/** that forbids #0f0, #00ff00, #f00, #ff0000, red and lime."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "The second must-verify precondition (the capture happens after the inline script had its chance to run) is checked only across runs. The design says 'an early capture leaves the positive control not red, and the run fails', but W4 is a separate Edge process with its own timing. Nothing in W1's own run shows that the capture came after the parser reached the <script>. In the reagent as specified, the green <style> comes first and the script and onerror image come after it. A W1 frame painted green before the parser reached the script would read as 'rendered, no script'. The false pass is narrow: it needs the sandbox and CSP to fail AND the capture to be early. But this is exactly the precondition the design imported without proof.",
+    "evidence": "Design, Browser isolation assay: 'an inline <style> paints html and body #00ff00; <p id=s>SENTINEL-STATIC</p>; <img src=/beacon/img>; an inline <script> that repaints html and body #ff0000 …; <img src=x onerror> that repaints red'. cross_domain_transfer invariant 2 is 'must-verify', and its evidence is 'an early capture leaves the positive control not red'.",
+    "fix": "Put the green <style> element at the end of the reagent's body, after the script and the onerror image, and have the script and handler set inline styles (element.style outranks the stylesheet). Green in any well then means the parser got past the script, so precondition 2 holds within every well rather than only by the cross-process control."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "required",
+    "claim": "The case for the https well says 'The hband server must log no /beacon request', but W1s runs on 'a second harness over https', and the design wraps only 'Server P' in a request log. The zero-beacon assertion therefore never covers the https well. Nothing requires the log to contain the wells' own traffic either, so a wrapper installed on the wrong handler would pass 'no /beacon/' vacuously. Each harness builds its own httptest server and handler, so wrapping one does not cover the other.",
+    "evidence": "Design: 'Server P is the harness, wrapped in a request log' … 'W1s: the same reagent on a second harness over https' … 'P's log holds no /beacon/ request at all'. Case 'read a report in a real browser': '…over http and over https… The hband server must log no /beacon request.'",
+    "quote": {
+     "path": "internal/server/harness_test.go",
+     "line": 109,
+     "text": "ts.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {"
+    },
+    "file": "internal/server/browser_test.go",
+    "fix": "Wrap both harnesses (P over http and the TLS harness) in request logs, and assert zero /beacon/ requests on each. Make each log non-vacuous by also requiring GET /raw/probe in it for every well that targets that server (W1, W2 and W5 on P; W1s on the TLS harness)."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The template tripwire forbids only bad sandbox TOKENS. It stays quiet on the most direct breach of the constraint: an <iframe> to /raw/<slug> with NO sandbox attribute at all. It is also quiet on <object data=…>, <embed src=…> and <frame>. TestReportPage pins the attribute on report.html alone. A later template (SC-010/SC-011 on this layout, or a show-all page) could frame a report unsandboxed and only the rawCSP header would remain, while the rule and the corpus pass. RE2 has no lookahead, so 'an iframe lacking sandbox' cannot be written as one regex. Forbidding the tag outside an allowlist of files can.",
+    "evidence": ".taad/fitness.yaml, rule 'no site template frames a report with scripts or the site origin, or inlines it'. The design's corpus plan lists fire rows only for allow-scripts, allow-same-origin and srcdoc. The rules are evaluated per whole file (internal/fitnessrules/rules_test.go:156-163).",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 167,
+     "text": "- (?i)\\bsandbox\\s*=\\s*[\"']?[^\"'>]*\\ballow-(scripts|same-origin|top-navigation|forms)"
+    },
+    "file": ".taad/fitness.yaml",
+    "line": 163,
+    "end_line": 171,
+    "class_of": "fitness tripwire spelling variants",
+    "threat": "accident",
+    "fix": "Add a token rule: `(?i)<(iframe|frame|object|embed)\\b` must not match in internal/**/templates/**, with except_files internal/server/templates/report.html and internal/server/templates/admin_report.html. Add corpus rows: fire on `<iframe src=\"/raw/{{.Slug}}\">` in a new template, quiet on report.html."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The draft and byte-path tripwires miss ordinary Go spellings (CC-001):\n- The draft rule `\\.OpenRaw\\(.*,\\s*false\\s*\\)` is matched against the whole file with `.` not crossing newlines. The gofmt multi-line call `OpenRaw(\\n\\tr.Context(), slug, false,\\n)`, which ends in a trailing comma, is quiet. So is a publishedOnly flag held in a variable, which bounded_by names.\n- The byte-path rule `\\bhttp\\.Serve(Content|File|FileFS)\\(` is quiet on `http.FileServer(http.Dir(dataDir))` and `http.FileServerFS(os.DirFS(...))`. Those are the likeliest accidental way to expose <data>/reports/*.html under the site CSP. The design's bounded_by names only io.Copy, and its corpus deliberately keeps FileServerFS quiet.",
+    "evidence": ".taad/fitness.yaml rules 'report bytes are written only by serveRaw' (line 155) and 'only the gated admin reaches drafts' (line 175). The runner applies each pattern to the whole file text (internal/fitnessrules/rules_test.go:162). The only FileServerFS in the tree serves the embedded static FS (router.go:62), never http.Dir or os.DirFS.",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 175,
+     "text": "- \\.OpenRaw\\(.*,\\s*false\\s*\\)"
+    },
+    "file": ".taad/fitness.yaml",
+    "line": 152,
+    "end_line": 185,
+    "class_of": "fitness tripwire spelling variants",
+    "threat": "accident",
+    "fix": "Use the token form (lesson #931): forbid `\\.OpenRaw\\(` everywhere except internal/server/raw.go, internal/server/admin.go and internal/reports/**, and let TestHiddenReportsAreIndistinguishable pin readRaw's `true`. Add `\\bhttp\\.(Dir|FileServer)\\(` and `\\bos\\.DirFS\\(` to the byte-path rule's must_not_match; router.go's `http.FileServerFS(staticSub)` stays quiet. Add fire rows for the multi-line OpenRaw call and for http.FileServer(http.Dir(dir))."
+   },
+   {
+    "id": "m6",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "claim": "The renderReader contract contradicts itself. Its signature is renderReader(w, r, status, readerData), which means the caller supplies the data, yet the same component 'builds readerData{pageData{Title, SignedIn, Viewer, Next}, …}'. It also says Title must be rep.Title+\" - hband\" and Next must come from the STORED slug, 'never from the request'. If the two callers (home and readReport) build readerData, then Title, Next and Viewer are composed at two call sites. The 'same layout' property (C2) and the next-from-stored-slug rule then hold only as long as both callers remember them, and SC-010 and SC-011 will extend this same function.",
+    "evidence": "Design, Reader handlers: 'renderReader(w, r, status, readerData): the only path either page takes; builds readerData{pageData{Title, SignedIn, Viewer, Next}, Report, HasReport, Unavailable}; Title is rep.Title+\" - hband\" … Next is … \"/reports/\"+rep.Slug from the STORED slug'. Contract 'renderReader(w, r, status, readerData)'.",
+    "file": "internal/server/reader.go",
+    "fix": "Fix the signature as renderReader(w, r, status, rep reports.Report, state) with state one of found, empty or unavailable. Inside it, derive Title, Next (\"/\" or \"/reports/\"+rep.Slug), SignedIn and Viewer (from auth.ViewerFrom(r.Context())), so neither handler can compose them differently."
+   },
+   {
+    "id": "m7",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "extra",
+    "claim": "Shot promises that 'a leftover [profile] is logged, not fatal', and that a timeout kills only the process Shot started. The natural implementation, --user-data-dir=t.TempDir(), contradicts the first promise: testing's TempDir cleanup reports a failed RemoveAll through t.Errorf. After a timeout kill, Edge children that still hold the profile (renderers, the crashpad handler) would turn a lingering lock into a failed test. Separately, if stdout or stderr is captured into a buffer, cmd.Wait waits for every process holding the pipe, and without cmd.WaitDelay that wait is unbounded after the kill.",
+    "evidence": "Design, Headless browser helper: '--user-data-dir=<fresh temp>' … 'on timeout kills only the process it started, never by name; removes the temp profile with bounded retries, and a leftover is logged, not fatal'. The frame-render spike had to kill 10 leftover Edge processes holding its scratch profile.",
+    "file": "internal/testutil/headless/headless.go",
+    "fix": "Specify os.MkdirTemp for the profile, with the helper's own bounded-retry removal in t.Cleanup that only logs a leftover (never t.TempDir). Set cmd.WaitDelay, for example to 5 s, so Wait returns after the kill even if a child still holds an inherited pipe."
+   },
+   {
+    "id": "m8",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "Making /raw/{slug} public lets any anonymous client hold a report's file open: a slow or repeated GET, or many Range requests, each keep the *os.File open for the length of ServeContent. On a Windows host the existing replace path then cannot set the old file aside, and the owner gets the 409 'being read right now' refusal. Until now only the owner's own preview could do that. The design does not mention this interaction. Production is a Linux Docker container (Q-004), so this affects only Windows runs such as this dev machine, which is why it is filed as extra.",
+    "evidence": "TestReplaceWhileThePreviewIsOpen pins that a replace is refused on Windows while a reader holds the file. readRaw keeps OpenRaw's *os.File open through serveRaw's http.ServeContent (raw.go:26-37). adminSave maps reports.ErrBusy to 409 (admin.go:92-93).",
+    "quote": {
+     "path": "internal/server/admin_reports_test.go",
+     "line": 454,
+     "text": "// On Windows a replace cannot set aside a file somebody is reading: the owner"
+    },
+    "file": "internal/server/raw.go",
+    "fix": "Record it as a known Windows-host limit in the readRaw comment. Optionally add one TestPublicRawAfterReplace sub-case, Windows-only, that holds GET /raw open during a replace and expects the 409 refusal while the old bytes stay intact, so the behaviour is pinned rather than discovered."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "Code claims checked against the tree, and they hold:\n- siteCSP, New, securityHeaders and render (router.go);\n- rawCSP and serveRaw (raw.go);\n- pageData and home (home.go);\n- adminRaw and adminData (admin.go);\n- Latest, PublishedBySlug, OpenRaw and oneReport (reports.go);\n- sniffOK accepts the script-bearing reagent;\n- the header partial hard-codes next=%2F;\n- only home.html renders \"header\";\n- anchorRE accepts any next value;\n- newHarness shares st.DB(), so closing the store fails Latest.\n\nOne claim is wrong in the letter but harmless: /raw 'reads no identity'. Identify wraps the whole mux (router.go:83) and runs LookupSession for any request with a session cookie, /raw included (session.go:78-79). The response does not depend on it, so the Q-006 and lesson #933 point stands.\n\nOutside claims: nothing found contradicts the headless command-line claims. The Chromium headless_command_handler exists, and a project reports that --virtual-time-budget forces a --headless=new --screenshot capture to finish. Whether that capture includes out-of-process frame pixels is unmeasured, but a 'no' fails loudly. Port matching in frame-ancestors and --ignore-certificate-errors are recalled, each with a loud fallback."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "m8: a public /raw lets anonymous readers trigger the Windows replace refusal (ErrBusy). These cases are covered:\n- the missing-file 500;\n- store-down 503;\n- byte-identical 404s across draft, unpublished, deleted, unknown and malformed slugs;\n- path variants pinned from observed responses;\n- a replace with a stale ETag answering 200.\nA report unpublished between the page load and its frame load shows the blocked-frame page, which is cosmetic."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "m1: the assay has no in-run blank for the real site chrome. The 'no signal colour in the background' precondition is remembered rather than enforced, and SC-010 and SC-011 add UI to this exact layout."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "None material. The https well W1s cites lesson #933, which is about a cookie reaching the frame; /raw reads no identity, so that cookie question does not arise. The well still exercises https frame-ancestors matching for one more Shot, which is cheap. Six wells, three tripwires and twelve HTTP tests fit a high-risk isolation slice. The DevTools client was rightly deferred behind the Shot signature."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "m6: the renderReader signature both receives and 'builds' readerData, so the Title and Next derivations could end up per caller. The GET /, /reports/{slug} and /raw/{slug} contracts are otherwise complete for status, headers, HEAD and 304."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "m7: the headless profile cleanup and Wait behaviour after a kill. Checked the reader error mapping against TestStoreErrorDeniesAdmin (admin_test.go:326-329): moving it from 200 to 503 keeps its anonymity checks valid, because Identify leaves a store-down viewer anonymous. readRaw returns 500 when a file is missing, matching adminRaw (admin.go:129-133). A template error stays a 500 via a.render."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "None. The switch from beacon to colour assay follows the build-check measurement that img-src data: suppresses the beacon. The spike's link no-go is resolved by an explicit author contract plus the upload-form hint, without changing either CSP. The routes match the approved e001 excerpts recorded by the spike acceptance-tests-match-reader-routes."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "m4 and m5 (CC-001):\n- the template rule is quiet on an iframe with no sandbox attribute and on object, embed and frame tags;\n- the draft rule misses the gofmt multi-line OpenRaw(…, false,) call;\n- the byte-path rule misses http.FileServer(http.Dir) and os.DirFS.\nThe rules are already appended to fitness.yaml, which is modified in the worktree. Existing rules are unaffected: the headless helper sits under the internal/testutil/** exceptions, and the reagent strings live in a _test.go file."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "m2: the capture-timing must-verify is checked only by a different process; reordering the reagent makes it hold per well. m3: zero beacons are unasserted on the https harness, and no log is required to contain the wells' own traffic.\n\nIf must-verify 1 fails (the command-line capture leaves out frame pixels), W1 and W4 never colour. The run fails as invalid, never a false pass, and the DevTools fallback must be built.\n\nSettling must-verify 1 needs one run of Shot on W4 against this machine's Edge 158."
+   },
+   {
+    "dimension": "security",
+    "result": "No new hole in the product path:\n- serveRaw is unchanged, with rawCSP's sandbox, script-src 'none', frame-ancestors set to the origin, nosniff and CORP;\n- the iframe uses exactly the admin preview's tokens;\n- 404s are written before any header, so drafts have no existence oracle;\n- allow-popups-to-escape-sandbox is within the constraint, and target=_blank implies noopener.\nThe only security-adjacent gap is m4: a future template could frame a report unsandboxed, and only the CSP header would remain."
+   }
+  ]
+ }
+}

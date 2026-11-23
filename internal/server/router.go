@@ -54,6 +54,10 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", a.home)
+	// The share URL, and the isolated path its iframe loads. Neither is under
+	// /admin, and /raw reads no identity.
+	mux.HandleFunc("GET /reports/{slug}", a.readReport)
+	mux.HandleFunc("GET /raw/{slug}", a.readRaw)
 	mux.HandleFunc("GET /healthz", a.healthz)
 	staticSub, err := fs.Sub(staticFS, "static")
 	if err != nil {

@@ -148,3 +148,78 @@ rules:
       has its redirect to the identity provider blocked by the site's form-action 'self' policy
       in Chromium and Safari, so sign-in fails silently in the browser and no loop test can see
       it (m3).
+  # settled by SL-003
+  - name: report bytes are written only by serveRaw
+    files: '**/*.go'
+    must_not_match:
+    - \bhttp\.Serve(Content|File|FileFS)\(
+    - \bhttp\.(Dir|FileServer)\(
+    - \bos\.DirFS\(
+    because: 'serveRaw is the one place that replaces the site CSP with rawCSP (sandbox, script-src
+      ''none'', frame-ancestors) and sets nosniff and CORP. A second ServeContent or ServeFile
+      writes report bytes under the site policy: script-src ''self'', no sandbox, and the site''s
+      own origin. Opened top-level, that page is unsandboxed same-origin HTML. A file server
+      over a directory (http.FileServer(http.Dir(...)), http.FileServerFS(os.DirFS(...))) is
+      the likeliest accidental way to do the same to <data>/reports. The static assets are served
+      from the embedded filesystem, which none of these names.'
+    except_files:
+    - internal/server/raw.go
+    - '**/*_test.go'
+    - internal/testutil/**
+  - name: no site template frames a report with scripts or the site origin, or inlines it
+    files: internal/**
+    must_not_match:
+    - (?i)\bsrcdoc\s*=
+    - (?i)\bsandbox\s*=\s*["']?[^"'>]*\ballow-(scripts|same-origin|top-navigation|forms)
+    because: The project constraint requires the report iframe to be sandboxed without allow-scripts.
+      Isolation is path-based on the site origin, so allow-same-origin hands the report the
+      site's cookies and parent DOM, and allow-top-navigation or allow-forms lets it drive the
+      reader's page. srcdoc puts report bytes inside a site page, which the constraint forbids.
+      The glob covers every non-Go file under internal/ (templates and the embedded static
+      files that are served under the site policy alike); Go files hold the report policy
+      itself, which the HTTP tests pin.
+    except_files:
+    - '**/*.go'
+    - '**/testdata/**'
+  - name: only the audited templates contain a frame element
+    files: internal/**
+    must_not_match:
+    - (?i)<(iframe|frame|fencedframe|object|embed)\b
+    because: A frame, object or embed that loads a report without a sandbox attribute leaves only
+      the report policy header between a reader and the report's scripts, and a regular expression
+      cannot say 'an iframe lacking a sandbox attribute'. So the element is forbidden outside the
+      two templates whose iframes are pinned by the HTTP tests (the reader page and the owner's
+      preview). A page placed under static/ is served under the site policy, whose frame-src
+      'self' allows framing /raw/<slug>, so the glob covers it too.
+    except_files:
+    - '**/*.go'
+    - '**/testdata/**'
+    - internal/server/templates/report.html
+    - internal/server/templates/admin_report.html
+  - name: only raw.go and admin.go open report files
+    files: '**/*.go'
+    must_not_match:
+    - \.OpenRaw\b
+    because: OpenRaw hands back the open file of a report, drafts included when its last argument
+      is false. The token is forbidden outside the two handlers that are pinned by tests (the
+      public one, whose publishedOnly argument TestHiddenReportsAreIndistinguishable pins, and
+      the owner's preview), so a multi-line call, a method value or a flag held in a variable
+      cannot slip past a pattern that tried to read the argument.
+    except_files:
+    - internal/server/raw.go
+    - internal/server/admin.go
+    - internal/reports/**
+    - '**/*_test.go'
+  - name: only the gated admin reaches drafts
+    files: '**/*.go'
+    must_not_match:
+    - \.BySlug\b
+    - \.ListAll\b
+    because: BySlug and ListAll return drafts. A public handler that calls one serves an unpublished
+      report or reveals that it exists, which defeats the identical 404s for draft, unpublished,
+      deleted and unknown slugs. Only the owner-gated admin may see drafts. The token form
+      also catches a method value and a call split over lines.
+    except_files:
+    - internal/server/admin.go
+    - internal/reports/**
+    - '**/*_test.go'
