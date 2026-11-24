@@ -214,7 +214,17 @@ func TestReaderPagesShareOneLayout(t *testing.T) {
 	h.clock.Advance(time.Hour)
 	h.mustUpload(owner, "newest", "The Newest One", "published", reportHTML(300, "newest"))
 
-	for name, sid := range map[string]string{"owner": owner, "non-owner": h.mint(7, "somebody")} {
+	// A thread on the newest report, with a reply, an owner comment and a
+	// placeholder, is part of what both routes draw: the two must stay the same
+	// bytes for every viewer.
+	somebody := h.mint(7, "somebody")
+	top := h.say(somebody, "newest", "a comment from a reader", 0)
+	h.say(owner, "newest", "the owner answers", top)
+	gone := h.say(somebody, "newest", "a comment that will be removed", 0)
+	h.say(somebody, "newest", "a reply that outlives it", gone)
+	h.exec(`UPDATE comments SET removed_at = 5 WHERE id = ?`, gone)
+
+	for name, sid := range map[string]string{"owner": owner, "non-owner": somebody} {
 		home := h.serve("GET", "/", h.withSID(sid))
 		page := h.serve("GET", "/reports/newest", h.withSID(sid))
 		if home.Status != 200 || page.Status != 200 {
@@ -226,12 +236,20 @@ func TestReaderPagesShareOneLayout(t *testing.T) {
 		if !strings.Contains(home.Body, "Signed in as @") {
 			t.Errorf("%s: the header does not show who is signed in", name)
 		}
+		for _, want := range []string{"a comment from a reader", "the owner answers", "a reply that outlives it", "comment removed", badgeMarkup} {
+			if !strings.Contains(home.Body, want) {
+				t.Errorf("%s: the home page does not show %q", name, want)
+			}
+		}
 	}
 
 	home := h.serve("GET", "/")
 	page := h.serve("GET", "/reports/newest")
 	if home.Status != 200 || page.Status != 200 {
 		t.Fatalf("anonymous: / %d, /reports/newest %d", home.Status, page.Status)
+	}
+	if !strings.Contains(home.Body, "a comment from a reader") || strings.Contains(home.Body, "<textarea") {
+		t.Errorf("anonymous: the thread is not shown, or a form is offered:\n%s", home.Body)
 	}
 	if got, want := signInNext(t, home.Body), "/"; got != want {
 		t.Errorf("home page sign-in next = %q, want %q", got, want)
@@ -579,6 +597,12 @@ func TestReaderPathVariants(t *testing.T) {
 		}
 		return ""
 	}
+	commentNotAllowed := func(r result) string {
+		if r.Status != 405 || r.Header.Get("Allow") != "POST" {
+			return "want 405 with Allow: POST"
+		}
+		return ""
+	}
 	hiddenVote := func(r result) string {
 		if r.Status != 404 || r.Body != "404 page not found\n" {
 			return "want http.NotFound's 404"
@@ -611,6 +635,17 @@ func TestReaderPathVariants(t *testing.T) {
 		{"POST", "//reports/x/vote", redirect("/reports/x/vote")},
 		{"POST", "/reports/x/../y/vote", redirect("/reports/y/vote")},
 		{"POST", "/reports/x/vote", hiddenVote},
+		// The comment route is the vote route's twin: POST only, and an anonymous
+		// POST to a draft x and to an unknown x is the same http.NotFound.
+		{"GET", "/reports/x/comments", commentNotAllowed},
+		{"HEAD", "/reports/x/comments", commentNotAllowed},
+		{"PUT", "/reports/x/comments", commentNotAllowed},
+		{"POST", "/reports/x/comments/", notFound},
+		{"POST", "/reports/x/comments/extra", notFound},
+		{"POST", "/reports/comments", notAllowed}, // a report whose slug is "comments": the page route, GET only
+		{"POST", "//reports/x/comments", redirect("/reports/x/comments")},
+		{"POST", "/reports/x/../y/comments", redirect("/reports/y/comments")},
+		{"POST", "/reports/x/comments", hiddenVote},
 	} {
 		a, b := withDraft.serve(v.method, v.target), unknown.serve(v.method, v.target)
 		if msg := v.check(a); msg != "" {

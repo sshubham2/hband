@@ -20,6 +20,7 @@
 {{end}}</form>
 {{else}}<p class="vote-hint">Sign in to vote.</p>
 {{end}}</section>
+{{template "comments" .}}
 {{else if .Unavailable}}<h1>hband</h1>
 <p>Reports cannot be shown right now. Try again in a moment.</p>
 {{else}}<h1>hband</h1>

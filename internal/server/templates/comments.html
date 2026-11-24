@@ -1,0 +1,27 @@
+{{define "comments"}}<section class="comments" id="comments">
+<h2>Comments</h2>
+{{if .SignedIn}}<form method="post" action="/reports/{{.Report.Slug}}/comments">
+<label>Add a comment <textarea name="body" required maxlength="5000" rows="4"></textarea></label>
+<button type="submit">Post comment</button>
+</form>
+{{else}}<p class="comment-hint">Sign in to comment.</p>
+{{end}}{{range .Thread}}{{template "comment" .}}{{else}}<p class="no-comments">No comments yet.</p>
+{{end}}</section>{{end}}
+
+{{define "comment"}}<article class="comment" id="comment-{{.ID}}">
+{{if .Placeholder}}<p class="removed">comment removed</p>
+{{else}}<header class="byline">{{if .AvatarURL}}<img class="avatar" src="{{.AvatarURL}}" alt="" width="24" height="24"> {{end}}<span class="login">{{.Login}}</span> {{if .Author}}<span class="badge">Author</span> {{end}}<time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2 January 2006"}}</time></header>
+<p class="body">{{.Body}}</p>
+{{if .CanReply}}<details class="reply">
+<summary>Reply</summary>
+<form method="post" action="/reports/{{.Slug}}/comments">
+<input type="hidden" name="parent" value="{{.ID}}">
+<textarea name="body" required maxlength="5000" rows="3" aria-label="Your reply"></textarea>
+<button type="submit">Post reply</button>
+</form>
+</details>
+{{end}}{{end}}{{if .Replies}}<div class="replies">
+{{range .Replies}}{{template "comment" .}}{{end}}</div>
+{{else if .Cut}}<p class="cut">Deeper replies are not shown on this page.</p>
+{{end}}</article>
+{{end}}

@@ -1,0 +1,179 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-006",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-24T01:00:01.142Z",
+ "head": "93e28aadd9a7c2538cf0b3067ce451d570a14cba",
+ "run_id": 11810,
+ "summary": "The design is sound in substance. The schema and write path hold up against the tree and the sources: a single INSERT…SELECT, a uniform 404, redaction done in SQL, a shared visibleSQL fragment, and pruning in arrange. I read router.go, reader.go, vote.go, report.html, site.css, migrate.go, signin.go, fitness.yaml 225-311 (the three rules are already written there) and fitnessrules/rules_test.go. Two load-bearing recalled SQLite claims are confirmed. sqlite.org/foreignkeys.html says an immediate constraint is checked \"at the end of the current statement\", unlike RESTRICT. cherry-studio PR #18479 shows a self-referential ON DELETE CASCADE failing with \"too many levels of trigger recursion\" beyond about 1000 levels. So the switch to NO ACTION is well founded. What is wrong is small and mostly about invariants that hold only if later code remembers them:\n- The Participant fence is scoped to one file name, so it passes trivially if that file is renamed and does not cover the next write handler.\n- Post relies on every caller having run Normalize first.\n- The SC-013 depth cap is written three times.\n- The fallback named in the first decidable disagreement is CASCADE, which the cited PR shows fails at the 1,500 depth the design's own test uses.\n- The finish-line check runs a path that does not exist in any worktree (lesson #951).\n- The migration case assumes production is at version 3, while open Q-015 frames it at version 2.\nThe imported precondition parent.id < child.id actually holds by construction, with or without AUTOINCREMENT: the parent must exist at insert time, and a new rowid is always larger than the current maximum. If it ever fails (an explicit-id insert), arrange returns an error and the whole report page, and '/' while that report is the newest, becomes a persistent 503. Not settled by me: anything that needs the planted E-004 test body. There is no shell in this review, so the ledger was not read. Running `SELECT finish FROM epics WHERE id=42` read-only would settle the text-trap claims in coherence (10).",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The design is sound in substance. The schema and write path hold up against the tree and the sources: a single INSERT…SELECT, a uniform 404, redaction done in SQL, a shared visibleSQL fragment, and pruning in arrange. I read router.go, reader.go, vote.go, report.html, site.css, migrate.go, signin.go, fitness.yaml 225-311 (the three rules are already written there) and fitnessrules/rules_test.go. Two load-bearing recalled SQLite claims are confirmed. sqlite.org/foreignkeys.html says an immediate constraint is checked \"at the end of the current statement\", unlike RESTRICT. cherry-studio PR #18479 shows a self-referential ON DELETE CASCADE failing with \"too many levels of trigger recursion\" beyond about 1000 levels. So the switch to NO ACTION is well founded. What is wrong is small and mostly about invariants that hold only if later code remembers them:\n- The Participant fence is scoped to one file name, so it passes trivially if that file is renamed and does not cover the next write handler.\n- Post relies on every caller having run Normalize first.\n- The SC-013 depth cap is written three times.\n- The fallback named in the first decidable disagreement is CASCADE, which the cited PR shows fails at the 1,500 depth the design's own test uses.\n- The finish-line check runs a path that does not exist in any worktree (lesson #951).\n- The migration case assumes production is at version 3, while open Q-015 frames it at version 2.\nThe imported precondition parent.id < child.id actually holds by construction, with or without AUTOINCREMENT: the parent must exist at insert time, and a new rowid is always larger than the current maximum. If it ever fails (an explicit-id insert), arrange returns an error and the whole report page, and '/' while that report is the newest, becomes a persistent 503. Not settled by me: anything that needs the planted E-004 test body. There is no shell in this review, so the ledger was not read. Running `SELECT finish FROM epics WHERE id=42` read-only would settle the text-trap claims in coherence (10).",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The rule 'the comment write handler resolves the poster with auth.Participant, never ViewerFrom' applies to one file path. It holds only if later code remembers it:\n- If the handler is named differently or moved (comments.go, thread.go), the rule matches no file and passes.\n- If comment.go calls a server helper in another file that calls ViewerFrom, the rule does not see it.\n- The next public write handler (SC-016 feedback, or vote.go itself, waived as N-029) is not covered.\nToday ViewerFrom is called in internal/server only at reader.go:100 and admin.go:63, so the invariant can be enforced by construction instead.",
+    "evidence": ".taad/fitness.yaml:303-306 (rule already written into the tree); grep of ViewerFrom( in internal/: only internal/server/reader.go:100 and internal/server/admin.go:63 outside auth",
+    "file": ".taad/fitness.yaml",
+    "line": 304,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 304,
+     "text": "files: internal/server/comment.go"
+    },
+    "fix": "Invert the scope: files internal/server/**/*.go, except_files internal/server/reader.go, internal/server/admin.go and **/*_test.go. SC-013's branch.go then has to be added as an exception on purpose. Add one fire row at path internal/server/comments.go (another file name) to the corpus."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "defect",
+    "claim": "The Post contract says 'The caller passes a body that has already been through Normalize, with the schema's length > 0 CHECK as backstop.' So rejecting invalid UTF-8 and C0, C1 and DEL controls, normalising CRLF and enforcing the 5000-rune limit all depend on every call site remembering to call Normalize first. A later caller (an admin edit, an import, a test helper that grows into code) can store a 1 MB body or control characters. Only the empty-string CHECK would stop it.",
+    "evidence": "design component 'comments.Book writes': Post(ctx, reportID, githubID, parentID int64, body string); contract 'comments.Book.Post' notes",
+    "fix": "Have Post call Normalize itself and return ErrBadBody, and have postComment map ErrBadBody to 400. Normalize stays exported for its table test. The handler may still call it first to answer 400 before the write."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "nature": "defect",
+    "claim": "The first decidable disagreement says: 'If NO ACTION fails, the alternative is CASCADE, with that same deep-chain test proving it does not hit the depth limit.' A merged fix in another project shows a self-referential parent_id ON DELETE CASCADE failing with 'too many levels of trigger recursion' past SQLITE_MAX_TRIGGER_DEPTH (1000, which no pragma can change). So CASCADE would fail the design's own 1,500-deep test, and the fallback is a dead end. The primary claim holds: sqlite.org/foreignkeys.html says RESTRICT acts 'as soon as the field is updated - not at the end of the current statement as it would with an immediate constraint'. The fallback, though, is named wrongly.",
+    "evidence": "https://github.com/CherryHQ/cherry-studio/pull/18479: 'message carries a self-referential FK (parent_id → id ON DELETE CASCADE) ... a single DELETE recursed once per message. SQLite aborts past SQLITE_MAX_TRIGGER_DEPTH (1000, not configurable via pragma)'; https://www3.sqlite.org/foreignkeys.html (RESTRICT vs immediate, end of statement)",
+    "fix": "Name the real fallback: DEFERRABLE INITIALLY DEFERRED on the composite self-FK. That keeps a single statement, and under autocommit the check runs at that statement's end. A deepest-first delete is ruled out because it needs a transaction across the reports package. Drop CASCADE as an alternative."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "The material case 'the epic's finish line 1' is checked with `python tests/acceptance/test_e004_1_comments_and_replies.py`. There is no tests/ directory in this worktree. Lesson #951 records that the planted finish tests live only in the ledger's epics.finish column (E-004 is epics.id=42). As written, the check fails with file-not-found rather than measuring the product.",
+    "evidence": "Glob of tests/** in the SL-006 worktree returned nothing; lesson #951; spike e003-finish-line-comment-contract evidence names epics.id=42",
+    "fix": "Change the check to: read SELECT finish FROM epics WHERE id=42 in place (mode=ro), write the test_e004_1 body into a scratch folder, and run it with ROOT pointed at the worktree, as SL-004 did."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "nature": "defect",
+    "claim": "The migration case says 'Production is at version 3', and filed_for_later says 'production user_version 3'. Open Q-015 asks whether 0003 applies cleanly to the production database 'at user_version 2'. That production has been taken to version 3 is unknown, not established. If production is still at version 2, the first deploy of this binary runs 0003 and then 0004 in one start (migrate.go applies all[current:] in order), and the planned version-3 to version-4 test does not cover that path.",
+    "evidence": "Q-015 (open); design case 'upgrade an existing database'; filed_for_later item 1",
+    "file": "internal/store/migrate.go",
+    "line": 101,
+    "quote": {
+     "path": "internal/store/migrate.go",
+     "line": 101,
+     "text": "for _, m := range all[current:] {"
+    },
+    "fix": "Also start TestCommentsMigration from a populated version-2 file (users, sessions, reports) and assert it reaches version 4 with the rows intact. In filed_for_later, say 'at whatever user_version it holds (see Q-015)' instead of asserting 3. Q-015 itself is not answered here."
+   },
+   {
+    "id": "m6",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "defect",
+    "claim": "The SC-013 part writes the display depth cap in three separate places:\n- threadDepthCap = 5 in thread.go;\n- a literal 5 in the branch handler's buildThread([root], …, 5);\n- the redirect formula 5+4·⌊(D−6)/4⌋, where 4 is cap−1 and 6 is cap+1.\nChanging one without the others either sends a new deep reply's 303 to a branch page where that reply sits beyond the cut and is not drawn, or makes branch pages nest differently from the report page.",
+    "evidence": "design components 'SC-013 (later part): depth-5 cut, continue link, branch page, redirect' and 'Thread view builder'",
+    "class_of": "copies of the display depth cap",
+    "threat": "accident",
+    "fix": "Have the branch handler pass threadDepthCap. Derive the branch root from it: root depth = cap + (cap−1)·⌊(D−cap−1)/(cap−1)⌋ for D > cap. TestReplyRedirectTable should compute its expected values from the constant."
+   },
+   {
+    "id": "m7",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "extra",
+    "claim": "This is what breaks if the imported precondition parent.id < child.id fails. The precondition in fact holds by construction even without AUTOINCREMENT, because the parent must exist at insert time and a new rowid is always above the current maximum. Only an explicit-id insert can break it. If that happens, arrange returns an error, and renderReader, following the votes pattern, makes the whole page stateUnavailable. The report, its votes and its frame all disappear behind a 503. While it is the newest report, '/' is a 503 too. Because the cause is a stored row and not an outage, this lasts until someone repairs the table by hand.",
+    "evidence": "design 'Reader render integration' and contract 'comments.Book.Tree' error_cases; existing pattern at internal/server/reader.go:108-111",
+    "file": "internal/server/reader.go",
+    "line": 111,
+    "quote": {
+     "path": "internal/server/reader.go",
+     "line": 111,
+     "text": "state, rep = stateUnavailable, reports.Report{}"
+    },
+    "fix": "Backlog: show the report with a 'Comments cannot be shown right now.' section, instead of 503ing the whole page, when the thread cannot be read. Keep the rule that a failed read is never shown as 'No comments yet.'."
+   },
+   {
+    "id": "m8",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "In SC-011 alone, with threadDepthCap = 100, CanReply is true on the cut node at depth 100 and Post accepts any depth. A reply at depth 101 or deeper is stored, answered with a 303 to an anchor the page never draws, and then shown nowhere until SC-013 ships the branch page. For that reply, C3 ('shown publicly under the report') is not met in the meantime.",
+    "evidence": "design 'Thread view builder' (CanReply has no depth term; Cut at depthCap) and 'Comment POST handler' step 9",
+    "fix": "Accept this as a known interim and note it on the Cut marker, or have SC-013 follow directly. No change is needed in SC-011 if SC-013 ships with this epic."
+   },
+   {
+    "id": "m9",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "extra",
+    "claim": "Lessons #944 and #948 hold because the route lists in TestReaderPathVariants and TestDislikesDoNotInterfere are written by hand. The design adds rows by hand again for SC-011 and plans more by hand for SC-013, and SC-020 and SC-021 will add routes too. Any later route someone forgets falls outside the dislike-privacy guarantee.",
+    "evidence": "internal/server/vote_test.go:495 hand-written reads list; internal/server/reader_test.go:605-613 hand-written vote rows",
+    "file": "internal/server/vote_test.go",
+    "line": 495,
+    "quote": {
+     "path": "internal/server/vote_test.go",
+     "line": 495,
+     "text": "reads := []string{\"/\", \"/reports/x\", \"/reports/y\", \"/reports\", \"/admin\", \"/admin/reports/x\"}"
+    },
+    "fix": "Backlog: register reader routes from a table, as adminRoutes already does. Have both tests fail when a registered pattern has no observation row."
+   },
+   {
+    "id": "m10",
+    "severity": "minor",
+    "dimension": "security",
+    "nature": "extra",
+    "claim": "There is no limit on how many comments one signed-in account can post. Every GET of '/' and /reports/<slug> reads and renders the whole thread, with a reply form per comment for signed-in viewers. One GitHub account can make the home page arbitrarily large and slow on the home server before the owner can block it. Even after a block, Tree still selects every hidden row before pruning.",
+    "evidence": "design 'comments.Book.Tree' (one SELECT of all rows for the report) and 'Comment POST handler' (no rate or count limit)",
+    "fix": "Backlog: a per-account post rate, for example N per minute checked inside Post's single statement. Optionally cap top-level comments per page under SC-013's paging."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "m3: the CASCADE fallback is contradicted by the cited cherry-studio PR #18479. m5: 'production at version 3' conflicts with open Q-015. The imported must-verify precondition (parent.id < child.id) holds by construction regardless of AUTOINCREMENT; what breaks if it fails is filed as m7. Confirmed against foreignkeys.html: NO ACTION is checked at the end of the statement."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "m8: in SC-011 alone, replies deeper than cap 100 are accepted and shown nowhere. Also checked, with no gap: same-second order (id order), a race with unpublish (single statement), a removed or blocked parent (shared visibleSQL), a cross-report parent (EXISTS plus composite FK), a body holding </article> (escaped), and the 64 KiB cap against 5000 four-byte runes percent-encoded."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "m2: Post depends on callers having run Normalize. m6: the SC-013 depth cap is written three times."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "none: blocked_accounts is justified by C6 naming 'blocked'. The composite FK is cheap now and costly later. The fitness rules were already trimmed to three. The SC-013 sections are epic_parts and are not built in this slice."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "The POST, markup, Tree and Normalize contracts match vote.go's shape (verified at vote.go:26-91) and the finish-test facts the spike recorded. The only gaps are the caller-side Normalize obligation (m2) and the cap-dependent redirect formula (m6)."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "m7: an arrange integrity error turns the whole page, including '/', into a persistent 503. m3: the fallback for a failed report delete is wrong. Identity outage gives 503, a store write error gives 503, and ErrNoTarget gives 404, all as in the vote path."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "none: C1-C7 are each covered by a component and a case. The design uses Chrome, not the stale Edge default (lesson #946), honours lessons #949 and #950, and keeps SC-011 free of JavaScript (Q-012 not answered)."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "m1: the Participant rule is scoped to one file and passes trivially if the file is renamed. m9: the hand-written route lists. Checked: whole-file matching (rules_test.go:7-11) of the new comments fence finds nothing in today's tree, the SeeOther, frame and template.HTML rules are respected, and the router.go struct literal 'comments: comments.New(...)' has no uppercase FROM before it."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "m4: the finish-line check path does not exist in the worktree. m5: no version-2 to version-4 migration test. The -run filters in the check commands do not match TestReportScriptsNeverRun except where it is named (lesson #947)."
+   },
+   {
+    "dimension": "security",
+    "result": "m10: unlimited post volume per account against a full-thread read on '/'. Checked and sound: html/template text and URL escaping, the CSP img-src for avatars, the uniform 404 (no oracle), CrossOriginProtection in front of the route (router.go:89-96), and hidden-row fields blanked in SQL with the badge also guarded by !Placeholder."
+   }
+  ]
+ }
+}

@@ -1,0 +1,716 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-006",
+ "stage": "design-slice",
+ "attempt": 2,
+ "at": "2026-11-24T01:28:06.930Z",
+ "head": "93e28aadd9a7c2538cf0b3067ce451d570a14cba",
+ "run_id": 11825,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "selection_rationale": "The two proposals were written after spike 197 and agree on everything load-bearing. Both use migration 0004 exactly as the spike measured it: NO ACTION composite self-FK, report_id ON DELETE CASCADE, UNIQUE(report_id,id). Both use the same write path, a single-statement INSERT…SELECT inside internal/comments with Normalize called inside Post. Both read the thread with one flat SELECT, blank hidden rows in SQL, and prune with a reverse-id post-order pass. Both copy vote.go's handler order, keep the display cap in one constant, decide the badge with auth.IsOwner from the pinned ID, and keep the three SL-006 fences already in .taad/fitness.yaml.\n\nEach contested piece was chosen against the code as it stands.\n\n(1) Where the badge is computed. The badge is computed in internal/server at render time, from Node.GitHubID and a.cfg.OwnerGitHubID (crossdomain's version). internal/comments therefore stays free of auth and config, the same way votes.Book takes only a *sql.DB and a clock (votes.go New). Hidden rows already reach Go with github_id 0, so a placeholder cannot carry the badge even if someone forgets the !Placeholder guard.\n\n(2) The write statement. Post is one unified INSERT…SELECT with `(? = 0 OR EXISTS(...visible parent...))` (crossdomain), instead of two statements. Either way each call is exactly one statement, so the rule against opening a transaction holds. One statement leaves one SQL text to test.\n\n(3) Branch pages and the reply redirect (SC-013). Both use the existing Tree plus a pure Find over the pruned forest (crossdomain), instead of new Branch and Ancestry SQL (practice). That is no new SQL to fence, and the branch page, the continue links and the redirect target are all computed from the same pruned tree and the same constant.\n\n(4) Placement of the branch handler. readBranch goes in reader.go (practice), so the widened Participant fence needs no new exception.\n\n(5) Placeholder wording. It is the brief's own 'comment removed' (practice).\n\n(6) Templates. A defines-only templates/comments.html (practice) is picked up by the existing ParseFS(\"templates/*.html\") just as layout.html is.\n\nOne change has no proposal behind it. blocked_accounts carries no FK to users. With NO ACTION, a blocked user's row could never be deleted. With CASCADE, deleting the row would quietly unblock that GitHub account the next time it signs in. A block is a fact about a GitHub account ID, and that ID outlives any users row. Neither fork the spike measured involves this table, since it ran only a stand-in.\n\npractice raised over_engineering_flag, against shipping blocked_accounts before anything in the app writes it. It is kept anyway, because PS-011's done-when names 'removed or blocked' and C6 cannot be tested for blocked rows without the table. The composite FK costs nothing now and has been measured. Removing it later would mean a table rebuild through the hot migrate.go (lesson #930).\n\ncrossdomain's transfer (trie and git-tree pruning) is taken for arrange. Its own 'fails' invariant, display depth, is honoured by threadDepthCap, because the Chrome no-go was measured.",
+  "components": [
+   {
+    "name": "Comments schema (migration 0004)",
+    "lives_at": "internal/store/migrations/0004_comments.sql",
+    "responsibility": "The DDL spike 197 measured as variant N, unchanged for the comments table:\n- comments, STRICT:\n  - id INTEGER PRIMARY KEY AUTOINCREMENT\n  - report_id INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE\n  - parent_id INTEGER\n  - github_id INTEGER NOT NULL REFERENCES users(github_id), no action clause\n  - body TEXT NOT NULL CHECK(length(body) > 0)\n  - created_at INTEGER NOT NULL\n  - removed_at INTEGER\n  - UNIQUE(report_id, id)\n  - FOREIGN KEY(report_id, parent_id) REFERENCES comments(report_id, id), no action clause\n- CREATE INDEX comments_children ON comments(report_id, parent_id).\n- blocked_accounts(github_id INTEGER PRIMARY KEY CHECK (github_id > 0), blocked_at INTEGER NOT NULL) STRICT, with no FK to users (key decision).\n\nThe migration has no owner, role or badge column and copies no login or avatar. It does not alter users, sessions, reports or votes. The file name follows loadMigrations' NNNN_name.sql grammar, so this is version 4.",
+    "key_interactions": "applyMigration applies it: foreign keys OFF, BEGIN, the file, foreign_key_check, user_version 4, COMMIT. The builder reads migrate.go whole before touching anything near it (lesson #930).\n\nMeasured by spike 197 through store.Open:\n- Library.Delete clears reply chains 1,500 and 10,000 deep, in 5 ms and 44 ms.\n- Cross-report and missing parents are refused with 787, and NULL-parent rows insert.\n- Deleting one comment that has replies fails with 787, so removal is always the removed_at flag.\n- A users row that has comments cannot be deleted. No product path deletes users; only tests do, on users with no comments."
+   },
+   {
+    "name": "comments.Book: the write side (Post, Normalize, visibleSQL)",
+    "lives_at": "internal/comments/comments.go",
+    "responsibility": "API:\n- New(db *sql.DB, now func() time.Time) *Book\n- Post(ctx, reportID, githubID, parentID int64, body string) (int64, error), where parentID 0 means top level.\n- Normalize(raw string) (string, error), exported for TestNormalize.\n- MaxRunes = 5000.\n- ErrBadBody and ErrNoTarget.\n\nPost calls Normalize first and returns ErrBadBody before any SQL runs. It then runs exactly one statement:\nINSERT INTO comments(report_id,parent_id,github_id,body,created_at) SELECT r.id, NULLIF(?,0), ?, ?, ? FROM reports r WHERE r.id=? AND r.status='published' AND (?=0 OR EXISTS(SELECT 1 FROM comments p WHERE p.id=? AND p.report_id=r.id AND <visibleSQL over p>))\nRowsAffected 0 returns ErrNoTarget. Otherwise Post returns LastInsertId.\n\nvisibleSQL is one unexported constant, `(%[1]s.removed_at IS NULL AND NOT EXISTS (SELECT 1 FROM blocked_accounts k WHERE k.github_id = %[1]s.github_id))`. Post's parent check and Tree's SELECT both use it.\n\nNormalize, in this order:\n1. Refuse invalid UTF-8.\n2. Turn CRLF and lone CR into LF.\n3. Refuse any C0 control except \\n and \\t, DEL, and any C1 control.\n4. strings.TrimSpace.\n5. Refuse an empty result.\n6. Refuse more than MaxRunes runes.\nNothing is rewritten as HTML.\n\nThe package never opens a transaction (fenced) and is the only code that names the comments table in SQL (fenced).",
+    "key_interactions": "server.New builds it with comments.New(st.DB(), clock), on the pool votes.New already uses. postComment calls Post.\n\nErrNoTarget covers every unusable target with one outcome: no published report with that id, or a parent that is missing, on another report, removed, or written by a blocked account. The answer is the same in every case, so it reveals nothing about hidden comments. The measured composite FK is a second guard against any other writer.\n\nWhether a blocked account may still post is left to SC-021. Until then such posts are stored, and Tree hides them."
+   },
+   {
+    "name": "comments.Book: the read side (Tree, arrange, Find)",
+    "lives_at": "internal/comments/tree.go",
+    "responsibility": "Tree(ctx, reportID int64) ([]*Node, error) runs one SELECT:\nFROM comments c JOIN users u ON u.github_id=c.github_id WHERE c.report_id=? ORDER BY c.id\nFor each row it returns id, COALESCE(parent_id,0), created_at and the shown flag (visibleSQL). github_id, login, avatar_url and body come through `CASE WHEN shown THEN … ELSE 0/'' END`, so removed or blocked text never reaches Go.\n\narrange(rows) ([]*Node, error) is a pure function:\n- Index the rows by id.\n- Reverse pass in descending id order. This is a post-order, because parent.id < child.id. Set keep = shown || keptChildren > 0, and a kept node adds one to its parent's count.\n- Ascending pass: link each kept node into its parent's Replies, or into the roots. Every level comes out oldest first, in O(n) with no recursion.\n- A row whose parent is missing or has parent_id >= id is an error, not a wrong drawing.\n\nNode holds ID, GitHubID (0 when hidden), Login, AvatarURL, Body, Posted (UTC time.Time), Placeholder (= !shown) and Replies.\n\nFind(nodes []*Node, id int64) []*Node returns the root-to-node path in the pruned forest, or nil. It is pure. SC-013 uses it for branch pages and for the reply redirect.",
+    "key_interactions": "renderReader calls Tree for a found report. SC-013's readBranch and postComment's redirect call Tree and then Find.\n\nSC-020 will set removed_at, and SC-021 will insert or delete blocked_accounts rows. Unblocking restores a writer's comments with no per-comment writes. Neither later slice changes this read."
+   },
+   {
+    "name": "Comment POST handler",
+    "lives_at": "internal/server/comment.go",
+    "responsibility": "func (a *app) postComment(w, r) handles POST /reports/{slug}/comments, in vote()'s order:\n1. Cache-Control: no-store.\n2. auth.Participant. ErrIdentityUnavailable → 503.\n3. reports.PublishedBySlug. ErrNotFound → http.NotFound; any other error → 503.\n4. ErrSignedOut → auth.SeeOther(\"/reports/\"+rep.Slug+\"#comments\"). Nothing is parsed or written.\n5. http.MaxBytesReader of 64 KiB (5000 runes × 4 UTF-8 bytes × 3 for percent-encoding, plus the parent field), then ParseForm. An error → 400.\n6. Read only r.PostForm. 'body' must appear exactly once. 'parent' may be absent; if present it must appear once and be canonical positive decimal, meaning strconv.FormatInt(n,10) == s and n > 0. Otherwise → 400.\n7. Post. ErrBadBody → 400. ErrNoTarget → http.NotFound. Anything else → 503, logged.\n8. Success → auth.SeeOther(\"/reports/\"+rep.Slug+\"#comment-\"+id).\n\nIt never calls ViewerFrom (fenced) and writes no Location header of its own (fenced).",
+    "key_interactions": "Registered in router.go New next to the vote route: mux.HandleFunc(\"POST /reports/{slug}/comments\", a.postComment). It sits behind securityHeaders, CrossOriginProtection and Identify, so a cross-site POST gets cop's 403 before the handler runs.\n\nIn SC-011 every success goes to #comment-<id>. SC-013 changes only the target for replies deeper than threadDepthCap."
+   },
+   {
+    "name": "Thread view builder and Author badge",
+    "lives_at": "internal/server/thread.go",
+    "responsibility": "const threadDepthCap = 100 is the only copy of the display cap. SC-013 sets it to 5.\n\ntype commentView holds ID, Login, AvatarURL, Body, When (UTC), Author, Placeholder, CanReply, Slug, Replies []commentView and Cut.\n\nbuildThread(nodes []*comments.Node, slug string, signedIn bool, ownerID int64, cap int) []commentView. Roots are depth 1.\n- Author = !n.Placeholder && auth.IsOwner(ownerID, n.GitHubID).\n- CanReply = signedIn && !n.Placeholder. There is no depth term, so a reply is never a dead end.\n- At depth == cap, Replies are not built, and Cut = len(n.Replies) > 0.\n- Recursion is at most cap deep.",
+    "key_interactions": "Called by renderReader with a.cfg.OwnerGitHubID. SC-013's readBranch calls it with the branch root. This is the single source of the badge rule and the cap."
+   },
+   {
+    "name": "Reader integration",
+    "lives_at": "internal/server/reader.go",
+    "responsibility": "readerData gains Thread []commentView. app gains comments *comments.Book.\n\nIn renderReader, while the state is still stateFound after votes.Public, it calls a.comments.Tree(ctx, rep.ID).\n- On error: slog.Error, then state, rep = stateUnavailable, reports.Report{}, so the page is a 503, as the votes rule already does. An unreadable thread is never drawn as an empty one.\n- Otherwise: d.Thread = buildThread(nodes, rep.Slug, signedIn, a.cfg.OwnerGitHubID, threadDepthCap).\n\nBoth / (the newest report) and /reports/{slug} take this one path. Nothing in the thread depends on the page, so / and /reports/<newest> stay byte-identical for every viewer.",
+    "key_interactions": "router.go New builds comments.New(st.DB(), clock). SC-013 adds readBranch to this same file, so the Participant fence's reader.go exception covers it."
+   },
+   {
+    "name": "Comment templates",
+    "lives_at": "internal/server/templates/comments.html",
+    "responsibility": "A new defines-only file, picked up by the existing ParseFS.\n\n{{define \"comments\"}} draws <section class=\"comments\" id=\"comments\"><h2>Comments</h2>:\n- Signed in: <form method=\"post\" action=\"/reports/{{.Report.Slug}}/comments\"> with <label>Add a comment <textarea name=\"body\" required maxlength=\"5000\"></textarea></label> and a button 'Post comment'.\n- Signed out: <p class=\"comment-hint\">Sign in to comment.</p>. There is no second sign-in anchor, and no sign-in form (fenced).\n- Then {{range .Thread}}{{template \"comment\" .}}{{else}}<p>No comments yet.</p>{{end}}.\n\n{{define \"comment\"}} draws <article class=\"comment\" id=\"comment-{{.ID}}\">:\n- If Placeholder: only <p class=\"removed\">comment removed</p>.\n- Otherwise:\n  - <header class=\"byline\">, holding {{if .AvatarURL}}<img class=\"avatar\" src=\"{{.AvatarURL}}\" alt=\"\" width=\"24\" height=\"24\">{{end}}, <span class=\"login\">{{.Login}}</span>, {{if .Author}}<span class=\"badge\">Author</span>{{end}} and <time datetime=…>{{.When.Format \"2 January 2006\"}}</time>;\n  - <p class=\"body\">{{.Body}}</p>;\n  - when CanReply, <details class=\"reply\"><summary>Reply</summary> wrapping a form posting to /reports/{{.Slug}}/comments, with a hidden parent={{.ID}}, a textarea name=body with aria-label 'Your reply', and a button 'Post reply'.\n- Then either <div class=\"replies\"> with {{range .Replies}}{{template \"comment\" .}}{{end}}, or, when Cut, <p class=\"cut\">Deeper replies are not shown on this page.</p>.\n\nreport.html gains {{template \"comments\" .}} immediately after </section> of #votes, inside {{if .HasReport}}.",
+    "key_interactions": "html/template escaping makes typed HTML literal text.\n\nRules for wording:\n- No number ever sits beside the word 'comment' in text, aria-label or alt.\n- The word 'author' appears only in the badge.\n- No element id other than an article's matches comment-<digits>.\n\nEach level adds two elements (article and div.replies), so depth 100 is about 205 DOM levels, well under the 513 at which Chrome 158 broke nesting in spike 196. SC-013's branch.html reuses the \"comment\" define unchanged."
+   },
+   {
+    "name": "Comment styles",
+    "lives_at": "internal/server/static/site.css",
+    "responsibility": "Adds:\n- .comments: margin and padding like .votes, with border-top 1px solid #8884.\n- .replies { margin-left:.75rem; padding-left:.5rem; border-left:1px solid #8884 }, which never sets display, and .replies[hidden]{display:none}.\n- .body { white-space:pre-wrap; overflow-wrap:anywhere; overflow:clip }. M-add-2: stacked combining marks stay inside the body's own box and cannot paint over a byline or the badge.\n- .badge { border:1px solid currentColor; border-radius:.25rem; padding:0 .3rem; font-size:.8em }.\n- .removed and .cut: italic.\nOnly neutral and currentColor colours, nothing within ±8 of #ff0000 or #00ff00 (lesson #941).",
+    "key_interactions": "The found-state blank in TestReportScriptsNeverRun draws this chrome anonymously: the heading, 'Sign in to comment.' and 'No comments yet.'."
+   },
+   {
+    "name": "Fitness fences and corpus",
+    "lives_at": ".taad/fitness.yaml",
+    "responsibility": "The builder edits the yaml by hand, because the engine only appends rule names it has not seen.\n(a) The existing rule 'the comment write handler resolves the poster with auth.Participant, never ViewerFrom' is widened (finding m1). files becomes internal/server/**/*.go, and except_files becomes internal/server/reader.go, internal/server/admin.go and '**/*_test.go'. The name stays as it is, and the because text is extended to every write handler.\n(b) A new rule, 'site scripts never build HTML from strings or reach the network', is added. See architecture_rules.\n\nThe corpus at internal/fitnessrules/testdata/rule_spellings.json gets all four SL-006 rule names in rules_under_test, with at least one fire row and one quiet row each:\n- fire `auth.ViewerFrom(r.Context())` at internal/server/comments.go; quiet at internal/server/reader.go;\n- fire `FROM comments c` at internal/server/x.go; quiet at internal/comments/tree.go;\n- fire `.BeginTx(` at internal/comments/x.go; quiet `ExecContext(` there;\n- fire `el.innerHTML = s` and `fetch(\"/x\")` at internal/server/static/thread.js; quiet `el.textContent = s` there.\nbounded_by names the known holes (lower-case SQL, quoted or schema-qualified names, transactions handed in, DOM sinks reached through a variable) and stops there (lesson #939).",
+    "key_interactions": "Checked by TestRuleSpellingsCorpus and TestRulesHoldOnTheTree locally, and by the engine's Fitness op=check."
+   },
+   {
+    "name": "SC-011 tests",
+    "lives_at": "internal/server/comment_test.go",
+    "responsibility": "New test files:\n- internal/comments/comments_test.go:\n  - TestSchema: regression on spike 197 (a)-(f).\n  - TestDeleteReportWithDeepChain: a 1,500-deep chain deleted through reports.Library.Delete leaves 0 rows and leaves the interleaved rows of another report intact. The control, deleting one comment that has a reply, fails with 787.\n  - TestNormalize: a table of body shapes.\n  - TestPostRefusals.\n  - TestConcurrentPostsNoBusy.\n- internal/comments/tree_test.go: TestArrange (prune table), TestArrangeDeepChain (10,000), TestTreeRedactsHidden, TestFind.\n- internal/store/comments_migration_test.go: TestCommentsMigrationFromV2AndV3.\n- internal/server/comment_test.go: TestCommentPostFlow, TestCommentSignedOutStoresNothing, TestCommentLiteralHTML, TestCommentBadBody, TestCommentParentRefused, TestCommentParentField, TestCommentThreadCap, TestCommentOrderIgnoresClock, TestCommentPlaceholders, TestCommentAuthorBadge, TestCommentStoreFailure, TestCommentReportLifecycle.\n\nExtended tests:\n- TestReaderPagesShareOneLayout, with a thread holding a reply and an owner comment.\n- TestReaderPathVariants:\n  - GET, HEAD and PUT on /reports/x/comments → 405 Allow: POST;\n  - POST /reports/x/comments/ → 404;\n  - POST /reports/comments → 405 Allow: GET, HEAD;\n  - POST //reports/x/comments → 307;\n  - an anonymous POST answers the same http.NotFound for a draft x and an unknown x.\n- TestDislikesDoNotInterfere: newDislikeWorld seeds a comment, a reply and an owner comment on x, none containing 'dislike'. observe adds, per observer, a POST /reports/x/comments that writes nothing: anonymous → 303, signed in with an empty body → 400.\n\nNesting is checked with a small token-stack scanner over <article id=\"comment-N\"> and </article> in a test helper. No HTML-parser dependency is added.",
+    "key_interactions": "The avatar case signs in through store.SignIn with an AvatarURL, because mint stores none. Everything uses the existing harness (newHarness, mint, serve, withSID, count, mustUpload, mustAct, the fake clock).\n\nRunning ./internal/server/ without -run starts headless Chrome through TestReportScriptsNeverRun (lesson #947). Every check below filters with -run, except one final full-suite run."
+   },
+   {
+    "name": "SC-013 part: depth-5 cut, continue links, branch page, reply redirect",
+    "lives_at": "internal/server/reader.go",
+    "responsibility": "Built later from this design.\n1. threadDepthCap = 5. The Cut note becomes <a class=\"continue\" href=\"/reports/{{.Slug}}/comments/{{.ID}}\">continue this thread →</a> inside the cut article.\n2. GET /reports/{slug}/comments/{id} → readBranch, in reader.go:\n   - PublishedBySlug decides the 404, identical for every hidden report.\n   - An id that is not canonical positive decimal → http.NotFound.\n   - Tree error → 503 page.\n   - path := comments.Find(nodes, id); nil (unknown id, another report's id, or pruned) → http.NotFound.\n   - Otherwise it renders templates/branch.html: head, header, h1 with the report title, <a href=\"/reports/{{slug}}\">Back to the full report</a>, and section#comments drawing {{template \"comment\"}} over buildThread([root], slug, signedIn, ownerID, threadDepthCap).\n   - No iframe (the frame rule forbids one), Next = /reports/<slug>/comments/<id>, Cache-Control private, no-cache.\n3. postComment after a successful Post reads Tree and Find(id) once. Let D = len(path) and cap = threadDepthCap.\n   - D ≤ cap → /reports/<slug>#comment-<id>.\n   - Otherwise → /reports/<slug>/comments/<path[a-1].ID>#comment-<id>, where a = cap + (cap−1)·⌊(D−cap−1)/(cap−1)⌋.\n   - If that read fails → /reports/<slug>#comments. A successful write is never answered with a 5xx.",
+    "key_interactions": "Branch roots sit at depths 5, 9, 13, …, because each branch page shows its root through relative depth cap. The redirect formula and TestReplyRedirectTable's expected values are both computed from threadDepthCap."
+   },
+   {
+    "name": "SC-013 part: collapse/expand toggle",
+    "lives_at": "internal/server/static/thread.js",
+    "responsibility": "Built later from this design. In the \"comment\" define, when Replies is non-empty:\n<button type=\"button\" class=\"toggle\" hidden aria-expanded=\"true\" aria-controls=\"replies-{{.ID}}\">Hide replies</button> goes immediately before <div class=\"replies\" id=\"replies-{{.ID}}\">, as a direct child of the comment's own article.\n\nreport.html and branch.html load <script src=\"/static/thread.js\" defer></script>, served by the existing embedded static FileServerFS under script-src 'self'.\n\nThe script un-hides every button.toggle. A click flips `hidden` on the element named by aria-controls, flips aria-expanded, and sets the button's textContent to 'Hide replies' or 'Show replies'. It uses no innerHTML, fetch, XHR or inline handlers (fenced), and sets no colours. Without JavaScript the buttons stay hidden and the thread stays expanded.",
+    "key_interactions": "test_e004_2's FOLD clicks the toggle in headless Chrome. The replies-<n> ids do not match ^comment-\\d+$. The script does not answer Q-012 (fetch from site JS), which stays open."
+   }
+  ],
+  "contracts": [
+   {
+    "name": "POST /reports/{slug}/comments",
+    "kind": "rest",
+    "auth_model": "A signed-in GitHub reader resolved through auth.Participant; the owner posts through the same form. Same-origin only, through net/http CrossOriginProtection (trusted origin HBAND_BASE_URL) and SameSite=Lax cookies. No CSRF token: the finish tests' csrf() helper accepts a page that has none.",
+    "error_cases": "- 303 to /reports/<stored slug>#comment-<id> when the comment is stored.\n- 303 to /reports/<stored slug>#comments for a signed-out visitor. Nothing is parsed or stored.\n- 404 with http.NotFound bytes:\n  - the report is a draft, unpublished, deleted or unknown, whoever asks;\n  - ErrNoTarget: the parent is missing, on another report, removed, or written by a blocked account, or the report was unpublished between the lookup and the write.\n- 400:\n  - the form is over 64 KiB or does not parse;\n  - 'body' is missing or repeated;\n  - ErrBadBody: invalid UTF-8, a C0 control other than \\n or \\t, DEL, a C1 control, empty after trimming, or over 5000 runes;\n  - 'parent' is repeated, empty, or not canonical positive decimal.\n- 403: a cross-site request (cop).\n- 503: identity unavailable, or a store error other than the above.\n- Cache-Control: no-store on every answer.",
+    "notes": "Fields: body, plus parent=<comment id> on a reply. Only r.PostForm is read, so a field sent in the query string is ignored. Every 3xx goes through auth.SeeOther, and nothing redirects to GitHub (form-action 'self', lesson #950). The E-004 finish tests pin the route and both field names. SC-013 changes only the 303 target for D > threadDepthCap."
+   },
+   {
+    "name": "comments.Book.Post",
+    "kind": "function",
+    "error_cases": "- ErrBadBody, from its own Normalize call, before any SQL.\n- ErrNoTarget when RowsAffected is 0.\n- Otherwise the driver error, wrapped as 'comments: post: …'. A 787 here would mean the EXISTS clause was bypassed, which is a bug; the handler answers it with 503.",
+    "notes": "Signature: Post(ctx, reportID, githubID, parentID int64, body string) (int64, error). parentID 0 means top level. It runs exactly one statement on the store.Open pool and never inside a transaction (fenced). The stored body is always normalised."
+   },
+   {
+    "name": "comments.Book.Tree and comments.Find",
+    "kind": "function",
+    "error_cases": "Tree returns a wrapped error for a query or scan error, or when arrange finds a row whose parent is missing or not below its id. The reader page answers that with stateUnavailable (503). Find never errors: it returns nil when the id is not in the pruned forest.",
+    "notes": "Tree(ctx, reportID) ([]*Node, error) returns the kept top-level nodes oldest first (by id), each with its kept Replies oldest first.\n\nA hidden node (removed_at set, or a writer in blocked_accounts) is kept only while some descendant at any depth is visible. A kept hidden node is a Placeholder with GitHubID 0 and empty Login, AvatarURL and Body.\n\nFind(nodes, id) []*Node returns the root-to-node path, which SC-013 uses."
+   },
+   {
+    "name": "comments.Normalize",
+    "kind": "function",
+    "error_cases": "ErrBadBody for: invalid UTF-8; C0 other than \\n and \\t; DEL; C1; empty after trimming; more than MaxRunes (5000) runes.",
+    "notes": "In order: CRLF and lone CR → LF, the control check, strings.TrimSpace, the length check. It does no HTML rewriting, since escaping is html/template's job alone. The length cap lives in Go, so changing it needs no table rebuild."
+   },
+   {
+    "name": "Schema 0004_comments",
+    "kind": "function",
+    "error_cases": "- A cross-report or missing parent fails with 787 for any writer.\n- Deleting a comment that has replies fails with 787.\n- Deleting a users row that has comments fails with 787.\n- Deleting a report removes all its comments at any depth (measured to 10,000 deep).",
+    "notes": "Forward-only, version 4.\n- removed_at NULL means shown; SC-020 sets it.\n- A blocked_accounts row means the account is blocked; SC-021 inserts it, and deleting it unblocks.\n- No role or owner column (fenced)."
+   },
+   {
+    "name": "Thread markup on GET / and GET /reports/{slug}",
+    "kind": "ui",
+    "auth_model": "Public read. Only the compose and reply forms depend on the viewer (signed in or not).",
+    "error_cases": "A Tree error makes the whole page stateUnavailable (503), the same rule as votes.",
+    "notes": "Found state only, inside section#comments after section#votes.\n\nEach kept comment is an article#comment-<id>. Its own part holds:\n- a byline: an img whose src is users.avatar_url as GitHub gave it (when non-empty), the login, an 'Author' badge only when auth.IsOwner(pin, github_id), and an absolute UTC date;\n- p.body as literal text;\n- for signed-in viewers on a visible comment, a details 'Reply' form.\n\nReplies are DOM descendants inside div.replies, oldest first. A placeholder is 'comment removed' with its id kept and its kept replies nested. Below threadDepthCap, a Cut comment shows 'Deeper replies are not shown on this page.' (SC-011).\n\nNo number appears beside the word 'comment', and 'author' appears only in the badge. / and /reports/<newest> are byte-identical for any one viewer."
+   },
+   {
+    "name": "SC-013: GET /reports/{slug}/comments/{id}",
+    "kind": "rest",
+    "auth_model": "Public read. Reply forms appear only for signed-in viewers.",
+    "error_cases": "404 with http.NotFound bytes, identical for: a hidden or unknown report; an id that is not canonical positive decimal; another report's id; a pruned id. A Tree error answers a 503 page. Cache-Control: private, no-cache.",
+    "notes": "Draws the subtree rooted at id, with the root at relative depth 1, through threadDepthCap levels, with further continue links. It includes a link back to /reports/<slug>. Its reply forms post to POST /reports/<slug>/comments. No iframe."
+   },
+   {
+    "name": "SC-013: /static/thread.js toggle",
+    "kind": "ui",
+    "error_cases": "Without JavaScript the toggles stay hidden and every reply stays shown.",
+    "notes": "A same-origin static file under the existing script-src 'self'. button.toggle flips `hidden` and aria-expanded on div.replies#replies-<id> of its own article, and makes no network request. /raw keeps rawCSP unchanged."
+   }
+  ],
+  "key_decisions": [
+   {
+    "decision": "Migration 0004 uses spike 197's measured DDL for comments, unchanged:\n- composite self-FK (report_id, parent_id) → comments(report_id, id) with no action clause, which is NO ACTION, backed by UNIQUE(report_id, id);\n- report_id ON DELETE CASCADE;\n- github_id with no action clause;\n- AUTOINCREMENT ids;\n- nullable removed_at;\n- index comments_children(report_id, parent_id).\nCASCADE on the self-FK is not used (m3). DEFERRABLE INITIALLY DEFERRED is not used either: it passed every delete check, but inside an explicit transaction it accepted a cross-report row until COMMIT (spike step X), whereas NO ACTION refuses it at the INSERT.",
+    "reversibility": "expensive",
+    "rationale": "Measured, not recalled:\n- Library.Delete cleared chains 1,500 and 10,000 deep in 5 ms and 44 ms with no error.\n- Interleaved comments of another report survived, votes went to 0, and foreign_key_check came back empty.\n- Both controls failed with 787, so the FK is live.\n- NULL parents insert; cross-report and missing parents are refused with 787; there is no 'foreign key mismatch'.\nChanging an FK later is a table rebuild through the hot migrate.go."
+   },
+   {
+    "decision": "blocked_accounts(github_id INTEGER PRIMARY KEY CHECK (github_id > 0), blocked_at INTEGER NOT NULL) STRICT ships in 0004, with no FK to users. Both proposals had an FK; this synthesis drops it.",
+    "reversibility": "expensive",
+    "rationale": "A block is a fact about a GitHub account ID.\n- With NO ACTION, a blocked users row could never be deleted.\n- With CASCADE, deleting the users row would quietly unblock that account at its next sign-in.\nThe table ships now because C6 names blocked comments, and its blocked half can only be tested if the state exists. Spike 197 used only a stand-in for this table, which bears on neither measured fork."
+   },
+   {
+    "decision": "Hidden means removed_at IS NOT NULL, or the writer has a blocked_accounts row. This is one visibleSQL constant, used by both Tree's SELECT and Post's parent check.\n- Hidden rows are blanked inside the SQL.\n- A placeholder is the fixed text 'comment removed' with its id kept, and has no byline, badge or reply form.\n- Replies to hidden comments are refused with the same 404 as any other unusable parent.\n- Nothing derived (counts, flags) is stored.",
+    "reversibility": "expensive",
+    "rationale": "Text that never leaves the store cannot leak through a template; this is votes.PublicView's discipline. A stored descendant counter would need read-then-write transactions, and those failed 215-253 times per run (lesson #949). Computing at read time makes unblocking free."
+   },
+   {
+    "decision": "Tree reads the report's whole thread with one flat query ordered by id. arrange prunes in descending id order, which is a post-order, and links in ascending order. Find returns the root-to-node path. No recursive CTE, closure table or path column. Every level is ordered by id, so top-level comments come oldest first.",
+    "reversibility": "cheap",
+    "rationale": "A thread is always read whole. The pass is linear with no recursion, so it is safe for the 10,000-deep chains the spike seeded. Ordering by id does not depend on the clock. The finish test checks the order of three top-level comments posted 1.1 s apart."
+   },
+   {
+    "decision": "Post is one INSERT…SELECT. In the same statement it checks that the report is published and that the parent, when one is given, is on the same report and visible. Post calls Normalize itself. 0 rows → ErrNoTarget → 404; ErrBadBody → 400. The package never opens a transaction.",
+    "reversibility": "cheap",
+    "rationale": "Lesson #949 measured 0 BUSY from single statements and 215-253 BUSY per run from read-then-write transactions. Normalising inside the only writer makes the body invariant hold for every future caller (m2). One 404 for every unusable parent gives no oracle about hidden comments."
+   },
+   {
+    "decision": "The interaction is a plain form POST to /reports/{slug}/comments with the fields body and parent, answered Post/Redirect/Get through auth.SeeOther to /reports/<stored slug>#comment-<id>. A signed-out POST gets 303 #comments and nothing is written. SC-011 ships no JavaScript.",
+    "reversibility": "expensive",
+    "rationale": "The approved E-004 finish tests pin the route and the field names. Lesson #950: the 303 is the same whichever page the form was on, and form-action 'self' blocks any POST that would end in a redirect to GitHub."
+   },
+   {
+    "decision": "One recursive html/template \"comment\" block draws every thread, cut at a single constant, threadDepthCap: 100 in SC-011 and 5 in SC-013. CanReply has no depth term, and writes accept any depth. SC-013 derives every other use from the constant: the branch page, the continue link and the redirect's ancestor formula.",
+    "reversibility": "cheap",
+    "rationale": "Spike 196 measured a no-go: Chrome 158 flattens nesting past reply 255 (DOM depth 513). Depth 100 is about 205 DOM levels.\n\nNo outside-defect workaround setting applies. Blink's parser depth limit is a deliberate engine limit, not a defect, and in SC-013 the cap of 5 is a readability decision. Switching the cap off would not restore any 'plain behaviour'. It would draw nesting the browser cannot show."
+   },
+   {
+    "decision": "The 'Author' badge is computed in internal/server at render time as !Placeholder && auth.IsOwner(cfg.OwnerGitHubID, node.GitHubID). It is never stored and never derived from the login. internal/comments imports neither auth nor config.",
+    "reversibility": "cheap",
+    "rationale": "The project constraint and the existing fitness rule forbid a stored owner role. The finish test checks that ID 4243 with the login 'report-author' gets no badge. Hidden rows arrive with GitHubID 0, so a placeholder cannot carry the badge even if the guard is lost."
+   },
+   {
+    "decision": "The thread appears on / (the newest report) and on /reports/<slug> through renderReader. A Tree error makes the page a 503 (the softer section-only fallback in m7 stays deferred). SC-011 shows no comment count.",
+    "reversibility": "cheap",
+    "rationale": "The finish test reads comments on /. TestReaderPagesShareOneLayout needs byte identity between the two pages. The finish test's count reader accepts no count, and a count would need hidden-aware arithmetic for no criterion. This matches the votes rule already in renderReader."
+   },
+   {
+    "decision": "Fences:\n- The Participant-only rule widens to internal/server/**/*.go, except reader.go, admin.go and tests, and keeps its name (m1).\n- A new rule forbids HTML-from-string sinks and network calls in site static files.\n- The route lists in TestReaderPathVariants and TestDislikesDoNotInterfere are extended by hand (m9's table-driven registry stays deferred).",
+    "reversibility": "cheap",
+    "rationale": "Today reader.go and admin.go are the only non-test internal/server files that call ViewerFrom, so the widened rule holds on the tree and catches the next write handler. Keeping the name stops the engine appending the rule a second time. Lessons #944 and #948: new routes are not covered by those tests automatically."
+   }
+  ],
+  "proposals": [
+   {
+    "designer": "crossdomain",
+    "selected": "core",
+    "note": "Taken from this proposal:\n- Post(ctx, reportID, githubID, parentID, body) as one unified INSERT…SELECT, with ErrNoTarget;\n- Tree(ctx, reportID) with Node.GitHubID blanked for hidden rows;\n- the badge computed in internal/server (thread.go buildThread) rather than inside internal/comments;\n- the trie/git-tree prune transfer and its invariants;\n- SC-013's branch page and redirect built on Tree plus a lookup, not new SQL;\n- the dislike-world POST observations that write nothing.\nNot taken: its ON DELETE CASCADE FK from blocked_accounts to users. This synthesis drops that FK."
+   },
+   {
+    "designer": "practice",
+    "selected": "partial",
+    "note": "Taken from this proposal:\n- the defines-only templates/comments.html;\n- the placeholder text 'comment removed', as the brief words it;\n- readBranch placed in reader.go;\n- the 64 KiB form-size reasoning;\n- the migration test from version 2 and version 3;\n- the TestReaderPathVariants rows;\n- the over_engineering_flag, kept as a recorded judgement: blocked_accounts and the composite FK are kept for the reasons given.\nNot taken: Tree(ctx, reportID, ownerID) with ByOwner inside internal/comments; Branch and Ancestry SQL; two separate INSERT statements; the blocked_accounts FK to users."
+   }
+  ],
+  "coherence_check": "There were two proposals, both written after spike 197, and they converged. Very little here has survived a real disagreement. Neither the composition nor the one change made without a proposal, dropping the blocked_accounts FK, has been contested by anyone yet.\n\nSeams checked across pieces taken from different proposals:\n\n(1) Badge versus redaction. practice computed ByOwner inside Tree. crossdomain computed it in the server from GitHubID. Only the second is used. Hidden rows come out of SQL with github_id 0, and buildThread also requires !Placeholder, so the two rules cannot disagree. auth.IsOwner(pin, 0) is false because the pin must be > 0.\n\n(2) Post's parent check versus Tree's visibility. Both use the one visibleSQL constant, so a reply cannot be accepted under a node Tree would treat as hidden. A parent removed after its reply was posted becomes a placeholder with a visible child, which is C6's own rule.\n\n(3) Consistency model. Every read and write is a single statement on the same WAL pool, and none runs in a transaction. Report deletion is the only multi-row change, and it goes through the FK cascade, measured. No piece assumes a cross-statement snapshot. SC-013's redirect reads Tree after the write, and that read falling back to #comments is consistent with 'never a 5xx after a successful write'.\n\n(4) Error contract. It is the same everywhere: ErrBadBody → 400, ErrNoTarget and hidden reports → http.NotFound bytes, identity or store errors → 503, Tree errors → a 503 page. No handler answers in its own style.\n\n(5) Ownership of the table. Only internal/comments names comments in SQL (existing fence). The server holds only views. SC-013's branch page and redirect were redesigned at the seam to reuse Tree plus a pure Find instead of practice's new Branch and Ancestry SQL. The branch page therefore shows exactly the pruned tree the report page shows, and every depth decision comes from threadDepthCap and buildThread.\n\n(6) The Participant fence versus SC-013. readBranch sits in reader.go, the rule's existing exception, so widening the rule does not collide with the later part.\n\n(7) DOM depth versus the cap. At 100 levels the markup is about 205 elements deep, against Chrome's measured 513.\n\n(8) Byte identity. The thread markup depends on the viewer only through SignedIn, never on the page, so TestReaderPagesShareOneLayout holds.\n\nWorkaround-setting duty: no outside defect is worked around, so there is no settings entry. NO ACTION is the correct schema, not a dodge. The display cap answers a deliberate Blink parser limit.\n\nLesson #946: the brief's 'default Edge' testing line is stale. No check here relies on it, and finish line 2 opens its own Chrome or Edge.\n\nDeferred findings m7 (section-only fallback), m9 (route registry), m10 (rate limit, E-006) and N-050 (contended delete timing) stay as earlier triage left them. They are not re-filed here.\n\nThe architecture rules are limited to the two seams this design adds: write handlers resolve through Participant, and site scripts take no HTML sinks and no network. The comments-table and no-transaction fences already exist from attempt 1.",
+  "architecture_rules": [
+   {
+    "name": "the comment write handler resolves the poster with auth.Participant, never ViewerFrom",
+    "files": "internal/server/**/*.go",
+    "must_not_match": [
+     "\\bViewerFrom\\s*\\("
+    ],
+    "except_files": [
+     "internal/server/reader.go",
+     "internal/server/admin.go",
+     "**/*_test.go"
+    ],
+    "because": "ViewerFrom reports a store outage as an anonymous visitor. A POST resolved that way gets the signed-out 303 to #comments, and the reader's comment is silently dropped behind a success-looking redirect. Participant turns the outage into a 503 (lesson #949; N-029 waived this without a rule). The rule was scoped to comment.go, so it stopped guarding the moment a write handler moved to another file or called a helper elsewhere (m1). Reader pages (reader.go, which will also hold SC-013's branch page) and the gated admin (admin.go) are the only readers allowed to treat an outage as anonymous. The builder widens the existing yaml entry by hand, keeping this name, because the engine only appends names it has not seen."
+   },
+   {
+    "name": "site scripts never build HTML from strings or reach the network",
+    "files": "internal/server/static/**",
+    "must_not_match": [
+     "\\.(innerHTML|outerHTML)\\s*\\+?=",
+     "\\binsertAdjacentHTML\\s*\\(",
+     "\\bdocument\\.write(ln)?\\s*\\(",
+     "\\bfetch\\s*\\(",
+     "\\bXMLHttpRequest\\b",
+     "\\beval\\s*\\(|\\bnew\\s+Function\\s*\\("
+    ],
+    "because": "Comment text reaches the page only through html/template's contextual escaping (Q-001 forbids user text as HTML). A site script that writes comment text or page text through innerHTML, insertAdjacentHTML, document.write or eval reintroduces stored XSS under script-src 'self', where CSP no longer stops it. The SC-013 toggle is DOM-only on purpose. A fetch or XHR from site JS is exactly what open question Q-012 has not decided, so a script must not settle it by accident. The glob already matches site.css, so the rule is live before thread.js exists."
+   }
+  ],
+  "cases": [
+   {
+    "behaviour": "post a comment or a reply",
+    "shape": "the visitor is not signed in (top-level and with a parent), or a signed-in reader's POST arrives cross-site",
+    "why": "vote.go's order looks up the report before handling a signed-out visitor, so a signed-out POST must 303 to #comments with nothing parsed or stored, and a hidden report must still 404. A cross-site POST must be stopped by cop's 403 before the handler runs. A handler that used ViewerFrom, or parsed the form first, would store or answer differently.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestCommentSignedOutStoresNothing' ./internal/server/ — asserts 303 to /reports/x#comments and 0 comment rows for anonymous top-level and reply POSTs, 404 for a draft, and 403 with 0 rows for a cross-site POST from a signed-in session"
+   },
+   {
+    "behaviour": "show a comment",
+    "shape": "the typed body contains markup: <b>, <script>, <img onerror>, & and quotes",
+    "why": "C2: the body must render as literal text in p.body and never become an element or attribute. Any template.HTML conversion, or a text/template path, would execute it.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestCommentLiteralHTML' ./internal/server/ — posts the finish test's typed string and asserts the escaped text is in the comment's own p.body, with no <b>, <script> or onerror element anywhere in the page bytes"
+   },
+   {
+    "behaviour": "post a comment",
+    "shape": "body boundary shapes: empty, whitespace only, exactly 5000 runes and 5001 runes (including 4-byte runes), invalid UTF-8, NUL/C0/DEL/C1 controls, CRLF and lone CR, tab and newline inside, a form over 64 KiB",
+    "why": "Normalize branches on each of these, and Post must refuse the bad ones before any SQL runs. A missed branch either stores an unrenderable body (the CHECK(length>0) fails as a 503) or lets control characters spoof the byline.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestNormalize|TestPostRefusals' ./internal/comments/ && go test -count=1 -run 'TestCommentBadBody' ./internal/server/ — each bad shape answers 400 and stores 0 rows; CRLF is stored as LF; 5000 runes is accepted"
+   },
+   {
+    "behaviour": "reply to a comment",
+    "shape": "the parent is unusable: missing id, a comment on another report, a removed comment, a comment by a blocked account, or the report unpublished between the lookup and the write; plus a raw SQL insert with a cross-report parent",
+    "why": "Post's EXISTS over visibleSQL is the guard, and all these shapes must give one identical 404 with nothing stored (the finish line refuses cross-report replies). The composite FK is the measured second guard against any other writer.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestSchema|TestPostRefusals' ./internal/comments/ && go test -count=1 -run 'TestCommentParentRefused' ./internal/server/ — every shape answers byte-identical http.NotFound with the row count unchanged; the raw insert fails with code 787"
+   },
+   {
+    "behaviour": "reply to a comment",
+    "shape": "the parent field is malformed: 'abc', '0', '-1', '+5', '007', '' (present but empty), repeated, or sent only in the query string",
+    "why": "strconv.ParseInt accepts '+5' and '007', so the canonical check is a branch of its own. A repeated field is ambiguous. A query-only parent must be ignored, as vote.go ignores r.Form, which turns that POST into a top-level comment.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestCommentParentField' ./internal/server/ — malformed shapes answer 400 with 0 rows; the query-only parent stores a top-level comment"
+   },
+   {
+    "behaviour": "show the thread",
+    "shape": "a reply chain deeper than threadDepthCap (150 stored through Post), and a 10,000-deep chain through arrange",
+    "why": "buildThread must stop at the cap and set Cut, so the page says deeper replies are not shown and never nests past Chrome's measured 513-element limit. arrange must not recurse, or a deep chain overflows. Each reply must be a DOM descendant of the comment it answers.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestArrangeDeepChain' ./internal/comments/ && go test -count=1 -run 'TestCommentThreadCap' ./internal/server/ — the token-stack scanner finds each article inside its parent's article, a maximum depth of 100, the cut note on the depth-100 node, and none of the deeper texts in the page"
+   },
+   {
+    "behaviour": "show the thread",
+    "shape": "the clock runs backwards between posts (the fake clock is set earlier for later comments), among top-level comments and among siblings",
+    "why": "Ordering is by id, never by created_at. An ORDER BY on time would list top-level comments and replies out of posting order whenever the clock moves.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestCommentOrderIgnoresClock' ./internal/server/ — top-level and sibling articles appear in id order"
+   },
+   {
+    "behaviour": "show the thread",
+    "shape": "hidden shapes:\n- a removed leaf;\n- a removed comment with a visible reply three levels down;\n- removed > removed > visible;\n- an entirely hidden subtree;\n- a comment by a blocked account that has visible replies;\n- the same account unblocked",
+    "why": "C6: a hidden node is kept as a 'comment removed' placeholder only while something visible lies below it, at any depth. A placeholder carries no login, avatar, body, badge or reply form, and keeps its id. Unblocking restores the writer's comments. A one-level check, or redaction done in the template, would leak or would drop structure.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestArrange|TestTreeRedactsHidden' ./internal/comments/ && go test -count=1 -run 'TestCommentPlaceholders' ./internal/server/ — state is set with raw SQL (removed_at, blocked_accounts) in the test; asserts which articles are present, the placeholder text, and that removed text and the writer's login are absent from the page bytes"
+   },
+   {
+    "behaviour": "show the Author badge",
+    "shape": "posts by the pinned owner ID; by an account with the owner's login 'report-author' but a different ID; and the owner's own comment once it is removed and has a visible reply",
+    "why": "C7: the badge must follow the GitHub ID through auth.IsOwner, never the login. A placeholder must not carry it even though the row was written by the owner.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestCommentAuthorBadge' ./internal/server/ — the badge sits in the owner-ID comment's own byline only, and the word 'author' appears in no other comment's own text"
+   },
+   {
+    "behaviour": "show the thread",
+    "shape": "the newest report carries a thread with a reply and an owner comment, viewed on / and on /reports/<newest> by the owner, a reader and an anonymous visitor; plus the new route's method and path spellings and the dislike-noninterference world with comments seeded",
+    "why": "Comments must appear on both pages, byte-identical (lesson #950). New public routes are pinned only by hand-written lists (lessons #944 and #948), so variants and dislike privacy are not covered unless those lists are extended.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestReaderPagesShareOneLayout|TestReaderPathVariants|TestDislikesDoNotInterfere|TestCommentPostFlow' ./internal/server/ — the extended tests pass, and TestCommentPostFlow finds login, avatar src and body on both pages"
+   },
+   {
+    "behaviour": "read the page or post when the store fails",
+    "shape": "the comments read fails while votes succeed (the test renames the comments table), and the session lookup fails on a POST",
+    "why": "renderReader must turn a Tree error into the 503 'cannot be shown' page, never 'No comments yet.'. postComment must answer an identity outage with 503 through Participant, never with the signed-out 303.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestCommentStoreFailure' ./internal/server/ — GET answers 503 without 'No comments yet.'; the POST answers 503 with 0 rows"
+   },
+   {
+    "behaviour": "manage a report that has comments",
+    "shape": "the report is replaced by re-upload, unpublished, republished, and deleted while it holds a 1,500-deep chain, with another report's comments interleaved",
+    "why": "Comments are keyed by reports.id, which survives replace, unpublish and republish (spike 196). Delete must cascade through the NO ACTION self-FK at any depth and leave other reports intact (spike 197). A regression in either loses or orphans threads.",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestDeleteReportWithDeepChain' ./internal/comments/ && go test -count=1 -run 'TestCommentReportLifecycle' ./internal/server/ — counts are kept through replace, unpublish and republish; 0 rows after the delete; the other report's rows unchanged; the single-comment delete control fails with 787"
+   },
+   {
+    "behaviour": "start the server on an existing database",
+    "shape": "a populated version-2 file (users, sessions, reports) and a populated version-3 file (plus votes)",
+    "why": "migrate applies all[current:] in one start, so production (whose user_version is unknown, Q-015) may run 0003 and 0004 together. A bad 0004 fails foreign_key_check or loses sessions (lesson #930).",
+    "check": "(TAAD3_HOME=<new scratch dir>) go test -count=1 -run 'TestCommentsMigrationFromV2AndV3' ./internal/store/ — both reach user_version 4 with every row intact and foreign_key_check empty"
+   },
+   {
+    "behaviour": "the epic's finish line 1, end to end through the built binary",
+    "shape": "the whole flow:\n- four accounts, including a second account with the owner's login;\n- typed HTML;\n- a depth-4 reply chain;\n- an anonymous top-level POST and an anonymous reply;\n- a cross-report reply;\n- checks on / and on both report pages",
+    "why": "This is the approved target. It checks:\n- the id=\"comment-<n>\" contract;\n- the avatar src prefix;\n- the 'author' word only on the owner's comments;\n- the comment count being absent or exact;\n- top-level order;\n- that nothing refused is stored.",
+    "check": "With TAAD3_HOME set to a new scratch folder, read `SELECT finish FROM epics WHERE id=42` in place over one file:<engine.db>?mode=ro connection and close it. Write the test_e004_1_comments_and_replies.py body into a new scratch folder, changing only its ROOT assignment to the worktree's absolute path. Run `python -I <scratch>/test_e004_1_comments_and_replies.py`; it must exit 0. It builds ./cmd/hband and starts no browser."
+   }
+  ],
+  "code_claims": [
+   {
+    "path": "internal/server/router.go",
+    "symbol": "siteCSP",
+    "claim": "The site policy allows img-src https://avatars.githubusercontent.com, script-src 'self' and form-action 'self'."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "New",
+    "claim": "New builds votes.New(st.DB(), clock), parses templates/*.html once with template.ParseFS, registers POST /reports/{slug}/vote, and returns securityHeaders(cop.Handler(a.auth.Identify(mux)))."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "render",
+    "claim": "render executes the template into a buffer and answers a template error with a 500 instead of a half-written page."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "FileServerFS",
+    "claim": "The static assets are served at GET /static/ from the embedded static directory through http.FileServerFS."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "renderReader",
+    "claim": "renderReader is the only render path for / and /reports/{slug}. It resolves the viewer with auth.ViewerFrom, switches to stateUnavailable (503, no report) when votes.Public fails, and sets Cache-Control 'private, no-cache'."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "readerData",
+    "claim": "readerData embeds pageData and carries Report, HasReport, Unavailable and Votes."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "home",
+    "claim": "home renders the newest published report (reports.Latest) through renderReader with homePage."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "readReport",
+    "claim": "readReport answers http.NotFound when PublishedBySlug returns ErrNotFound, and renders stateUnavailable on any other error."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "ViewerFrom",
+    "claim": "admin.go calls auth.ViewerFrom. Outside tests, it and reader.go are the only internal/server files that do."
+   },
+   {
+    "path": "internal/server/vote.go",
+    "symbol": "maxVoteBody",
+    "claim": "The vote handler sets no-store, calls auth.Participant (503 on ErrIdentityUnavailable), looks up PublishedBySlug before handling a signed-out visitor, sends that visitor auth.SeeOther to /reports/<slug>#votes, and reads only r.PostForm under a MaxBytesReader of maxVoteBody."
+   },
+   {
+    "path": "internal/votes/votes.go",
+    "symbol": "Cast",
+    "claim": "Cast is a single INSERT…SELECT … FROM reports WHERE id = ? AND status = 'published' statement and returns ErrNotOpen when no row is affected."
+   },
+   {
+    "path": "internal/votes/votes.go",
+    "symbol": "PublicView",
+    "claim": "PublicView carries only Likes and Mine and has no dislike field."
+   },
+   {
+    "path": "internal/votes/votes.go",
+    "symbol": "New",
+    "claim": "votes.New takes only a *sql.DB and a now func, with no auth or config dependency."
+   },
+   {
+    "path": "internal/auth/session.go",
+    "symbol": "Participant",
+    "claim": "Participant returns ErrIdentityUnavailable when identify recorded a store error, ErrSignedOut for an anonymous visitor, and otherwise the Viewer."
+   },
+   {
+    "path": "internal/auth/session.go",
+    "symbol": "Identify",
+    "claim": "Identify builds the Viewer with IsOwner(a.cfg.OwnerGitHubID, sess.User.GitHubID) for the viewer, not for any comment's writer."
+   },
+   {
+    "path": "internal/auth/owner.go",
+    "symbol": "IsOwner",
+    "claim": "IsOwner(ownerID, githubID) returns ownerID > 0 && githubID == ownerID."
+   },
+   {
+    "path": "internal/auth/next.go",
+    "symbol": "LocalPath",
+    "claim": "LocalPath accepts only bytes 0x21..0x7E with a single leading slash and no scheme or host, so /reports/x#comment-12 and /reports/x/comments/5#comment-9 pass."
+   },
+   {
+    "path": "internal/auth/next.go",
+    "symbol": "SeeOther",
+    "claim": "SeeOther writes a 303 whose Location is the LocalPath-checked target verbatim, falling back to /."
+   },
+   {
+    "path": "internal/auth/github.go",
+    "symbol": "safeAvatar",
+    "claim": "safeAvatar keeps any https avatar URL that has a host and is at most 512 bytes, and stores anything else as empty. So the finish test's https://avatars.example/u/<id>?v=4 is stored as given."
+   },
+   {
+    "path": "internal/store/migrate.go",
+    "symbol": "loadMigrations",
+    "claim": "loadMigrations refuses any file not named NNNN_name.sql and any set of versions that is not 1..n without gaps, so the next file must be 0004_<name>.sql."
+   },
+   {
+    "path": "internal/store/migrate.go",
+    "symbol": "migrate",
+    "claim": "migrate refuses a negative or newer user_version and applies all[current:] in order on one connection, so a version-2 file gets 0003 and then 0004 in one start."
+   },
+   {
+    "path": "internal/store/migrate.go",
+    "symbol": "applyMigration",
+    "claim": "applyMigration turns foreign keys off, runs the file between BEGIN and COMMIT, fails on any foreign_key_check violation, and sets user_version."
+   },
+   {
+    "path": "internal/store/migrations/0001_identity.sql",
+    "symbol": "avatar_url",
+    "claim": "users has github_id INTEGER PRIMARY KEY CHECK (github_id > 0), login TEXT NOT NULL with no UNIQUE constraint, and avatar_url TEXT NOT NULL DEFAULT ''."
+   },
+   {
+    "path": "internal/store/store.go",
+    "symbol": "servingPragmas",
+    "claim": "The serving pool opens with journal_mode WAL, busy_timeout 5000 and foreign_keys(1) as DSN pragmas."
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "symbol": "Delete",
+    "claim": "Library.Delete looks up the report id by slug, runs DELETE FROM reports WHERE id = ? in a transaction, then removes the report file."
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "symbol": "Sign in to vote.",
+    "claim": "Inside {{if .HasReport}} the page draws the title, the sandboxed iframe and section#votes. Signed-out viewers see the plain text 'Sign in to vote.' with no second sign-in anchor."
+   },
+   {
+    "path": "internal/server/templates/layout.html",
+    "symbol": "Viewer.AvatarURL",
+    "claim": "The header draws the viewer's avatar img with alt=\"\" and a 24×24 size only when Viewer.AvatarURL is non-empty."
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "symbol": "mint",
+    "claim": "mint creates a user and a live session through store.SignIn with a login and no avatar URL."
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "symbol": "observe",
+    "claim": "observe records a hand-written list of GET reads, plus one vote POST per non-owner observer and the owner's three reader pages. TestDislikesDoNotInterfere compares these before and after dislikes."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "the comment write handler resolves the poster with auth.Participant, never ViewerFrom",
+    "claim": "This SL-006 rule is already in the tree, scoped to internal/server/comment.go only and forbidding ViewerFrom( there. The sibling rules 'only internal/comments writes SQL on the comments table' and 'comment writes never open a transaction' are already in the tree too."
+   }
+  ],
+  "outside_claims": [
+   {
+    "claim": "Under modernc.org/sqlite v1.63.0 (SQLite 3.54.1), a composite self-FK with no action clause plus report_id ON DELETE CASCADE lets DELETE FROM reports clear reply chains 1,500 and 10,000 deep with no error. Deleting a single comment that has a reply fails with 787.",
+    "evidence": "measured",
+    "source": "spike 197, report-delete-clears-deep-reply-chain-no-action-self-fk (variant N, through store.Open and Library.Delete)",
+    "if_wrong": "The schema would need DEFERRABLE INITIALLY DEFERRED or a delete path of its own."
+   },
+   {
+    "claim": "The composite FK backed by UNIQUE(report_id,id) skips NULL-parent rows, refuses cross-report and missing parents with extended code 787, and raises no 'foreign key mismatch'. Declared DEFERRABLE INITIALLY DEFERRED, it accepts a cross-report row inside an explicit transaction until COMMIT.",
+    "evidence": "measured",
+    "source": "spike 197, composite-parent-fk-null-skip-and-cross-report-refusal (variants N and D, step X)",
+    "if_wrong": "parent_id would become a plain INTEGER, with Post's EXISTS as the only guard."
+   },
+   {
+    "claim": "Chrome 158 stops nesting at reply 256 (DOM depth cap 513), while html/template executes a recursive template 10,000 deep without error.",
+    "evidence": "measured",
+    "source": "spike 196, nested-thread-dom-depth-in-chromium (no-go)",
+    "if_wrong": "threadDepthCap = 100 could be higher, or would have to be lower."
+   },
+   {
+    "claim": "On this store pool, single-statement INSERT…SELECT writes gave 0 SQLITE_BUSY under concurrent load, while deferred read-then-write transactions failed 215-253 times per run without waiting on busy_timeout.",
+    "evidence": "measured",
+    "source": "spike 195 / lesson #949 (concurrent-vote-upserts-no-busy)",
+    "if_wrong": "Post would need retries. Its boundary stays one statement."
+   },
+   {
+    "claim": "html/template escapes values in element text and attribute contexts. In a src attribute it keeps an https URL with ?query unchanged and replaces unsafe schemes with #ZgotmplZ.",
+    "evidence": "recalled",
+    "source": "memory (Go html/template docs)",
+    "if_wrong": "Typed HTML might render, or the avatar src prefix check in the finish test would fail. TestCommentLiteralHTML and finish line 1 would show it."
+   },
+   {
+    "claim": "Under modernc.org/sqlite, an INSERT…SELECT whose SELECT yields no row reports RowsAffected 0, and a successful one reports LastInsertId as the new rowid.",
+    "evidence": "recalled",
+    "source": "memory; votes.Cast already relies on the RowsAffected half",
+    "if_wrong": "Post cannot tell ErrNoTarget from success, or the 303 cannot carry #comment-<id>. The build's TestPostRefusals shows it."
+   },
+   {
+    "claim": "A new rowid is always greater than the current maximum, and AUTOINCREMENT never reuses one, so a parent's id is always below its child's.",
+    "evidence": "recalled",
+    "source": "memory (SQLite autoinc documentation); spike 197 observed ids rising 1..11506",
+    "if_wrong": "arrange's reverse-id post-order breaks. arrange returns an error instead of drawing wrongly."
+   },
+   {
+    "claim": "strconv.ParseInt accepts a leading '+' and leading zeros, so a canonical check (FormatInt(n) == s) is needed to refuse '+5' and '007'.",
+    "evidence": "recalled",
+    "source": "memory (Go strconv docs)",
+    "if_wrong": "The canonical check is redundant, which is harmless."
+   },
+   {
+    "claim": "A textarea's maxlength counts UTF-16 code units, so it is never looser than the server's 5000-rune limit.",
+    "evidence": "recalled",
+    "source": "memory (HTML spec)",
+    "if_wrong": "A browser could let through a body the server refuses with 400. The server remains the authority."
+   },
+   {
+    "claim": "An element with the hidden attribute renders as display:none unless author CSS sets display on it, so its descendants have no client rects.",
+    "evidence": "recalled",
+    "source": "memory (HTML UA stylesheet)",
+    "if_wrong": "SC-013's toggle would not fold. .replies[hidden]{display:none} is added defensively, and finish line 2's FOLD measures it."
+   },
+   {
+    "claim": "The Go 1.27 ServeMux answers a method mismatch with 405 and an Allow header, and redirects cleaned paths with 307.",
+    "evidence": "measured",
+    "source": "TestReaderPathVariants on go1.27.4 (lesson #934)",
+    "if_wrong": "Only the expected rows in the route-variant table would change."
+   },
+   {
+    "claim": "The E-004 finish tests post to POST /reports/<slug>/comments with body and parent fields, find comments as id=\"comment-<n>\", match the avatar img src by prefix, accept a page with no CSRF token, read 'author' as a word only in the owner's comment's own text, and accept no comment count or an exact one.",
+    "evidence": "cited",
+    "source": "the test_e004_1 and test_e004_2 bodies quoted in this design's brief (epics.finish, E-004)",
+    "if_wrong": "The markup contract would have to change to match the planted test."
+   },
+   {
+    "claim": "CSS overflow: clip is supported in the installed Chrome and keeps stacked combining marks inside the body's box.",
+    "evidence": "recalled",
+    "source": "memory (M-add-2 accepted finding)",
+    "if_wrong": "Zalgo-style marks could paint over a byline. This is cosmetic and does not affect any finish check."
+   }
+  ],
+  "cross_domain_transfer": {
+   "source_domain": "Data structures: trie key deletion, and git tree objects, which hold no empty directories. The evaluation order is a compiler's backward dataflow pass over a topologically numbered graph. The same prune appears in JWZ mail threading as the empty-container prune.",
+   "pattern": "A node is shown if it holds a live value or keeps a child. A kept node with no value is pure structure, the 'comment removed' placeholder. Parent ids are always below child ids, so walking in reverse id order is a post-order. One backward loop over the id-ordered rows computes keep, with no recursion and no stored counters, and every write stays a single statement. Unlike JWZ, children are never promoted: a reply stays under the comment it answered.",
+   "transfer_found": true,
+   "rationale": "C6 is exactly trie or git-tree pruning. Doing it at read time avoids derived state that would need read-then-write transactions, which lesson #949 measured failing. It also makes unblocking free and keeps the measured NO ACTION schema simple.",
+   "invariants": [
+    {
+     "precondition": "Each comment has at most one parent, and the parent relation has no cycles.",
+     "status": "holds",
+     "evidence": "parent_id is a single column. Post's EXISTS requires the parent to exist already. Nothing updates parent_id: only internal/comments writes the table (fenced), and it has no update path. The composite FK refuses a missing parent with 787 (spike 197 (d))."
+    },
+    {
+     "precondition": "parent.id < child.id for every row.",
+     "status": "holds",
+     "evidence": "A parent exists before its child is inserted, and a new rowid always exceeds the current maximum. AUTOINCREMENT also rules out reuse, and spike 197 saw ids rising. Only an explicit-id insert from outside the fence could break this, and arrange errors in that case rather than drawing wrongly."
+    },
+    {
+     "precondition": "Hidden subtrees stay as rows until their report is deleted, at any depth.",
+     "status": "holds",
+     "evidence": "Spike 197: Library.Delete removed chains 1,500 and 10,000 deep with no error. A single delete of a comment that has replies fails with 787, so removal is always the removed_at flag."
+    },
+    {
+     "precondition": "Whether a node counts as having a value depends only on its own facts, not on who is looking.",
+     "status": "holds",
+     "evidence": "visibleSQL reads only removed_at and a blocked_accounts row for the writer."
+    },
+    {
+     "precondition": "A placeholder carries no payload.",
+     "status": "holds",
+     "evidence": "Tree's SELECT blanks github_id, login, avatar and body through CASE on visibleSQL. TestCommentPlaceholders checks that the removed text and login are absent from the page bytes."
+    },
+    {
+     "precondition": "A whole report's comments fit in one read per page view.",
+     "status": "must-verify",
+     "evidence": "Spike 196 rendered 10,000 nodes in 72.6 ms and spike 197 deleted 10,000 rows in 44 ms, but nobody has timed Tree's SELECT plus arrange at 10,000 rows. TestArrangeDeepChain covers only correctness. The per-account post limit is deferred (m10, E-006)."
+    },
+    {
+     "precondition": "Nesting can be shown to any depth.",
+     "status": "fails",
+     "evidence": "Chrome 158 stops nesting at reply 256 (spike 196, no-go). The transfer covers visibility only. Display depth is the separate threadDepthCap, and keep is computed on the full tree before the cut."
+    }
+   ]
+  },
+  "channeled_experts": [
+   "Jamie Zawinski (mail threading, empty-container pruning)",
+   "Data-structures designer (trie deletion and pruning, git trees)",
+   "Relational schema designer (scoped composite foreign keys, SQLite FK actions)",
+   "Web-security reviewer (OWASP output encoding, no oracles in refusals, visual spoofing)"
+  ],
+  "prior_art": [
+   {
+    "pattern": "A thread at the foot of an article: comments with a small avatar, the name, an author badge on the writer's own replies, and replies nested inside their parent.",
+    "where": "https://www.shadcnblocks.com/block/blogpost16",
+    "authority": "community",
+    "basis": "cited",
+    "source_date": "2026-10-04"
+   },
+   {
+    "pattern": "Counter-example: a report comments tab that polls every 20 s and renders markdown through marked. This design uses plain text escaped by html/template, and Post/Redirect/Get with no script.",
+    "where": "https://github.com/Ripwords/ReproJs/commit/1b8a7a2",
+    "authority": "oss",
+    "basis": "cited",
+    "source_date": "2026-04-23"
+   },
+   {
+    "pattern": "A removed comment stays as a '[removed]' stub while it has replies and is not shown otherwise. Past a depth cut, a thread ends in a 'continue this thread →' link to that branch's own page.",
+    "where": "Reddit (r2 codebase and current site behaviour)",
+    "authority": "oss",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Load all of a story's comments with one flat query and arrange the tree in application code.",
+    "where": "Lobsters (open-source Rails app)",
+    "authority": "oss",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Prune empty containers bottom-up: an empty node with no children is removed, and an empty node with children is kept as structure.",
+    "where": "Jamie Zawinski's message threading algorithm (jwz.org)",
+    "authority": "community",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Trie key deletion: unmark the terminal node, then prune every node above it that holds no value and has no children. A git directory exists only as the prefix of a tracked file.",
+    "where": "Knuth TAOCP vol. 3; git tree objects",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "A self-referential parent FK declared ON DELETE CASCADE aborts past SQLITE_MAX_TRIGGER_DEPTH (1000). That is why the self-FK is NO ACTION.",
+    "where": "CherryHQ cherry-studio PR #18479, as quoted in review finding m3",
+    "authority": "oss",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Index the child key of a foreign key. AUTOINCREMENT never reuses a rowid. An immediate (NO ACTION) constraint is checked at the end of the statement.",
+    "where": "SQLite documentation (foreignkeys.html, autoinc.html)",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Untrusted text shown as text gets contextual output encoding when it is rendered, not sanitising when it is input.",
+    "where": "OWASP XSS Prevention Cheat Sheet; Go html/template docs",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Rejected: GitHub-backed widgets (giscus, utterances). They give one level of replies and load a third-party script and iframe, which conflicts with unlimited depth and with script-src 'self'.",
+    "where": "giscus / utterances",
+    "authority": "oss",
+    "basis": "recalled"
+   }
+  ],
+  "taste_disagreements": [
+   "Where the badge is computed. practice: inside comments.Tree, with an ownerID argument and Node.ByOwner. crossdomain: in internal/server's buildThread, from Node.GitHubID. Taken: crossdomain, which keeps internal/comments free of auth and config.",
+   "The 'no usable target' error is named ErrNoTarget (crossdomain) rather than ErrNotOpen (practice). The votes name means 'no published report', and this error also covers parents.",
+   "Post's argument order is (reportID, githubID, parentID, body), matching votes.Cast, rather than practice's (reportID, parentID, githubID, body).",
+   "Template files. The defines-only templates/comments.html (practice) holds the section and the recursive comment block. crossdomain put the section in report.html and the comment block in thread.html. SC-013's page is branch.html.",
+   "Placeholder wording: 'comment removed' (practice, the brief's own words) rather than 'Comment removed'. Class names: removed and cut rather than removed-note and cut-note.",
+   "SC-013's branch page and redirect use Tree plus a pure Find (crossdomain) rather than new Branch and Ancestry SQL with a recursive CTE (practice)."
+  ],
+  "epic_parts": [
+   {
+    "key": "SC-013",
+    "builds": "It is built from these components of this design: 'SC-013 part: depth-5 cut, continue links, branch page, reply redirect' and 'SC-013 part: collapse/expand toggle'. It reuses comments.Tree, comments.Find, buildThread, the \"comment\" define and threadDepthCap, with no new SQL.\n\nChanges:\n- threadDepthCap = 5. The Cut note becomes the 'continue this thread →' anchor to /reports/<slug>/comments/<id>.\n- New GET /reports/{slug}/comments/{id} → readBranch in reader.go, rendering templates/branch.html: a link back to /reports/<slug>, reply forms, and no iframe.\n- postComment's 303 for depth D > cap goes to the ancestor at depth cap + (cap−1)·⌊(D−cap−1)/(cap−1)⌋, with #comment-<id>. If that read fails, it answers 303 #comments.\n- Each comment with rendered replies gets a hidden-until-JS button.toggle (aria-controls replies-<id>, 'Hide replies' / 'Show replies'). /static/thread.js, loaded with defer from report.html and branch.html, flips hidden and aria-expanded. It is DOM-only, under the new static-script fence.\n- Rows added to TestReaderPathVariants:\n  - GET /reports/x/comments/1 answers the same 404 for a draft and an unknown x;\n  - /reports/x/comments/abc and /reports/x/comments/01 → 404;\n  - POST /reports/x/comments/1 → 405 Allow: GET, HEAD.\n- TestDislikesDoNotInterfere's observe gains a branch-page GET.\n\nTests that show it:\n- Go tests:\n  - TestThreadCapFive: no article deeper than 5 on /, /reports/x or a branch page, and the continue link only on depth-5 nodes that have kept replies;\n  - TestBranchNotFoundIdentical;\n  - TestReplyRedirectTable, whose expected values are computed from threadDepthCap;\n  - TestStaticThreadScript: /static/thread.js answers 200, and /raw keeps rawCSP with script-src 'none'.\n- Finish line 2: `python tests/acceptance/test_e004_2_deep_threads_and_toggle.py`, run from a scratch copy of the epics.finish body with ROOT pointed at the worktree. It drives levels 1-8, the branch page and the FOLD toggle in its own headless Chrome, so it launches a browser."
+   }
+  ],
+  "filed_for_later": [
+   {
+    "what": "Release order: do not put a build carrying migration 0004 in front of readers on the home server until SC-020 (the author removes a comment) is live, with SC-021 (blocking) after it. Until then the only takedown is a stopgap that has never been run. After a .backup of the database, on the host, run `UPDATE comments SET removed_at=<unix now> WHERE id=?` or `INSERT INTO blocked_accounts(github_id, blocked_at) VALUES(?, <unix now>)`.",
+    "why": "Deploying to the author's production server, and running SQL against their live database, is the author's own act. It changes data TAAD did not create. Every check this slice owes runs on test databases.",
+    "who": "person"
+   }
+  ],
+  "whats_new": [
+   "internal/store/migrations/0004_comments.sql: spike 197's measured comments DDL, the comments_children index, and blocked_accounts with no FK to users",
+   "internal/comments/comments.go: Book, New, Post (one INSERT…SELECT that calls Normalize), Normalize, MaxRunes, ErrBadBody, ErrNoTarget, the visibleSQL constant",
+   "internal/comments/tree.go: Tree (one redacting SELECT), Node, the pure arrange (reverse-id prune) and Find",
+   "internal/server/comment.go: postComment, in vote.go's order, registered as POST /reports/{slug}/comments",
+   "internal/server/thread.go: threadDepthCap = 100, commentView, buildThread, the Author badge through auth.IsOwner",
+   "reader.go: readerData.Thread, the Tree call in renderReader (an error gives 503); app.comments, built in router.go New",
+   "internal/server/templates/comments.html: the \"comments\" section and the recursive \"comment\" block; one include line in report.html",
+   "site.css: .comments, .replies (with [hidden]), .body (pre-wrap, overflow-wrap: anywhere, overflow: clip), .badge, .removed, .cut",
+   "fitness.yaml: the Participant rule widened to internal/server/**/*.go; the new rule that site scripts never build HTML from strings or reach the network; corpus fire, quiet and bounded_by rows for all four SL-006 rules",
+   "Tests: TestSchema, TestDeleteReportWithDeepChain, TestNormalize, TestPostRefusals, TestConcurrentPostsNoBusy, TestArrange, TestArrangeDeepChain, TestTreeRedactsHidden, TestFind, TestCommentsMigrationFromV2AndV3, and the TestComment* HTTP tests",
+   "Extensions to TestReaderPagesShareOneLayout, TestReaderPathVariants and TestDislikesDoNotInterfere",
+   "SC-013 later: threadDepthCap = 5, continue links, readBranch with branch.html, the derived redirect, static/thread.js"
+  ],
+  "whats_reused": [
+   "auth.Participant, auth.SeeOther and LocalPath, which accept #comment-<n>",
+   "auth.IsOwner with config.OwnerGitHubID for the badge",
+   "reports.PublishedBySlug and its identical 404 for every hidden report",
+   "reports.Library.Delete's FK cascade, measured on deep chains",
+   "The users table (login and avatar_url, refreshed by store.SignIn), joined at read time",
+   "The store.Open serving pool (WAL, busy_timeout, foreign_keys) and the migrate.go runner",
+   "renderReader's found, empty and unavailable states, and render's buffer-then-write",
+   "vote.go's handler order, and votes.Cast's single-statement, published-only INSERT…SELECT",
+   "votes.PublicView's rule that data a reader must not see never reaches the template, applied here as redaction in SQL",
+   "CrossOriginProtection, Identify, securityHeaders and siteCSP's avatar img-src",
+   "html/template autoescaping and the existing fences against template.HTML, text/template and HTML in Go strings",
+   "The three SL-006 fences the engine already appended, and the rule-spellings corpus mechanism",
+   "The test harness: newHarness, mint, serve, withSID, count, mustUpload, mustAct, the fake clock",
+   "Spike 197's DDL and its measured answers, kept as the build's regression cases"
+  ]
+ }
+}

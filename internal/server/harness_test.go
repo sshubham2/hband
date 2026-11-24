@@ -194,13 +194,18 @@ func (h *harness) withSID(value string) func(*http.Request) {
 
 // mint creates a live session for a GitHub account and returns its cookie value.
 func (h *harness) mint(id int64, login string) string {
+	return h.mintUser(store.User{GitHubID: id, Login: login})
+}
+
+// mintUser is mint for a user with more than an id and a login: an avatar, say.
+func (h *harness) mintUser(u store.User) string {
 	h.t.Helper()
 	var b [32]byte
 	rand.Read(b[:])
 	token := base64.RawURLEncoding.EncodeToString(b[:])
 	now := h.clock.Now()
 	if err := h.store.SignIn(bg, store.SignInArgs{
-		User:         store.User{GitHubID: id, Login: login},
+		User:         u,
 		NewTokenHash: sha256Hex(token),
 		ExpiresAt:    now.Add(30 * 24 * time.Hour),
 		Now:          now,

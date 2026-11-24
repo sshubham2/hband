@@ -1,0 +1,88 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-006",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-24T01:11:23.353Z",
+ "head": "93e28aadd9a7c2538cf0b3067ce451d570a14cba",
+ "run_id": 11812,
+ "summary": "All ten first-review findings stand at minor, and none is inflated. Each one cites the design text or a file location, and each fix is concrete. The premortem turned up two gaps the dimensional walk could not see, both minor. (1) The first public write path for any GitHub account ships with no way to take content down: removal and blocking (SC-020/021) are unbuilt, and the design has no production story for the gap. (2) The body styles contain the horizontal effect of hostile text but not the vertical one. A run of thousands of stacked combining marks paints over neighbouring comments, including the Author badge, which the design calls the only trust signal. Re-deriving the slice from the brief gave the same shape: an adjacency list, a flat read, pruning at read time, a recursive template, the badge at render time and a server-side depth cap. The design's extra choices (composite FK, NO ACTION on the self-FK, one shared visibleSQL fragment) are improvements, not gaps. The frame holds: no materially simpler approach meets 'tree of any depth' plus C6 pruning within the measured Chrome limit and the single-statement write rule.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "All ten first-review findings stand at minor, and none is inflated. Each one cites the design text or a file location, and each fix is concrete. The premortem turned up two gaps the dimensional walk could not see, both minor. (1) The first public write path for any GitHub account ships with no way to take content down: removal and blocking (SC-020/021) are unbuilt, and the design has no production story for the gap. (2) The body styles contain the horizontal effect of hostile text but not the vertical one. A run of thousands of stacked combining marks paints over neighbouring comments, including the Author badge, which the design calls the only trust signal. Re-deriving the slice from the brief gave the same shape: an adjacency list, a flat read, pruning at read time, a recursive template, the badge at render time and a server-side depth cap. The design's extra choices (composite FK, NO ACTION on the self-FK, one shared visibleSQL fragment) are improvements, not gaps. The frame holds: no materially simpler approach meets 'tree of any depth' plus C6 pruning within the measured Chrome limit and the single-statement write rule.",
+  "assessments": [
+   {
+    "finding": "m1",
+    "classification": "valid",
+    "note": "The rule is bound to one literal path (internal/server/comment.go), so renaming the file or adding a helper in another file defeats it without any error. ViewerFrom has only two callers outside auth (reader.go:100, admin.go:63), so the inverted scope can be enforced today at no cost. Minor is right: Participant is the design's stated choice, so the fence only guards later code."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "The Post contract text does put the 5000-rune limit, the control-character refusal and CRLF handling on the caller. The schema CHECK only catches length 0. This is a defensive hardening with a cheap fix (Post calls Normalize itself), so minor."
+   },
+   {
+    "finding": "m3",
+    "classification": "valid",
+    "note": "The named fallback contradicts the design's own outside_claim: SQLite runs FK actions as triggers, so a self-referencing CASCADE fails past SQLITE_MAX_TRIGGER_DEPTH. CASCADE would therefore fail the very 1,500-deep test meant to justify it. The suggested DEFERRABLE INITIALLY DEFERRED is coherent. Under autocommit the check moves to the end of the statement even if immediate NO ACTION turned out to be checked per row. The disagreement already carries would_force_resynthesis=true, so a wrong hint costs only a misdirected resynthesis: minor."
+   },
+   {
+    "finding": "m4",
+    "classification": "valid",
+    "note": "Correct, and it matters more than it first appears. The design sends the count rule and the 'author' word rule to this script ('checks the count rule and the author word rule that the Go tests only approximate'). Neither the design nor the critique read the planted E-004 body. So text adjacency across sections, for example the last text of section#votes sitting just before the new 'Comments' h2, is checked nowhere unless the body from epics.id=42 is actually run. Minor stands, because lesson #951 already tells the builder how to run it."
+   },
+   {
+    "finding": "m5",
+    "classification": "valid",
+    "note": "Q-015 is open and frames production at user_version 2. The design states version 3 as fact in both the case and filed_for_later. migrate.go applies all[current:] in order, so a v2 start runs 0003 and 0004 in one boot, and the planned v3-only test does not cover that. The fix is cheap, so minor."
+   },
+   {
+    "finding": "m6",
+    "classification": "valid",
+    "note": "In the SC-013 part, the cap appears as threadDepthCap, as a literal 5 in buildThread([root], …, 5), and as 4 and 6 inside the redirect formula. Those values can drift apart. It is future work designed here, so it is in scope, and minor."
+   },
+   {
+    "finding": "m7",
+    "classification": "valid",
+    "note": "The reasoning that the precondition holds by construction is sound: the parent must exist at insert time, nothing exposes an explicit-id path, and NO ACTION blocks hard-deleting a parent. The consequence is stated correctly too. Under the votes pattern, a row-invariant error turns the report, and '/' while it is the newest, into a 503 that persists until someone fixes it by hand. It is filed as backlog, so minor."
+   },
+   {
+    "finding": "m8",
+    "classification": "valid",
+    "note": "In SC-011 alone, CanReply has no depth term, Post accepts any depth, and step 9 answers with an anchor that is never drawn for depth > 100. The design acknowledges the 'Deeper replies' marker but not that new posts are stored and then shown nowhere. It is an interim gap that SC-013 closes, so minor."
+   },
+   {
+    "finding": "m9",
+    "classification": "valid",
+    "note": "Cross-cutting backlog. The design handles today's routes correctly by hand, and the reviewer is right that each later route (SC-013, SC-020, SC-021) repeats the same manual step that lessons #944 and #948 record as having failed before. Minor is right."
+   },
+   {
+    "finding": "m10",
+    "classification": "valid",
+    "note": "Tree reads every row on every GET of '/' and /reports/<slug>, and no per-account limit exists. It is a real exposure for a home server, and the fix fits inside Post's single statement. As backlog it is minor. Note that it assumes blocking exists; the missed finding on takedown covers the period before SC-020/021."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "security",
+    "severity": "minor",
+    "route": "premortem",
+    "claim": "Premortem: the slice ships, a GitHub account posts abusive text under the newest report, and it shows on '/' to every visitor. The owner has no way to remove it. This slice opens the first public write path for any GitHub account, but removal (SC-020) and blocking (SC-021) are unbuilt. The design's only answer is that tests set removed_at and blocked_accounts directly with SQL. With the shipped one-container, CGO_ENABLED=0 deployment (Q-004), taking a comment down means stopping the service and editing the SQLite file on the volume with a tool the image may not contain. Nothing in filed_for_later raises this release-order question with the person.",
+    "evidence": "build-check C6: 'SC-020 … and SC-021 … are unbuilt … So this slice's placeholder rule has no producer of removed or blocked state yet'; design 'comments.Book.Tree' key_interactions: 'Until SC-020 and SC-021 exist, tests set removed_at and insert blocked_accounts rows directly with SQL'; filed_for_later holds only the pre-deploy backup item; Q-004 (one Docker container, one volume, home server).",
+    "fix": "Add a filed_for_later item for the person, a release-order decision and not a setting: either keep the comment route off the home server until SC-020 merges, or record a takedown runbook that works against the shipped image (stop the container, run `UPDATE comments SET removed_at = <unix now> WHERE id = ?` on the volume's database with an external sqlite3, restart). The existing C6 placeholder tests already prove that this statement produces the right page."
+   },
+   {
+    "dimension": "security",
+    "severity": "minor",
+    "route": "re-derivation",
+    "claim": "The body styles contain overflow only horizontally. `.body { white-space: pre-wrap; overflow-wrap: anywhere }` with no overflow clipping lets a body made of one base character followed by thousands of combining marks (allowed: Normalize refuses only controls, and the limit is 5000 runes) render a stack that extends far above and below its own line box. That stack paints over the writer's own byline, earlier comments, and other comments' bylines and 'Author' badge. The design treats visual spoofing as in scope (it argues that bidi cannot reorder the byline because each body sits in its own <p>) and calls the badge 'the only trust signal', but the vertical case is not covered.",
+    "evidence": "design 'Comment styles' (.body rule) and key_decision 'Plain text only' ('Bidi and zero-width characters are allowed … Each body sits in its own block <p>, so bidi characters cannot reorder the byline. The badge, the only trust signal, comes from the ID'); Normalize steps 1-5 place no limit on combining marks.",
+    "fix": "Add `overflow: hidden` (or `overflow: clip`) to .body so that marks are clipped to the body's own box, leaving overflow-wrap unchanged. Optionally, have Normalize refuse a run of more than a small number (for example 8) of consecutive nonspacing marks (Mn) after one base character, as ErrBadBody, with a case in the TestNormalize table."
+   }
+  ],
+  "notes": "The first reviewer read the tree (fitness.yaml lines, ViewerFrom grep, absent tests/ directory) and cited an outside source for m3. All ten findings are minor, with no severity inflation, and none restates something the design already answers. Four (m6, m7, m9, m10) are about future slices or backlog, which suits an epic-shaped design but tilts the set away from defects in SC-011 itself. No SC-011 defect at blocker or major level was missed. CC-001 was applied to the three declared rules. The SQL fence and the transaction fence run over raw file text, so SQL in backticks and SQL inside a Sprintf or other non-leading position are caught. Lower-case SQL, names built by concatenation and views remain declared holes, consistent with lesson #939 and the votes rule, so they are not refiled. The ViewerFrom rule's scope weakness is m1. The two seams the synthesis invented were re-checked and hold: the shared visibleSQL is used by both Post and Tree, and SQL-side blanking plus !Placeholder double-guards the exported GitHubID. The NO ACTION self-FK is right on the end-of-statement counter semantics, and the comments_children index serves the per-row child lookup during the report_id cascade. The imported precondition parent.id < child.id holds by construction with no explicit-id path. If it broke, the failure would be a persistent page-wide 503 (m7), not a wrong thread. The frame was questioned and holds.",
+  "frame_challenged": false,
+  "reason": "No stage left a gap that blocked this review. No elevated operation was needed: every judgment rests on the measured survey, the spike verdicts and the design text supplied here."
+ }
+}

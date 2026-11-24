@@ -1,0 +1,218 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-006",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-24T04:01:49.572Z",
+ "head": "08652107fe7c2a600bd65808d248895c5c8a929d",
+ "run_id": 11840,
+ "summary": "SL-006 (SC-011 with SC-012 and SC-015 merged in) does what the design's 14 acceptance criteria ask. It also meets the build-check's derived C1-C7: signed-in posting, literal plain text, public login and avatar, replies at any depth, oldest-first order with indented replies, the 'comment removed' placeholder and pruning, and the Author badge by pinned ID. I checked it against the built binary as well as the unit suite. The binary was started with the finish line's own stand-in GitHub, its pages were loaded by the installed Chrome (headless, own profile), and a migration was run from databases made by binaries built from history.\n\n**Suite, rules and finish line**\n- `go vet ./...` is clean and `go test -count=1 ./...` passes in every package. TestReportScriptsNeverRun ran in Chrome (blank-found green=0 red=0) and no Edge process was started.\n- Fitness: all 25 rules hold.\n- Finish line 1 (epics.finish id=42, read mode=ro, only ROOT changed) exits 0 in 6.4 s.\n\n**Driving the binary over HTTP**\n- A reader posted a comment with typed markup. The owner and a look-alike account (4243, login report-author) posted too.\n- A 110-reply chain was posted through POST /reports/talk/comments. I then marked comments removed and blocked an account through SQL on the binary's own database, which the tests created.\n- Anonymous posts (top-level and reply) get 303 #comments. A cross-report reply, a reply to a removed comment and a reply to a blocked writer each get 404. The row count stayed at exactly 128.\n\n**What Chrome's parsed DOM showed**\n- Top-level comments come oldest first: ids [1,3,4,5,8,11,16,18].\n- Each reply sits inside the comment it answers, and the chain is drawn to exactly depth 100 with the cut note.\n- Removed and blocked comments that still have visible replies show 'comment removed' with no login, avatar, body or badge. Hidden ones with nothing visible below are absent. No hidden text appears anywhere in the page.\n- There are 52 Author badges, one for each of the 52 visible owner comments. The look-alike account has none, and the owner's removed comment has none.\n- The typed `<script>`/`<img onerror>` stays a single text node.\n- The comment section is byte-identical on / and /reports/talk, for an anonymous viewer and for a signed-in one.\n\n**O-038 (one read per page view at 10,000 comments)**\n- 10,000 comments, 3,000 of them hidden, on one report. GET /reports/big through the binary took 83–121 ms. The page is 3.67 MB anonymous and 5.80 MB signed in, with 7,500 articles and 500 placeholders.\n- Chrome parsed that page in 1.6 s.\n- TestThreadTenThousandTiming: Tree 21 ms, render 54 ms.\n\n**Migration**\n- Binaries built from 38e2b22 (v2) and 93e28aa (v3) created populated databases. This slice's binary took each to user_version 4 with every row kept and an empty foreign_key_check. Existing sessions still worked and the first comment posted.\n\n**One failed check, filed as extra**\n- At a 1000 px viewport, a reply chain deeper than about level 40 squeezes and then leaves the right edge of the screen. This is not a correctness failure. SC-013's depth cap of 5 with continue links is what fixes it.\n\n**Contact is graded `code`, not `real`**\n- GitHub was a stand-in.\n- The VPS proxy, https and the real Host were not in the path.\n- The production database and real avatars were not reached.\n\n**The `planned` list is empty**\n- No 'What this slice owes' block was given. The 14 design items are graded as criteria.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "SL-006 (SC-011 with SC-012 and SC-015 merged in) does what the design's 14 acceptance criteria ask. It also meets the build-check's derived C1-C7: signed-in posting, literal plain text, public login and avatar, replies at any depth, oldest-first order with indented replies, the 'comment removed' placeholder and pruning, and the Author badge by pinned ID. I checked it against the built binary as well as the unit suite. The binary was started with the finish line's own stand-in GitHub, its pages were loaded by the installed Chrome (headless, own profile), and a migration was run from databases made by binaries built from history.\n\n**Suite, rules and finish line**\n- `go vet ./...` is clean and `go test -count=1 ./...` passes in every package. TestReportScriptsNeverRun ran in Chrome (blank-found green=0 red=0) and no Edge process was started.\n- Fitness: all 25 rules hold.\n- Finish line 1 (epics.finish id=42, read mode=ro, only ROOT changed) exits 0 in 6.4 s.\n\n**Driving the binary over HTTP**\n- A reader posted a comment with typed markup. The owner and a look-alike account (4243, login report-author) posted too.\n- A 110-reply chain was posted through POST /reports/talk/comments. I then marked comments removed and blocked an account through SQL on the binary's own database, which the tests created.\n- Anonymous posts (top-level and reply) get 303 #comments. A cross-report reply, a reply to a removed comment and a reply to a blocked writer each get 404. The row count stayed at exactly 128.\n\n**What Chrome's parsed DOM showed**\n- Top-level comments come oldest first: ids [1,3,4,5,8,11,16,18].\n- Each reply sits inside the comment it answers, and the chain is drawn to exactly depth 100 with the cut note.\n- Removed and blocked comments that still have visible replies show 'comment removed' with no login, avatar, body or badge. Hidden ones with nothing visible below are absent. No hidden text appears anywhere in the page.\n- There are 52 Author badges, one for each of the 52 visible owner comments. The look-alike account has none, and the owner's removed comment has none.\n- The typed `<script>`/`<img onerror>` stays a single text node.\n- The comment section is byte-identical on / and /reports/talk, for an anonymous viewer and for a signed-in one.\n\n**O-038 (one read per page view at 10,000 comments)**\n- 10,000 comments, 3,000 of them hidden, on one report. GET /reports/big through the binary took 83–121 ms. The page is 3.67 MB anonymous and 5.80 MB signed in, with 7,500 articles and 500 placeholders.\n- Chrome parsed that page in 1.6 s.\n- TestThreadTenThousandTiming: Tree 21 ms, render 54 ms.\n\n**Migration**\n- Binaries built from 38e2b22 (v2) and 93e28aa (v3) created populated databases. This slice's binary took each to user_version 4 with every row kept and an empty foreign_key_check. Existing sessions still worked and the first comment posted.\n\n**One failed check, filed as extra**\n- At a 1000 px viewport, a reply chain deeper than about level 40 squeezes and then leaves the right edge of the screen. This is not a correctness failure. SC-013's depth cap of 5 with continue links is what fixes it.\n\n**Contact is graded `code`, not `real`**\n- GitHub was a stand-in.\n- The VPS proxy, https and the real Host were not in the path.\n- The production database and real avatars were not reached.\n\n**The `planned` list is empty**\n- No 'What this slice owes' block was given. The 14 design items are graded as criteria.",
+  "checks": [
+   {
+    "what": "go vet over the whole module",
+    "command": "$env:TAAD3_HOME=<scratch>; go vet ./...",
+    "outcome": "passed",
+    "evidence": "VET_EXIT=0, no output"
+   },
+   {
+    "what": "Full suite as the project runs it",
+    "command": "$env:TAAD3_HOME=<scratch>; go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "ok for cmd/hband, auth, comments, config, fitnessrules, reports, server (10.8s), store, testutil/headless, votes; fakegithub has no test files; TEST_EXIT=0"
+   },
+   {
+    "what": "Architecture fences",
+    "command": "Fitness op=check",
+    "outcome": "passed",
+    "evidence": "25 rule(s) checked against 57 parsed file(s); every declared rule holds"
+   },
+   {
+    "what": "Epic E-004 finish line 1 against the built binary",
+    "command": "SELECT finish FROM epics WHERE id=42 (engine.db, mode=ro); body[0] written to scratch with only the ROOT line changed; python -I test_e004_1_comments_and_replies.py",
+    "outcome": "passed",
+    "evidence": "Ran 1 test in 6.443s OK, EXIT=0; Compare-Object shows the ROOT line as the only difference"
+   },
+   {
+    "what": "Refusals through the built binary: anonymous top-level and reply, cross-report reply, reply to a removed comment, reply to a blocked writer's comment",
+    "command": "python -I probe.py (finish line's Product and stand-in GitHub; same-origin form POSTs)",
+    "outcome": "passed",
+    "evidence": "anon_top [303, /reports/talk#comments]; anon_reply [303, /reports/talk#comments]; cross_report_reply [404]; reply_to_removed [404]; reply_to_blocked [404]; comments count stayed exactly 128 (18 seeded plus 110 chain replies)"
+   },
+   {
+    "what": "Thread as Chrome parses it: order, nesting, placeholders, pruning, badge, literal text, avatar and login",
+    "command": "chrome.exe --headless=new --user-data-dir=<scratch> --dump-dom http://127.0.0.1:<port>/reports/talk, then analyse.py on the DOM",
+    "outcome": "passed",
+    "evidence": "Top-level ids [1,3,4,5,8,11,16,18], ascending as expected. Ar, C1, E1, G1, G2 and O1 are each inside their parent's article. C, E, G, G1 and O show 'comment removed' with login 0, avatar 0, badge 0 and body 0. D, F, H and H1 are absent. Chain drawn 100 of 111, depth equals level, nesting intact, cut note on depth 100. 52 badges for 52 visible owner comments; look-alike L (4243, report-author) has none. A's p.body is one #text node holding the literal <b>/<script>/<img onerror>; 0 script, b or img elements in it. Avatar src is the avatar_url given. No SECRET marker of any hidden comment appears in the page."
+   },
+   {
+    "what": "Comment section identical on / and /reports/<newest>",
+    "command": "probe.py: section bytes compared for anonymous and signed-in reader",
+    "outcome": "passed",
+    "evidence": "anon_section_same_on_home_and_report = true; reader_section_same_on_home_and_report = true; both 200"
+   },
+   {
+    "what": "O-038: one read per page view at 10,000 comments, through the built binary over HTTP",
+    "command": "probe.py: 10,000 rows on report 'big' (500 removed tops, 2,500 by a blocked account); 6 timed GETs of /reports/big each for anonymous and signed-in",
+    "outcome": "passed",
+    "evidence": "Anonymous: 200, 88.0-100.5 ms, 3,667,874 bytes, 7,500 articles, 500 placeholders, 0 forms. Reader: 200, 82.5-121.0 ms, 5,795,810 bytes, 7,500 articles, 500 placeholders, 7,001 forms. reader.go calls comments.Tree once per render, and Tree runs one QueryContext."
+   },
+   {
+    "what": "Real Chrome loads the 10,000-comment page",
+    "command": "chrome.exe --headless=new --dump-dom http://127.0.0.1:<port>/reports/big",
+    "outcome": "passed",
+    "evidence": "rc 0, 3,702,370-byte DOM in 1.6 s, 7,500 comment articles, 500 'comment removed'"
+   },
+   {
+    "what": "Look at the comment area as a reader sees it (desktop width)",
+    "command": "chrome.exe --screenshot --window-size=1000,9000 on the binary's /reports/talk, cropped below the report frame (frame ends at y=7412)",
+    "outcome": "passed",
+    "evidence": "Seen: the 'Comments' heading and 'Sign in to comment.'; bylines with avatar slot, login, outlined 'Author' badge and date. Typed HTML shows as literal text with its line break kept. Two italic 'comment removed' placeholders each sit over an indented visible reply. A 400-W word wraps inside the column. The chain is indented under left rules."
+   },
+   {
+    "what": "Deep chain layout in real Chrome at a 1000 px viewport",
+    "command": "Served talk HTML with the iframe removed and site.css linked from the worktree; chrome --screenshot --window-size=1000,9000; crops at y=2600 and y=6400",
+    "outcome": "failed",
+    "nature": "extra",
+    "evidence": "Levels 24-31 are fine. From about level 32 the byline wraps, by 41-43 the login and date break word by word, and past about level 45 the comments leave the right edge of the viewport; the y=6400 crop shows only the left rules. Nobody asked this slice for readable layout at depth 100: SC-013 (threadDepthCap = 5, continue links, finish line 2) owns it and is already filed open by build-slice."
+   },
+   {
+    "what": "Phone-width screenshot (400 px)",
+    "command": "chrome.exe --screenshot --window-size=400,9000",
+    "outcome": "not-run",
+    "evidence": "Ran, but the result is not a valid phone measurement. Text and bylines are cut at the right edge of the 400 px crop, which matches headless Chrome laying out at its minimum window width (~492-500 px, the limit open question Q-013 names) and cropping. No conclusion is drawn about phone layout."
+   },
+   {
+    "what": "The slice's named tests, verbose",
+    "command": "go test -count=1 -v -run 'TestComment|TestThread|TestBuildThread|TestReaderPagesShareOneLayout|TestReaderPathVariants|TestDislikesDoNotInterfere|TestReportScriptsNeverRun' ./internal/server/; go test -count=1 -v ./internal/comments/ ./internal/store/ -run '...'",
+    "outcome": "passed",
+    "evidence": "PASS: TestCommentPostFlow, SignedOutStoresNothing, LiteralHTML, BadBody, ParentRefused, ParentField, ThreadCap, BuildThreadDepth, OrderIgnoresClock, Placeholders, AuthorBadge, StoreFailure, ReportLifecycle, ThreadTenThousandTiming (Tree 21.0 ms, buildThread 4.5 ms, render 54.0 ms, 3,983,164 B), CommentStyles, ReaderPagesShareOneLayout, ReaderPathVariants, DislikesDoNotInterfere, ReportScriptsNeverRun (6.14 s, Chrome). Also TestSchema, DeleteReportWithDeepChain (6.5 ms / 25.5 ms), Normalize, PostRefusals, ConcurrentPostsNoBusy, Arrange, ArrangeRefusesRowsThatAreNotATree, ArrangeDeepChain, Find, TreeRedactsHidden and CommentsMigrationFromV2AndV3."
+   },
+   {
+    "what": "Upgrade a v2 database made by the v2 binary",
+    "command": "git archive 38e2b22 into scratch; Product built from it; owner and 2 readers sign in, 2 reports published; process killed; this slice's binary started on the same data dir (upgrade.py)",
+    "outcome": "passed",
+    "evidence": "before user_version 2 {users 3, sessions 3, reports 2}; after user_version 4, same counts plus votes 0 and comments 0, foreign_key_check 0 rows. Report page 200 with the comment form (session kept). Post gives 303 /reports/second#comment-1 and the home page shows it."
+   },
+   {
+    "what": "Upgrade a v3 database made by the v3 binary",
+    "command": "git archive 93e28aa into scratch; same flow plus one like and one dislike",
+    "outcome": "passed",
+    "evidence": "before user_version 3 {users 3, sessions 3, reports 2, votes 2}; after user_version 4, all kept, comments 0, foreign_key_check 0 rows. Post gives 303 #comment-1 and the home page shows it."
+   },
+   {
+    "what": "No Microsoft Edge started by any test or probe; nothing left running",
+    "command": "msedge.exe process IDs before and after the verbose test runs; chrome.exe processes with my scratch path, and hband.exe, after each probe",
+    "outcome": "passed",
+    "evidence": "new msedge pids: (none); chrome processes left from my profiles: 0; hband.exe left running: 0; leftover hband-acceptance-* temp dirs: 0"
+   },
+   {
+    "what": "Worktree untouched by validation",
+    "command": "git status --short",
+    "outcome": "passed",
+    "evidence": "Only the engine's pre-existing .taad/slices/SL-006 changes, the same as at the start"
+   },
+   {
+    "what": "thread.go:12 comment that code-review left unchecked ('Chrome 158 flattened the nesting at the 256th reply')",
+    "command": "Compared with spike 196's recorded verdict",
+    "outcome": "passed",
+    "evidence": "Spike 196 nested-thread-dom-depth-in-chromium [no-go]: 'Chrome 158 breaks nesting at reply 256 (DOM depth cap 513)'. The comment matches the measurement."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "1. post a comment or a reply, when the visitor is not signed in (top-level and with a parent), or a signed-in reader's POST arrives cross-site",
+    "met": "yes",
+    "how": "Built binary: anonymous top-level and reply POSTs gave 303 /reports/talk#comments and stored nothing (count stayed at 128). Cross-site 403 with 0 rows comes from TestCommentSignedOutStoresNothing (PASS) and finish line 1 (OK). Signed-in readers and the owner posted through the same form (C1)."
+   },
+   {
+    "criterion": "2. show a comment, when the typed body contains markup: <b>, <script>, <img onerror>, & and quotes",
+    "met": "yes",
+    "how": "Chrome-parsed DOM of the binary's page: the markup stays one text node in p.body, with 0 live script, b or img elements; the screenshot shows the literal text (C2). TestCommentLiteralHTML PASS."
+   },
+   {
+    "criterion": "3. post a comment, when body boundary shapes: empty, whitespace only, 5000/5001 runes (incl. 4-byte), invalid UTF-8, NUL/C0/DEL/C1, CRLF and lone CR, tab and newline inside, a form over 64 KiB",
+    "met": "yes",
+    "how": "TestCommentBadBody, TestNormalize and TestPostRefusals PASS. Run as code only, not against the binary."
+   },
+   {
+    "criterion": "4. reply to a comment, when the parent is unusable (missing, other report, removed, blocked writer, report unpublished between lookup and write), plus a raw SQL cross-report insert",
+    "met": "yes",
+    "how": "Built binary: cross-report parent 404, removed parent 404, blocked writer's parent 404, nothing stored. The late unpublish is covered by TestPostRefusals and the raw cross-report insert by TestSchema (code 787), both PASS."
+   },
+   {
+    "criterion": "5. reply to a comment, when the parent field is malformed: 'abc', '0', '-1', '+5', '007', '', repeated, or only in the query string",
+    "met": "yes",
+    "how": "TestCommentParentField PASS (each malformed value gives 400; a query-only parent is ignored and stores a top-level comment). Code only."
+   },
+   {
+    "criterion": "6. show the thread, when a reply chain is deeper than threadDepthCap (150 stored through Post), and a 10,000-deep chain through arrange",
+    "met": "yes",
+    "how": "Built binary: a 110-reply chain is drawn to exactly depth 100 in Chrome's DOM, each reply inside its parent, with the cut note; deeper replies are stored (C4). TestCommentThreadCap (150) and TestArrangeDeepChain (10,000) PASS. Beyond about level 45 at 1000 px the layout leaves the screen (extra, SC-013)."
+   },
+   {
+    "criterion": "7. show the thread, when the clock runs backwards between posts, among top-level comments and among siblings",
+    "met": "yes",
+    "how": "TestCommentOrderIgnoresClock PASS. In the binary run, top-level ids appear ascending [1,3,4,5,8,11,16,18] (C5). Backwards-clock order was checked by code only."
+   },
+   {
+    "criterion": "8. show the thread, when hidden shapes: removed leaf; removed with a visible reply three levels down; removed>removed>visible; entirely hidden subtree; blocked writer with visible replies; the same account unblocked",
+    "met": "yes",
+    "how": "Built binary plus Chrome: removed leaf gone; removed parent with a reply shows a placeholder; removed>removed>visible gives two placeholders over a visible reply; all-hidden subtree gone; blocked writer with a reply shows a placeholder; no hidden text in the page (C6). The three-levels-down and unblock shapes are covered by TestCommentPlaceholders and TestTreeRedactsHidden (PASS)."
+   },
+   {
+    "criterion": "9. show the Author badge, for posts by the pinned owner ID, by an account with login 'report-author' but another ID, and the owner's own removed comment with a visible reply",
+    "met": "yes",
+    "how": "Built binary plus Chrome: badge on all 52 visible comments by 4242, none on 4243 'report-author', none on the owner's removed comment placeholder (C7). TestCommentAuthorBadge PASS."
+   },
+   {
+    "criterion": "10. show the thread on / and /reports/<newest> for owner, reader and anonymous; the new route's method and path spellings; the dislike world with comments seeded",
+    "met": "yes",
+    "how": "The binary's comment section is byte-identical on / and /reports/talk for an anonymous viewer and a signed-in reader, with login and avatar shown publicly (C3). Owner view, route spellings and the dislike world are covered by TestReaderPagesShareOneLayout, TestReaderPathVariants and TestDislikesDoNotInterfere (PASS)."
+   },
+   {
+    "criterion": "11. read the page or post when the store fails: the comments read fails while votes succeed, and the session lookup fails on a POST",
+    "met": "yes",
+    "how": "TestCommentStoreFailure PASS (comments table renamed gives a 503 page and never 'No comments yet.'; session lookup failure gives a 503 POST and 0 rows). Code only."
+   },
+   {
+    "criterion": "12. manage a report that has comments: replaced by re-upload, unpublished, republished, and deleted while it holds a 1,500-deep chain, with another report's comments interleaved",
+    "met": "yes",
+    "how": "TestCommentReportLifecycle PASS. TestDeleteReportWithDeepChain PASS: 1,500 deep in 6.5 ms, 10,000 deep in 25.5 ms."
+   },
+   {
+    "criterion": "13. start the server on an existing database: a populated version-2 file and a populated version-3 file",
+    "met": "yes",
+    "how": "Databases made by binaries built from 38e2b22 (v2) and 93e28aa (v3) were taken to user_version 4 by this slice's binary. All users, sessions, reports and votes rows were kept and foreign_key_check returned 0 rows. Sessions still worked and the first comment posted. TestCommentsMigrationFromV2AndV3 PASS. The production file is unreached (Q-015; the rehearsal item is filed for the person)."
+   },
+   {
+    "criterion": "14. the epic's finish line 1, end to end through the built binary",
+    "met": "yes",
+    "how": "epics.finish id=42 read mode=ro, only ROOT changed, python -I: 'Ran 1 test in 6.443s OK', exit 0."
+   }
+  ],
+  "planned": [],
+  "obligations": [
+   {
+    "key": "O-038",
+    "verified": "yes",
+    "evidence": "Measured through the built binary over HTTP. One report held 10,000 comments, 3,000 hidden (500 removed tops, 2,500 by a blocked account). GET /reports/big: anonymous 88-101 ms, 3.67 MB; signed-in 83-121 ms, 5.80 MB; 7,500 articles and 500 placeholders. Chrome parsed the anonymous page in 1.6 s. In-process, TestThreadTenThousandTiming gives Tree 21 ms, buildThread 4.5 ms, render 54 ms. Per view, reader.go calls comments.Tree once, and Tree is one QueryContext. The precondition holds at 10,000. Page bytes grow linearly; bounding them is m10 (rate limit) and SC-013's work."
+   }
+  ],
+  "not_reached": [
+   "Real GitHub OAuth and real avatars: the sign-in ran against the finish line's stand-in GitHub, and avatar URLs were avatars.example. Whether real avatars.githubusercontent.com images load under siteCSP in a browser was not seen.",
+   "The VPS reverse proxy, WireGuard, https and the public Host. Chrome loaded the binary directly at http://127.0.0.1:<port>, where the report iframe showed a broken-frame icon. /raw/talk answers 200 to a proxy-shaped request, so this looks like an artifact of bypassing the proxy and is unrelated to comments, but it was not proven.",
+   "The production database migration (Q-015). Only databases made by binaries built from history (v2 at 38e2b22, v3 at 93e28aa) were upgraded. The rehearsal-on-a-copy item stays with the person.",
+   "Phone widths: headless Chrome would not lay out below about 500 px (Q-013), so the 400 px screenshot is not a phone measurement. Real phone rendering of the thread, and of deep chains (which squeeze sooner than at 1000 px), was not seen.",
+   "The signed-in page in a real browser: Chrome had no session cookie, so the reply <details> forms and the top-level form were checked only in the server's HTML and by the stand-in flows, not rendered or clicked in Chrome.",
+   "Other browsers (Firefox, Safari, mobile Chrome): only Chrome 158 on this PC was used.",
+   "Concurrent posting under real load on the home server. TestConcurrentPostsNoBusy (16 goroutines) passes in-process only.",
+   "The 5.8 MB signed-in page at 10,000 comments over a real network link through the proxy. Only loopback latency was measured."
+  ],
+  "screens": []
+ }
+}

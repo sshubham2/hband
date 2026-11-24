@@ -1,0 +1,587 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-006",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-24T03:40:07.355Z",
+ "head": "9789fb9d98fe3efcc01a742955d102926a8c7dcf",
+ "run_id": 11832,
+ "summary": "Built SC-011 with SC-012 and SC-015 merged in: migration 0004 (comments plus blocked_accounts), the internal/comments package, POST /reports/{slug}/comments, the thread view and Author badge, a defines-only comments.html drawn on / and /reports/<slug>, comment CSS, and the fitness fences with 70 corpus rows. Post is one INSERT...SELECT that calls Normalize. Tree is one redacting read, and arrange prunes in reverse id order with no recursion. The handler follows vote.go's order and goes through auth.Participant. Every owed case has a test. go vet and the full suite pass (headless Chrome ran, never Edge), and the planted finish line 1 (epics.finish id=42, only ROOT changed) passes against the built binary. The tree already held attempt-1 work, which built and passed; I kept it and extended it. SC-013 (depth-5 cut, branch page, toggle script, finish line 2) is not built, as the design says.",
+ "payload": {
+  "status": "complete",
+  "summary": "Built SC-011 with SC-012 and SC-015 merged in: migration 0004 (comments plus blocked_accounts), the internal/comments package, POST /reports/{slug}/comments, the thread view and Author badge, a defines-only comments.html drawn on / and /reports/<slug>, comment CSS, and the fitness fences with 70 corpus rows. Post is one INSERT...SELECT that calls Normalize. Tree is one redacting read, and arrange prunes in reverse id order with no recursion. The handler follows vote.go's order and goes through auth.Participant. Every owed case has a test. go vet and the full suite pass (headless Chrome ran, never Edge), and the planted finish line 1 (epics.finish id=42, only ROOT changed) passes against the built binary. The tree already held attempt-1 work, which built and passed; I kept it and extended it. SC-013 (depth-5 cut, branch page, toggle script, finish line 2) is not built, as the design says.",
+  "files": [
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "Participant rule widened to internal/server/**/*.go except reader.go, admin.go and tests; site-scripts rule rewritten with the critic's wider sink and network patterns and a corrected because"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "change": "modified",
+    "why": "four SL-006 rules added to rules_under_test, four bounded_by entries, 70 fire and quiet rows"
+   },
+   {
+    "path": "internal/store/migrations/0004_comments.sql",
+    "change": "added",
+    "why": "comments STRICT with composite self-FK (NO ACTION), report_id CASCADE, comments_children index, blocked_accounts with no FK to users"
+   },
+   {
+    "path": "internal/comments/comments.go",
+    "change": "added",
+    "why": "Book, Post, Normalize, visibleSQL, ErrBadBody, ErrNoTarget"
+   },
+   {
+    "path": "internal/comments/tree.go",
+    "change": "added",
+    "why": "Tree, Node, arrange (pure, non-recursive prune) and Find"
+   },
+   {
+    "path": "internal/comments/comments_test.go",
+    "change": "added",
+    "why": "TestSchema, TestDeleteReportWithDeepChain, TestNormalize, TestPostRefusals, TestConcurrentPostsNoBusy"
+   },
+   {
+    "path": "internal/comments/tree_test.go",
+    "change": "added",
+    "why": "TestArrange, TestArrangeRefusesRowsThatAreNotATree, TestArrangeDeepChain, TestFind, TestTreeRedactsHidden"
+   },
+   {
+    "path": "internal/server/comment.go",
+    "change": "added",
+    "why": "postComment handler and canonicalID"
+   },
+   {
+    "path": "internal/server/thread.go",
+    "change": "added",
+    "why": "threadDepthCap, commentView, buildThread and the Author badge rule"
+   },
+   {
+    "path": "internal/server/templates/comments.html",
+    "change": "added",
+    "why": "comments section and recursive comment define"
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "change": "modified",
+    "why": "draws the comments template after the votes section"
+   },
+   {
+    "path": "internal/server/reader.go",
+    "change": "modified",
+    "why": "readerData.Thread, and a Tree error makes the page a 503"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "modified",
+    "why": "app.comments, and the POST /reports/{slug}/comments route"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "comment chrome with neutral colours, body clipped to its own box"
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "change": "added",
+    "why": "the TestComment* HTTP tests, TestBuildThreadDepth, TestCommentStyles, TestThreadTenThousandTiming and the thread-scanner helpers"
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "change": "modified",
+    "why": "mint now calls a new mintUser, so a test can store an avatar"
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "change": "modified",
+    "why": "TestReaderPagesShareOneLayout seeded with a thread; TestReaderPathVariants gains the comment route rows"
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "change": "modified",
+    "why": "TestDislikesDoNotInterfere world seeded with a thread; observe adds a non-writing comment POST per observer"
+   },
+   {
+    "path": "internal/store/comments_migration_test.go",
+    "change": "added",
+    "why": "TestCommentsMigrationFromV2AndV3, including the newer-than-binary refusal"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "TestCommentPostFlow signs in through store.SignIn with an avatar (new mintUser), posts a top-level comment, sees the 303 to /reports/x#comment-1, and reads login and avatar src on both / and /reports/x."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "TestCommentSignedOutStoresNothing covers anonymous, expired, unknown and malformed sessions (top-level and reply, with bad bodies, which prove nothing is parsed first), draft and unknown slugs giving identical NotFound bytes, and cross-site 403s. TestCommentStoreFailure covers identity unavailable giving 503, never the anonymous 303."
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "TestCommentLiteralHTML posts a body with <b>, <script>, <img onerror>, &, quotes, </article> and {{.}}. It asserts the escaped text sits in p.body, balanced articles, no live markup in the page bytes, and the body stored exactly as typed."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "TestCommentBadBody sends empty, whitespace-only, 5001 runes (also 4-byte), invalid UTF-8, NUL/C0/DEL/C1, repeated, missing, query-only, non-form and over-64KiB bodies, each a 400 with 0 rows. Controls: exactly 5000 runes accepted and CRLF stored as LF. TestCommentParentField covers the parent shapes. TestNormalize is the table."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "TestCommentParentRefused gives byte-identical NotFound for a missing, other-report, removed and blocked-writer parent, with 0 rows. TestSchema shows the raw cross-report insert refused with code 787 and a NULL parent accepted. TestPostRefusals covers a report unpublished between lookup and write."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "TestCommentThreadCap draws a 40-level chain with each reply inside its parent's article, and a 150-level chain stored through Post drawn to exactly 100 levels with the cut note. TestArrangeDeepChain arranges 10,000 levels without recursion. TestBuildThreadDepth runs a 10,000-node chain at limits 1, 5 and 100."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "TestCommentOrderIgnoresClock sets the fake clock backwards between posts, with same-second siblings. Top-level and sibling order is by id on both pages."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "TestCommentPlaceholders covers a removed leaf, a removed chain over a visible reply, removed>removed>visible, an all-hidden subtree, a blocked writer with a reply, a 5-deep removed chain over a depth-6 leaf, and the owner's removed comment. It also checks unblocking with no comment writes. TestArrange and TestTreeRedactsHidden cover the rest."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "TestCommentAuthorBadge seeds owner 42 and look-alike 4243, both with login report-author. It checks the badge by ID for anonymous, owner, reader and look-alike viewers, repins to 4243 and to 0, and checks the owner's placeholder and badge counts."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "TestCommentReportLifecycle covers replace, unpublish (404 on page and POST, comments kept), republish, and delete with a 1,500-deep chain and another report's comments interleaved. TestDeleteReportWithDeepChain runs 1,500 and 10,000 through Library.Delete with the 787 control. TestPostRefusals covers the late unpublish."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "TestReaderPagesShareOneLayout seeded with a thread, reply, owner comment and placeholder (same bytes on / and /reports/newest for each viewer). TestReaderPathVariants has the comment route rows. TestDislikesDoNotInterfere seeds comments and adds non-writing comment POSTs. TestReportScriptsNeverRun ran in Chrome: blank-found green=0 red=0."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "TestCommentsMigrationFromV2AndV3 starts from populated v2 and v3 files, reaches the newest version with every row intact and an empty foreign_key_check, checks the new keys, and checks that a newer-than-binary file is refused."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "TestConcurrentPostsNoBusy: 16 goroutines, 400 posts of top-level comments and replies. No error, unique ids, every parent id smaller, row count exact."
+   },
+   {
+    "key": "O-014",
+    "done": true,
+    "how": "epics.finish id=42 read in place (mode=ro). The test_e004_1 body was written to a scratch folder with only ROOT changed to the worktree. python -I run: it builds ./cmd/hband and passes (OK, 6.5 s) with four accounts, typed HTML, a depth-4 chain, anonymous and cross-report refusals."
+   },
+   {
+    "key": "O-018",
+    "done": true,
+    "how": "Participant rule widened to internal/server/**/*.go except reader.go, admin.go and tests. Corpus rows cmt-vf-f001..f005 fire at comments.go, comment.go, vote.go, feedback.go and thread.go. The helper gap (reader.go, admin.go, internal/auth) is named in the because and in bounded_by (cmt-vf-q005), with TestCommentStoreFailure as the behavioural guard.",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "    files: internal/server/**/*.go",
+     "replace": "    files: internal/server/comment.go",
+     "test_command": "go test -count=1 -run TestRuleSpellingsCorpus ./internal/fitnessrules/"
+    }
+   },
+   {
+    "key": "O-019",
+    "done": true,
+    "how": "Post calls Normalize itself before any SQL and returns ErrBadBody; the handler maps it to 400. TestPostRefusals proves it on a closed store.",
+    "mutation": {
+     "file": "internal/comments/comments.go",
+     "find": "body, err := Normalize(body)",
+     "replace": "var err error",
+     "test_command": "go test -count=1 -run TestPostRefusals ./internal/comments/"
+    }
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "how": "NO ACTION on the self-FK is kept, as spike 197 measured. The 0004 header records that spike 197 settled it, that the one fallback is DEFERRABLE INITIALLY DEFERRED (refusals would move to COMMIT), and that deepest-first deletion is ruled out by the comments-SQL fence. TestSchema and TestDeleteReportWithDeepChain are the regressions.",
+    "mutation": {
+     "file": "internal/store/migrations/0004_comments.sql",
+     "find": "FOREIGN KEY (report_id, parent_id) REFERENCES comments (report_id, id)",
+     "replace": "FOREIGN KEY (report_id, parent_id) REFERENCES comments (report_id, id) ON DELETE CASCADE",
+     "test_command": "go test -count=1 -run TestSchema ./internal/comments/"
+    }
+   },
+   {
+    "key": "O-021",
+    "done": true,
+    "how": "The finish-line check reads SELECT finish FROM epics WHERE id=42 in place over one mode=ro connection, writes the body to a scratch folder with only ROOT changed, and runs it with python -I. The engine's TAAD3_HOME was set to a scratch folder for every Go run.",
+    "not_mutable": "A check procedure, not product code: nothing in the tree changes behaviour a test could observe."
+   },
+   {
+    "key": "O-022",
+    "done": true,
+    "how": "TestCommentsMigrationFromV2AndV3 starts from a populated version-2 file (0003 and 0004 in one start) as well as version 3. The 'whatever user_version it holds (see Q-015)' wording is in follow_ups, since a build cannot edit the design's filed item.",
+    "mutation": {
+     "file": "internal/store/migrations/0004_comments.sql",
+     "find": "report_id  INTEGER NOT NULL REFERENCES reports (id) ON DELETE CASCADE,",
+     "replace": "report_id  INTEGER NOT NULL REFERENCES reports (id),",
+     "test_command": "go test -count=1 -run TestCommentsMigrationFromV2AndV3 ./internal/store/"
+    }
+   },
+   {
+    "key": "O-023",
+    "done": true,
+    "how": "site.css .body has white-space: pre-wrap, overflow-wrap: anywhere and overflow: clip. The new TestCommentStyles pins them, plus .replies never setting display and no signal colour anywhere in the file.",
+    "mutation": {
+     "file": "internal/server/static/site.css",
+     "find": "white-space: pre-wrap; overflow-wrap: anywhere; overflow: clip;",
+     "replace": "white-space: pre-wrap; overflow-wrap: anywhere;",
+     "test_command": "go test -count=1 -run TestCommentStyles ./internal/server/"
+    }
+   },
+   {
+    "key": "O-024",
+    "done": true,
+    "how": "TestCommentSignedOutStoresNothing, as for O-002: signed-out 303 to #comments with nothing parsed or stored, 404 for hidden reports, and cross-site 403 with 0 rows, with same-origin controls."
+   },
+   {
+    "key": "O-025",
+    "done": true,
+    "how": "TestCommentLiteralHTML, as for O-003."
+   },
+   {
+    "key": "O-026",
+    "done": true,
+    "how": "TestNormalize, TestPostRefusals and TestCommentBadBody, as for O-004."
+   },
+   {
+    "key": "O-027",
+    "done": true,
+    "how": "TestSchema, TestPostRefusals and TestCommentParentRefused, as for O-005."
+   },
+   {
+    "key": "O-028",
+    "done": true,
+    "how": "TestCommentParentField: abc, 0, -1, +5, 007, empty, repeated, 1e3, spaces, decimal, hex and an overflowing id each give 400; a query-only parent is ignored and stores a top-level comment."
+   },
+   {
+    "key": "O-029",
+    "done": true,
+    "how": "TestCommentThreadCap (150 stored through Post, drawn to 100 with the cut note) and TestArrangeDeepChain (10,000)."
+   },
+   {
+    "key": "O-030",
+    "done": true,
+    "how": "TestCommentOrderIgnoresClock."
+   },
+   {
+    "key": "O-031",
+    "done": true,
+    "how": "TestArrange, TestTreeRedactsHidden and TestCommentPlaceholders: every listed hidden shape, plus unblocking restoring the writer's comments with no per-comment writes."
+   },
+   {
+    "key": "O-032",
+    "done": true,
+    "how": "TestCommentAuthorBadge, written with the exact form of M-add-4 plus the placeholder and badge-count assertions."
+   },
+   {
+    "key": "O-033",
+    "done": true,
+    "how": "TestReaderPagesShareOneLayout, TestReaderPathVariants and TestDislikesDoNotInterfere were extended; TestCommentPostFlow finds login, avatar and body on both pages."
+   },
+   {
+    "key": "O-034",
+    "done": true,
+    "how": "TestCommentStoreFailure: renaming the comments table gives a 503 page with no 'No comments yet.' while votes still read. A dropped sessions table gives a 503 POST and 0 rows, never the 303. A closed store gives a 503 POST."
+   },
+   {
+    "key": "O-035",
+    "done": true,
+    "how": "TestDeleteReportWithDeepChain and TestCommentReportLifecycle."
+   },
+   {
+    "key": "O-036",
+    "done": true,
+    "how": "TestCommentsMigrationFromV2AndV3."
+   },
+   {
+    "key": "O-037",
+    "done": true,
+    "how": "The finish-line 1 run against the built binary passed, as for O-014."
+   },
+   {
+    "key": "O-039",
+    "done": true,
+    "how": "The site-scripts rule's because now says an HTML sink reintroduces markup injection (a forged byline or Author badge), which siteCSP does not stop, while siteCSP still blocks script execution. Pattern \\b(sendBeacon|WebSocket\\w*|EventSource|WebTransport)\\b added, with fire rows for sendBeacon, WebSocket, WebSocketStream, EventSource and WebTransport at static/thread.js. bounded_by names image and prefetch beacons, import(), Worker, serviceWorker.register and form.submit/requestSubmit.",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "\\b(sendBeacon|WebSocket\\w*|EventSource|WebTransport)\\b",
+     "replace": "\\bsendBeaconX\\b",
+     "test_command": "go test -count=1 -run TestRuleSpellingsCorpus ./internal/fitnessrules/"
+    }
+   },
+   {
+    "key": "O-040",
+    "done": true,
+    "how": "TestThreadTenThousandTiming seeds 2,500 top-level comments with 3 replies each (10,000, 3,000 hidden through removed_at and a blocked account) in one raw-SQL transaction. For a signed-in viewer it times Tree 19 ms, buildThread 1 ms and the report.html render 48 ms, page 3.98 MB, each asserted under 1 s.",
+    "not_mutable": "A measurement with a generous bound: no one-line change to product code makes it fail except one that makes the read or render over a second."
+   },
+   {
+    "key": "O-041",
+    "done": true,
+    "how": "The restored release-order and rehearsal-on-a-copy items are in follow_ups, worded per the critic: .backup, restore to a scratch data dir, count users, sessions, reports and votes (if v3), run the new binary on an unproxied loopback port, confirm the newest user_version and an empty foreign_key_check, discard. A build cannot edit the design's filed_for_later list.",
+    "not_mutable": "A note for a person; it changes no code."
+   },
+   {
+    "key": "O-042",
+    "done": true,
+    "how": "Pattern with setHTML(Unsafe), parseHTML(Unsafe), createContextualFragment, parseFromString, .srcdoc= and setAttribute('srcdoc') added to the site-scripts rule. Fire rows at static/thread.js for el.setHTML(s) and f.setAttribute(\"srcdoc\", s), plus the textContent quiet row. bounded_by names outerHTML through a variable or bracket access.",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "\\b(setHTML(Unsafe)?|parseHTML(Unsafe)?|createContextualFragment|parseFromString)",
+     "replace": "\\b(parseHTML(Unsafe)?|createContextualFragment|parseFromString)",
+     "test_command": "go test -count=1 -run TestRuleSpellingsCorpus ./internal/fitnessrules/"
+    }
+   },
+   {
+    "key": "O-043",
+    "done": true,
+    "how": "TestCommentAuthorBadge: for every comment, anonymous and owner (and others), the own text with the login removed holds the word author only when the comment is badged. The owner's placeholder has no span.badge and no author word. The page's badge count equals the number of visible owner-ID comments.",
+    "mutation": {
+     "file": "internal/server/thread.go",
+     "find": "auth.IsOwner(ownerID, n.GitHubID)",
+     "replace": "(auth.IsOwner(ownerID, n.GitHubID) || n.Login == \"report-author\")",
+     "test_command": "go test -count=1 -run TestCommentAuthorBadge ./internal/server/"
+    }
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentPostFlow",
+    "test_command": "go test -count=1 -run TestCommentPostFlow ./internal/server/"
+   },
+   {
+    "key": "C-002",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentSignedOutStoresNothing",
+    "test_command": "go test -count=1 -run \"TestCommentSignedOutStoresNothing|TestCommentStoreFailure\" ./internal/server/"
+   },
+   {
+    "key": "C-003",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentLiteralHTML",
+    "test_command": "go test -count=1 -run TestCommentLiteralHTML ./internal/server/"
+   },
+   {
+    "key": "C-004",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentBadBody",
+    "test_command": "go test -count=1 -run \"TestCommentBadBody|TestCommentParentField|TestNormalize\" ./internal/server/ ./internal/comments/"
+   },
+   {
+    "key": "C-005",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentParentRefused",
+    "test_command": "go test -count=1 -run \"TestCommentParentRefused|TestSchema|TestPostRefusals\" ./internal/server/ ./internal/comments/"
+   },
+   {
+    "key": "C-006",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentThreadCap",
+    "test_command": "go test -count=1 -run \"TestCommentThreadCap|TestBuildThreadDepth|TestArrangeDeepChain\" ./internal/server/ ./internal/comments/"
+   },
+   {
+    "key": "C-007",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentOrderIgnoresClock",
+    "test_command": "go test -count=1 -run TestCommentOrderIgnoresClock ./internal/server/"
+   },
+   {
+    "key": "C-008",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentPlaceholders",
+    "test_command": "go test -count=1 -run \"TestCommentPlaceholders|TestArrange|TestTreeRedactsHidden\" ./internal/server/ ./internal/comments/"
+   },
+   {
+    "key": "C-009",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentAuthorBadge",
+    "test_command": "go test -count=1 -run TestCommentAuthorBadge ./internal/server/"
+   },
+   {
+    "key": "C-010",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentReportLifecycle",
+    "test_command": "go test -count=1 -run \"TestCommentReportLifecycle|TestDeleteReportWithDeepChain|TestPostRefusals\" ./internal/server/ ./internal/comments/"
+   },
+   {
+    "key": "C-011",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReaderPagesShareOneLayout",
+    "test_command": "go test -count=1 -run \"TestReaderPagesShareOneLayout|TestReaderPathVariants|TestDislikesDoNotInterfere|TestReportScriptsNeverRun\" ./internal/server/"
+   },
+   {
+    "key": "C-012",
+    "test_name": "github.com/sshubham2/hband/internal/store.TestCommentsMigrationFromV2AndV3",
+    "test_command": "go test -count=1 -run TestCommentsMigrationFromV2AndV3 ./internal/store/"
+   },
+   {
+    "key": "C-013",
+    "test_name": "github.com/sshubham2/hband/internal/comments.TestConcurrentPostsNoBusy",
+    "test_command": "go test -count=1 -run TestConcurrentPostsNoBusy ./internal/comments/"
+   },
+   {
+    "key": "C-014",
+    "test_name": "test_e004_1_comments_and_replies (epics.finish id=42, only ROOT changed)",
+    "test_command": "python -I C:/Users/sshub/AppData/Local/Temp/taad3-runs/11832/sl006-finish2/test_e004_1_comments_and_replies.py"
+   },
+   {
+    "key": "C-015",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentSignedOutStoresNothing",
+    "test_command": "go test -count=1 -run TestCommentSignedOutStoresNothing ./internal/server/"
+   },
+   {
+    "key": "C-016",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentLiteralHTML",
+    "test_command": "go test -count=1 -run TestCommentLiteralHTML ./internal/server/"
+   },
+   {
+    "key": "C-017",
+    "test_name": "github.com/sshubham2/hband/internal/comments.TestNormalize",
+    "test_command": "go test -count=1 -run \"TestNormalize|TestPostRefusals|TestCommentBadBody\" ./internal/comments/ ./internal/server/"
+   },
+   {
+    "key": "C-018",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentParentRefused",
+    "test_command": "go test -count=1 -run \"TestSchema|TestPostRefusals|TestCommentParentRefused\" ./internal/comments/ ./internal/server/"
+   },
+   {
+    "key": "C-019",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentParentField",
+    "test_command": "go test -count=1 -run TestCommentParentField ./internal/server/"
+   },
+   {
+    "key": "C-020",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentThreadCap",
+    "test_command": "go test -count=1 -run \"TestArrangeDeepChain|TestCommentThreadCap\" ./internal/comments/ ./internal/server/"
+   },
+   {
+    "key": "C-021",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentOrderIgnoresClock",
+    "test_command": "go test -count=1 -run TestCommentOrderIgnoresClock ./internal/server/"
+   },
+   {
+    "key": "C-022",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentPlaceholders",
+    "test_command": "go test -count=1 -run \"TestArrange|TestTreeRedactsHidden|TestCommentPlaceholders\" ./internal/comments/ ./internal/server/"
+   },
+   {
+    "key": "C-023",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentAuthorBadge",
+    "test_command": "go test -count=1 -run TestCommentAuthorBadge ./internal/server/"
+   },
+   {
+    "key": "C-024",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReaderPagesShareOneLayout",
+    "test_command": "go test -count=1 -run \"TestReaderPagesShareOneLayout|TestReaderPathVariants|TestDislikesDoNotInterfere|TestCommentPostFlow\" ./internal/server/"
+   },
+   {
+    "key": "C-025",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentStoreFailure",
+    "test_command": "go test -count=1 -run TestCommentStoreFailure ./internal/server/"
+   },
+   {
+    "key": "C-026",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestCommentReportLifecycle",
+    "test_command": "go test -count=1 -run \"TestDeleteReportWithDeepChain|TestCommentReportLifecycle\" ./internal/comments/ ./internal/server/"
+   },
+   {
+    "key": "C-027",
+    "test_name": "github.com/sshubham2/hband/internal/store.TestCommentsMigrationFromV2AndV3",
+    "test_command": "go test -count=1 -run TestCommentsMigrationFromV2AndV3 ./internal/store/"
+   },
+   {
+    "key": "C-028",
+    "test_name": "test_e004_1_comments_and_replies (epics.finish id=42, only ROOT changed)",
+    "test_command": "python -I C:/Users/sshub/AppData/Local/Temp/taad3-runs/11832/sl006-finish2/test_e004_1_comments_and_replies.py"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go build ./... ; go vet ./...",
+    "outcome": "passed",
+    "note": "clean"
+   },
+   {
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "every package ok, run twice (before and after the mutation runs); TestReportScriptsNeverRun ran in the installed Chrome and passed; blank-found green=0 red=0, so the comment chrome carries no signal colour"
+   },
+   {
+    "command": "go test -count=1 -v -run TestThreadTenThousandTiming ./internal/server/",
+    "outcome": "passed",
+    "note": "10,000 comments (3,000 hidden): Tree 19 ms, buildThread 1 ms, render 48 ms, page 3.98 MB (evidence for the must-verify precondition)"
+   },
+   {
+    "command": "go test -count=1 -v -run TestDeleteReportWithDeepChain ./internal/comments/",
+    "outcome": "passed",
+    "note": "Library.Delete of a 1,500-deep chain took 3.7 ms and of a 10,000-deep chain 24.6 ms; the 787 control held before and after"
+   },
+   {
+    "command": "python -I <scratch>/test_e004_1_comments_and_replies.py (epics.finish id=42 read mode=ro, only ROOT changed to the worktree)",
+    "outcome": "passed",
+    "note": "builds ./cmd/hband, starts it with a stand-in GitHub, 1 test OK in 6.4 s; started no browser"
+   },
+   {
+    "command": "mutation runs of O-018, O-019, O-020, O-022, O-023, O-039, O-042 and O-043 (replace, go test, restore the file)",
+    "outcome": "passed",
+    "note": "each named test failed with the fix taken out (e.g. cmt-vf-f001 must fire but stays quiet; TestPostRefusals; TestSchema; TestCommentsMigrationFromV2AndV3/from_version_2; TestCommentStyles; cmt-js-f016; cmt-js-f007; TestCommentAuthorBadge), and every file was restored byte for byte (final full suite green)"
+   },
+   {
+    "command": "headless Chrome screenshot of /reports/x with a seeded thread (temporary test, removed afterwards)",
+    "outcome": "passed",
+    "note": "looked at the PNG: byline with login, Author badge, date, wrapped text with its line break kept, reply indented under a left rule; the page is dark under the headless colour scheme and readable. Deeper levels fell below the clipped frame and were not seen."
+   }
+  ],
+  "deviations": [
+   "Tree's SELECT wraps the join in a subquery and blanks hidden columns in the outer select, because SQLite cannot reuse the shown alias inside the same select list. The behaviour is as designed: hidden text never reaches Go.",
+   "Added tests the design did not list, TestCommentStyles and TestBuildThreadDepth: the first makes the overflow: clip fix (M-add-2) observable, the second pins that the cap is a parameter. Test helpers mintUser and fakeClock.Set were added in test files.",
+   "The site-scripts rule uses the critic's governing patterns (WebSocket\\w*, WebTransport, setHTML(Unsafe)?, parseHTML(Unsafe)?, setAttribute srcdoc) rather than the first prescriptions, as the obligations say.",
+   "No outside defect is worked around, so no setting or notice was built. The 100-level display cap answers a deliberate Blink parser depth limit, not a defect."
+  ],
+  "not_built": [
+   "SC-013 parts (epic_parts, built later from this design): threadDepthCap = 5, continue links, GET /reports/{slug}/comments/{id} with branch.html, the redirect-depth formula, static/thread.js and its toggle buttons, their tests, and finish line 2 (test_e004_2).",
+   "comments.Find has no non-test caller until SC-013 (design contract: readBranch and the reply redirect use it).",
+   "Deferred findings m6 to m10 (display-cap copies, section-only fallback, route registry, rate limit, M-add-1 release order) were left as earlier triage decided."
+  ],
+  "follow_ups": [
+   "For the person (release order): do not put a build carrying migration 0004 in front of readers on the home server until SC-020 (author removes a comment) is live, with SC-021 (blocking) after it. Stopgap only if one must go out first, never run: after a .backup, on the host, UPDATE comments SET removed_at=<unix now> WHERE id=?, or INSERT INTO blocked_accounts(github_id, blocked_at) VALUES(?, <unix now>).",
+   "For the person (migration rehearsal on a copy, Q-015): .backup the production database; restore it into a new scratch data directory on the host; record count(*) for users, sessions, reports (and votes if the file is at version 3) and PRAGMA user_version; start the new binary on that copy with HBAND_ADDR on an unproxied loopback port; confirm the newest user_version, the same counts and an empty PRAGMA foreign_key_check; stop and discard. A version-2 file runs 0003 and 0004 in one start. The live database is migrated only at the real deploy, which the release-order item gates.",
+   "The engine cannot open the changed report page with a bare command: config refuses to start without HBAND_OWNER_GITHUB_ID, HBAND_GITHUB_CLIENT_ID/SECRET and HBAND_BASE_URL, so I declared no screens or app. The page was measured by TestReportScriptsNeverRun (blank-found, no signal colour), a Chrome screenshot, and the finish-line run against the built binary.",
+   "The 10,000-comment page is 3.98 MB for a signed-in viewer (a reply form per comment) and every view reads the whole thread, hidden rows included. Reads and renders are fast (19 ms and 48 ms), but the per-account post limit (m10, E-006) and top-level paging under SC-013 would bound the bytes.",
+   "Architecture record: C-008 (Reader Site) now depends on C-005, since reader.go calls comments.Tree; the three-edit cap left that edge out.",
+   "Five msedge processes started at 05:58 are the person's own browser; this build's browser tests used the installed Chrome only."
+  ],
+  "architecture": [
+   {
+    "block": "C-002",
+    "kind": "line",
+    "find": "and their blocked flag",
+    "replace": "(the blocked-account set is the blocked_accounts table, keyed by GitHub ID with no key to the account record, and C-005 reads it)",
+    "why": "internal/store/migrations/0004_comments.sql creates blocked_accounts(github_id PRIMARY KEY, blocked_at) with no FK to users; users has no blocked column; internal/comments visibleSQL reads it."
+   },
+   {
+    "block": "C-005",
+    "kind": "paths",
+    "add": [
+     "internal/comments/**",
+     "internal/server/comment.go",
+     "internal/server/thread.go",
+     "internal/server/templates/comments.html",
+     "internal/store/migrations/0004_comments.sql"
+    ],
+    "why": "These are the files added for comments: the package, the POST handler, the thread view builder, the comment templates and the comments migration. None is matched by C-005's globs."
+   },
+   {
+    "block": "C-005",
+    "kind": "depends",
+    "add": [
+     "C-002",
+     "C-003"
+    ],
+    "why": "Tree joins the users table (login and avatar, C-002's data) and Post selects from reports with a published check (C-003's data), both in internal/comments SQL."
+   }
+  ]
+ }
+}
