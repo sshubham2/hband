@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/sshubham2/hband/internal/auth"
+	"github.com/sshubham2/hband/internal/feedback"
 	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/votes"
 )
@@ -53,6 +54,9 @@ type adminData struct {
 	Report  reports.Report
 	// Tally is the report's likes and dislikes, shown on its admin page only.
 	Tally votes.Tally
+	// Feedback is the private messages readers sent about the report, newest
+	// first, each with its sender. It is shown on this page only.
+	Feedback []feedback.Message
 }
 
 func (a *app) adminPage(r *http.Request, o auth.Owner, title string) adminData {
@@ -102,8 +106,9 @@ func (a *app) adminSave(w http.ResponseWriter, r *http.Request, o auth.Owner) {
 	}
 }
 
-// adminReport is the edit page: the sandboxed preview, the publish state, the
-// replace form with the slug filled in, and delete.
+// adminReport is the edit page: the like and dislike counts, the private
+// feedback readers sent, the sandboxed preview, the publish state, the replace
+// form with the slug filled in, and delete.
 func (a *app) adminReport(w http.ResponseWriter, r *http.Request, o auth.Owner) {
 	rep, err := a.reports.BySlug(r.Context(), r.PathValue("slug"))
 	if errors.Is(err, reports.ErrNotFound) {
@@ -121,9 +126,19 @@ func (a *app) adminReport(w http.ResponseWriter, r *http.Request, o auth.Owner) 
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	// The messages are read the way the tally is: a list that cannot be read is
+	// an error page, never an empty list standing in for it. Drafts and
+	// unpublished reports still list theirs.
+	inbox, err := a.feedback.OwnerInbox(r.Context(), rep.ID)
+	if err != nil {
+		slog.Error("admin: read the feedback", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	d := a.adminPage(r, o, rep.Title+" - hband admin")
 	d.Report = rep
 	d.Tally = tally
+	d.Feedback = inbox
 	d.Form = uploadForm{Title: rep.Title, Slug: rep.Slug, Status: rep.Status}
 	a.render(w, http.StatusOK, "admin_report.html", d)
 }

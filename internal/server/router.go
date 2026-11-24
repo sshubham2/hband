@@ -15,6 +15,7 @@ import (
 	"github.com/sshubham2/hband/internal/auth"
 	"github.com/sshubham2/hband/internal/comments"
 	"github.com/sshubham2/hband/internal/config"
+	"github.com/sshubham2/hband/internal/feedback"
 	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/store"
 	"github.com/sshubham2/hband/internal/votes"
@@ -40,6 +41,8 @@ type app struct {
 	votes   *votes.Book
 	// comments is the public comment tree, on the same pool as votes.
 	comments *comments.Book
+	// feedback is the private messages readers send the author, on the same pool.
+	feedback *feedback.Book
 	pages    *template.Template
 }
 
@@ -56,6 +59,7 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 		auth:     auth.New(cfg, st, clock),
 		votes:    votes.New(st.DB(), clock),
 		comments: comments.New(st.DB(), clock),
+		feedback: feedback.New(st.DB(), clock),
 		pages:    template.Must(template.ParseFS(templateFS, "templates/*.html")),
 	}
 
@@ -67,12 +71,15 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 	mux.HandleFunc("GET /reports/{slug}", a.readReport)
 	// The public write a reader uses to vote: a signed-in reader sets their
 	// vote. It is behind cross-origin protection and Identify like every route.
-	// The comment write below and POST /auth/logout, registered by a.auth.Routes
-	// below, are the other public POSTs.
+	// The comment and feedback writes below and POST /auth/logout, registered by
+	// a.auth.Routes below, are the other public POSTs.
 	mux.HandleFunc("POST /reports/{slug}/vote", a.vote)
 	// The public write a signed-in reader (the owner included) uses to comment
 	// or reply, behind the same cross-origin protection and Identify.
 	mux.HandleFunc("POST /reports/{slug}/comments", a.postComment)
+	// The third public reader POST: a signed-in reader (the owner included) sends
+	// the author a private message, which only the owner's admin page lists.
+	mux.HandleFunc("POST /reports/{slug}/feedback", a.postFeedback)
 	mux.HandleFunc("GET /raw/{slug}", a.readRaw)
 	mux.HandleFunc("GET /healthz", a.healthz)
 	staticSub, err := fs.Sub(staticFS, "static")

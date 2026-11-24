@@ -501,15 +501,15 @@ func (w *dislikeWorld) observe(t *testing.T) observation {
 	t.Helper()
 	h, obs := w.h, observation{}
 	reads := []string{"/", "/reports/x", "/reports/y", "/reports", "/admin", "/admin/reports/x"}
-	// Each observer also sends a comment POST that writes nothing: a visitor's is
-	// answered with the 303 back to the report, and a signed-in reader's empty
-	// body with a 400.
+	// Each observer also sends a comment POST and a feedback POST that write
+	// nothing: a visitor's is answered with the 303 back to the report, and a
+	// signed-in reader's empty body with a 400.
 	for _, who := range []struct {
-		name, sid, own, comment string
+		name, sid, own, comment, feedback string
 	}{
-		{"anonymous", "", "vote=up", "body=nothing+is+stored"},
-		{"nonvoter", w.nonvoter, "vote=none", "body="},
-		{"upvoter", w.upvoter, "vote=up", "body="},
+		{"anonymous", "", "vote=up", "body=nothing+is+stored", "body=nothing+is+stored"},
+		{"nonvoter", w.nonvoter, "vote=none", "body=", "body="},
+		{"upvoter", w.upvoter, "vote=up", "body=", "body="},
 	} {
 		var opts []func(*http.Request)
 		if who.sid != "" {
@@ -520,6 +520,7 @@ func (w *dislikeWorld) observe(t *testing.T) observation {
 		}
 		obs[who.name+" POST /reports/x/vote"] = h.postVote(who.sid, "x", who.own)
 		obs[who.name+" POST /reports/x/comments"] = h.postComment(who.sid, "x", who.comment)
+		obs[who.name+" POST /reports/x/feedback"] = h.postFeedback(who.sid, "x", who.feedback)
 	}
 	for _, p := range []string{"/", "/reports/x", "/reports/y"} {
 		res := h.serve("GET", p, h.withSID(w.owner))

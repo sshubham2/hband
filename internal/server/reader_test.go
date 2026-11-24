@@ -223,6 +223,10 @@ func TestReaderPagesShareOneLayout(t *testing.T) {
 	gone := h.say(somebody, "newest", "a comment that will be removed", 0)
 	h.say(somebody, "newest", "a reply that outlives it", gone)
 	h.exec(`UPDATE comments SET removed_at = 5 WHERE id = ?`, gone)
+	// A private message from the non-owner on the newest report: the box and the
+	// sent note the pages draw read only who is looking and the stored slug, so
+	// no viewer's page shows the message, and the two routes still match.
+	h.sendFeedback(somebody, "newest", "a private note to the author")
 
 	for name, sid := range map[string]string{"owner": owner, "non-owner": somebody} {
 		home := h.serve("GET", "/", h.withSID(sid))
@@ -240,6 +244,12 @@ func TestReaderPagesShareOneLayout(t *testing.T) {
 			if !strings.Contains(home.Body, want) {
 				t.Errorf("%s: the home page does not show %q", name, want)
 			}
+		}
+		if strings.Contains(home.Body, "a private note to the author") {
+			t.Errorf("%s: the page shows a private feedback message", name)
+		}
+		if name == "non-owner" && !strings.Contains(home.Body, `<form method="post" action="/reports/newest/feedback">`) {
+			t.Errorf("%s: the page has no feedback form for the newest report", name)
 		}
 	}
 
@@ -603,6 +613,14 @@ func TestReaderPathVariants(t *testing.T) {
 		}
 		return ""
 	}
+	// The feedback route has the same shape as the vote and comment routes: POST
+	// only.
+	feedbackNotAllowed := func(r result) string {
+		if r.Status != 405 || r.Header.Get("Allow") != "POST" {
+			return "want 405 with Allow: POST"
+		}
+		return ""
+	}
 	hiddenVote := func(r result) string {
 		if r.Status != 404 || r.Body != "404 page not found\n" {
 			return "want http.NotFound's 404"
@@ -646,6 +664,17 @@ func TestReaderPathVariants(t *testing.T) {
 		{"POST", "//reports/x/comments", redirect("/reports/x/comments")},
 		{"POST", "/reports/x/../y/comments", redirect("/reports/y/comments")},
 		{"POST", "/reports/x/comments", hiddenVote},
+		// The feedback route is the comment route's twin again, with the same
+		// answers for the same spellings.
+		{"GET", "/reports/x/feedback", feedbackNotAllowed},
+		{"HEAD", "/reports/x/feedback", feedbackNotAllowed},
+		{"PUT", "/reports/x/feedback", feedbackNotAllowed},
+		{"POST", "/reports/x/feedback/", notFound},
+		{"POST", "/reports/x/feedback/extra", notFound},
+		{"POST", "/reports/feedback", notAllowed}, // a report whose slug is "feedback": the page route, GET only
+		{"POST", "//reports/x/feedback", redirect("/reports/x/feedback")},
+		{"POST", "/reports/x/../y/feedback", redirect("/reports/y/feedback")},
+		{"POST", "/reports/x/feedback", hiddenVote},
 	} {
 		a, b := withDraft.serve(v.method, v.target), unknown.serve(v.method, v.target)
 		if msg := v.check(a); msg != "" {

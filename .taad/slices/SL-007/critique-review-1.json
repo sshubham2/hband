@@ -1,0 +1,54 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-007",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-24T05:45:21.364Z",
+ "head": "ebacc8d1f9debb5192b83db6bb0f8f03c56c4572",
+ "run_id": 11880,
+ "summary": "All five first-pass findings are real and correctly filed as minor. They match the critique's own verdict of no blocker or major defect. A premortem turned up one more minor issue: in SL-007 a successful feedback send leaves the sender's page byte-for-byte unchanged, and the design pins that with a test. A reader therefore cannot tell a send that worked from one that was lost. The design justifies this by calling the slice \"not releasable alone anyway\", but nothing it controls stops SL-007 from shipping before SC-017. The overall approach is sound: a separate table and package, a handler shaped like postComment, and the list on the existing owner-gated admin page. Re-deriving the slice from the brief gives the same shape, and no simpler design was missed.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "All five first-pass findings are real and correctly filed as minor. They match the critique's own verdict of no blocker or major defect. A premortem turned up one more minor issue: in SL-007 a successful feedback send leaves the sender's page byte-for-byte unchanged, and the design pins that with a test. A reader therefore cannot tell a send that worked from one that was lost. The design justifies this by calling the slice \"not releasable alone anyway\", but nothing it controls stops SL-007 from shipping before SC-017. The overall approach is sound: a separate table and package, a handler shaped like postComment, and the list on the existing owner-gated admin page. Re-deriving the slice from the brief gives the same shape, and no simpler design was missed.",
+  "assessments": [
+   {
+    "finding": "m1",
+    "classification": "valid",
+    "note": "Correct and correctly minor. Rule CC-001 (protocol-equivalent carriers) makes it a little stronger. TestFeedbackSend checks only that the Location has no row id. Senders 20 and 21 are outside observe(), so nothing compares their own POST responses across worlds. An id put into a Refresh header, the response body or a cookie would pass every planned test. If Send returns only an error, the handler never holds the id, and every carrier is closed at once. Tests can still get ids through raw SQL or OwnerInbox."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "Correct. The static states in TestFeedbackHiddenReports all stop at PublishedBySlug's ErrNotFound before Send runs, so the handler's ErrNoTarget branch is reachable only by the race. TestSendNeedsPublishedReport tests the package, not the handler mapping. A handler copied from comment.go that tests comments.ErrNoTarget compiles and gives 503 instead of 404 only in that race, so minor is right. Aliasing ErrNoTarget the way ErrBadBody is aliased is the cheaper of the two fixes."
+   },
+   {
+    "finding": "m3",
+    "classification": "valid",
+    "note": "Correct. The markup writes a literal 'UTC' over a When whose time zone is never specified, and the datetime attribute is left as '…'. On the Windows build machine, a scan written as time.Unix(created_at, 0) without .UTC() prints local time. No planned case checks the drawn time."
+   },
+   {
+    "finding": "m4",
+    "classification": "valid",
+    "note": "Correct. SC-016's Message refers to a Reply type that only SC-017 adds. It is a compile error the builder hits at once and fixes cheaply, so minor and not higher."
+   },
+   {
+    "finding": "m5",
+    "classification": "valid",
+    "note": "Correct as a backlog minor. Public comments already allow a flood of the same size, so feedback opens no new kind of exposure. What is new is where the cost lands: an unbounded list between the tally and the owner's Publish, Replace and Delete controls, with no way to remove a single message until SC-021 or E-006. This finding needs no change in SL-007."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "unfounded-assumptions",
+    "severity": "minor",
+    "route": "premortem",
+    "claim": "SL-007 ships SC-016 without SC-017, and a successful send then gives the reader no sign that anything happened. The design does more than leave out a confirmation: its 'sender' subtest requires reader 20's / and /reports/x to stay byte-identical after the send, and that subtest is what forbids even a confirmation that shows no content. The design rejects one with the words 'a slice that is not releasable alone anyway', but nothing in the design or the loop stops SL-007 from being committed and deployed on its own; SC-017 is a separate slice. Premortem: readers submit, see the same empty form, and either give up or send again, which fills the inbox with duplicates (this makes m5 worse). And if the real-browser POST path fails silently (open question Q-014, not raised again here), neither the sender nor the owner would ever see evidence of it.",
+    "evidence": "Design key decision: 'SC-016 shows no stored feedback on any reader page and has no confirmation element … A :target note or a flash cookie would add CSS or cookie surface to a slice that is not releasable alone anyway.' Case 'the observer is the sender: reader 20's own / and /reports/x … must be byte-identical before and after'. epic_parts lists SC-017 as built later, outside this slice. The rejected crossdomain #feedback-sent :target note would keep the GET bytes identical, because a fragment is never sent to the server, so it is compatible with the sender subtest. Its stated cost is one site.css rule and a 'Sent' note on a bookmarked post-submit URL.",
+    "fix": "Either adopt the fixed confirmation that shows no content (a distinct success fragment such as #feedback-sent with a static :target note that exists only in the signed-in non-owner branch, which keeps the sender subtest byte-identical), or record as a release gate that SL-007 is not deployed before SC-017 lands, and stop citing 'not releasable alone' as a fact."
+   }
+  ],
+  "frame_challenged": false,
+  "notes": "The first reviewer was well calibrated here. All five findings are minor, each cites a specific design line, and none overreaches. Two of them (m4, a compile error, and m1, a Location leak) would be caught at build by existing or planned tests, which is why minor is right for them.\n\nThe two preconditions the design imported without proof are covered by the critique and by planned tests:\n- Separate counter: this one is stronger than 'recalled', because separate SQLite tables have separate rowid spaces even without AUTOINCREMENT. If it were false, comment-<n> ids would leak how much feedback exists, and the two-world subtest would catch it.\n- Two-hop cascade: if it were false, Library.Delete would return 787 once replies exist, and TestFeedbackFollowsReportLifecycle with raw reply rows would catch it.\n\nThe prescribed fences were checked against CC-001:\n- The regexes run over file text, so SQL in backtick raw strings is matched.\n- Concatenation and fmt-built names, interface method values and wrappers inside internal/feedback are declared in bounded_by.\n- The Owner(Inbox|Reply)\\w* fence does not collide with .OwnerRoute, .OwnerTally or cfg.OwnerGitHubID.\n- The only protocol-equivalent gap CC-001 exposes, an id carried outside Location, is m1's.\n\nThe design's synthesis seams (one 0005 migration, Owner*/SenderThreads names against the fences, senders kept outside observe(), the order of the reply handler and the access matrix) hold together. The 'exactly one failure' finish-test check assumes the planted test stops at the reply POST; the designer had the test body and this review does not, so that is left to them. The engine's first verdict was 'needs-fixes' even though every finding is minor; that label should not be read as reporting a major defect."
+ }
+}

@@ -1,0 +1,11 @@
+{{define "feedback"}}<section class="feedback" id="feedback">
+<h2>Feedback for the author</h2>
+{{if not .SignedIn}}<p class="feedback-hint">Sign in to send the author private feedback.</p>
+{{else if .Viewer.IsOwner}}<p class="feedback-hint">Readers' feedback on this report is on <a href="/admin/reports/{{.Report.Slug}}#feedback">its admin page</a>.</p>
+{{else}}<p class="feedback-note">Only the author reads this. It is not posted as a comment.</p>
+<form method="post" action="/reports/{{.Report.Slug}}/feedback">
+<label>Your message to the author <textarea name="body" required maxlength="5000" rows="4"></textarea></label>
+<button type="submit">Send to the author</button>
+</form>
+<p id="feedback-sent" class="feedback-sent" hidden>Sent to the author.</p>
+{{end}}</section>{{end}}

@@ -22,6 +22,15 @@
 <p class="tally">{{.Tally.Likes}} {{if eq .Tally.Likes 1}}like{{else}}likes{{end}}</p>
 <p class="tally">{{.Tally.Dislikes}} {{if eq .Tally.Dislikes 1}}dislike{{else}}dislikes{{end}}</p>
 
+<section class="feedback-inbox" id="feedback">
+<h2>Feedback for the author</h2>
+{{range .Feedback}}<article class="feedback-message" id="feedback-{{.ID}}">
+<header class="byline">{{if .AvatarURL}}<img class="avatar" src="{{.AvatarURL}}" alt="" width="24" height="24"> {{end}}<span class="login">{{.Login}}</span> <time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></header>
+<p class="body">{{.Body}}</p>
+</article>
+{{else}}<p>No feedback on this report yet.</p>
+{{end}}</section>
+
 <h2>Preview</h2>
 <iframe sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" src="/admin/reports/{{.Report.Slug}}/raw" title="Preview of {{.Report.Title}}" width="100%" height="600"></iframe>
 

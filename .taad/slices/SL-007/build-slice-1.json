@@ -1,0 +1,369 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-007",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-24T05:57:27.285Z",
+ "head": "c256f2134e677884424c0960de17e042985eac3b",
+ "run_id": 11887,
+ "summary": "Built SC-016: migration 0005_feedback.sql (feedback and feedback_replies, STRICT, AUTOINCREMENT, 0004's FK clauses), the internal/feedback package (Send returns only an error, OwnerInbox, UTC-only times), POST /reports/{slug}/feedback on auth.Participant, the \"Feedback for the author\" box on the shared reader layout, and the owner's inbox on /admin/reports/{slug} beside the dislike count. The four fitness rules already in .taad/fitness.yaml (modified before this build, matching the design) were kept, and 59 fire/quiet corpus rows were added for them. The five accepted fixes (m1-m4, M-add-1) are built as decided. `go vet ./...` and `go test -count=1 ./...` pass, including the Chrome test. The planted E-005 finish test, built and run against the shipped binary, fails with exactly one failure, \"the admin view offers no reply to the feedback\" (SC-017's route). A signed-in headless Chrome look shows the reader box and the owner's inbox rendering, and the sent note hidden by default and revealed by #feedback-sent.",
+ "payload": {
+  "status": "complete",
+  "summary": "Built SC-016: migration 0005_feedback.sql (feedback and feedback_replies, STRICT, AUTOINCREMENT, 0004's FK clauses), the internal/feedback package (Send returns only an error, OwnerInbox, UTC-only times), POST /reports/{slug}/feedback on auth.Participant, the \"Feedback for the author\" box on the shared reader layout, and the owner's inbox on /admin/reports/{slug} beside the dislike count. The four fitness rules already in .taad/fitness.yaml (modified before this build, matching the design) were kept, and 59 fire/quiet corpus rows were added for them. The five accepted fixes (m1-m4, M-add-1) are built as decided. `go vet ./...` and `go test -count=1 ./...` pass, including the Chrome test. The planted E-005 finish test, built and run against the shipped binary, fails with exactly one failure, \"the admin view offers no reply to the feedback\" (SC-017's route). A signed-in headless Chrome look shows the reader box and the owner's inbox rendering, and the sent note hidden by default and revealed by #feedback-sent.",
+  "files": [
+   {
+    "path": "internal/store/migrations/0005_feedback.sql",
+    "change": "added",
+    "why": "feedback and feedback_replies tables and their indexes; FK clauses copied from 0004, spike-measured; two-hop cascade"
+   },
+   {
+    "path": "internal/feedback/feedback.go",
+    "change": "added",
+    "why": "Book: New, Send (single INSERT...SELECT with the published check, returns only error), OwnerInbox, Message (no Replies), unixUTC, ErrBadBody == comments.ErrBadBody, ErrNoTarget"
+   },
+   {
+    "path": "internal/feedback/feedback_test.go",
+    "change": "added",
+    "why": "package tests: round trip, no id returned, published-only send, refused body runs no SQL, inbox order/scope, UTC with the zone forced off UTC"
+   },
+   {
+    "path": "internal/server/feedback.go",
+    "change": "added",
+    "why": "postFeedback in postComment's order; 303 to #feedback-sent on success and #feedback when signed out; never holds a row id"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "modified",
+    "why": "app.feedback field, built in New on st.DB() with the shared clock; POST /reports/{slug}/feedback registered next to the comment route"
+   },
+   {
+    "path": "internal/server/admin.go",
+    "change": "modified",
+    "why": "adminData.Feedback; adminReport reads OwnerInbox after the tally and answers 500 on a read error"
+   },
+   {
+    "path": "internal/server/templates/feedback.html",
+    "change": "added",
+    "why": "feedback box: anonymous hint, owner link to the admin page, signed-in form plus hidden #feedback-sent note"
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "change": "modified",
+    "why": "includes the feedback template between #votes and #comments"
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "change": "modified",
+    "why": "feedback inbox section directly after the Votes tally: article id=feedback-N with avatar when set, login, UTC time, escaped body; empty-state line"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "widens the .comments section/textarea selectors to .feedback and .feedback-inbox, adds .feedback-message, .feedback-sent and the #feedback-sent:target reveal rule; neutral colours only"
+   },
+   {
+    "path": "internal/server/feedback_test.go",
+    "change": "added",
+    "why": "harness helpers and TestFeedbackSend, RefusedSenders, Bodies, HiddenReports (incl. trigger race), StoreFailure, DoesNotInterfere (other readers, sender, comment ids), FollowsReportLifecycle, Box, OwnerList"
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "change": "modified",
+    "why": "observe() gains a per-observer feedback POST that writes nothing, extending TestDislikesDoNotInterfere to the new route"
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "change": "modified",
+    "why": "TestReaderPathVariants gains the /feedback rows; TestReaderPagesShareOneLayout seeds a private message and asserts the box and that no page shows it"
+   },
+   {
+    "path": "internal/store/feedback_migration_test.go",
+    "change": "added",
+    "why": "TestFeedbackMigrationFromPopulatedV4 (v4 rows intact, keys enforced, two-hop cascade, AUTOINCREMENT, newer-schema refusal) and TestFeedbackMigrationFromFreshVersions (1 to 4)"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "change": "modified",
+    "why": "59 fire/quiet rows, 4 bounded_by entries and 4 rules_under_test entries for the four feedback fences"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "the four feedback rules were already in the tree uncommitted (marked 'settled by SL-007'); they match the design exactly and were kept unchanged"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "TestFeedbackSend feeds a signed-in non-owner's valid body: 303 to /reports/x#feedback-sent with empty body and no row id, one feedback row (report, sender, normalised body), zero comments rows, the second send answered byte-identically, and the owner's admin page showing article feedback-N with the text and the sender's login."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "TestFeedbackRefusedSenders: no/expired/unknown/malformed session with normal, garbage, empty, no-form and 70 KiB bodies all get 303 to #feedback and store nothing; cross-site Sec-Fetch-Site and a foreign Origin with a live session get 403; same-origin controls are taken; the ghost text is absent from the admin view."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "TestFeedbackBodies feeds every refused shape (empty, whitespace, 5001 runes, NUL, DEL, U+0085, invalid UTF-8, no field, two fields, query-string only, over 64 KiB, non-form content types) expecting 400 and no row, and every accepted shape (exactly 5000 runes, CRLF, lone CR, multi-line, <script>x</script>) checking the stored text; the admin page shows the markup escaped."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "TestFeedbackHiddenReports: draft, unpublished, deleted and unknown slugs answer identical http.NotFound bytes for anonymous, reader and owner. The race is driven over HTTP with a test-only BEFORE INSERT trigger doing RAISE(IGNORE): 404 with NotFound bytes, equal to the unknown-slug answer for the same session, zero rows. TestSendNeedsPublishedReport covers Send to a draft id returning ErrNoTarget with zero rows."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "TestFeedbackStoreFailure: DROP TABLE sessions gives 503 with no redirect for a live and for an unknown 43-character cookie, with nothing stored; renaming feedback gives 503 on the write while reader pages still draw; an unreadable inbox gives 500 on /admin/reports/x with no feedback markup and no empty-list text; a closed store gives 503."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "TestFeedbackDoesNotInterfere 'other readers' feedback': readers 20 and 21 send on x and y while observe() (now with each observer's feedback POST) is byte-identical before and after; /admin/reports/x and /y change, one article per message with exactly its sender's login; the comment-ids subtest compares two worlds (feedback sent vs none) and the next comment's id and page. TestDislikesDoNotInterfere stays green with the extended observe()."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "TestFeedbackDoesNotInterfere/the sender's own pages are unchanged by a send: reader 20's / and /reports/x are byte-identical before and after its own send, and neither shows the message; the owner's admin page does show it. SC-017 replaces this one subtest."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "TestFeedbackFollowsReportLifecycle with raw-inserted feedback_replies rows: Replace keeps the report id and all rows, unpublish gives 404 on the POST while the admin page still lists the messages, a second sign-in under a new login shows the new login with the count unchanged, Library.Delete returns nil leaving 0 feedback and 0 replies for that report with foreign_key_check empty, ids are not reused (AUTOINCREMENT), and a successor report under the slug starts empty."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "TestFeedbackMigrationFromPopulatedV4 opens a populated user_version-4 database (users, reports, comment, vote) with the current binary: user_version == newestVersion, foreign_key_check empty, v4 rows intact, keys enforced, two-hop cascade; TestFeedbackMigrationFromFreshVersions does the same from fresh databases at versions 1 to 4."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "TestReaderPathVariants gains nine /feedback rows mirroring the comment rows: GET/HEAD/PUT 405 Allow: POST, trailing slash and /extra 404, POST /reports/feedback 405 (page route), //reports/x/feedback and /reports/x/../y/feedback 307 cleanups, and an anonymous POST to a draft x equal to an unknown x."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "TestFeedbackBox (anonymous hint and no textarea/form; non-owner form, hidden sent note, box between #votes and #comments and outside every comment article; owner admin link and no form; site.css reveal rule and neutral colours) and TestReaderPagesShareOneLayout (/ and /reports/newest identical for owner, non-owner and anonymous with a message sent). The found-state blank assay TestReportScriptsNeverRun ran Chrome and passed."
+   },
+   {
+    "key": "O-014",
+    "done": true,
+    "how": "TestFeedbackOwnerList: empty report line; messages from two senders newest first, each article holding only its own login; avatar img only for the sender who has one; another report's messages absent; an unpublished report's feedback still listed; two dislikes cast with exactly the like and dislike counts beside labels; non-owner and anonymous refused; inbox between the tally and Preview; times asserted as the clock's UTC instant with time.Local forced to +5:30."
+   },
+   {
+    "key": "O-015",
+    "done": true,
+    "how": "Read the finish body in place from the ledger (SELECT, mode=ro), patched ROOT to this worktree, ran it with python -I against a freshly built binary and a stand-in GitHub: exit 1, 'FAILED (failures=1)', and the one failure is 'the admin view offers no reply to the feedback'. Everything before the reply route (form, sends, anonymous refusal, privacy sweeps, feedback-N elements with logins, dislike count 2) passed. check_finish_one_failure.py reruns this and exits 0 only on that outcome; it lives in the scratch folder, not the repo."
+   },
+   {
+    "key": "O-016",
+    "done": true,
+    "how": "feedback.Book.Send returns only error (INSERT...SELECT and RowsAffected 0 -> ErrNoTarget unchanged); postFeedback never holds an id, and its Location is built from the stored slug and a fixed fragment. TestSendReturnsNoID (fails to compile if Send grows a return value) and TestFeedbackSend (byte-identical 303s, exact Location) pin it. Tests and the admin markup read ids through SQL or OwnerInbox.",
+    "not_mutable": "The fix is a function signature: putting an id back needs edits in two files (Send and the handler), which one replacement cannot express. It is pinned at compile time by TestSendReturnsNoID and by the exact-Location, byte-identical-answer assertions in TestFeedbackSend."
+   },
+   {
+    "key": "O-017",
+    "done": true,
+    "how": "TestFeedbackHiddenReports drives the unpublished-between-lookup-and-write branch over HTTP with CREATE TRIGGER fb_skip BEFORE INSERT ON feedback ... RAISE(IGNORE): asserts 404 with http.NotFound bytes, sameResponse with the unknown-slug answer for the same session, zero rows added, then DROP TRIGGER and a control send. ErrNoTarget stays feedback's own sentinel, as decided.",
+    "mutation": {
+     "file": "internal/server/feedback.go",
+     "find": "case errors.Is(err, feedback.ErrNoTarget):",
+     "replace": "case false:",
+     "test_command": "go test -count=1 -run \"^TestFeedbackHiddenReports$\" ./internal/server/"
+    }
+   },
+   {
+    "key": "O-018",
+    "done": true,
+    "how": "One unexported unixUTC(s int64) time.Time in internal/feedback is the only conversion; OwnerInbox sets Message.When through it; the admin template uses datetime layout 2006-01-02T15:04:05Z. TestInboxTimesAreUTC and TestFeedbackOwnerList force time.Local to +5:30 so they are not blind on a UTC machine, assert When.Location()==time.UTC and Equal(sentAt), and compare the drawn text with h.clock.Now().UTC() formatted at send time (no literal timestamps).",
+    "mutation": {
+     "file": "internal/feedback/feedback.go",
+     "find": "return time.Unix(s, 0).UTC()",
+     "replace": "return time.Unix(s, 0)",
+     "test_command": "go test -count=1 -run \"^TestInboxTimesAreUTC$\" ./internal/feedback/"
+    }
+   },
+   {
+    "key": "O-019",
+    "done": true,
+    "how": "SC-016's Message has no Replies field and there is no Reply type; SC-017 adds the type, the field and OwnerInbox's second SELECT together. The package compiles on its own and the cascade is pinned with SQL counts on raw reply rows.",
+    "not_mutable": "The fix is the absence of a field and a type; there is nothing for a test to observe, and putting them back is not a single replacement in one file."
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "how": "A successful send answers 303 to /reports/<slug>#feedback-sent (signed out stays #feedback). feedback.html draws <p id=\"feedback-sent\" class=\"feedback-sent\" hidden>Sent to the author.</p> in the signed-in non-owner branch only; site.css reveals it only with #feedback-sent:target { display: block; }, so a lost rule degrades to no note. TestFeedbackBox asserts id plus hidden on every signed-in non-owner page and the rule in /static/site.css; the sender subtest still holds because the element is in the page before and after. Verified in headless Chrome: hidden on the plain page, shown below the button with the fragment, at 492 px and 1000 px.",
+    "mutation": {
+     "file": "internal/server/templates/feedback.html",
+     "find": "class=\"feedback-sent\" hidden>",
+     "replace": "class=\"feedback-sent\">",
+     "test_command": "go test -count=1 -run \"^TestFeedbackBox$\" ./internal/server/"
+    }
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "server.TestFeedbackSend",
+    "test_command": "go test -count=1 -run \"^TestFeedbackSend$\" ./internal/server/"
+   },
+   {
+    "key": "C-002",
+    "test_name": "server.TestFeedbackRefusedSenders",
+    "test_command": "go test -count=1 -run \"^TestFeedbackRefusedSenders$\" ./internal/server/"
+   },
+   {
+    "key": "C-003",
+    "test_name": "server.TestFeedbackBodies",
+    "test_command": "go test -count=1 -run \"^TestFeedbackBodies$\" ./internal/server/"
+   },
+   {
+    "key": "C-004",
+    "test_name": "server.TestFeedbackHiddenReports",
+    "test_command": "go test -count=1 -run \"^TestFeedbackHiddenReports$\" ./internal/server/"
+   },
+   {
+    "key": "C-005",
+    "test_name": "server.TestFeedbackStoreFailure",
+    "test_command": "go test -count=1 -run \"^TestFeedbackStoreFailure$\" ./internal/server/"
+   },
+   {
+    "key": "C-006",
+    "test_name": "server.TestFeedbackDoesNotInterfere and server.TestDislikesDoNotInterfere",
+    "test_command": "go test -count=1 -run \"^(TestFeedbackDoesNotInterfere|TestDislikesDoNotInterfere)$\" ./internal/server/"
+   },
+   {
+    "key": "C-007",
+    "test_name": "server.TestFeedbackDoesNotInterfere/the sender's own pages are unchanged by a send",
+    "test_command": "go test -count=1 -run \"^TestFeedbackDoesNotInterfere$/sender\" ./internal/server/"
+   },
+   {
+    "key": "C-008",
+    "test_name": "server.TestFeedbackFollowsReportLifecycle",
+    "test_command": "go test -count=1 -run \"^TestFeedbackFollowsReportLifecycle$\" ./internal/server/"
+   },
+   {
+    "key": "C-009",
+    "test_name": "store.TestFeedbackMigrationFromPopulatedV4 and TestFeedbackMigrationFromFreshVersions",
+    "test_command": "go test -count=1 -run \"^TestFeedbackMigration\" ./internal/store/"
+   },
+   {
+    "key": "C-010",
+    "test_name": "server.TestReaderPathVariants",
+    "test_command": "go test -count=1 -run \"^TestReaderPathVariants$\" ./internal/server/"
+   },
+   {
+    "key": "C-011",
+    "test_name": "server.TestFeedbackBox and server.TestReaderPagesShareOneLayout",
+    "test_command": "go test -count=1 -run \"^(TestFeedbackBox|TestReaderPagesShareOneLayout)$\" ./internal/server/"
+   },
+   {
+    "key": "C-012",
+    "test_name": "server.TestFeedbackOwnerList",
+    "test_command": "go test -count=1 -run \"^TestFeedbackOwnerList$\" ./internal/server/"
+   },
+   {
+    "key": "C-013",
+    "test_name": "E-005 finish test on a scratch copy of this tree: exactly one failure, the missing reply route",
+    "test_command": "python -I C:\\Users\\sshub\\AppData\\Local\\Temp\\taad3-sl007-scratch\\check_finish_one_failure.py C:\\Users\\sshub\\projets\\hband-wt\\SL-007"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go build ./... ; go vet ./... (before any edit)",
+    "outcome": "passed",
+    "note": "tree built and vetted clean before the build started; the only uncommitted change was .taad/fitness.yaml (the four feedback rules), kept"
+   },
+   {
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "note": "exit 0 after the build"
+   },
+   {
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "all packages ok, including internal/feedback, internal/store, internal/fitnessrules (59 new corpus rows plus TestRulesHoldOnTheTree over the real tree) and internal/server (11 s, with TestReportScriptsNeverRun starting the installed Chrome, never Edge)"
+   },
+   {
+    "command": "each case's own test command from `cases` (C-001 to C-012), run one by one",
+    "outcome": "passed",
+    "note": "every command exits 0 on its own; TestReportScriptsNeverRun also run alone with -v: PASS (5.7 s)"
+   },
+   {
+    "command": "mutation runs: feedback.go 'case false:' / unixUTC without .UTC() / feedback.html without hidden / site.css without the :target rule, files restored byte for byte afterwards",
+    "outcome": "passed",
+    "note": "each named test went red with the fix removed: TestFeedbackHiddenReports (503 instead of 404), TestInboxTimesAreUTC and TestFeedbackOwnerList (wrong zone and hour), TestFeedbackBox (no hidden note; no reveal rule)"
+   },
+   {
+    "command": "python -I <scratch>\\test_e005_1_private_feedback.py (finish body read in place from the ledger, ROOT patched to the worktree)",
+    "outcome": "failed",
+    "note": "as designed: builds ./cmd/hband, runs it with a stand-in GitHub; exit 1, one failure only: 'the admin view offers no reply to the feedback' (the SC-017 reply route). Everything before it passed."
+   },
+   {
+    "command": "python -I <scratch>\\check_finish_one_failure.py <worktree>",
+    "outcome": "passed",
+    "note": "exits 0 only when the finish test fails with exactly that one failure; it printed 'exit 1 | summary [1] | reply message present: True'"
+   },
+   {
+    "command": "python -I <scratch>\\browser_look.py ... (built binary, HBAND_BASE_URL=http://localhost:<port>, auto-approving stand-in GitHub, headless Chrome from CHROME_BIN, one --dump-dom and one --screenshot per target with a fresh profile)",
+    "outcome": "passed",
+    "note": "Signed in via OAuth in Chrome each time (0.4-0.7 s). Reader page: box, form and hidden sent note in the DOM; screenshot shows 'Feedback for the author', the note line and the textarea, with no 'Sent to the author.' visible. With #feedback-sent in the next= path the note shows under the button, also at 492 px. Owner admin page: two articles newest first, avatar for the sender with one, escaped <b>markup</b>, a 120-character word wrapped, UTC times, inbox between the dislike count and Preview. Owner reader page shows the admin link and no form; anonymous shows the hint and no textarea. No hband or headless Chrome process left running."
+   }
+  ],
+  "deviations": [
+   "O-016 (m1): Send returns only error, not (int64, error) as the design's Book surface says, so the public handler never holds a row id.",
+   "O-019 (m4): Message has no Replies field and there is no Reply type in SC-016; the design listed Replies on the SC-016 surface.",
+   "O-020 (M-add-1): a successful send answers 303 to #feedback-sent (design choice 5 was #feedback for both). The signed-in non-owner box always draws a hidden 'Sent to the author.' note that site.css reveals only on :target. The signed-out answer stays #feedback. Accepted cost: a stale 'Sent' on a bookmarked post-send URL.",
+   "O-018 (m3): all created_at scans go through one unexported unixUTC helper. The UTC tests force time.Local to +5:30 instead of comparing against the clock's own zone, so they are not blind on a UTC machine.",
+   "The finish-line check (C-013) is a scratch script, not a committed test: the planted finish body lives only in the ledger and is read in place with a read-only SELECT. The script is not in the repo.",
+   "No outside defect is worked around by this slice, so no workaround setting or notice was added.",
+   "The design judged a real-browser look not material. One was done anyway, using the spike's measured recipe, and found nothing to fix."
+  ],
+  "not_built": [
+   "The reply route (adminRoutes row POST /admin/feedback/{n}/reply), feedback.Reply, OwnerReplyTarget, OwnerReply, Sent, SenderThreads, readerData.OwnFeedback and the sender's own-thread list: SC-017, as the design says. The E-005 finish test stays red on exactly that.",
+   "Marking feedback from blocked accounts as 'blocked': SC-021. OwnerInbox has no blocked_accounts join yet and Message has no Blocked field.",
+   "A real-browser click on the feedback form's submit button (CSP form-action 'self', SameSite=Lax cookie, real Sec-Fetch-Site on a same-site POST). Chrome rendered the signed-in pages and followed the #feedback-sent fragment, but the POST was sent by a Python client with same-origin headers. This is open question Q-014 for votes and applies equally here.",
+   "No screens or app were declared. The engine cannot start this app with a bare command: internal/config refuses to start without HBAND_OWNER_GITHUB_ID, HBAND_GITHUB_CLIENT_ID/SECRET and HBAND_BASE_URL (lesson #961), and `app.command` allows no environment. The signed-in pages were looked at in Chrome by hand-built harness instead."
+  ],
+  "follow_ups": [
+   "SC-017: build the reply route, SenderThreads and the sender's own-thread list from the design, and replace the sender subtest of TestFeedbackDoesNotInterfere with 'shows exactly its own thread'; add the adminRoutes row so it joins TestAdminAccessMatrix.",
+   "SC-021: add the blocked_accounts EXISTS to OwnerInbox and a Blocked flag to feedback.Message; the C-009 architecture line already promises 'blocked accounts marked', which is untrue until then.",
+   "Deferred m5: the owner's inbox is unbounded and sits above Preview/Publish/Replace/Delete. Duplicates from readers who do not see the note are possible, and no rate limit exists until E-006.",
+   "Q-014: drive a real click on a signed-in form submit (vote, comment and feedback) in headless Chrome, which needs a committed signed-in harness (the scratch browser_look.py recipe could be promoted).",
+   "Lesson #954 still applies: SC-016 is not releasable alone, since a sender sees only a transient 'Sent' note and no thread until SC-017 ships."
+  ],
+  "architecture": [
+   {
+    "block": "C-007",
+    "kind": "paths",
+    "add": [
+     "internal/feedback/**",
+     "internal/store/migrations/0005_feedback.sql",
+     "internal/store/feedback_migration_test.go",
+     "internal/server/feedback.go",
+     "internal/server/feedback_test.go",
+     "internal/server/templates/feedback.html"
+    ],
+    "why": "New files of this slice: internal/feedback/feedback.go, migration 0005_feedback.sql, server/feedback.go (postFeedback), templates/feedback.html and their tests; no block's globs name them (C-007 has no owns list)."
+   },
+   {
+    "block": "C-007",
+    "kind": "depends",
+    "add": [
+     "C-005"
+    ],
+    "why": "internal/feedback/feedback.go imports internal/comments for Normalize and ErrBadBody, so feedback and comments share one set of plain-text rules (feedback.ErrBadBody == comments.ErrBadBody)."
+   },
+   {
+    "block": "C-007",
+    "kind": "line",
+    "find": "and the author's private replies to them. Each feedback thread is visible only to its reader and the owner. Feedback from blocked accounts is kept and marked as blocked.",
+    "replace": "stored in feedback and feedback_replies, which only internal/feedback names in SQL. Today the only reader is the owner's admin page (OwnerInbox, newest first, with each sender's current login and avatar). A message is never drawn on a reader page; the sender is told only by a hidden 'Sent to the author.' note that the #feedback-sent fragment of the post-send 303 reveals. No reply is written or shown yet, and feedback from blocked accounts is stored but not marked.",
+    "why": "internal/feedback/feedback.go (Send, OwnerInbox; no reply or SenderThreads code), internal/server/feedback.go (303 to #feedback-sent), templates/feedback.html (hidden #feedback-sent note), admin.go adminReport (OwnerInbox); migration 0005 creates feedback_replies but nothing writes it."
+   }
+  ]
+ }
+}

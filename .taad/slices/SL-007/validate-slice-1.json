@@ -1,0 +1,223 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-007",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-24T06:23:30.051Z",
+ "head": "1a2927fbe7f29689d4a1c19a01c7c0ec0bb082f9",
+ "run_id": 11896,
+ "summary": "SC-016 works against the built binary in the installed Chrome 158, not just in the unit tests.\n\n**Real browser.** A reader signed in through the OAuth redirect chain against a stand-in GitHub. The reader typed into the \"Feedback for the author\" textarea and clicked \"Send to the author\" with real mouse events.\n- Chrome's POST got a 303 to /reports/real-browser#feedback-sent, and the \"Sent to the author.\" note went from display:none to block.\n- One feedback row was stored with the sender's GitHub ID, and no comment row was written.\n- The message did not appear on the sender's page, on another signed-in reader's page, on the anonymous page, or on the owner's reader page.\n- The owner's /admin/reports/<slug> listed it as article feedback-1 with the login, a UTC time and the body, under the Votes tally.\n- A form on another site (127.0.0.1 against localhost) posting to the feedback route while the reader's session was live was answered 403. Chrome did not send the session cookie, and nothing was stored.\n- I looked at three screenshots: the reader after the send, the anonymous box, and the owner's inbox.\n- One of 7 runs timed out waiting for the #feedback-sent URL and recorded no diagnostics. The other 6 passed, including 3 run the same way as the failed one.\n\n**Upgrade.** A database written by the previous binary (ebacc8d) held a user, a published report, a dislike, a comment and a session. The new binary opened it: user_version 4→5, foreign_key_check empty, the comment, vote and session survived, and a send afterwards listed feedback-1 beside \"1 dislike\".\n\n**Cascade.** On a real database, deleting the report removed the feedback row and two raw feedback_replies rows (two hops), with foreign_key_check empty.\n\n**Finish test.** The planted E-005 finish test, read from the ledger and run against this tree, ends FAILED (failures=1). The only failure is \"the admin view offers no reply to the feedback\", the SC-017 reply route. Every assertion before it passed (lines 323-350 of the test).\n\n**Suite.** `go vet` is clean, `go test -count=1 ./...` passes, and all 29 fitness rules hold. The privacy, lifecycle, migration and box tests pass when run named with -v. TestReportScriptsNeverRun really ran Chrome.\n\n**Obligations.** O-001 and O-002 are discharged.\n\n**Not reached.** The https production setup behind the VPS, real GitHub, other browsers, and the cause of the one timeout. Marking feedback from blocked accounts was moved to SC-021 by the merge note and was not judged here.\n\n**Where the 14 design cases are graded.** The schema allows at most 7 'planned' entries, and this brief has no 'What this slice owes' block, so the 14 design-fixed cases are graded under `criteria` as AC-1 to AC-14.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "real",
+  "summary": "SC-016 works against the built binary in the installed Chrome 158, not just in the unit tests.\n\n**Real browser.** A reader signed in through the OAuth redirect chain against a stand-in GitHub. The reader typed into the \"Feedback for the author\" textarea and clicked \"Send to the author\" with real mouse events.\n- Chrome's POST got a 303 to /reports/real-browser#feedback-sent, and the \"Sent to the author.\" note went from display:none to block.\n- One feedback row was stored with the sender's GitHub ID, and no comment row was written.\n- The message did not appear on the sender's page, on another signed-in reader's page, on the anonymous page, or on the owner's reader page.\n- The owner's /admin/reports/<slug> listed it as article feedback-1 with the login, a UTC time and the body, under the Votes tally.\n- A form on another site (127.0.0.1 against localhost) posting to the feedback route while the reader's session was live was answered 403. Chrome did not send the session cookie, and nothing was stored.\n- I looked at three screenshots: the reader after the send, the anonymous box, and the owner's inbox.\n- One of 7 runs timed out waiting for the #feedback-sent URL and recorded no diagnostics. The other 6 passed, including 3 run the same way as the failed one.\n\n**Upgrade.** A database written by the previous binary (ebacc8d) held a user, a published report, a dislike, a comment and a session. The new binary opened it: user_version 4→5, foreign_key_check empty, the comment, vote and session survived, and a send afterwards listed feedback-1 beside \"1 dislike\".\n\n**Cascade.** On a real database, deleting the report removed the feedback row and two raw feedback_replies rows (two hops), with foreign_key_check empty.\n\n**Finish test.** The planted E-005 finish test, read from the ledger and run against this tree, ends FAILED (failures=1). The only failure is \"the admin view offers no reply to the feedback\", the SC-017 reply route. Every assertion before it passed (lines 323-350 of the test).\n\n**Suite.** `go vet` is clean, `go test -count=1 ./...` passes, and all 29 fitness rules hold. The privacy, lifecycle, migration and box tests pass when run named with -v. TestReportScriptsNeverRun really ran Chrome.\n\n**Obligations.** O-001 and O-002 are discharged.\n\n**Not reached.** The https production setup behind the VPS, real GitHub, other browsers, and the cause of the one timeout. Marking feedback from blocked accounts was moved to SC-021 by the merge note and was not judged here.\n\n**Where the 14 design cases are graded.** The schema allows at most 7 'planned' entries, and this brief has no 'What this slice owes' block, so the 14 design-fixed cases are graded under `criteria` as AC-1 to AC-14.",
+  "checks": [
+   {
+    "what": "go vet over the whole module",
+    "command": "go vet ./...  (TAAD3_HOME = new scratch folder)",
+    "outcome": "passed",
+    "evidence": "vet exit 0"
+   },
+   {
+    "what": "full suite as the project runs it",
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "exit 0; all packages ok: cmd/hband, auth, comments, config, feedback, fitnessrules, reports, server (11.4 s), store, testutil/headless, votes. Total 13 s."
+   },
+   {
+    "what": "architecture rules",
+    "command": "Fitness op=check",
+    "outcome": "passed",
+    "evidence": "29 rules checked against 63 parsed files; every declared rule holds."
+   },
+   {
+    "what": "privacy, sender, comment-id, lifecycle and dislike non-interference tests run by name",
+    "command": "go test -count=1 -v -run 'TestFeedbackDoesNotInterfere|TestFeedbackFollowsReportLifecycle|TestFeedbackSend$|TestDislikesDoNotInterfere' ./internal/server/",
+    "outcome": "passed",
+    "evidence": "All 3 subtests of TestFeedbackDoesNotInterfere passed: other readers' feedback, the sender's own pages, and 'feedback does not shift the ids of public comments'. TestFeedbackFollowsReportLifecycle, TestFeedbackSend and both TestDislikesDoNotInterfere subtests also PASS."
+   },
+   {
+    "what": "the remaining planned-case tests run by name, and whether the Chrome blank-page test really ran Chrome",
+    "command": "go test -count=1 -v -run 'TestReportScriptsNeverRun|TestFeedbackBox|TestReaderPagesShareOneLayout|TestReaderPathVariants|TestFeedbackOwnerList|TestFeedbackRefusedSenders|TestFeedbackBodies|TestFeedbackHiddenReports|TestFeedbackStoreFailure' ./internal/server/",
+    "outcome": "passed",
+    "evidence": "All PASS. TestReportScriptsNeverRun logged 'blank-empty green=0 red=0' and 'blank-found green=0 red=0' (6.46 s), so Chrome ran and the test did not skip."
+   },
+   {
+    "what": "migration tests run by name",
+    "command": "go test -count=1 -v -run TestFeedbackMigration ./internal/store/",
+    "outcome": "passed",
+    "evidence": "TestFeedbackMigrationFromPopulatedV4 PASS. TestFeedbackMigrationFromFreshVersions from_version_1 to from_version_4 PASS."
+   },
+   {
+    "what": "planted E-005 finish test fails only at SC-017's reply route",
+    "command": "finish body read from ledger in place (sqlite3 file:...engine.db?mode=ro, SELECT finish FROM epics WHERE id=43), ROOT patched to this worktree, python -I finish_patched.py in scratch",
+    "outcome": "passed",
+    "evidence": "Exit 1, 'FAILED (failures=1)'. The single failure is the line-352 assertion: '/admin/feedback/1/reply' not found ... 'the admin view offers no reply to the feedback'. The admin page it printed shows feedback-2 and feedback-1 articles with logins, avatars and UTC times beside '2 dislikes'. The assertions on lines 323-350 all ran first and passed: form offered, sends, anonymous ghost not stored, privacy sweeps, comment counts 0, feedback-N with the sender's login, other report's feedback absent, dislike count 2, non-owners refused. The spike recorded this outcome as no-go until SC-017 lands."
+   },
+   {
+    "what": "real Chrome, first run: signed-in reader clicks Send",
+    "command": "python -I real_browser.py <worktree> <scratch> (built hband.exe, stand-in GitHub, CHROME_BIN --headless=new --remote-debugging-port=0, real Input.dispatchMouseEvent clicks and Input.insertText)",
+    "outcome": "failed",
+    "nature": "extra",
+    "evidence": "Sign-in and the box before the click were fine (textarea 1, note display none). After the click, polling for a URL containing #feedback-sent timed out at 15 s. No diagnostics were captured on that run. I then added diagnostics and a 0.5 s settle; 3 runs with the settle and 3 runs without it, all with diagnostics, passed, so the failure did not come back. Nothing ties it to the slice's code: the server answered every real POST it received correctly. Filed as harness/backlog. A committed signed-in browser harness is already backlog under Q-014."
+   },
+   {
+    "what": "real Chrome end-to-end: send, note, privacy across viewers, owner inbox (6 runs)",
+    "command": "python -I real_browser.py / real_browser_nosleep.py (3 runs each)",
+    "outcome": "passed",
+    "evidence": "In every run the reader landed at /reports/real-browser#feedback-sent and the note went from display none to block. Chrome's network record shows the POST body=real-chrome-click-… answered 303 with Location /reports/real-browser#feedback-sent; the fragment is fixed and carries no id. The DB has 1 feedback row (github_id 5002) and 0 comments. The message is absent from the sender's page, from another signed-in reader's page, from the anonymous page and from the owner's reader page. The owner's inbox reads 'feedback-1 | reader-real / 2026-11-24 06:28 UTC / … / real-chrome-click-…', and the tally reads ['0 likes','0 dislikes']. Console: only favicon 404s and the expected 403."
+   },
+   {
+    "what": "real Chrome cross-site form with a live reader session",
+    "command": "stand-in serves /evil on http://127.0.0.1:<p1> with a form posting to http://localhost:<p2>/reports/real-browser/feedback; real click",
+    "outcome": "passed",
+    "evidence": "Chrome sent Origin http://127.0.0.1:<p1> and Sec-Fetch-Site cross-site, with no hband_sid cookie (SameSite=Lax). The answer was 403 'cross-origin request detected from Sec-Fetch-Site header'. 'cross-site-ghost' is not in the owner's inbox or the DB."
+   },
+   {
+    "what": "screenshots of the signed-in reader after a send, the anonymous box and the owner's inbox",
+    "command": "Page.captureScreenshot → reader_after_send.png, anon_box.png, owner_inbox.png (opened and viewed)",
+    "outcome": "passed",
+    "evidence": "Reader: the box sits between the votes and Comments, shows 'Only the author reads this. It is not posted as a comment.', the textarea, 'Send to the author' and 'Sent to the author.' under it, and 'No comments yet.'. Anonymous: 'Sign in to send the author private feedback.' and no textarea. Owner: Votes (0 likes, 0 dislikes), then 'Feedback for the author' with reader-real, the UTC time and the body, then Preview."
+   },
+   {
+    "what": "upgrade a database written by the previous binary (ebacc8d) with this binary",
+    "command": "git archive ebacc8d into scratch; go build both binaries; python -I upgrade.py (old binary seeds a report, a dislike, a comment and a session; then the new binary on the same data dir)",
+    "outcome": "passed",
+    "evidence": "Old binary: user_version 4, the feedback POST answers 404. New binary: healthz 200, user_version 5, foreign_key_check [], feedback and feedback_replies tables created. The old comment is shown, the session survived, and the form is present. The send answered 303 #feedback-sent. The admin page shows ['0 likes','1 dislike'] and the inbox [('feedback-1','reader-real','after-upgrade-message')]."
+   },
+   {
+    "what": "two-hop cascade on a real database made by the binary",
+    "command": "python -I cascade.py (sqlite 3.50.4, PRAGMA foreign_keys=ON, on a scratch hband.db; inserted 2 feedback_replies rows, then DELETE FROM reports)",
+    "outcome": "passed",
+    "evidence": "Before: feedback 1, replies 2. After: feedback 0, replies 0, foreign_key_check []. comments, feedback and feedback_replies all use AUTOINCREMENT, so each table has its own sqlite_sequence row."
+   },
+   {
+    "what": "nothing left running and the tree unchanged",
+    "command": "Get-CimInstance Win32_Process (chrome/hband/python with taad3-validate in the command line); git status --short",
+    "outcome": "passed",
+    "evidence": "No processes left. git status is the same as at the start: only the engine's .taad/slices/SL-007 files."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "PS-016: a separate 'feedback for the author' box, distinct from public comments, whose messages only the author can see",
+    "met": "yes",
+    "how": "In the real Chrome runs the box is its own section with its own form (action /reports/<slug>/feedback). A sent message lands only in the feedback table, never in comments. It appears only on the owner's /admin/reports/<slug> and on no reader page for any viewer. The suite's non-interference tests pass."
+   },
+   {
+    "criterion": "AC-1 send private feedback: signed-in non-owner, valid body, published report",
+    "met": "yes",
+    "how": "TestFeedbackSend passes. In real Chrome a signed-in non-owner's click got a 303 with Location /reports/real-browser#feedback-sent and stored 1 row (github_id 5002, body as typed) and 0 comments. The owner's admin page lists it."
+   },
+   {
+    "criterion": "AC-2 sender not a signed-in same-site reader: signed out (normal/garbage/oversize body) or cross-site Origin with a live session",
+    "met": "yes",
+    "how": "TestFeedbackRefusedSenders passes. In real Chrome a cross-site form with a live session got 403 (Sec-Fetch-Site cross-site, no cookie sent) and nothing was stored. The anonymous Chrome page has no form. The finish test's anonymous ghost post stored nothing."
+   },
+   {
+    "criterion": "AC-3 body shapes refused and accepted",
+    "met": "yes",
+    "how": "TestFeedbackBodies passes in the full suite and by name. Code contact only."
+   },
+   {
+    "criterion": "AC-4 report not published: draft, unpublished, deleted, unknown, unpublished between lookup and write",
+    "met": "yes",
+    "how": "TestFeedbackHiddenReports passes, including the trigger-driven race over HTTP. Code contact only."
+   },
+   {
+    "criterion": "AC-5 store failing: session lookup, feedback write, owner's inbox read",
+    "met": "yes",
+    "how": "TestFeedbackStoreFailure passes, with all four subtests. Code contact only."
+   },
+   {
+    "criterion": "AC-6 keep feedback private: readers 20 and 21 send on x and y while observers are recorded",
+    "met": "yes",
+    "how": "The 'other readers' feedback' subtest passes by name, and TestDislikesDoNotInterfere stays green with the extended observe(). In real Chrome, another reader and an anonymous visitor do not see the message."
+   },
+   {
+    "criterion": "AC-7 keep feedback private: the sender's own / and /reports/x before and after its send",
+    "met": "yes",
+    "how": "The subtest passes by name. In real Chrome the sender's page after the send lacks the message and shows only the 'Sent to the author.' note via :target."
+   },
+   {
+    "criterion": "AC-8 feedback follows its report: Replace, unpublish, re-sign-in under a new login, Delete with raw replies",
+    "met": "yes",
+    "how": "TestFeedbackFollowsReportLifecycle passes by name. Independently, on a real database the binary made, deleting the report cascaded feedback 1→0 and replies 2→0, with foreign_key_check []."
+   },
+   {
+    "criterion": "AC-9 upgrade an existing database: populated v4 and fresh v1-v4",
+    "met": "yes",
+    "how": "TestFeedbackMigrationFromPopulatedV4 and FromFreshVersions 1-4 pass. A real v4 database written by the ebacc8d binary was opened by the new binary: user_version 5, fk_check empty, old comment, vote and session intact, send and inbox work."
+   },
+   {
+    "criterion": "AC-10 route the feedback POST: odd spellings and methods",
+    "met": "yes",
+    "how": "TestReaderPathVariants passes by name, including the nine /feedback rows. Code contact only."
+   },
+   {
+    "criterion": "AC-11 the feedback box on the shared reader layout for anonymous, non-owner and owner; the anonymous blank in Chrome",
+    "met": "yes",
+    "how": "TestFeedbackBox and TestReaderPagesShareOneLayout pass. TestReportScriptsNeverRun ran Chrome (blank-found green=0 red=0). In real Chrome on /reports/<slug>: anonymous sees the hint and no textarea, a non-owner sees the form and the hidden note, the owner sees the admin link and no form. '/' was covered by the tests only."
+   },
+   {
+    "criterion": "AC-12 the owner reads feedback with its sender: empty, several senders, avatar or none, other report, draft, 2 dislikes",
+    "met": "yes",
+    "how": "TestFeedbackOwnerList passes. The real Chrome inbox shows the login, UTC time and body after the tally; the upgrade run showed '1 dislike' beside it. The avatar and two-sender shapes are covered by tests only."
+   },
+   {
+    "criterion": "AC-13 the E-005 finish line as far as SC-016 reaches",
+    "met": "yes",
+    "how": "Run against this tree it exits 1 with exactly one failure, the line-352 reply-route assertion (SC-017). Every assertion before it passed, including feedback-N with the sender's login beside dislike count 2."
+   },
+   {
+    "criterion": "AC-14 the feedback box and the inbox seen signed in, in a real browser",
+    "met": "yes",
+    "how": "In headless Chrome 158 from CHROME_BIN, signed in through the real OAuth redirect chain against a stand-in GitHub, I rendered the reader page and the owner's admin page, viewed the screenshots, and drove a real click-submit. 6 of 7 runs passed; the first timed out without diagnostics."
+   },
+   {
+    "criterion": "C1 (build-check): a signed-in reader can send a private feedback message from a report page",
+    "met": "yes",
+    "how": "Real Chrome click-submit stored the row and answered 303 #feedback-sent (6 of 7 runs). TestFeedbackSend passes."
+   },
+   {
+    "criterion": "C2 (build-check): the box is separate from public comments and a message never appears in the comment thread",
+    "met": "yes",
+    "how": "0 comment-* elements and 0 comment rows after the real send. The finish test's comment-count assertions passed, and the comment-id subtest passes."
+   },
+   {
+    "criterion": "C3 (build-check): only the author can see feedback messages",
+    "met": "yes",
+    "how": "In real Chrome the message is absent for the sender, another reader, anonymous and the owner's reader page. TestFeedbackDoesNotInterfere passes, and the fitness fences hold (OwnerInbox is called only from adminReport behind RequireOwner). The observe() set omits /raw, /healthz, /static and /auth/* (N-062), none of which renders feedback."
+   },
+   {
+    "criterion": "C4 (build-check): the owner reads each report's feedback with its sender on that report's admin page next to its dislike count",
+    "met": "yes",
+    "how": "The real Chrome inbox shows feedback-1 with login, UTC time and body right after the Votes tally. The finish test pinned the dislike count of 2 beside the feedback-N articles."
+   }
+  ],
+  "planned": [],
+  "obligations": [
+   {
+    "key": "O-001",
+    "verified": "yes",
+    "evidence": "Comment ids are unaffected: the subtest 'feedback does not shift the ids of public comments' passes by name; the next comment gets id 1 with and without 3 prior feedback sends, and the public pages are identical. The real hband.db has separate sqlite_sequence rows per table, with comments, feedback and feedback_replies each AUTOINCREMENT. The Location is fixed: Chrome's network record of the real POST shows Location '/reports/real-browser#feedback-sent', and feedback.go:81 builds it from the stored slug and a constant. Send returns only error."
+   },
+   {
+    "key": "O-002",
+    "verified": "yes",
+    "evidence": "TestFeedbackFollowsReportLifecycle passes by name: Library.Delete returns nil and leaves 0 feedback and 0 replies for the report, with foreign_key_check empty. Also measured directly on a real database the binary made, with Python sqlite 3.50.4 and foreign_keys=ON: DELETE FROM reports took feedback 1→0 and feedback_replies 2→0, with foreign_key_check []."
+   }
+  ],
+  "not_reached": [
+   "Production setup: https HBAND_BASE_URL with __Host-/Secure cookies behind the VPS reverse proxy over WireGuard. Every browser run here used http://localhost with a plain non-Secure hband_sid cookie.",
+   "Real GitHub OAuth. Sign-in went through a scratch stand-in GitHub on 127.0.0.1, so real GitHub avatars loading in the inbox under img-src (Q-017) were not seen.",
+   "Browsers other than Chrome 158 (Firefox, Safari): their Sec-Fetch-Site and SameSite handling of the same-site feedback POST.",
+   "Why the first of 7 real-Chrome runs timed out waiting for #feedback-sent. No diagnostics were captured, and 6 later runs, 3 of them the same way, all passed.",
+   "The production database. Only a scratch v4 database written by the ebacc8d binary was upgraded (production versions are Q-015/Q-016).",
+   "Phone widths and the light colour scheme for the new box and inbox (Q-013/Q-018). Only a 1000 px window was rendered.",
+   "Out of scope and not judged: the reply route and the sender's own thread (SC-017), and marking feedback from blocked accounts as 'blocked' (SC-021, per the SC-019 merge note)."
+  ],
+  "screens": []
+ }
+}
