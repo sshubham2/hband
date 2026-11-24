@@ -648,8 +648,9 @@ func TestFeedbackBox(t *testing.T) {
 				t.Errorf("non-owner GET %s lacks %q:\n%s", p, want, got.Body)
 			}
 		}
-		// The sent note is in every signed-in page and hidden until the success
-		// fragment targets it: a lost style rule must degrade to no note at all.
+		// The sent note is in every page a signed-in non-owner is shown, hidden until
+		// the success fragment targets it: a lost style rule must degrade to no note
+		// at all.
 		if !strings.Contains(got.Body, sent) {
 			t.Errorf("non-owner GET %s lacks the hidden sent note %q", p, sent)
 		}
@@ -768,7 +769,8 @@ func TestFeedbackOwnerList(t *testing.T) {
 	if items[0].ID != 4 || items[1].ID != 2 || items[2].ID != 1 {
 		t.Errorf("the articles carry the ids %d, %d, %d, want 4, 2, 1 (global row ids, newest first)", items[0].ID, items[1].ID, items[2].ID)
 	}
-	// Another report's messages are not here, and a draft's are listed on its page.
+	// Another report's messages are not here, and an unpublished report's are
+	// listed on its page.
 	if strings.Contains(page, "a message on y") || strings.Contains(page, "then unpublished") {
 		t.Error("report x's page lists another report's message")
 	}

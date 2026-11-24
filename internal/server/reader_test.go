@@ -223,9 +223,9 @@ func TestReaderPagesShareOneLayout(t *testing.T) {
 	gone := h.say(somebody, "newest", "a comment that will be removed", 0)
 	h.say(somebody, "newest", "a reply that outlives it", gone)
 	h.exec(`UPDATE comments SET removed_at = 5 WHERE id = ?`, gone)
-	// A private message from the viewer on the newest report: the box and the
-	// sent note it draws read only who is looking and the stored slug, so the
-	// message changes neither page, and neither page shows it.
+	// A private message from the non-owner on the newest report: the box and the
+	// sent note the pages draw read only who is looking and the stored slug, so
+	// no viewer's page shows the message, and the two routes still match.
 	h.sendFeedback(somebody, "newest", "a private note to the author")
 
 	for name, sid := range map[string]string{"owner": owner, "non-owner": somebody} {
@@ -613,7 +613,8 @@ func TestReaderPathVariants(t *testing.T) {
 		}
 		return ""
 	}
-	// The feedback route is the comment route's third twin: POST only.
+	// The feedback route has the same shape as the vote and comment routes: POST
+	// only.
 	feedbackNotAllowed := func(r result) string {
 		if r.Status != 405 || r.Header.Get("Allow") != "POST" {
 			return "want 405 with Allow: POST"
