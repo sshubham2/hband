@@ -42,119 +42,39 @@
   },
   {
    "stage": "build-slice",
-   "issue": "No screens are declared. The Blocked users page and the admin report page sit behind GitHub sign-in, and config refuses to start without HBAND_* variables (lesson #961), so the engine cannot open them with a bare command. They were rendered and read through the real binary over HTTP instead, but not in a real browser (m9 was deferred by a person)."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Not built, as decided: a Block entry point on feedback articles (m8), a size bound on the Blocked users page (m10), and a census of public write routes (m7). All three were deferred by decision."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Architecture globs: C-009 should own internal/server/templates/admin_blocked.html and admin_report.html, and C-005 or C-009 the new server tests (block_test.go, unblock_test.go). I could not file this as a paths edit because the record edits are capped at three."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "tests/acceptance/check_e006_1_stops_at_block.py is scaffolding that now reports 'passes outright'. Lesson #976 says it should go; its own docstring says it need not, so I left it."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "A blocked reader is still shown the comment, vote and feedback forms (reader pages must stay byte-identical, #950) and gets a bare 403 text page when it presses one. Decide whether a friendlier notice is wanted."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "A signed-in Chrome render of /admin/blocked and the moderation list (m9), and the owner-page size bound (m10): /admin/blocked also does one feedback query per account and one thread read per published report with replies."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Run the engine's Fitness op=check on .taad/fitness.yaml; I had no such tool and relied on go test ./internal/fitnessrules plus a manual single-quote count."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Block's owner refusal is in the store, not in the handler as design 229 said: comments.New takes the owner id, Block returns ErrOwnerBlock and fails closed when no owner is pinned (decided findings m2 and its critic note). The handler only maps ErrOwnerBlock to 400."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Each Book (comments, votes, feedback) has an unexported isBlocked seam so the follow-up-read failure can be tested (finding m3's critic note). The design had a plain read."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The Blocked users page builds parent links through a.tree, Find and branchRoot, one read per published report that has a reply on the page, and prints 'in reply to a hidden comment' as text when the parent is drawn nowhere (finding m5's critic note). The design used a fixed /reports/<slug>#comment-<parent>."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: A blocked account's feedback is listed with a link to /admin/reports/<slug>#feedback-<id>, where the author reads and answers it, rather than the reader page. SenderMessage and BlockedComment also carry Published, which the design's types lacked, so an unpublished report links to its admin page."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Block and unblock take no field, and their handlers never read the body (lesson #973's 'decided choice to ignore the body'). They are classified 'no field' in TestPostRoutesAreClassified, and TestBlock sends every removeBodyRows shape to both."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: from=blocked is checked first in adminCommentRemove, so it lands on /admin/blocked for drafts and unpublished reports too (M1's critic note). bodyRow's landing went from a bool to a string."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The comments-package tests are named TestBlockStore, TestPostRefusesBlocked and so on, not TestBlock, because TestBlock names the server route test in the design. No workaround for an outside defect was needed, so there is no setting or notice."
+   "issue": "Obligations O-010 to O-013 (the stale ErrBlocked doc and the 'six' comments) were waived by a person; I did not touch them."
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 1-445 of 445) -- partly-opened: seen only through a shell command: $s, git diff (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/server/admin.go (not seen: lines 501-563 of 563) -- partly-opened: a Read returned only part of it; seen only as 2 Grep lines (before the build); seen only through a shell command: git log; 126 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/comments/comments_test.go (not seen: lines 1-455 of 455) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/server/templates/admin_blocked.html (not seen: lines 20 of 43) -- partly-opened: a Read returned only part of it; seen only through a shell command: git log; 2 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/comments/remove_test.go (not seen: lines 1-394 of 394) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: Nobody has seen the owner pages this slice added rendered in a real browser: /admin/blocked, the Block forms on /admin/reports/<slug>, the Unblock form, and the details.remove two-step. That includes phone width. The engine's screens show only the signed-out reader page. I read the HTML only."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/admin_test.go (not seen: lines 1-441 of 441) -- partly-opened: seen only as 15 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: Real GitHub OAuth and real accounts. Every sign-in went through the acceptance harness's stand-in GitHub on loopback."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/branch_test.go (not seen: lines 1-550 of 550) -- partly-opened: seen only as 1 Grep line; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: The VPS reverse proxy and WireGuard path. The cross-site refusal of the block and unblock routes was measured with headers forged locally, not behind the real proxy (Q-024)."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-1196 of 1196) -- partly-opened: seen only as 4 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: A production database with existing comments, votes and feedback: block and unblock were never run against real data or at real size. The Blocked page has no size limit, and its size at scale was not measured."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/remove_test.go (not seen: lines 1-816 of 816) -- partly-opened: seen only as 5 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: Timing races, for example an unblock landing between a refused write and its follow-up EXISTS read, were not reproduced. Only the code review reasoned about them."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/router.go (not seen: lines 1-171 of 171) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/static/site.css (not seen: lines 1-42 of 42) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-479, 640-648 of 648) -- partly-opened: a Read returned only part of it; seen only as 5 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/vote_test.go:1-479,640-end -- only observe(), the dislike world's tail and TestDislikesDoNotInterfere's first subtest were read; the changed lines (507, 538-543) are inside what was read"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/remove_test.go -- judged from the diff hunks (376-441, 666-725) only, not read whole"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/branch_test.go -- judged from the diff hunks (102-115, 442-463) only"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/admin_test.go -- judged from the diff hunk (76-97) and adminPaths only"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/comment_test.go, internal/comments/comments_test.go, internal/comments/remove_test.go, internal/server/static/site.css -- one-line or few-line diffs, read as diffs only"
+   "stage": "validate-slice",
+   "issue": "not reached: Q-026 stays open, but there is new evidence: on the real binary, a comment removed through the Blocked page's own form while its writer was blocked stayed hidden after the real Unblock route."
   }
  ],
  "stages": [
@@ -247,7 +167,7 @@
    "stage": "build-slice",
    "title": "Build",
    "order": 7,
-   "state": "sent back",
+   "state": "passed",
    "attempts": [
     {
      "n": 1,
@@ -263,6 +183,35 @@
       "measured_by_git": 28
      },
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T14:20:07.674Z",
+     "head": "ed49afe43eedb5f6e4e2d2678f19dca8261c42ed",
+     "summary": "Fixed O-009 only.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "1 defect(s) in lines this slice wrote were accepted by the code review (O-009). None weighs a lap on its own, so they go back to the builder TOGETHER, once, before validation -- instead of to the backlog and from there to a send-back at the merge. Fix exactly these with the smallest change: one scoped re-check reads only your fix. Sent back with what raised them: O-009 (fix): m1 (minor): On the Blocked users page, a reply on a report that is not published gets the text 'in reply to a hidden comment' whatever its parent is. adminBlocked resolves a parent only when `c.Published`, so a reply on a draft or unpublished report always has an empty ParentHref, and the template's `{{else if .Reply}}` branch prints 'hidden'. In the admin vocabulary this slice set (m1, modItem.ParentHidden: 'the parent was removed, or its writer is blocked'), that tells the author a visible comment is hidden. The same report's admin page lists that parent as an ordinary visible comment. The critic's m5 note kept the two cases apart: 'hidden' is for a parent the thread does not draw, and for an unpublished report the note asks only for 'the parent reference as text'. Confirmed in a scratch copy: the entry reads `<span class=\"body\">bad-eight answers the reader</span> on <a href=\"/admin/reports/gone\">Gone Report</a>, in reply to a hidden comment` while the parent is visible on /admin/reports/gone. Keep the two cases apart. Add a flag to blockedComment (for example `ParentUnpublished`, set when `bc.Reply && !c.Published`) and have the template print something like ', in reply to a comment (the report has no reader page)' for it. Keep 'in reply to a hidden comment' only for a published report whose parent Find did not locate. [shown by a failing run] The engine ran the code review's test for this, internal/server/blocked_unpublished_label_test.go, with `go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server`, and it FAILED. Put that test at internal/server/blocked_unpublished_label_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server` again in your tree, and that run is what closes this; your word does not. The test: package server import ( \"strings\" \"testing\" ) // A blocked account's reply on a report that is not published, to a parent that is // visible (it is on the report's admin page), must not be described as a reply to a // hidden comment: in the admin pages \"hidden\" means removed or written by a blocked // account, and this parent is neither. func TestBlockedPageUnpublishedReplyIsNotToAHiddenComment(t *testing.T) { h, owner, reader := commentWorld(t) h.mustUpload(owner, \"gone\", \"Gone Report\", \"published\", reportHTML(300, \"gone\")) bad := h.mint(8, \"bad-eight\") h.say(bad, \"gone\", \"bad-eight writes top level\", 0) parent := h.say(reader, \"gone\", \"a visible comment by the reader\", 0) h.say(bad, \"gone\", \"bad-eight answers the reader\", parent) h.mustAct(owner, \"gone\", \"unpublish\") h.mustBlock(owner, 8) admin := h.adminPageOf(owner, \"gone\") if !strings.Contains(admin, \"a visible comment by the reader\") { t.Fatalf(\"INVALID: the parent is not listed as visible on the report's admin page:\\n%s\", admin) } secs := blockedSections(h.page(owner, \"/admin/blocked\")) if len(secs) != 1 || secs[0].ID != 8 { t.Fatalf(\"sections %+v, want the one for account 8\", secs) } e := entryWith(t, \"the reply\", secs[0].List, \"bad-eight answers the reader\") if strings.Contains(e, \"hidden comment\") { t.Errorf(\"a reply to a visible comment on an unpublished report is described as a reply to a hidden comment:\\n%s\", e) } }",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-009",
+       "O-010",
+       "O-011",
+       "O-012",
+       "O-013"
+      ]
+     },
+     "changed": {
+      "src": 3,
+      "listed": 3,
+      "measured_by_git": 7
+     },
+     "details": "build-slice-2.json"
     }
    ]
   },
@@ -281,6 +230,43 @@
      "caused_by": null,
      "changed": {},
      "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T14:21:50.467Z",
+     "head": "ed49afe43eedb5f6e4e2d2678f19dca8261c42ed",
+     "summary": "The fix for O-009 removes the defect, and it introduces nothing new.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-24T14:20:05.558Z, and build-slice has judged since (2026-11-24T14:21:49.008Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T14:25:24.926Z",
+     "head": "373d9cb6c63e39aa355786fb2b8af6ec63313c2e",
+     "summary": "SC-021/SC-022 is built and works through the real binary.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
     }
    ]
   }
