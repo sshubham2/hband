@@ -1,7 +1,8 @@
 """Repro: with CHROME_BIN unset, run_finish.py must not run a finish body that
-reaches for Edge. The browser comes from CHROME_BIN only; where it is unset the
-body is skipped or the run fails, and no install path written into the script
-stands in for it."""
+reaches for Edge. run_finish.py never consults CHROME_BIN: it runs a body which
+names msedge only when the first browser path the body itself lists that exists
+here is not Edge, whatever CHROME_BIN says. So a body whose only browser is
+msedge is not run."""
 import importlib.util
 import os
 import shutil

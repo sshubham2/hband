@@ -23,14 +23,16 @@ import (
 // are never read, and neither are scheme and host: those come from
 // HBAND_BASE_URL.
 //
-// A request whose client cannot be told is not counted, never keyed on the
-// proxy: keying every visitor on one address is the collapse this exists to
-// prevent. Each way that happens is logged once per process, without an address:
-// a header from a peer that is not trusted (a wrong or missing
-// HBAND_TRUSTED_PROXIES), a trusted peer that forwarded no client entry (a proxy
-// that sends no X-Forwarded-For, or one whose every entry is trusted), and a
-// client that resolves to an internal address (a proxy of the chain that is
-// missing from the list).
+// A peer that is not trusted is the client, whatever its headers say. So with
+// HBAND_TRUSTED_PROXIES missing or wrong, every visitor behind the proxy is
+// counted as the proxy, and that is logged once per resolver, when such a peer
+// sends X-Forwarded-For. A request is not counted, and is not keyed on the proxy,
+// when a trusted peer forwarded no client entry (a proxy that sends no
+// X-Forwarded-For, or one whose every entry is trusted) or when the client
+// resolves to an internal address (a proxy of the chain that is missing from the
+// list); each of those is logged once per resolver. A forwarded entry that is not
+// an address is not counted either, and is not logged. Each resolver belongs to
+// one app, and no warning carries an address.
 type clientResolver struct {
 	trusted []netip.Prefix
 	// log is where the warnings go; slog.Default when nil.
