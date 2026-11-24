@@ -18,7 +18,8 @@ import (
 // The contract this corpus pins, for every encoding: a form is read, in either
 // form encoding, and `from` is checked strictly; a body the handler cannot read
 // as a form is refused unless it is empty; nothing over 1 KiB is read past, and
-// nothing is changed by a refusal. An empty body of any type is the plain form.
+// nothing is changed by a refusal. An empty body that is not a form is the plain
+// form; an empty multipart body, or one whose type does not parse, is refused.
 
 // bodyRow is one request body. want is the status; admin is the landing of a 303.
 type bodyRow struct {

@@ -306,8 +306,10 @@ func (a *app) adminCommentRemove(w http.ResponseWriter, r *http.Request, o auth.
 //     file part is not a field this form has);
 //   - whatever else is in the body is read to its end through the cap, so a body over
 //     the cap is refused whatever its type;
-//   - a body that is not a form is refused unless it is empty: an empty body of any
-//     type is the plain form with no field.
+//   - a body that is not a form is refused unless it is empty: an empty body that is
+//     not a form is the plain form with no field; an empty multipart body is
+//     malformed multipart, and a Content-Type that does not parse is refused like
+//     any unreadable body.
 func removeFrom(r *http.Request) (from []string, ok bool) {
 	// ParseForm reads a urlencoded body and says so when it is malformed or over the cap;
 	// ParseMultipartForm swallows that error for a body that is not multipart, so it is read
