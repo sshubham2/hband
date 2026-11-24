@@ -89,92 +89,108 @@
    "issue": "How misconfiguration is reported. Practice warns once at runtime; crossdomain logs at startup when the list is empty. I chose the runtime warning, which also catches a wrong proxy address."
   },
   {
-   "stage": "build-slice",
-   "issue": "C11, the real VPS proxy over WireGuard (O-015, and O-016 for the UTC-midnight window of the acceptance repeats): a person's check on the deployment, already on the backlog. I did not build or judge it."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "No real-browser pixel or phone-width check of the new page was run by me. The engine measures the screens declared below. I verified the markup, the CSS rules, the E-002 row reader and the live HTML only."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "internal/testutil/e002row is a hand port of ledger-only finish bodies. If a finish body's reader changes, the port drifts, and run_finish.py --e002 stays the real check."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Production must list the address the VPS proxy's connection arrives from (the WireGuard peer, or the Docker bridge gateway if the container NATs it) in HBAND_TRUSTED_PROXIES. If it is unset or wrong, views are counted as the proxy (one per report per day) with one log warning; the person's C11 check should read that log."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "cmd/hband/main_test.go has had an import-order gofmt difference since 1251104 (mime/multipart); not touched here."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "E-004 finish line 2 (Q-028) passed at the baseline and on this tree with Chrome selected from its own candidate list, which answers part of Q-028 and is worth recording there."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The critic's second narrow-rule pattern, (?i)[\"`][a-z0-9-]+-forwarded(-[a-z-]+)?[\"`], matches \"X-Forwarded-For\" itself (prefix x, then -forwarded, then -for), so it would fire inside clientaddr.go. It also misses \"Forwarded-For\". I replaced it with (?i)[\"`](?:(?:[a-wyz0-9-][a-z0-9-]*|x[a-z0-9-]+)-)?forwarded(?:-[a-z-]+)?[\"`], which leaves a lone-x prefix alone. 53 rows pin it, and the critic's version fails 6 of them."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: clientAddr is a method, clientResolver.addr, on a value newApp builds, not the free function in the design's contract. This follows the accepted m4 fix, so each app and each test has its own once-only warnings."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: M1 as accepted: a trusted peer with no untrusted client entry returns false and warns. A third warning covers a client that resolves to an internal address. The internal predicate adds CGNAT (100.64.0.0/10) and unspecified to the critic's private, loopback and link-local, because overlay networks such as Tailscale use that space."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: An unparsable X-Forwarded-For entry that is reached stays silent (not counted, no warning), as the design says. It is deliberately not routed to the no-entry warning, so a client cannot use up that warning with junk."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Added internal/testutil/e002row, a port of the E-002 reader (dom, listed, rowText, counts, dated) returning errors instead of calling t.Fatalf. The design says TestShowAll 'feeds the rendered row to a copy of that reader' but names no home for the copy."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Added tests/acceptance/run_finish.py (O-014, O-018) and tests/acceptance/serve_show_all.py. The second is a launcher: the program needs HBAND_* settings a bare command line cannot carry, so the engine could not open the new page without it."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: No outside defect is worked around, so no per-bug setting or notice was added. The bot filter and the trusted-proxy rule are product rules. HBAND_TRUSTED_PROXIES is a configuration variable, and a misconfiguration is told to the operator in the log by the three once-only warnings."
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/run_finish.py (not seen: lines 151-211 of 211) -- partly-opened: a Read returned only part of it; seen only as 8 Grep lines; seen only through a shell command: $env:taad3_home, $env:taad3_home (before the build), $py, git log; 124 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 31-429 of 511) -- partly-opened: a Read returned only part of it; seen only as 31 Grep lines; seen only through a shell command: $s, git diff; 2 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+   "issue": "the comment fixer left: tests/acceptance/check_run_finish_needs_chrome_bin.py:33 -- the FAIL message names a cause the code can no longer have ('it stood a browser path written into the script in for CHROME_BIN'). No path is written into run_finish.py now. It is a string literal, so I left it. N-162 suggests 'run_finish.py ran a body whose only browser is msedge'."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): cmd/hband/main_test.go (not seen: lines 1-384, 435-581 of 581) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: The real VPS reverse proxy over WireGuard (C11, O-015): what peer address hband sees there (WireGuard peer or Docker bridge gateway), and the real X-Forwarded-For chain shape, multiple hops and IPv6."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/config/config_test.go (not seen: lines 1-169 of 345) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff; 1 returned line differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: A real UTC midnight in a running process. The rollover was only exercised on TestRecord's fake clock."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json (not seen: lines 1-14, 60-467 of 564) -- partly-opened: a Read returned only part of it; seen only as 3 Grep lines; seen only through a shell command: git diff, python; 1 returned line differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: The in-memory visitor key across a restart. A mid-day restart re-counting returning visitors was not run live."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/reports/reports.go (not seen: lines 1-279, 358-464 of 464) -- partly-opened: a Read returned only part of it; seen only as 14 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: Migrating the production database on the home server (its real user_version and data) to v6. Only test fixtures and a fresh scratch database were migrated."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/reader_test.go (not seen: lines 1-589, 720-758 of 758) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: An untrusted peer presenting X-Forwarded-For to the live binary. The server listened on 127.0.0.1 only, so every live request came from the trusted peer, and that path rests on the TestClientAddr corpus."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/storefault_test.go (not seen: lines 1-54, 175-263 of 263) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: True phone-width rendering from my own Chrome run. Headless Chrome laid the page out at about 500 px, so for the phone layout I relied on the engine's s1-phone shot."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-494, 575-662 of 662) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: The signed-in owner viewing /reports and a report in a real browser. Owner exclusion rests on TestOpenCounting and on the E-002 bodies, whose owner never opens a report."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/votes/votes.go (not seen: lines 1-139, 195-206 of 206) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: Real visitors' browser user agents beyond the fixed strings used here, and real crawler traffic."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: M2's prescribed fix (one checker script, tests/acceptance/run_finish.py, running every ledger body) never asked what a body does when its browser launch falls back to msedge. Q-028 was already open and recorded that e004_2's ledger body hard-codes an msedge path and ignores CHROME_BIN. The first script keyed its Edge guard on CHROME_BIN and carried a hard-coded Chrome install path. Code-review #1 measured that with CHROME_BIN unset the script ran a body naming msedge. A usable check would grep the 12 baseline bodies for 'msedge' and for browser paths before prescribing a runner that executes them."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: M1's prescribed fix (a trusted peer with no untrusted client entry is not counted, plus a warning), and the critic's extension to an inner-hop-only list, still left the shipped default silent. With HBAND_TRUSTED_PROXIES unset, an untrusted internal peer (the proxy) that sends no X-Forwarded-For is returned as the client with no log line, which is the same R-004 collapse M1 was filed for. The critique never ran the check 'with the variable unset and no XFF, does anything get logged?', which lesson #929 says to ask of every shipped default. It was waived afterwards (O-031, N-159)."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: m2's prescribed fix replaced a five-name list with shape patterns for client-identity header names, but nobody ran the patterns against a real real-IP library's header list. They stayed quiet on \"X-Forwarded\", \"Cf-Pseudo-IPv4\" and \"CF-Connecting-IPv6\", in either quote style. This is the same class closed once and reopened, now carried to SC-040. A usable check is a fire row for each header in request-ip's list before accepting the patterns."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: What peer address does hband see in production behind the VPS proxy over WireGuard (the WireGuard peer or a Docker bridge gateway), and does the proxy send X-Forwarded-For (appended or set, one hop or several, IPv6)? SC-039 / C11 settles it. Any later per-visitor feature (rate limits, abuse controls) must wait for this before it trusts clientResolver."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does TestConcurrentVotesNoBusy fail because of load-dependent timing or because votes.Cast really returns SQLITE_BUSY under whole-suite load? It decides whether lesson #949's 'single statement gives 0 BUSY' holds at that load, and whether the new per-GET open write adds to the contention."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does production's database migrate cleanly to user_version 6? Its real version and data were not reached (only fixtures and a fresh scratch database were migrated). Q-015 and Q-016 already leave open whether it is at v2 or v3."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: How often does a real deployment restart mid-day? The in-memory visitor key means each restart counts a returning visitor once more that day. Redeploy frequency decides whether that bounded overcount stays small."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Can run_finish.py --others still exit 0 when a BASELINE body is missing from the ledger's results (O-027, N-160)? It was waived without a failing test."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The slice was opened as medium although lesson #970 says a new table plus a public page plus a privacy constraint is large. It then ran 34 obligations, 14 of them cases, with 5 code reviews and 3 validates. The design retiered it to high, but the opening size stayed medium."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Most of the late rework (build #2, code reviews #3 to #5) was for tests/acceptance/run_finish.py, a script the slice's own M2 fix created. Its Edge hazard was already on the open-questions list as Q-028 and was not weighed when the fix was prescribed. The product code itself passed code-review #1 with a comment fix and fitness-rule gaps."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The risk spike halted with a no-go because its plan assumed threadDepthCap=100 from a stale lesson. The tree has 5 and branch pages. The design never relied on the refuted assumption, so the halt cost a lap and bought nothing."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The client-identity header-name fitness rule was 'closed' by m2 and then by the shape patterns, and a second reader still found three uncovered names. It was carried to SC-040 instead of being fixed here."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: M1's fix and its critic left the silent default shape (unset variable, internal peer, no X-Forwarded-For). It was waived (O-031). The build's own advice for C11 is to read a log that is empty in exactly that case."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Validate #1 was cut off by the provider's 5-hour limit, and validate #2 halted only because O-015 stayed open even though SC-039 (C11) already existed. Two validate laps bought nothing the third did not."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Code-review #1 read 9 of 31 changed files only partly, including .taad/fitness.yaml (lines 31-429 of 511 unseen) and most of rule_spellings.json (lines 60-467 of 564 unseen, where the 89 new rows are). Code-review #3 did not see run_finish.py lines 151-211 of 211. The input-driven second reader caught the fence holes anyway, but the review was not reading the whole file."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: O-027 (the `--others` filter in run_finish.py lets a baseline body that is missing from the ledger results pass vacuously) was waived because its repro read the source as text. It was not shown to be fixed. The validator's note that skipped bodies count as failures covers a different case."
   }
  ],
  "stages": [
@@ -257,7 +273,7 @@
    "stage": "build-slice",
    "title": "Build",
    "order": 7,
-   "state": "sent back",
+   "state": "passed",
    "attempts": [
     {
      "n": 1,
@@ -274,6 +290,36 @@
       "measured_by_git": 35
      },
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T16:21:56.800Z",
+     "head": "4f0678106d4fc688432362e0a9a764d0838690a5",
+     "summary": "Fixed run_finish.py's Edge guard.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "2 defect(s) in lines this slice wrote were accepted by the code review (O-026, O-030). None weighs a lap on its own, so they go back to the builder TOGETHER, once, before validation -- instead of to the backlog and from there to a send-back at the merge. Fix exactly these with the smallest change: one scoped re-check reads only your fix. Sent back with what raised them: O-026 (fix): m1 (minor): run_body is meant to never run a finish body that would start Edge, but its guard tests the wrong file. test_e004_2's body picks the first browser in its own list that exists: its own hard-coded Chrome path, then msedge. The guard only asks whether the file in CHROME_BIN exists, falling back to the hard-coded CHROME constant on line 67. So on a machine where CHROME_BIN names a Chrome anywhere other than the body's own path, the guard passes and the body starts msedge, which this machine forbids. The script also writes a browser install path into code (line 67) and falls back to it when CHROME_BIN is unset. The engine's standing rule names both as defects. On this PC CHROME_BIN equals the standard path, so today's runs started Chrome. Skip a body that names msedge unless the Chrome path that body itself looks for exists. Parse that path out of the body, and skip when none can be found. Drop the CHROME constant and the `or CHROME` fallback. [shown by a failing run] The engine ran the code review's test for this, tests/acceptance/test_run_finish_edge_guard.py, with `python -I tests/acceptance/test_run_finish_edge_guard.py`, and it FAILED. Put that test at tests/acceptance/test_run_finish_edge_guard.py as it is -- comments and layout aside -- and make it pass. The engine runs `python -I tests/acceptance/test_run_finish_edge_guard.py` again in your tree, and that run is what closes this; your word does not. The test: \"\"\"run_finish.py must never run a finish body that would start Edge. test_e004_2's body opens the first browser of its own list that exists: its own Chrome path, then msedge. Whether CHROME_BIN names a Chrome somewhere else says nothing about which of the two the body will take, so a body that names msedge must not be run on the strength of CHROME_BIN alone. \"\"\" import os import sys import tempfile import unittest from unittest import mock sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))) import run_finish # noqa: E402 BODY = 'exe = [p for p in (OWN_CHROME, EDGE) if os.path.isfile(p)] # falls back to msedge\\n' class EdgeGuard(unittest.TestCase): def test_body_that_would_fall_back_to_edge_is_not_run(self): scratch = tempfile.mkdtemp(prefix=\"edge-guard-\") elsewhere = os.path.join(scratch, \"portable-chrome.exe\") with open(elsewhere, \"w\") as f: f.write(\"\") real_isfile = os.path.isfile def only_elsewhere(p): # The one browser on this pretend machine is the one CHROME_BIN names; the # Chrome the body looks for is not there, so the body would start msedge. return os.path.normcase(os.path.abspath(p)) == os.path.normcase(elsewhere) and real_isfile(p) line = {\"path\": \"tests/acceptance/x.py\", \"body\": BODY, \"command\": \"python tests/acceptance/x.py\"} with mock.patch.dict(os.environ, {\"CHROME_BIN\": elsewhere}), \\ mock.patch(\"os.path.isfile\", only_elsewhere), \\ mock.patch(\"subprocess.run\") as run: code, _, _ = run_finish.run_body(os.path.join(scratch, \"tree\"), os.path.join(scratch, \"home\"), \"E-004\", line) self.assertFalse(run.called, \"a body that would fall back to msedge was run\") self.assertIsNone(code) if __name__ == \"__main__\": unittest.main() O-030 (fix): IN-m2 (minor): tests/acceptance/run_finish.py writes a browser install path into the script: CHROME = r\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\". When CHROME_BIN is unset it uses that path in its place (`os.environ.get(\"CHROME_BIN\") or CHROME`). The guard that is meant to stop a finish body from falling back to Edge also checks the wrong thing. It asks whether CHROME_BIN's file exists. The e004_2 ledger body ignores CHROME_BIN (Q-028) and picks from its own candidate list, which names msedge. So when CHROME_BIN points at a Chrome that is not on the body's list, the guard passes and the body falls back to msedge. That starts Edge, which must never be started on this machine. Measured: with CHROME_BIN unset, run_body ran a body that names msedge. Delete the CHROME constant and take the browser from CHROME_BIN only: `chrome = os.environ.get(\"CHROME_BIN\"); if \"msedge\" in body and not (chrome and os.path.isfile(chrome)): return None, 0.0, \"skipped: CHROME_BIN is unset ...\"` Better still, skip any body that names msedge unless CHROME_BIN is the first browser on that body's own list. [shown by a failing run] The engine ran the code review's test for this, tests/acceptance/check_run_finish_needs_chrome_bin.py, with `python -I tests/acceptance/check_run_finish_needs_chrome_bin.py`, and it FAILED. Put that test at tests/acceptance/check_run_finish_needs_chrome_bin.py as it is -- comments and layout aside -- and make it pass. The engine runs `python -I tests/acceptance/check_run_finish_needs_chrome_bin.py` again in your tree, and that run is what closes this; your word does not. The test: \"\"\"Repro: with CHROME_BIN unset, run_finish.py must not run a finish body that reaches for Edge. The browser comes from CHROME_BIN only; where it is unset the body is skipped or the run fails, and no install path written into the script stands in for it.\"\"\" import importlib.util import os import shutil import sys import tempfile HERE = os.path.dirname(os.path.abspath(__file__)) spec = importlib.util.spec_from_file_location(\"run_finish\", os.path.join(HERE, \"run_finish.py\")) rf = importlib.util.module_from_spec(spec) spec.loader.exec_module(rf) os.environ.pop(\"CHROME_BIN\", None) scratch = tempfile.mkdtemp(prefix=\"rf-chrome-bin-\") try: tree = os.path.join(scratch, \"tree\") home = os.path.join(scratch, \"home\") os.makedirs(tree) os.makedirs(home) line = { \"path\": \"tests/acceptance/edge_body/body.txt\", \"body\": \"browser := `C:\\\\Program Files (x86)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe`\\n\", \"command\": \"python -c \\\"open('ran.txt','w').close()\\\"\", } try: rf.run_body(tree, home, \"E-004\", line) except BaseException: pass if os.path.exists(os.path.join(tree, \"ran.txt\")): print(\"FAIL: CHROME_BIN is unset, yet run_finish.py ran a body that names msedge: it stood a browser path written into the script in for CHROME_BIN\") sys.exit(1) print(\"ok: the body was not run\") finally: shutil.rmtree(scratch, ignore_errors=True)",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-026",
+       "O-027",
+       "O-028",
+       "O-029",
+       "O-030",
+       "O-031"
+      ]
+     },
+     "changed": {
+      "tests": 3,
+      "listed": 3,
+      "measured_by_git": 7
+     },
+     "details": "build-slice-2.json"
     }
    ]
   },
@@ -292,6 +338,71 @@
      "caused_by": null,
      "changed": {},
      "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T16:23:32.560Z",
+     "head": "4f0678106d4fc688432362e0a9a764d0838690a5",
+     "summary": "The fix removes both defects on the card.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-24T16:21:54.439Z, and build-slice has judged since (2026-11-24T16:23:29.866Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T16:29:54.351Z",
+     "head": "976e6497b66759ee8e9591ec9ec378c1730c6f02",
+     "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 12:10am (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "unrecorded",
+     "at": "2026-11-24T18:41:43.502Z",
+     "head": "",
+     "summary": "SL-013 was checked at HEAD 976e649 against a binary built from this tree, run on loopback.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "reflect",
+   "title": "Reflect",
+   "order": 10,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T18:54:32.085Z",
+     "head": "976e6497b66759ee8e9591ec9ec378c1730c6f02",
+     "summary": "SL-013 shipped the show-all page at GET /reports and open counting.",
+     "caused_by": null,
+     "changed": {},
+     "details": "reflect-1.json"
     }
    ]
   }

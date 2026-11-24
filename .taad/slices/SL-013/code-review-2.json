@@ -1,0 +1,378 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-013",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-24T16:23:32.560Z",
+ "head": "4f0678106d4fc688432362e0a9a764d0838690a5",
+ "run_id": 12089,
+ "summary": "The fix removes both defects on the card.\n\n**O-026 and O-030 (the Edge guard).** In tests/acceptance/run_finish.py:\n- The CHROME install-path constant and the `CHROME_BIN or CHROME` fallback are gone; line 67 now holds only TIMEOUT.\n- `edge_risk(body)` (lines 105-121) reads the browser paths the body itself names, as literal Windows paths. A body that names msedge runs only when the first of those paths that exists here is not Edge.\n- `run_body` checks this before the body is even written (lines 127-131).\n\nWhat I ran:\n- `python -I tests/acceptance/test_run_finish_edge_guard.py`: OK, exit 0.\n- `python -I tests/acceptance/check_run_finish_needs_chrome_bin.py`: 'ok: the body was not run', exit 0.\n- `edge_risk` over all 16 real ledger bodies, read in place with mode=ro: '' for every one. For test_e004_2 it parses the body's own Chrome path first, then its Edge path.\n- `run_finish.py --others --only e004_2` end to end: passes in 9 s, using Chrome.\n- A skipped body still makes `--e002` and `--others` exit 1, so the guard cannot turn into a false pass.\n\nThe rest of the diff touches only the two test files and engine records. The product code is the tree I reviewed before.\n\nWhat I filed:\n- **Comment fix, check_run_finish_needs_chrome_bin.py.** Its docstring and failure message still describe the CHROME_BIN-only fix. The decision chose a guard keyed on the body's own browser list instead.\n- **Note: one hole in the guard.** The guard reads the paths in the order they appear in the text. A body could try them in a different order, or try a non-literal `shutil.which(\"msedge\")` first. No current body does either.\n- **Note: stray compiled file.** Running the two new tests left an untracked tests/acceptance/__pycache__ in the tree, and .gitignore does not exclude it.\n\nSecond round: Second pass, reading the fix to break it. It is the `BROWSER_PATH` regex and `edge_risk` in tests/acceptance/run_finish.py.\n\nEvery input shape I tried either parses correctly or makes the guard skip the body, which is the safe direction. A skipped body makes `--e002` and `--others` exit 1, never 0. The shapes tried:\n- doubled backslashes, which are collapsed;\n- forward slashes, upper case and 8.3 short names;\n- CRLF, which cannot enter a match because the regex excludes CR;\n- a path containing an apostrophe, which is missed, so the body is skipped;\n- two unquoted paths on one prose line, which merge greedily into one path that does not exist, so it is passed over or the body is skipped;\n- a non-literal or `os.path.join` Chrome path, which leads to a skip.\n\nThe one way the guard lets an Edge start through is a body that tries its candidates in a different order from the text. That is x1 from my first round, and every new shape I found belongs to that same family.\n\nOne new, small gap. The reason string `edge_risk` returns is never shown to anyone. I ran `main()` with an Edge-only body and it printed only 'SKIPPED' and 'MUST PASS and does not: …', exit 1. The run fails correctly, but the explanation the guard builds is thrown away.\n\nI found nothing that holds a lock across slow work, and nothing else that sends the build back.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The fix removes both defects on the card.\n\n**O-026 and O-030 (the Edge guard).** In tests/acceptance/run_finish.py:\n- The CHROME install-path constant and the `CHROME_BIN or CHROME` fallback are gone; line 67 now holds only TIMEOUT.\n- `edge_risk(body)` (lines 105-121) reads the browser paths the body itself names, as literal Windows paths. A body that names msedge runs only when the first of those paths that exists here is not Edge.\n- `run_body` checks this before the body is even written (lines 127-131).\n\nWhat I ran:\n- `python -I tests/acceptance/test_run_finish_edge_guard.py`: OK, exit 0.\n- `python -I tests/acceptance/check_run_finish_needs_chrome_bin.py`: 'ok: the body was not run', exit 0.\n- `edge_risk` over all 16 real ledger bodies, read in place with mode=ro: '' for every one. For test_e004_2 it parses the body's own Chrome path first, then its Edge path.\n- `run_finish.py --others --only e004_2` end to end: passes in 9 s, using Chrome.\n- A skipped body still makes `--e002` and `--others` exit 1, so the guard cannot turn into a false pass.\n\nThe rest of the diff touches only the two test files and engine records. The product code is the tree I reviewed before.\n\nWhat I filed:\n- **Comment fix, check_run_finish_needs_chrome_bin.py.** Its docstring and failure message still describe the CHROME_BIN-only fix. The decision chose a guard keyed on the body's own browser list instead.\n- **Note: one hole in the guard.** The guard reads the paths in the order they appear in the text. A body could try them in a different order, or try a non-literal `shutil.which(\"msedge\")` first. No current body does either.\n- **Note: stray compiled file.** Running the two new tests left an untracked tests/acceptance/__pycache__ in the tree, and .gitignore does not exclude it.\n\nSecond round: Second pass, reading the fix to break it. It is the `BROWSER_PATH` regex and `edge_risk` in tests/acceptance/run_finish.py.\n\nEvery input shape I tried either parses correctly or makes the guard skip the body, which is the safe direction. A skipped body makes `--e002` and `--others` exit 1, never 0. The shapes tried:\n- doubled backslashes, which are collapsed;\n- forward slashes, upper case and 8.3 short names;\n- CRLF, which cannot enter a match because the regex excludes CR;\n- a path containing an apostrophe, which is missed, so the body is skipped;\n- two unquoted paths on one prose line, which merge greedily into one path that does not exist, so it is passed over or the body is skipped;\n- a non-literal or `os.path.join` Chrome path, which leads to a skip.\n\nThe one way the guard lets an Edge start through is a body that tries its candidates in a different order from the text. That is x1 from my first round, and every new shape I found belongs to that same family.\n\nOne new, small gap. The reason string `edge_risk` returns is never shown to anyone. I ran `main()` with an Edge-only body and it printed only 'SKIPPED' and 'MUST PASS and does not: …', exit 1. The run fails correctly, but the explanation the guard builds is thrown away.\n\nI found nothing that holds a lock across slow work, and nothing else that sends the build back.",
+  "matches_design": true,
+  "findings": [
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "file": "tests/acceptance/check_run_finish_needs_chrome_bin.py",
+    "line": 1,
+    "end_line": 4,
+    "claim": "The docstring states the contract of the IN-m2 fix that the decision passed over: 'The browser comes from CHROME_BIN only; where it is unset the body is skipped or the run fails'. run_finish.py now never consults CHROME_BIN. edge_risk (run_finish.py:105-121) keys on the browser list inside the body, as the IN-m2 decision directed, so with CHROME_BIN unset test_e004_2 still runs on its own Chrome path. The failure message on line 33 names a cause the code can no longer have: 'it stood a browser path written into the script in for CHROME_BIN'. No path is written into the script now. The test's assertion still pins a valid behaviour: a body naming only msedge is not run.",
+    "evidence": "check_run_finish_needs_chrome_bin.py:1-4 and :33, against run_finish.py:105-131. edge_risk on the e004_2 ledger body returns '' whatever CHROME_BIN is.",
+    "fix": "Reword to say that run_finish.py runs a body which names msedge only when the first browser path the body itself lists that exists here is not Edge, whatever CHROME_BIN says. Reword line 33's message to 'run_finish.py ran a body whose only browser is msedge'.",
+    "quote": {
+     "path": "tests/acceptance/check_run_finish_needs_chrome_bin.py",
+     "line": 1,
+     "text": "\"\"\"Repro: with CHROME_BIN unset, run_finish.py must not run a finish body that\nreaches for Edge. The browser comes from CHROME_BIN only; where it is unset the\nbody is skipped or the run fails, and no install path written into the script\nstands in for it.\"\"\""
+    }
+   },
+   {
+    "id": "x1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "file": "tests/acceptance/run_finish.py",
+    "line": 115,
+    "end_line": 121,
+    "claim": "edge_risk judges 'the first browser path it names that exists' by the order the paths appear in the body's text, and counts only literal X:\\...\\*.exe paths. A body actually tries the order of its candidate list, which can differ. For example, EDGE and CHROME constants are defined in one order and tried in the other. Or a non-literal candidate such as shutil.which(\"msedge\") is tried ahead of a literal Chrome path. In both cases the guard sees an existing Chrome first, returns '' and runs a body that starts Edge. Every current ledger body parses correctly (measured: e004_2's literal order matches its list order, and the which() calls come after the literal paths). So this is a hole for future bodies, not a present failure.",
+    "evidence": "run_finish.py:115-120 walks BROWSER_PATH.finditer(body) and returns '' at the first existing non-Edge match. The e004_2 body's list (ledger, lines 310-311) is (literal Chrome, literal Edge, *map(shutil.which, (\"chrome\", \"msedge\", ...))).",
+    "fix": "Skip a body that names msedge unless its only browser candidates are literal paths, or unless the first literal path is a Chrome that exists AND no msedge mention (literal or which()) comes before it in the text. Add a row for each of the two shapes to test_run_finish_edge_guard.py.",
+    "class_of": "browser candidates the literal-path parse reads out of order",
+    "threat": "accident",
+    "quote": {
+     "path": "tests/acceptance/run_finish.py",
+     "line": 115,
+     "text": "    for m in BROWSER_PATH.finditer(body):"
+    }
+   },
+   {
+    "id": "x2",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "extra",
+    "file": "tests/acceptance/test_run_finish_edge_guard.py",
+    "line": 14,
+    "end_line": 15,
+    "claim": "Both new tests import run_finish.py from tests/acceptance: one by sys.path and import, the other by spec_from_file_location and exec_module. Neither turns off bytecode writing, and `python -I` does not either. Every run therefore writes tests/acceptance/__pycache__/run_finish.cpython-314.pyc into the repository tree. The engine's verification run left one there at 21:53:26, a second after the attempt-2 commit. It is untracked, and .gitignore lists only /data/, /hband and /hband.exe. The attempt-2 commit shows the engine commits untracked files (it took the two then-untracked test files), so the compiled file can land in the next commit. run_finish's own copy_tree already ignores __pycache__, so the finish runs are unaffected.",
+    "evidence": "`git status` shows `?? tests/acceptance/__pycache__/`; it holds run_finish.cpython-314.pyc, 15019 bytes, written 24-11-2026 21:53:26. .gitignore has /data/, /hband and /hband.exe only.",
+    "fix": "Add `__pycache__/` to .gitignore, or set `sys.dont_write_bytecode = True` before the import in both tests.",
+    "quote": {
+     "path": "tests/acceptance/test_run_finish_edge_guard.py",
+     "line": 14,
+     "text": "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\nimport run_finish  # noqa: E402"
+    }
+   },
+   {
+    "id": "R2-x3",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "extra",
+    "file": "tests/acceptance/run_finish.py",
+    "line": 129,
+    "end_line": 131,
+    "claim": "run_body returns edge_risk's reason as the third value of a skip, (None, 0.0, why), but main() prints a body's output only when `code not in (0, None)`. A skipped body therefore reports only 'SKIPPED' and then 'MUST PASS and does not: <path>', with no reason. When Chrome is missing, or a body's first existing browser is Edge, the run fails, which is correct. The operator is still not told the reason is the Edge guard rather than the body itself. The explanations edge_risk builds ('the first browser it finds here is Edge…', 'none of the browser paths it names is a Chrome that exists here') are dead text.",
+    "evidence": "I ran run_finish.main() with read_bodies mocked to return one baseline body that names only `C:\\nowhere\\msedge.exe`. It printed `E-004 …test_e004_2_deep_threads_and_toggle.py SKIPPED in 0 s`, `passing: 0 of 1` and `MUST PASS and does not: …`, with exit 1 and no reason line. main() prints the output tail only under `if code not in (0, None):`.",
+    "fix": "In main(), print the third value for a skipped body as well. For example, after the verdict line, `if code is None: print(\"    \" + out, flush=True)`.",
+    "quote": {
+     "path": "tests/acceptance/run_finish.py",
+     "line": 129,
+     "text": "    why = edge_risk(body)\n    if why:\n        return None, 0.0, why"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/run_finish.py: the old `os.path.isfile(os.environ.get(\"CHROME_BIN\") or CHROME)` guard is gone. edge_risk (lines 105-121) parses the body's own browser paths and skips when the first existing one is msedge or none can be found. run_body calls it before writing (lines 127-131). `python -I tests/acceptance/test_run_finish_edge_guard.py`: Ran 1 test, OK, exit 0."
+   },
+   {
+    "key": "O-030",
+    "discharged": "yes",
+    "evidence": "run_finish.py: the CHROME constant is removed (line 67 is now TIMEOUT), and no install path or `or CHROME` fallback remains (grep: no CHROME_BIN or chrome.exe literal in run_finish.py outside the regex and docstring). `python -I tests/acceptance/check_run_finish_needs_chrome_bin.py` prints 'ok: the body was not run', exit 0. `run_finish.py --others --only e004_2` passes in 9 s on its own Chrome path."
+   },
+   {
+    "key": "O-027",
+    "discharged": "no",
+    "evidence": "Waived to note N-160. run_finish.py main() is unchanged by this diff, and the `any(p == r[1] for r in results)` filter still applies without --only. For the record, the waiver's reason ('reads_source') does not describe that repro. It imported run_finish and called main() with read_bodies, copy_tree and run_body mocked. It never read the source as text."
+   },
+   {
+    "key": "O-028",
+    "discharged": "no",
+    "evidence": "Waived to note N-158 for the comment fixer. internal/server/clientaddr.go is not touched by this diff, so the type comment at lines 26-33 is as before."
+   },
+   {
+    "key": "O-029",
+    "discharged": "no",
+    "evidence": "Carried to SC-040. The .taad/fitness.yaml narrow rule (lines 455-458) is unchanged, so bare \"X-Forwarded\", \"Cf-Pseudo-IPv4\" and \"CF-Connecting-IPv6\" still pass."
+   },
+   {
+    "key": "O-031",
+    "discharged": "no",
+    "evidence": "Waived to note N-159. clientaddr.go:86-92 is unchanged: an untrusted internal peer with no X-Forwarded-For is still counted as the client with no warning."
+   },
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "Unchanged since my first review. This diff touches only tests/acceptance and engine records. internal/reports/list_published_test.go TestListPublished."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "Unchanged. internal/server/showall_test.go TestShowAll."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "Unchanged. internal/server/storefault_test.go:126-129."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "Unchanged. internal/votes/likes_test.go and vote_test.go:507-520."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "Unchanged. visible_counts_test.go and showall_test.go TestShowAllCommentCount."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "Unchanged. internal/opens/opens_test.go TestRecord."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "Unchanged. internal/server/opens_test.go TestOpenCounting."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "Unchanged. opens_test.go TestObviousBot."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "Unchanged. clientaddr_test.go plus testdata/client_addr_corpus.json."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "Unchanged. config_test.go TestTrustedProxies and main_test.go:402-429."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "Unchanged. store/opens_migration_test.go and opens_test.go TestNoPlainAddressStored."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "Unchanged. reader_test.go:681-688."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "Unchanged. .taad/fitness.yaml and rule_spellings.json. Engine Fitness reported no broken rule in files this build changed."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "run_finish.py --others with the changed guard: edge_risk returns '' for all 12 other-epic bodies (measured). `--others --only e004_2` passes end to end in 9 s. All 12 passed in my first-round run, and the guard changes nothing for the 11 bodies that do not name msedge."
+   },
+   {
+    "key": "O-015",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice, and only the deployment can show it (C11)."
+   },
+   {
+    "key": "O-016",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice. It is about when the acceptance bodies run relative to 00:00 UTC, not about the code."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "Unchanged. clientaddr.go:94-114 and corpus rows m1-*."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "run_finish.py --e002 path: edge_risk returns '' for all four E-002 bodies (measured: none names msedge), so they run as before. In my first round all four passed."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "Unchanged. .taad/fitness.yaml:11 and :20."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "Unchanged. .taad/fitness.yaml:457-458 and rows fwn-f014..f025."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "Unchanged. internal/opens/opens.go:163."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "Unchanged. clientaddr.go:34-44 and router.go:86."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "Unchanged. comments/tree.go:44 commentRows."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "Unchanged. reader.go:193. The E-002 bodies pass with owner exclusion on."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "Unchanged. opens_test.go:269-325."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "Unchanged since my first review: list_published_test.go builds every named shape."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "Unchanged: showall_test.go TestShowAll."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "Unchanged: storefault_test.go:126-129."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "Unchanged: likes_test.go and the vote_test.go observe() guard."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "Unchanged: visible_counts_test.go and TestShowAllCommentCount."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "Unchanged: opens_test.go TestRecord."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "Unchanged: opens_test.go TestOpenCounting."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "Unchanged: TestObviousBot."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "Unchanged: client_addr_corpus.json via TestClientAddr."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "Unchanged: TestTrustedProxies and TestBinary."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "Unchanged: TestMigrateFiveToSix and TestNoPlainAddressStored."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "Unchanged: TestReaderPathVariants over both harnesses."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "Unchanged: rule_spellings.json rows for the five rules."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "The checker changed. edge_risk returns '' for every other-epic ledger body (measured in place, mode=ro), and `run_finish.py --others --only e004_2` passes end to end on its own Chrome path. The other 11 do not name msedge and run unchanged."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12090,
+   "filed": 1
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 2,
+    "changed": 3,
+    "listed": 1
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 3,
+   "read_whole": 2,
+   "deleted": [],
+   "runs": [
+    12085,
+    12089,
+    12090
+   ],
+   "range": {
+    "base": "1251104e8b32040527cd01b12a8f3c33abe9b931",
+    "head": "4f0678106d4fc688432362e0a9a764d0838690a5",
+    "source": "commits",
+    "hunk_base": "08396c2f0055b7304dd73a6293a7a2cc0d80ab02",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [
+    {
+     "path": "tests/acceptance/run_finish.py",
+     "state": "partly-opened",
+     "section": "lines 151-211 of 211",
+     "reason": "a Read returned only part of it; seen only as 8 Grep lines; seen only through a shell command: $env:taad3_home, $env:taad3_home (before the build), $py, git log; 124 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 211,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

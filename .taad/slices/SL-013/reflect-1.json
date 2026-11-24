@@ -1,0 +1,178 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-013",
+ "stage": "reflect",
+ "attempt": 1,
+ "at": "2026-11-24T18:54:32.085Z",
+ "head": "976e6497b66759ee8e9591ec9ec378c1730c6f02",
+ "run_id": 12100,
+ "summary": "SL-013 shipped the show-all page at GET /reports and open counting. It added migration 0006 (report_opens), a new internal/opens package, a per-app clientResolver reading X-Forwarded-For from HBAND_TRUSTED_PROXIES, an obvious-bot filter, and tests/acceptance/run_finish.py to run the ledger's finish bodies. Product code matched the design at the first code review. Most of the later rework (build #2, code reviews #3 to #5) went on the acceptance runner's Edge guard that critique fix M2 prescribed, not on product behaviour. Validation passed at 976e649 on a live binary, with C11 (the real VPS proxy) left to a person under SC-039.",
+ "payload": {
+  "status": "complete",
+  "summary": "SL-013 shipped the show-all page at GET /reports and open counting. It added migration 0006 (report_opens), a new internal/opens package, a per-app clientResolver reading X-Forwarded-For from HBAND_TRUSTED_PROXIES, an obvious-bot filter, and tests/acceptance/run_finish.py to run the ledger's finish bodies. Product code matched the design at the first code review. Most of the later rework (build #2, code reviews #3 to #5) went on the acceptance runner's Edge guard that critique fix M2 prescribed, not on product behaviour. Validation passed at 976e649 on a live binary, with C11 (the real VPS proxy) left to a person under SC-039.",
+  "estimate_error": "Opened as medium with a high risk tier. The risk tier was right and the size was too small. Lesson #970 already said a new table plus a public page plus a privacy constraint is large, and the design retiered to high. The slice ran 14 material case obligations and 34 obligations in all (O-001..O-034). Build #1 changed 35 files (08396c2f). It took 2 risk spikes, 2 critiques, 2 critique reviews, 2 builds, 5 code reviews and 3 validates. Part of that was not slice difficulty. Validate #1 was cut off by the provider's 5-hour limit. Validate #2 halted only because O-015 was open although C11 (SC-039) was already a person's check. The product code needed no rework beyond a comment fix and fitness-rule patterns.",
+  "learned": [
+   {
+    "kind": "process",
+    "lesson": "A fix that prescribes a runner for ledger bodies has to be checked against the open-questions list. M2's fix prescribed running all 12 other-epic bodies through one script while Q-028 was already open: e004_2's ledger body hard-codes an msedge fallback and ignores CHROME_BIN. The first run_finish.py keyed its Edge guard on CHROME_BIN and carried a hard-coded Chrome install path. That one defect drove build #2 and code reviews #3 to #5. Before prescribing any script that executes ledger bodies, grep the bodies for 'msedge' and for browser paths.",
+    "evidence": "Review #721 and build #444. O-026 and O-030 were proved only by the code reviewer's two repro tests. Q-028 is on the project's open list. M2's critic_on_this_fix described the script but never mentioned a browser."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "threadDepthCap is 5 (internal/server/thread.go:20), not 100. Replies deeper than the cap are drawn on branch pages (readBranch, GET /reports/{slug}/comments/{id}). The count printed on a report is the whole-thread comments.Visible number. Any 'drawn equals printed' check must sum the report page and its branch pages (110 = 5 on the page plus the rest on 27 branch pages). Older lessons that say deeper replies are 'stored but never drawn' (#954) are stale. A spike plan built from one produced a no-go that refuted an assumption the design never used, and cost a spike halt.",
+    "evidence": "Spike visible-comment-count-four-way-agreement: B is SQL=Tree=printed=110 but the page draws 5, with cap 5 and 27 branch pages. Risk-spike #2 passed anyway, because the design only needs the whole-thread number."
+   },
+   {
+    "kind": "estimate",
+    "lesson": "Open a slice as large when it adds a table, a public page and a privacy constraint. Expect the laps to land on new test or acceptance tooling and on fence and regex rules, not on product code. Here the product passed code-review #1 with only a comment fix and fitness-rule holes. The new tooling needed build #2 and code reviews #3 to #5.",
+    "evidence": "Opened medium, retiered high by the design. 34 obligations, 14 of them case obligations. Code review ran 5 times, validate 3 times, build 2 times. Lesson #970 had already said large."
+   },
+   {
+    "kind": "risk",
+    "lesson": "clientResolver warns in only three collapse shapes: an untrusted peer that sends X-Forwarded-For, a trusted peer with no untrusted client entry, and a client that resolves to an internal address. The shipped default (HBAND_TRUSTED_PROXIES unset) behind a proxy that sends no X-Forwarded-For counts every visitor as the proxy and logs nothing. The build's own instruction to read the log for C11 therefore cannot tell a healthy deployment from a silent R-004 collapse. Judge C11 by counts from two networks, not by the log.",
+    "evidence": "Code-review #1 second reader, IN-m3, waived as O-031 and kept as N-159. The validator's 'what would change this' lists both views up by 1 rather than 2 and a log line, but the log is empty in this shape."
+   },
+   {
+    "kind": "process",
+    "lesson": "When the build check has already filed a criterion as checked_by: person (C11, which became SC-039), the design's matching imported precondition still turns into an obligation aimed at validate. That cost a validate lap: validate #2 'passed, but 1 obligation (O-015) aimed at this stage is still open', and validate #3 waived it. Mark such preconditions as covered by the person's check in the design, so no obligation is raised for validate.",
+    "evidence": "O-015 was waived into note N-174. SC-039 was filed at the build check. Validate #2 halted and validate #3 passed on the same evidence."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "The show-all row text is pinned twice. internal/testutil/e002row ports the E-002 reader and TestShowAll feeds every row through it. tests/acceptance/run_finish.py --e002 runs the four ledger bodies against a build of the tree. A row must read 'N likes · N comments · N views' with the date last, because a count straight after the date makes E-002's reader fail with 'cannot be read apart'. The opens label has to be 'view(s)', because '1 time opened' cannot be written and still pass. Any later change to the row markup must pass both checks.",
+    "evidence": "O-002 and O-018 (run_finish.py --e002 exits 0). Lesson #979 and the spike's first stub failure ('2026-11-24 0 likes')."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "The server test harness builds requests with httptest.NewRequest, which sets no User-Agent. They come from 192.0.2.1, which is not a trusted proxy. Under ObviousBot those requests are bots, so existing before/after comparisons never see opens move. Any new test that expects an open must set a browser UA, and for the proxy path must also come from a peer listed in the resolver's trusted list with X-Forwarded-For.",
+    "evidence": "Design coherence_check item 7 and the harness_test.go serve claim. TestOpenCounting covers 16 non-counting shapes."
+   },
+   {
+    "kind": "process",
+    "lesson": "The full suite `go test -count=1 -p 4 ./...` is noisy because TestConcurrentVotesNoBusy flakes with SQLITE_BUSY under machine load. One full-suite pass or fail is weak evidence for any slice. Re-run the failing package alone before reading it as a regression.",
+    "evidence": "Validation #270: failed in 2 of 3 full-suite runs on HEAD 976e649 and 1 of 3 on baseline 1251104, same error. `go test -count=3 -run '^TestConcurrentVotesNoBusy$' ./internal/votes` passed 3 of 3."
+   },
+   {
+    "kind": "process",
+    "lesson": "The input-driven second reader in code review earned its cost here. Feeding made-up inputs to a scratch copy found the fitness-rule holes (X-Forwarded, Cf-Pseudo-IPv4, CF-Connecting-IPv6), the untrusted-peer silence and the Edge guard. The main reader found none of these. The same review read 9 of 31 changed files only partly, including .taad/fitness.yaml (lines 31-429 of 511 unseen) and rule_spellings.json (lines 60-467 of 564 unseen, which holds most of the 89 new rows). Keep the input-driven pass for any slice that adds a regex fence, and read the corpus rows whole.",
+    "evidence": "Code-review #1, the 'second reader, for inputs' section and the engine's 'not read whole' measurement on 9 files."
+   }
+  ],
+  "lessons_judged": [
+   {
+    "id": 979,
+    "verdict": "used",
+    "why": "The row is 'N likes · N comments · N views' with the date last, and the count is Visible-equivalent through VisibleCounts. TestShowAll feeds rows through the e002row port, and the four E-002 bodies pass against the build."
+   },
+   {
+    "id": 948,
+    "verdict": "used",
+    "why": "observe() in vote_test.go now fails INVALID unless /reports lists x and y with number blocks (O-004), so the dislike-privacy test really covers the new route."
+   },
+   {
+    "id": 944,
+    "verdict": "used",
+    "why": "The open hook sits in renderReader, and TestReaderPathVariants pins /reports, HEAD, POST, PUT, //reports and /REPORTS by hand (O-012)."
+   },
+   {
+    "id": 949,
+    "verdict": "used",
+    "why": "Record is one INSERT…SELECT…ON CONFLICT DO NOTHING with a no-transaction fence on internal/opens. Caveat: TestConcurrentVotesNoBusy failed with SQLITE_BUSY under whole-suite load on the baseline too. The '0 BUSY' claim may be load-dependent, and the flake is not diagnosed."
+   },
+   {
+    "id": 930,
+    "verdict": "used",
+    "why": "0006 is the next gapless file and migrate.go is unchanged. TestMigrateFiveToSix migrates a populated v5 database and checks cascade, STRICT, WITHOUT ROWID and a second start."
+   },
+   {
+    "id": 958,
+    "verdict": "used",
+    "why": "The design copied 0003_votes.sql's FK and cascade shape and dropped the NULL-redaction schema because the NULL-distinct UNIQUE behaviour was never measured. No schema fork was left untested, and there was no second design lap."
+   },
+   {
+    "id": 929,
+    "verdict": "used",
+    "why": "TestTrustedProxies covers the unset variable (trusts nobody). TestBinary runs with HBAND_TRUSTED_PROXIES unset and serves /healthz and /reports, and with a malformed value it exits 2."
+   },
+   {
+    "id": 970,
+    "verdict": "used",
+    "why": "The design retiered to high because of the lesson. The slice was still opened as medium, and it behaved as large: 34 obligations, 5 code reviews and 3 validates, with the weight on review and validation rather than the build."
+   },
+   {
+    "id": 960,
+    "verdict": "used",
+    "why": "The design cited it to read four whole-table counts, each in the package that owns its table, instead of one Tree call per report, which would read every comment body only to count them."
+   }
+  ],
+  "candidates": [
+   {
+    "title": "Warn once when an untrusted internal peer sends no X-Forwarded-For (silent view-count collapse on the shipped default)",
+    "urgency": "soon",
+    "why": "internal/server/clientaddr.go, clientResolver.addr, untrusted-peer branch (about lines 86-92 at 08396c2f). It returns `peer, true` and warns only when X-Forwarded-For lines are present. With HBAND_TRUSTED_PROXIES unset and a proxy that sends no header (a bare proxy_pass), every visitor is counted as the proxy and the log is empty. Code-review #1 filed it as IN-m3. It was waived as O-031 and kept only as note N-159. The build report tells the person's C11 check (SC-039) to read that log. The client-address corpus is internal/server/testdata/client_addr_corpus.json (67 rows at validation). Add a row for this shape, and an address-free once-only warning that goes through internalAddr. E-002 bodies send XFF from a trusted 127.0.0.1 and are unaffected. Whether this shape should also stop counting is a design call, since M1 chose not to count the trusted-peer equivalent."
+   },
+   {
+    "title": "Diagnose TestConcurrentVotesNoBusy failing with SQLITE_BUSY under the full-suite load",
+    "urgency": "soon",
+    "why": "Validation #270 measured `go test -count=1 -p 4 ./...`: failed in 2 of 3 runs at HEAD 976e649 and 1 of 3 at baseline 1251104, same SQLITE_BUSY error. `go test -count=3 -run '^TestConcurrentVotesNoBusy$' ./internal/votes` passed 3 of 3. Small samples, so this slice's effect cannot be told apart. It is pre-existing, but the slice added one write to the serving pool on every public report GET (opens.Record, 2 s context, fail-open). If Cast really returns BUSY under load, lesson #949's 'single statement gives 0 BUSY' only holds on a quiet machine. If it is only a test-timing artefact, the test needs a load-proof bound. Either way the full-suite gate is currently noisy."
+   },
+   {
+    "title": "Fix the header nav alignment now that 'All reports' sits beside 'Sign in with GitHub'",
+    "urgency": "soon",
+    "why": "Validation #270: in real Chrome, 'Sign in with GitHub' sits about 8 px higher than the new 'All reports' link. It shows in the engine's s1-wide-light and s1-phone-light shots and in the validator's own rep-wide.png. The cause is .signin's min-height at internal/server/site.css:4-9, now exposed by this slice's link in templates/layout.html. The header is on every page. No acceptance body reads the position, so nothing will catch it."
+   }
+  ],
+  "missed": [
+   {
+    "gate": "critique",
+    "what": "M2's prescribed fix (one checker script, tests/acceptance/run_finish.py, running every ledger body) never asked what a body does when its browser launch falls back to msedge. Q-028 was already open and recorded that e004_2's ledger body hard-codes an msedge path and ignores CHROME_BIN. The first script keyed its Edge guard on CHROME_BIN and carried a hard-coded Chrome install path. Code-review #1 measured that with CHROME_BIN unset the script ran a body naming msedge. A usable check would grep the 12 baseline bodies for 'msedge' and for browser paths before prescribing a runner that executes them.",
+    "dimension": "missing-edge-cases",
+    "severity": "minor",
+    "caught_by": "code-review #1 (second reader, repro tests); fixed by build #2, reviewed in code reviews #3 to #5",
+    "prescribed_fix": "M2"
+   },
+   {
+    "gate": "critique",
+    "what": "M1's prescribed fix (a trusted peer with no untrusted client entry is not counted, plus a warning), and the critic's extension to an inner-hop-only list, still left the shipped default silent. With HBAND_TRUSTED_PROXIES unset, an untrusted internal peer (the proxy) that sends no X-Forwarded-For is returned as the client with no log line, which is the same R-004 collapse M1 was filed for. The critique never ran the check 'with the variable unset and no XFF, does anything get logged?', which lesson #929 says to ask of every shipped default. It was waived afterwards (O-031, N-159).",
+    "dimension": "error-paths",
+    "severity": "major",
+    "caught_by": "code-review #1 second reader (IN-m3); waived, not built",
+    "prescribed_fix": "M1"
+   },
+   {
+    "gate": "critique",
+    "what": "m2's prescribed fix replaced a five-name list with shape patterns for client-identity header names, but nobody ran the patterns against a real real-IP library's header list. They stayed quiet on \"X-Forwarded\", \"Cf-Pseudo-IPv4\" and \"CF-Connecting-IPv6\", in either quote style. This is the same class closed once and reopened, now carried to SC-040. A usable check is a fire row for each header in request-ip's list before accepting the patterns.",
+    "dimension": "cross-cutting-conformance",
+    "severity": "minor",
+    "caught_by": "code-review #1 second reader (IN-m1); waived into SC-040",
+    "prescribed_fix": "m2"
+   }
+  ],
+  "what_went_wrong": [
+   "The slice was opened as medium although lesson #970 says a new table plus a public page plus a privacy constraint is large. It then ran 34 obligations, 14 of them cases, with 5 code reviews and 3 validates. The design retiered it to high, but the opening size stayed medium.",
+   "Most of the late rework (build #2, code reviews #3 to #5) was for tests/acceptance/run_finish.py, a script the slice's own M2 fix created. Its Edge hazard was already on the open-questions list as Q-028 and was not weighed when the fix was prescribed. The product code itself passed code-review #1 with a comment fix and fitness-rule gaps.",
+   "The risk spike halted with a no-go because its plan assumed threadDepthCap=100 from a stale lesson. The tree has 5 and branch pages. The design never relied on the refuted assumption, so the halt cost a lap and bought nothing.",
+   "The client-identity header-name fitness rule was 'closed' by m2 and then by the shape patterns, and a second reader still found three uncovered names. It was carried to SC-040 instead of being fixed here.",
+   "M1's fix and its critic left the silent default shape (unset variable, internal peer, no X-Forwarded-For). It was waived (O-031). The build's own advice for C11 is to read a log that is empty in exactly that case.",
+   "Validate #1 was cut off by the provider's 5-hour limit, and validate #2 halted only because O-015 stayed open even though SC-039 (C11) already existed. Two validate laps bought nothing the third did not.",
+   "Code-review #1 read 9 of 31 changed files only partly, including .taad/fitness.yaml (lines 31-429 of 511 unseen) and most of rule_spellings.json (lines 60-467 of 564 unseen, where the 89 new rows are). Code-review #3 did not see run_finish.py lines 151-211 of 211. The input-driven second reader caught the fence holes anyway, but the review was not reading the whole file.",
+   "O-027 (the `--others` filter in run_finish.py lets a baseline body that is missing from the ledger results pass vacuously) was waived because its repro read the source as text. It was not shown to be fixed. The validator's note that skipped bodies count as failures covers a different case."
+  ],
+  "unknowns": [
+   "What peer address does hband see in production behind the VPS proxy over WireGuard (the WireGuard peer or a Docker bridge gateway), and does the proxy send X-Forwarded-For (appended or set, one hop or several, IPv6)? SC-039 / C11 settles it. Any later per-visitor feature (rate limits, abuse controls) must wait for this before it trusts clientResolver.",
+   "Does TestConcurrentVotesNoBusy fail because of load-dependent timing or because votes.Cast really returns SQLITE_BUSY under whole-suite load? It decides whether lesson #949's 'single statement gives 0 BUSY' holds at that load, and whether the new per-GET open write adds to the contention.",
+   "Does production's database migrate cleanly to user_version 6? Its real version and data were not reached (only fixtures and a fresh scratch database were migrated). Q-015 and Q-016 already leave open whether it is at v2 or v3.",
+   "How often does a real deployment restart mid-day? The in-memory visitor key means each restart counts a returning visitor once more that day. Redeploy frequency decides whether that bounded overcount stays small.",
+   "Can run_finish.py --others still exit 0 when a BASELINE body is missing from the ledger's results (O-027, N-160)? It was waived without a failing test."
+  ],
+  "reason": "SL-013 is accepted at 976e649. This reflection lists the follow-ups that landed, the misses recorded against the critique gate, and the project-specific lessons for the next slice.",
+  "filed": [
+   {
+    "key": "SC-039",
+    "title": "Check by hand: C11: Through the real VPS proxy over WireGuard, counts are keyed by each visitor's own address, not the proxy's",
+    "urgency": "soon",
+    "source": "survey"
+   }
+  ]
+ }
+}

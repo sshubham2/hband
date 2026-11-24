@@ -1,0 +1,67 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-013",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-24T16:21:56.800Z",
+ "head": "4f0678106d4fc688432362e0a9a764d0838690a5",
+ "run_id": 12088,
+ "summary": "Fixed run_finish.py's Edge guard. The hard-coded CHROME constant and the `CHROME_BIN or CHROME` fallback are gone. A new edge_risk(body) reads the browser paths the body itself names. A body that names msedge runs only if the first browser path it names that exists here is not Edge. If the body's list can't be read, or its first existing path is Edge, it is skipped and not even written to the tree. I added the two code-review tests unchanged. Both pass, and I ran the second with CHROME_BIN set and unset. Against the real ledger bodies, edge_risk returns empty for all 16, so test_e004_2 still runs through its own Chrome path first. E-002 body e002_2 still passes through the changed script.",
+ "payload": {
+  "status": "complete",
+  "summary": "Fixed run_finish.py's Edge guard. The hard-coded CHROME constant and the `CHROME_BIN or CHROME` fallback are gone. A new edge_risk(body) reads the browser paths the body itself names. A body that names msedge runs only if the first browser path it names that exists here is not Edge. If the body's list can't be read, or its first existing path is Edge, it is skipped and not even written to the tree. I added the two code-review tests unchanged. Both pass, and I ran the second with CHROME_BIN set and unset. Against the real ledger bodies, edge_risk returns empty for all 16, so test_e004_2 still runs through its own Chrome path first. E-002 body e002_2 still passes through the changed script.",
+  "files": [
+   {
+    "path": "tests/acceptance/run_finish.py",
+    "change": "modified",
+    "why": "Removed the CHROME install-path constant and the `or CHROME` fallback. Added edge_risk(body), a guard keyed on the browser paths the body itself lists. run_body skips a body that could start Edge before writing it."
+   },
+   {
+    "path": "tests/acceptance/test_run_finish_edge_guard.py",
+    "change": "added",
+    "why": "The code review's test for O-026, as given: a body that would fall back to msedge is not run when CHROME_BIN names a Chrome elsewhere."
+   },
+   {
+    "path": "tests/acceptance/check_run_finish_needs_chrome_bin.py",
+    "change": "added",
+    "why": "The code review's test for O-030, as given: with CHROME_BIN unset, a body that names msedge is not run."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-026",
+    "done": true,
+    "how": "edge_risk(body) in tests/acceptance/run_finish.py parses the browser paths out of a body that names msedge. The body runs only when the first such path that exists on this machine is not Edge. It is skipped when no path can be parsed or the first existing one is msedge. CHROME_BIN is no longer consulted and no install path is written in the script. tests/acceptance/test_run_finish_edge_guard.py is in place as given, and `python -I tests/acceptance/test_run_finish_edge_guard.py` now passes (exit 0).",
+    "not_mutable": "A mutation only needs a test that goes red without the fix, and one exists: replacing `why = edge_risk(body)` with `why = \"\"` in run_finish.py makes test_run_finish_edge_guard.py fail, because the body is then run. The obligation is minor, so a mutation entry was not required."
+   },
+   {
+    "key": "O-030",
+    "done": true,
+    "how": "The CHROME constant and the `os.environ.get(\"CHROME_BIN\") or CHROME` fallback are deleted from run_finish.py. The guard is keyed on the browser list inside the body, as the finding's better option says, and it runs before the body is written. tests/acceptance/check_run_finish_needs_chrome_bin.py is in place as given and prints 'ok: the body was not run' with exit 0, both with CHROME_BIN unset and with it set. Msedge is installed on this machine, and the guard still skips that body because the first existing path is Edge. It did not start Edge.",
+    "not_mutable": "A mutation only needs a test that goes red without the fix, and one exists: replacing `why = edge_risk(body)` with `why = \"\"` in run_finish.py makes check_run_finish_needs_chrome_bin.py print FAIL and exit 1, because ran.txt is created. The obligation is minor, so a mutation entry was not required."
+   }
+  ],
+  "tests": [
+   {
+    "command": "python -I tests/acceptance/test_run_finish_edge_guard.py",
+    "outcome": "passed",
+    "note": "Ran 1 test, OK, exit 0."
+   },
+   {
+    "command": "python -I tests/acceptance/check_run_finish_needs_chrome_bin.py",
+    "outcome": "passed",
+    "note": "'ok: the body was not run', exit 0. I ran it with CHROME_BIN set and with it unset."
+   },
+   {
+    "command": "python -I (scratch script) printing edge_risk for the 16 ledger bodies of E-001..E-006 and E-002, read from the ledger with mode=ro",
+    "outcome": "passed",
+    "note": "All 16 return an empty reason. test_e004_2 still runs because its own Chrome path is the first existing one."
+   },
+   {
+    "command": "python -I tests/acceptance/run_finish.py --e002 --only e002_2",
+    "outcome": "passed",
+    "note": "The body passes in 5 s through the changed run_body. The guard changed nothing for a body that doesn't name msedge."
+   }
+  ]
+ }
+}
