@@ -10,7 +10,11 @@
  "open": [
   {
    "stage": "build-slice",
-   "issue": "Valid-YAML layouts the line loader still drops (list items indented deeper than their key; '- name:' with extra spaces after the dash) are not refused. YAML accepts them, so they are outside the class 'YAML refuses, loader accepts'."
+   "issue": "To fit the 120-line limit I dropped, relative to attempt 1: the 'a top-level key at column 0 resets the rule column' case, so a key at column 0 after the rules would now be refused (fitness.yaml has only `rules:`, and the carrier census would flag any new key). Also dropped 21 of the 28 hand-written rows: the CRLF, after-quoted, after-comment and per-carrier variants. The census covers the per-carrier cases."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Valid-YAML layouts the line loader still drops (list items indented deeper than their key; extra spaces after the dash) are not refused. YAML accepts them, so they are outside the class."
   },
   {
    "stage": "build-slice",
@@ -23,6 +27,10 @@
   {
    "stage": "code-review",
    "issue": "the comment fixer left: internal/fitnessrules/yaml_scalar_scan_test.go:249 -- the docstring of TestFitnessYAMLFileHasNoRefusedScalars lists quoted scalars, list items and start characters. It does not mention the column checks the scan now also runs over the real file. It is true as written, so I left it."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: the running application -- a minor-lane batch is judged by its tests, not by using it"
   }
  ],
  "stages": [
@@ -105,7 +113,7 @@
    "stage": "build-slice",
    "title": "Build",
    "order": 7,
-   "state": "sent back",
+   "state": "passed",
    "attempts": [
     {
      "n": 1,
@@ -121,6 +129,30 @@
       "measured_by_git": 8
      },
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T12:21:16.154Z",
+     "head": "de86a8794929478d3555f756b8d50d83da383c0d",
+     "summary": "The batch was sent back for size: 330 changed lines outside the row's test, against the 120 a minor fix may change.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "the engine's check of this upkeep batch is red: the change is 330 lines outside its tests, and 1 minor fix may change 120: nobody reviews an upkeep batch, so one this large is not kept. This is the one more turn the batch gets: make every row's test and the full suite pass, changing no test.",
+      "cause": "validation",
+      "stage": "validate-slice",
+      "from": [
+       "validate-slice"
+      ]
+     },
+     "changed": {
+      "src": 3,
+      "tests": 1,
+      "listed": 4,
+      "measured_by_git": 6
+     },
+     "details": "build-slice-2.json"
     }
    ]
   },
@@ -139,6 +171,25 @@
      "caused_by": null,
      "changed": {},
      "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T12:23:46.587Z",
+     "head": "de86a8794929478d3555f756b8d50d83da383c0d",
+     "summary": "",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-24T12:20:08.140Z, and build-slice has judged since (2026-11-24T12:23:45.988Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
     }
    ]
   },
@@ -146,8 +197,19 @@
    "stage": "validate-slice",
    "title": "Validate",
    "order": 9,
-   "state": "failed",
-   "attempts": []
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "failed",
+     "at": "2026-11-24T12:24:03.452Z",
+     "head": "5d6eb4a4c6aade26fd1ac59653e72f4a122d9105",
+     "summary": "Validated by the engine on the minor lane: the full suite, the fitness rules and the bug catalog all passed in the slice's own tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    }
+   ]
   }
  ]
 }

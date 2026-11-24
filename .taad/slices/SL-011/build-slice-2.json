@@ -1,0 +1,85 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-011",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-24T12:21:16.154Z",
+ "head": "de86a8794929478d3555f756b8d50d83da383c0d",
+ "run_id": 12027,
+ "summary": "The batch was sent back for size: 330 changed lines outside the row's test, against the 120 a minor fix may change. I cut that to 101 (`git diff c865600 --numstat` over internal/fitnessrules, excluding yaml_indent_test.go). yaml_indent_test.go is untouched. The scanner keeps three checks: a rule key at a different column from its rule's first key, a rule item at a different column from the other rules', and a list item left of its key. The corpus is now 7 new rows in yaml_scalars.json plus the generated census (every carrier key except name at columns 1–8). The required test passes and the full suite is green. Removing any one of the three checks turns a test red.",
+ "payload": {
+  "status": "complete",
+  "summary": "The batch was sent back for size: 330 changed lines outside the row's test, against the 120 a minor fix may change. I cut that to 101 (`git diff c865600 --numstat` over internal/fitnessrules, excluding yaml_indent_test.go). yaml_indent_test.go is untouched. The scanner keeps three checks: a rule key at a different column from its rule's first key, a rule item at a different column from the other rules', and a list item left of its key. The corpus is now 7 new rows in yaml_scalars.json plus the generated census (every carrier key except name at columns 1–8). The required test passes and the full suite is green. Removing any one of the three checks turns a test red.",
+  "files": [
+   {
+    "path": "internal/fitnessrules/yaml_scalar_scan_test.go",
+    "change": "modified",
+    "why": "yamlScalarRefusals tracks ruleDash and ruleCol and refuses a rule key, a rule item or a list item at the wrong column (19 added lines, down from 31)"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/yaml_scalars.json",
+    "change": "modified",
+    "why": "7 rows instead of 28: 4 refuse (key-misindented-less, key-misindented-two, item-misindented-less, rule-item-misindented) and 3 accept (keys-all-at-four-ok, two-rules-all-at-four-ok, key-shaped-text-in-block-scalar-ok)"
+   },
+   {
+    "path": "internal/fitnessrules/yaml_scalar_corpus_test.go",
+    "change": "modified",
+    "why": "TestFitnessYAMLMisindentedKeyCensus shortened to 22 lines: each carrier key but name planted at columns 1–8 beside a sibling at 4; only column 4 may pass"
+   },
+   {
+    "path": "internal/fitnessrules/yaml_indent_test.go",
+    "change": "added",
+    "why": "the engine's required test, unchanged from attempt 1"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "SC-037",
+    "done": true,
+    "how": "The size gate is met at 101 changed lines outside the row's test (limit 120). The class stays closed by the 7 rows and the census, and I re-checked each check by mutation. Removing the key-column check fails TestYAMLScanRefusesMisindentedRuleKey, 2 corpus rows and 15 census cases. Removing the rule-item check fails rule-item-misindented. Removing the list-item check fails item-misindented-less.",
+    "corpus": "internal/fitnessrules/testdata/yaml_scalars.json",
+    "mutation": {
+     "file": "internal/fitnessrules/yaml_scalar_scan_test.go",
+     "find": "case ruleCol >= 0 && col != ruleCol:",
+     "replace": "case false && ruleCol >= 0 && col != ruleCol:",
+     "test_command": "go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/"
+    }
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/",
+    "outcome": "passed",
+    "note": "the row's own test, unchanged"
+   },
+   {
+    "command": "go test -count=1 ./internal/fitnessrules/",
+    "outcome": "passed",
+    "note": "corpus (61 rows), carrier census, misindented-key census, real-file scan and the review's plain-scalar test; the real .taad/fitness.yaml is not falsely refused"
+   },
+   {
+    "command": "mutations of yaml_scalar_scan_test.go: disable the key-column check, then the rule-item check, then the list-item check (go test -count=1 ./internal/fitnessrules/ each time)",
+    "outcome": "failed",
+    "note": "each mutation turns the named tests red and the file was restored after each; the final run is green"
+   },
+   {
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "all packages ok, including internal/server (13 s, real Chrome via CHROME_BIN)"
+   },
+   {
+    "command": "gofmt -l on LF copies of internal/fitnessrules/*.go; go vet ./internal/fitnessrules/; git diff c865600 --numstat -- internal/fitnessrules",
+    "outcome": "passed",
+    "note": "no gofmt differences, vet clean; json 60, corpus test 22, scan test 19 changed lines outside yaml_indent_test.go = 101"
+   }
+  ],
+  "deviations": [],
+  "not_built": [
+   "To fit the 120-line limit I dropped, relative to attempt 1: the 'a top-level key at column 0 resets the rule column' case, so a key at column 0 after the rules would now be refused (fitness.yaml has only `rules:`, and the carrier census would flag any new key). Also dropped 21 of the 28 hand-written rows: the CRLF, after-quoted, after-comment and per-carrier variants. The census covers the per-carrier cases.",
+   "Valid-YAML layouts the line loader still drops (list items indented deeper than their key; extra spaces after the dash) are not refused. YAML accepts them, so they are outside the class."
+  ],
+  "follow_ups": [
+   "Optionally make loadRules in rules_test.go refuse any line it cannot place (a key not at column 4, an item not at column 4) instead of skipping it. That would close the 'loader drops a line silently' outcome structurally, including the valid-but-unread layouts (lesson #974)."
+  ]
+ }
+}

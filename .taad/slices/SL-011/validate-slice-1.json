@@ -1,0 +1,37 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-011",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-24T12:24:03.452Z",
+ "head": "5d6eb4a4c6aade26fd1ac59653e72f4a122d9105",
+ "run_id": null,
+ "summary": "Validated by the engine on the minor lane: the full suite, the fitness rules and the bug catalog all passed in the slice's own tree. No model ran; nothing opened the application.",
+ "payload": {
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "Validated by the engine on the minor lane: the full suite, the fitness rules and the bug catalog all passed in the slice's own tree. No model ran; nothing opened the application.",
+  "checks": [
+   {
+    "what": "the project's full test suite",
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "ok  \tgithub.com/sshubham2/hband/cmd/hband\t2.146s\nok  \tgithub.com/sshubham2/hband/internal/auth\t0.137s\nok  \tgithub.com/sshubham2/hband/internal/comments\t2.680s\nok  \tgithub.com/sshubham2/hband/internal/config\t0.362s\nok  \tgithub.com/sshubham2/hband/internal/feedback\t1.240s\nok  \tgithub.com/sshubham2/hband/internal/fitnessrules\t0.708s\nok  \tgithub.com/sshubham2/hband/internal/reports\t3.038s\nok  \tgithub.com/sshubham2/hband/internal/server\t13.243s\nok  \tgithub.com/sshubham2/hband/internal/store\t1.749s\n?   \tgithub.com/sshubham2/hband/internal/testutil/fakegithub\t[no test files]\nok  \tgithub.com/sshubham2/hband/internal/testutil/headless\t0.348s\nok  \tgithub.com/sshubham2/hband/internal/votes\t6.831s"
+   },
+   {
+    "what": "the fitness rules",
+    "outcome": "passed",
+    "evidence": "pass: 31 rule(s) checked"
+   },
+   {
+    "what": "the bug catalog",
+    "outcome": "passed",
+    "evidence": "empty: 0 rows / 0 PASS"
+   }
+  ],
+  "not_reached": [
+   "the running application -- a minor-lane batch is judged by its tests, not by using it"
+  ],
+  "obligations": []
+ }
+}
