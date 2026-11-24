@@ -425,10 +425,16 @@ type blockedComment struct {
 	// ReportHref is the report's reader page, or its admin page when it has none.
 	ReportHref string
 	// Reply is set for a reply. ParentHref is where the comment it answered is
-	// drawn, and is empty when that comment is not drawn anywhere (it is hidden with
-	// nothing visible below it, or the report has no reader page).
+	// drawn, and is empty when it is drawn nowhere: either the report has no reader
+	// page (ParentUnpublished: the parent is as the report's admin page lists it,
+	// and nothing says it is hidden), or the report is published and the thread
+	// does not draw the parent (it is hidden, with nothing visible below it).
 	Reply      bool
 	ParentHref string
+	// ParentUnpublished is set for a reply on a draft or unpublished report. Only
+	// the published case can say the parent is hidden, because only there is the
+	// thread as readers see it read.
+	ParentUnpublished bool
 }
 
 // blockedFeedback is one private message a blocked account sent.
@@ -449,8 +455,11 @@ type blockedFeedback struct {
 // A reply's link to the comment it answered is built the way landing builds one:
 // from the thread as readers see it (a.tree, one read per published report that
 // has a reply on the page), through comments.Find and branchRoot, so a parent
-// below the depth cap links to its branch page. A parent the thread does not draw
-// has no link, and a report with no reader page links to its admin page.
+// below the depth cap links to its branch page. A published report's parent that
+// the thread does not draw has no link and is called hidden. A report with no reader
+// page links to its admin page and its replies name no parent link and no verdict on
+// the parent (ParentUnpublished): the thread is not read for it, so the page cannot
+// tell a hidden parent from a visible one.
 func (a *app) adminBlocked(w http.ResponseWriter, r *http.Request, o auth.Owner) {
 	accounts, err := a.comments.Blocked(r.Context())
 	if err != nil {
@@ -468,6 +477,7 @@ func (a *app) adminBlocked(w http.ResponseWriter, r *http.Request, o auth.Owner)
 			if c.Published {
 				bc.ReportHref = "/reports/" + c.Slug
 			}
+			bc.ParentUnpublished = bc.Reply && !c.Published
 			if bc.Reply && c.Published {
 				forest, seen := forests[c.ReportID]
 				if !seen {

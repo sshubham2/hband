@@ -39,6 +39,122 @@
   {
    "stage": "build-check",
    "issue": "C9 The account's feedback is marked 'blocked' on the report's admin view, only for blocked senders, and Block controls exist on the admin moderation list: missing"
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No screens are declared. The Blocked users page and the admin report page sit behind GitHub sign-in, and config refuses to start without HBAND_* variables (lesson #961), so the engine cannot open them with a bare command. They were rendered and read through the real binary over HTTP instead, but not in a real browser (m9 was deferred by a person)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Not built, as decided: a Block entry point on feedback articles (m8), a size bound on the Blocked users page (m10), and a census of public write routes (m7). All three were deferred by decision."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Architecture globs: C-009 should own internal/server/templates/admin_blocked.html and admin_report.html, and C-005 or C-009 the new server tests (block_test.go, unblock_test.go). I could not file this as a paths edit because the record edits are capped at three."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "tests/acceptance/check_e006_1_stops_at_block.py is scaffolding that now reports 'passes outright'. Lesson #976 says it should go; its own docstring says it need not, so I left it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "A blocked reader is still shown the comment, vote and feedback forms (reader pages must stay byte-identical, #950) and gets a bare 403 text page when it presses one. Decide whether a friendlier notice is wanted."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "A signed-in Chrome render of /admin/blocked and the moderation list (m9), and the owner-page size bound (m10): /admin/blocked also does one feedback query per account and one thread read per published report with replies."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Run the engine's Fitness op=check on .taad/fitness.yaml; I had no such tool and relied on go test ./internal/fitnessrules plus a manual single-quote count."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Block's owner refusal is in the store, not in the handler as design 229 said: comments.New takes the owner id, Block returns ErrOwnerBlock and fails closed when no owner is pinned (decided findings m2 and its critic note). The handler only maps ErrOwnerBlock to 400."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Each Book (comments, votes, feedback) has an unexported isBlocked seam so the follow-up-read failure can be tested (finding m3's critic note). The design had a plain read."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The Blocked users page builds parent links through a.tree, Find and branchRoot, one read per published report that has a reply on the page, and prints 'in reply to a hidden comment' as text when the parent is drawn nowhere (finding m5's critic note). The design used a fixed /reports/<slug>#comment-<parent>."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: A blocked account's feedback is listed with a link to /admin/reports/<slug>#feedback-<id>, where the author reads and answers it, rather than the reader page. SenderMessage and BlockedComment also carry Published, which the design's types lacked, so an unpublished report links to its admin page."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Block and unblock take no field, and their handlers never read the body (lesson #973's 'decided choice to ignore the body'). They are classified 'no field' in TestPostRoutesAreClassified, and TestBlock sends every removeBodyRows shape to both."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: from=blocked is checked first in adminCommentRemove, so it lands on /admin/blocked for drafts and unpublished reports too (M1's critic note). bodyRow's landing went from a bool to a string."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The comments-package tests are named TestBlockStore, TestPostRefusesBlocked and so on, not TestBlock, because TestBlock names the server route test in the design. No workaround for an outside defect was needed, so there is no setting or notice."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 1-445 of 445) -- partly-opened: seen only through a shell command: $s, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/comments/comments_test.go (not seen: lines 1-455 of 455) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/comments/remove_test.go (not seen: lines 1-394 of 394) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/admin_test.go (not seen: lines 1-441 of 441) -- partly-opened: seen only as 15 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/branch_test.go (not seen: lines 1-550 of 550) -- partly-opened: seen only as 1 Grep line; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-1196 of 1196) -- partly-opened: seen only as 4 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/remove_test.go (not seen: lines 1-816 of 816) -- partly-opened: seen only as 5 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/router.go (not seen: lines 1-171 of 171) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/static/site.css (not seen: lines 1-42 of 42) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-479, 640-648 of 648) -- partly-opened: a Read returned only part of it; seen only as 5 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/vote_test.go:1-479,640-end -- only observe(), the dislike world's tail and TestDislikesDoNotInterfere's first subtest were read; the changed lines (507, 538-543) are inside what was read"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/remove_test.go -- judged from the diff hunks (376-441, 666-725) only, not read whole"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/branch_test.go -- judged from the diff hunks (102-115, 442-463) only"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/admin_test.go -- judged from the diff hunk (76-97) and adminPaths only"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/comment_test.go, internal/comments/comments_test.go, internal/comments/remove_test.go, internal/server/static/site.css -- one-line or few-line diffs, read as diffs only"
   }
  ],
  "stages": [
@@ -124,6 +240,47 @@
      "caused_by": null,
      "changed": {},
      "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T13:51:01.202Z",
+     "head": "1753d3f3041fd3cbb45b5898e5a57babe10d778a",
+     "summary": "Built SC-021 as designed.",
+     "caused_by": null,
+     "changed": {
+      "src": 27,
+      "config": 1,
+      "listed": 28,
+      "measured_by_git": 28
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T14:12:32.878Z",
+     "head": "1753d3f3041fd3cbb45b5898e5a57babe10d778a",
+     "summary": "SC-021 is built as designed, and every departure from the design is declared.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
     }
    ]
   }

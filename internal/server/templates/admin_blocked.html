@@ -17,7 +17,7 @@
 
 <h3>What it posted</h3>
 {{if .Comments}}<ul class="blocked-comments">
-{{range .Comments}}<li>{{if .Removed}}<span class="removed">removed</span>{{else}}<span class="body">{{.Body}}</span>{{end}} on <a href="{{.ReportHref}}">{{.Title}}</a>{{if .ParentHref}}, answering <a href="{{.ParentHref}}">the one it answered</a>{{else if .Reply}}, in reply to a hidden comment{{end}}
+{{range .Comments}}<li>{{if .Removed}}<span class="removed">removed</span>{{else}}<span class="body">{{.Body}}</span>{{end}} on <a href="{{.ReportHref}}">{{.Title}}</a>{{if .ParentHref}}, answering <a href="{{.ParentHref}}">the one it answered</a>{{else if .ParentUnpublished}}, in reply to a comment (the report has no reader page){{else if .Reply}}, in reply to a hidden comment{{end}}
 <time datetime="{{.Posted.Format "2006-01-02T15:04:05Z"}}">{{.Posted.Format "2006-01-02 15:04 UTC"}}</time>
 {{if not .Removed}}<details class="remove">
 <summary>Remove</summary>

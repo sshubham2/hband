@@ -1,0 +1,293 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-012",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-24T14:12:32.878Z",
+ "head": "1753d3f3041fd3cbb45b5898e5a57babe10d778a",
+ "run_id": 12045,
+ "summary": "SC-021 is built as designed, and every departure from the design is declared. Each changed source and template file was read whole: block.go, comments.go, votes.go, feedback.go, admin.go, comment.go, vote.go, feedback.go (server), thread.go, admin_blocked.html, admin_report.html and admin.html, plus the new test files.\n\n**What I ran:**\n- `go vet ./...` is clean, and every changed .go file passes gofmt at HEAD.\n- `go test -count=1 -p 4 ./...` passes in every package.\n- Fitness op=check passes all 31 rules. That is the engine run the builder said was still owed.\n- Both E-006 finish-line bodies from epic 44 exit 0 against the real binary: `test_e006_1_removal_and_placeholders.py` and `test_e006_2_blocking_and_unblocking.py`. I read them from the ledger with one `mode=ro` SELECT and ran them in a scratch copy of the tree.\n\n**What holds:**\n- **Refusals.** Post, Cast, Withdraw and Send each refuse a blocked account inside their own single statement. The follow-up read only picks the answer, and when that read fails the error is wrapped and never turned into a sentinel or nil. All three handlers turn a wrapped error into a 503.\n- **Owner refusal.** Block refuses the pinned owner and fails closed when no owner is set. The owner id is bound in `comments.New` at router.go:72.\n- **Remove from the Blocked users page.** `from=blocked` is handled first in adminCommentRemove and lands on /admin/blocked whatever the report's state.\n- **ParentHidden.** The rename and its wording are in place.\n- **Access tests.** observe() covers the block and unblock POSTs and GET /admin/blocked. TestFeedbackDoesNotInterfere reuses observe(), so it gets the same rows. ownerRouteStatus has the 200 for /admin/blocked.\n- **The tests feed the designed shapes:**\n  - owner id, non-canonical ids, repeats, and an id that never signed in;\n  - eleven refused writes, with Public and OwnerTally unchanged;\n  - hiding across two reports, with a placeholder for a blocked comment that has a visible reply;\n  - the per-account and per-comment parts of the page, including a parent below the depth cap and a hidden parent;\n  - a real Block form press, a real remove press and a real Unblock press, after which the comment removed during the block stays removed. This settles Q-026.\n\n**One contract defect, confirmed by a failing test in a scratch copy.** On the Blocked users page, a reply on a report that is not published is always labelled 'in reply to a hidden comment', even when its parent is visible and listed on that report's admin page. In the admin pages 'hidden' means removed or written by a blocked account.\n\n**Two text-only issues:**\n- The `comments.ErrBlocked` doc claims votes returns the same value, but votes has its own `ErrBlocked`.\n- Two test comments say the unblocked account takes part again in 'all six ways' but exercise only four.\n\nSecond reader, for inputs: I read the code for its inputs and found no defect an input can trigger. The only finding is one stale doc comment.\n\n**Files read in full:** block.go, comments.go, votes.go, feedback.go, admin.go, comment.go, vote.go, feedback.go (server), thread.go, admin_blocked.html, admin_report.html and comments.html. I also read the diffs of site.css, admin.html, router.go, fitness.yaml, admin_test.go, vote_test.go, remove_body_corpus_test.go, remove_test.go and branch_test.go, and all six new test files.\n\n**Tests and checks run in a scratch copy:**\n- `go vet ./...` is clean.\n- `go test -count=1 -p 4 ./...` passes. fitnessrules failed only because my copy left out .taad; it passed once fitness.yaml was copied in.\n- The engine's Fitness op=check holds all 31 rules.\n\n**Write paths a blocked account could use.** I searched every non-test SQL write on comments, votes, feedback and feedback_replies. Post, Cast, Withdraw and Send each carry the blocked_accounts NOT EXISTS inside their single statement. feedback_replies is written only by the owner.\n\n**The read that picks the error after a refused write.** It writes nothing and only picks the wording. If an Unblock lands in the gap, the answer can be 404, or nil for Withdraw, where it should be 403. Nothing is stored either way, which is the contract the design states.\n\n**Probe test, scratch copy only**, with the inputs and what came back:\n- **A reply whose parent was later removed** but kept as a placeholder because another reply is visible: the Blocked page links `/reports/x#comment-<parent>`, and that anchor is present on the public page.\n- **The largest int64 id** blocks (303) and is listed as 'GitHub user 9223372036854775807'.\n- **One past the largest id** gets 404.\n- **`%38`** is unescaped to 8 before canonicalID, so it blocks account 8. The owner check compares the parsed integer, so no spelling gets past the owner refusal.\n- **`8//block`** gets the mux's existing 307 (lesson #934).\n- **A block row planted by SQL for the owner's own id** makes the owner's posts 403, and the owner can still unblock itself with a 303, so the state can be undone.\n\n**Other shapes I checked by reading:**\n- **Blocked() grouping:** it groups correctly because github_id is the primary key and the rows are ordered by blocked_at, then github_id.\n- **removeFrom with from=blocked:** it keeps the strict parse for every encoding in the corpus.\n- **Bodies on block and unblock:** the handlers never read the body, so no body or query string can steer them.\n\n**Finding m1 (text):** comments.go:56-58 says votes return the same ErrBlocked value as comments. They do not: votes.ErrBlocked is its own value.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "SC-021 is built as designed, and every departure from the design is declared. Each changed source and template file was read whole: block.go, comments.go, votes.go, feedback.go, admin.go, comment.go, vote.go, feedback.go (server), thread.go, admin_blocked.html, admin_report.html and admin.html, plus the new test files.\n\n**What I ran:**\n- `go vet ./...` is clean, and every changed .go file passes gofmt at HEAD.\n- `go test -count=1 -p 4 ./...` passes in every package.\n- Fitness op=check passes all 31 rules. That is the engine run the builder said was still owed.\n- Both E-006 finish-line bodies from epic 44 exit 0 against the real binary: `test_e006_1_removal_and_placeholders.py` and `test_e006_2_blocking_and_unblocking.py`. I read them from the ledger with one `mode=ro` SELECT and ran them in a scratch copy of the tree.\n\n**What holds:**\n- **Refusals.** Post, Cast, Withdraw and Send each refuse a blocked account inside their own single statement. The follow-up read only picks the answer, and when that read fails the error is wrapped and never turned into a sentinel or nil. All three handlers turn a wrapped error into a 503.\n- **Owner refusal.** Block refuses the pinned owner and fails closed when no owner is set. The owner id is bound in `comments.New` at router.go:72.\n- **Remove from the Blocked users page.** `from=blocked` is handled first in adminCommentRemove and lands on /admin/blocked whatever the report's state.\n- **ParentHidden.** The rename and its wording are in place.\n- **Access tests.** observe() covers the block and unblock POSTs and GET /admin/blocked. TestFeedbackDoesNotInterfere reuses observe(), so it gets the same rows. ownerRouteStatus has the 200 for /admin/blocked.\n- **The tests feed the designed shapes:**\n  - owner id, non-canonical ids, repeats, and an id that never signed in;\n  - eleven refused writes, with Public and OwnerTally unchanged;\n  - hiding across two reports, with a placeholder for a blocked comment that has a visible reply;\n  - the per-account and per-comment parts of the page, including a parent below the depth cap and a hidden parent;\n  - a real Block form press, a real remove press and a real Unblock press, after which the comment removed during the block stays removed. This settles Q-026.\n\n**One contract defect, confirmed by a failing test in a scratch copy.** On the Blocked users page, a reply on a report that is not published is always labelled 'in reply to a hidden comment', even when its parent is visible and listed on that report's admin page. In the admin pages 'hidden' means removed or written by a blocked account.\n\n**Two text-only issues:**\n- The `comments.ErrBlocked` doc claims votes returns the same value, but votes has its own `ErrBlocked`.\n- Two test comments say the unblocked account takes part again in 'all six ways' but exercise only four.\n\nSecond reader, for inputs: I read the code for its inputs and found no defect an input can trigger. The only finding is one stale doc comment.\n\n**Files read in full:** block.go, comments.go, votes.go, feedback.go, admin.go, comment.go, vote.go, feedback.go (server), thread.go, admin_blocked.html, admin_report.html and comments.html. I also read the diffs of site.css, admin.html, router.go, fitness.yaml, admin_test.go, vote_test.go, remove_body_corpus_test.go, remove_test.go and branch_test.go, and all six new test files.\n\n**Tests and checks run in a scratch copy:**\n- `go vet ./...` is clean.\n- `go test -count=1 -p 4 ./...` passes. fitnessrules failed only because my copy left out .taad; it passed once fitness.yaml was copied in.\n- The engine's Fitness op=check holds all 31 rules.\n\n**Write paths a blocked account could use.** I searched every non-test SQL write on comments, votes, feedback and feedback_replies. Post, Cast, Withdraw and Send each carry the blocked_accounts NOT EXISTS inside their single statement. feedback_replies is written only by the owner.\n\n**The read that picks the error after a refused write.** It writes nothing and only picks the wording. If an Unblock lands in the gap, the answer can be 404, or nil for Withdraw, where it should be 403. Nothing is stored either way, which is the contract the design states.\n\n**Probe test, scratch copy only**, with the inputs and what came back:\n- **A reply whose parent was later removed** but kept as a placeholder because another reply is visible: the Blocked page links `/reports/x#comment-<parent>`, and that anchor is present on the public page.\n- **The largest int64 id** blocks (303) and is listed as 'GitHub user 9223372036854775807'.\n- **One past the largest id** gets 404.\n- **`%38`** is unescaped to 8 before canonicalID, so it blocks account 8. The owner check compares the parsed integer, so no spelling gets past the owner refusal.\n- **`8//block`** gets the mux's existing 307 (lesson #934).\n- **A block row planted by SQL for the owner's own id** makes the owner's posts 403, and the owner can still unblock itself with a 303, so the state can be undone.\n\n**Other shapes I checked by reading:**\n- **Blocked() grouping:** it groups correctly because github_id is the primary key and the rows are ordered by blocked_at, then github_id.\n- **removeFrom with from=blocked:** it keeps the strict parse for every encoding in the corpus.\n- **Bodies on block and unblock:** the handlers never read the body, so no body or query string can steer them.\n\n**Finding m1 (text):** comments.go:56-58 says votes return the same ErrBlocked value as comments. They do not: votes.ErrBlocked is its own value.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "claim": "On the Blocked users page, a reply on a report that is not published gets the text 'in reply to a hidden comment' whatever its parent is. adminBlocked resolves a parent only when `c.Published`, so a reply on a draft or unpublished report always has an empty ParentHref, and the template's `{{else if .Reply}}` branch prints 'hidden'. In the admin vocabulary this slice set (m1, modItem.ParentHidden: 'the parent was removed, or its writer is blocked'), that tells the author a visible comment is hidden. The same report's admin page lists that parent as an ordinary visible comment. The critic's m5 note kept the two cases apart: 'hidden' is for a parent the thread does not draw, and for an unpublished report the note asks only for 'the parent reference as text'. Confirmed in a scratch copy: the entry reads `<span class=\"body\">bad-eight answers the reader</span> on <a href=\"/admin/reports/gone\">Gone Report</a>, in reply to a hidden comment` while the parent is visible on /admin/reports/gone.",
+    "file": "internal/server/templates/admin_blocked.html",
+    "line": 20,
+    "evidence": "internal/server/admin.go:471 `if bc.Reply && c.Published {` (the parent is resolved only for published reports); admin_blocked.html:20 prints 'in reply to a hidden comment' for every Reply with an empty ParentHref; blockedComment's doc (admin.go:427-429) names both causes of an empty ParentHref, but the template collapses them into one wording.",
+    "quote": {
+     "path": "internal/server/templates/admin_blocked.html",
+     "line": 20,
+     "text": "{{if .ParentHref}}, answering <a href=\"{{.ParentHref}}\">the one it answered</a>{{else if .Reply}}, in reply to a hidden comment{{end}}"
+    },
+    "fix": "Keep the two cases apart. Add a flag to blockedComment (for example `ParentUnpublished`, set when `bc.Reply && !c.Published`) and have the template print something like ', in reply to a comment (the report has no reader page)' for it. Keep 'in reply to a hidden comment' only for a published report whose parent Find did not locate.",
+    "repro": {
+     "path": "internal/server/blocked_unpublished_label_test.go",
+     "body": "package server\n\nimport (\n\t\"strings\"\n\t\"testing\"\n)\n\n// A blocked account's reply on a report that is not published, to a parent that is\n// visible (it is on the report's admin page), must not be described as a reply to a\n// hidden comment: in the admin pages \"hidden\" means removed or written by a blocked\n// account, and this parent is neither.\nfunc TestBlockedPageUnpublishedReplyIsNotToAHiddenComment(t *testing.T) {\n\th, owner, reader := commentWorld(t)\n\th.mustUpload(owner, \"gone\", \"Gone Report\", \"published\", reportHTML(300, \"gone\"))\n\tbad := h.mint(8, \"bad-eight\")\n\th.say(bad, \"gone\", \"bad-eight writes top level\", 0)\n\tparent := h.say(reader, \"gone\", \"a visible comment by the reader\", 0)\n\th.say(bad, \"gone\", \"bad-eight answers the reader\", parent)\n\th.mustAct(owner, \"gone\", \"unpublish\")\n\th.mustBlock(owner, 8)\n\n\tadmin := h.adminPageOf(owner, \"gone\")\n\tif !strings.Contains(admin, \"a visible comment by the reader\") {\n\t\tt.Fatalf(\"INVALID: the parent is not listed as visible on the report's admin page:\\n%s\", admin)\n\t}\n\tsecs := blockedSections(h.page(owner, \"/admin/blocked\"))\n\tif len(secs) != 1 || secs[0].ID != 8 {\n\t\tt.Fatalf(\"sections %+v, want the one for account 8\", secs)\n\t}\n\te := entryWith(t, \"the reply\", secs[0].List, \"bad-eight answers the reader\")\n\tif strings.Contains(e, \"hidden comment\") {\n\t\tt.Errorf(\"a reply to a visible comment on an unpublished report is described as a reply to a hidden comment:\\n%s\", e)\n\t}\n}\n",
+     "command": "go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server"
+    }
+   },
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "The ErrBlocked doc says votes returns this same value. It does not: votes declares its own `votes.ErrBlocked` (votes.go:39), as the design specified, and vote.go:82 tests for that value. Only feedback.ErrBlocked is comments.ErrBlocked. A caller who follows the doc and tests `errors.Is(err, comments.ErrBlocked)` on a votes error would miss the refusal.",
+    "file": "internal/comments/comments.go",
+    "line": 56,
+    "end_line": 58,
+    "evidence": "votes.go:39 `var ErrBlocked = errors.New(\"votes: this account is blocked\")`; feedback.go:52 `ErrBlocked = comments.ErrBlocked`.",
+    "quote": {
+     "path": "internal/comments/comments.go",
+     "line": 56,
+     "text": "\t// ErrBlocked is returned by Post when the writer's account is blocked. Votes\n\t// and feedback return this same value for their own writes (feedback.ErrBlocked\n\t// is it), so a caller tests for one error."
+    },
+    "fix": "Reword it: 'ErrBlocked is returned by Post when the writer's account is blocked. Feedback returns this same value (feedback.ErrBlocked is it); votes has its own, votes.ErrBlocked.'"
+   },
+   {
+    "id": "t2",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "text",
+    "claim": "The comment says 'each of the six goes through' after the unblock, but the lines below make only four writes: a reply, feedback, a vote down and a withdrawal. No top-level comment and no vote up is tried after unblocking, so the comment claims more coverage than the test has.",
+    "file": "internal/server/block_test.go",
+    "line": 311,
+    "evidence": "block_test.go:312-316: mustUnblock, then h.say(..., w.top) (a reply), sendFeedback, mustVote down, mustVote none.",
+    "quote": {
+     "path": "internal/server/block_test.go",
+     "line": 311,
+     "text": "\t// Unblocked, each of the six goes through."
+    },
+    "fix": "Reword it to 'Unblocked, it comments, sends feedback and votes again.'"
+   },
+   {
+    "id": "t3",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "text",
+    "claim": "The comment says 'in all six ways', but the lines below make four writes: a reply, feedback, a vote down and a withdrawal. No top-level comment and no vote up is tried after the unblock.",
+    "file": "internal/server/unblock_test.go",
+    "line": 164,
+    "evidence": "unblock_test.go:165-170: h.say(bad, \"x\", ..., ra) (a reply), sendFeedback, mustVote down, mustVote none.",
+    "quote": {
+     "path": "internal/server/unblock_test.go",
+     "line": 164,
+     "text": "\t// It takes part again, in all six ways."
+    },
+    "fix": "Reword it to 'It takes part again: it comments, sends feedback, votes and withdraws.'"
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "The doc comment on comments.ErrBlocked says votes return the same value. They do not: internal/votes defines its own ErrBlocked (votes.go:39, errors.New(\"votes: this account is blocked\")), and the vote handler tests votes.ErrBlocked (vote.go:82). Only feedback.ErrBlocked is comments.ErrBlocked. A caller who trusts this comment and tests only errors.Is(err, comments.ErrBlocked) on a votes error would never match.",
+    "file": "internal/comments/comments.go",
+    "line": 56,
+    "end_line": 59,
+    "evidence": "comments.go:56-58 against votes.go:36-39 and server/vote.go:82",
+    "quote": {
+     "path": "internal/comments/comments.go",
+     "line": 56,
+     "text": "\t// ErrBlocked is returned by Post when the writer's account is blocked. Votes\n\t// and feedback return this same value for their own writes (feedback.ErrBlocked\n\t// is it), so a caller tests for one error."
+    },
+    "fix": "Reword it to: 'Feedback returns this same value for its writes (feedback.ErrBlocked is it); votes has its own votes.ErrBlocked.'"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "All the SC-021 components are present and the tests feed the designed shapes.\n- Store: internal/comments/block.go (Block, Unblock, Blocked, ErrOwnerBlock).\n- In-statement refusals: postSQL at comments.go:93-99, Cast and Withdraw at votes.go:84-89 and :117-120, sendSQL at feedback.go:88-93.\n- Feedback: the inbox blocked column and OwnerInboxBySender in feedback.go:191-271.\n- Routes and pages: admin.go:57-59 and :370-506, admin_blocked.html, the admin.html:12 link, the Block form at admin_report.html:55-60 and the badge at admin_report.html:28.\n- Tests: TestBlock, TestBlockedRefusals, TestBlockedPage, TestUnblockRestores, observe() rows (vote_test.go:507, :541-543), and ownerRouteStatus (admin_test.go:95-97).\n- I re-ran both epic-44 finish bodies (E-006 lines 1 and 2) in a scratch copy: both exit 0, 'Ran 1 test ... OK'."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "- admin_blocked.html:22-28 draws a details.remove form with hidden from=blocked on each comment that is not removed.\n- adminCommentRemove (admin.go:290-311) handles from=blocked before the !published branch.\n- In remove_body_corpus_test.go, bodyRow.landing is now a string, with from=blocked rows at :63-68 and :76-77.\n- remove_test.go:379 and :430-441 cover published, unpublished and draft reports.\n- TestUnblockRestores (unblock_test.go:93, :109-115, :130) presses the real Block, remove and Unblock forms.\n- The finish line 2 run the critic asked for exits 0."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "- thread.go:89 has modItem.ParentHidden, set at :116-117.\n- admin_report.html:46 reads 'in reply to a hidden comment'.\n- remove_test.go:669 and :725 are updated.\n- TestBlockControls (unblock_test.go:282) checks the reply under a blocked parent."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "- comments.New(db, now, ownerID) at comments.go:79, with router.go:72 passing cfg.OwnerGitHubID.\n- Block (block.go:30-44) fails closed when ownerID <= 0 and returns ErrOwnerBlock for the owner before any SQL.\n- admin.go:378 maps that error to 400.\n- TestBlockStore (block_test.go:49-87 in comments) covers the store refusals, and TestBlock covers the route's 400."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "- Post, Cast, Withdraw and Send wrap the read error: comments.go:134-137, votes.go:98-101 and :129-132, feedback.go:119-122.\n- Each Book has an isBlocked seam.\n- TestPostBlockReadFails, TestBlockedReadFails (Withdraw is never nil) and TestSendBlockReadFails cover the read failure.\n- At server level, TestBlockedReadFault's rows for 'withdrawal of no vote' and 'reply to a comment that is not there' can only fail in the follow-up read, so they isolate it, and they get a 503.\n- The handlers map the error to 503 at comment.go:98, vote.go:89 and feedback.go:80."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "- branch_test.go:111-115: the C-hidden-6-end post now comes before the blocked_accounts INSERT.\n- branch_test.go:445-463: the subtest is rewritten as a 403 with nothing stored, at parents 0, chain[0] and chain[cap+2]."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "- BlockedComment carries ReportID and Published (block.go:84-87).\n- adminBlocked (admin.go:461-488) does one a.tree read per published report, then Find and branchRoot, and gives a 500 when a read fails.\n- TestBlockedPage covers a parent below the cap (block_test.go:499-502), a hidden parent (:503-506), an unpublished report (:507-510) and the 500s (:538-552).\n- One gap remains in the wording: an unpublished report's reply is labelled 'in reply to a hidden comment' even when its parent is visible (finding m1)."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "- .taad/fitness.yaml: the blocked_accounts rule's `because` is now a single-quoted scalar with doubled apostrophes.\n- It names the three read shapes and the owner refusal bound in comments.New, which matches the code.\n- The engine's Fitness op=check, run in this review: 31 rules, every declared rule holds."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "Each shape of the design is fed in by a named test:\n1. Block and unblock: TestBlock (server block_test.go:58-206) sends the owner id (400), 12 non-canonical spellings (404), repeats with blocked_at kept, an id that never signed in ('GitHub user 123456'), non-owner, anonymous and cross-site requests (403, nothing changed), every removeBodyRows body, and GET/HEAD/POST/PUT/DELETE.\n2. Refusals: TestBlockedRefusals makes 11 attempts (top-level, three kinds of reply, feedback, up, down and withdraw on a voted and an unvoted report). Each gets a 403 with nothing stored, and Public, OwnerTally and the public like line are unchanged.\n3. Hiding: TestUnblockRestores blocks through the real form across reports x and z. The blocked top-level comment with a visible reply becomes a placeholder, and the blocked reply with no replies is gone.\n4. The page: TestBlockedPage has three disjoint sections, a li per comment, the report link, a #comment-parent link and a branch-page link, a removed comment shown without text, and feedback inside the section.\n5. The feedback mark: TestBlockControls checks the badge appears only for the blocked sender.\n6. Restore: TestUnblockRestores presses the real remove form while the account is blocked and then the real Unblock. The removed comments stay hidden and the counts come back.\n7. ownerRouteStatus gives 200 for GET and HEAD /admin/blocked.\nBoth E-006 finish lines also exit 0."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [
+   "internal/server/vote_test.go:1-479,640-end -- only observe(), the dislike world's tail and TestDislikesDoNotInterfere's first subtest were read; the changed lines (507, 538-543) are inside what was read",
+   "internal/server/remove_test.go -- judged from the diff hunks (376-441, 666-725) only, not read whole",
+   "internal/server/branch_test.go -- judged from the diff hunks (102-115, 442-463) only",
+   "internal/server/admin_test.go -- judged from the diff hunk (76-97) and adminPaths only",
+   "internal/server/comment_test.go, internal/comments/comments_test.go, internal/comments/remove_test.go, internal/server/static/site.css -- one-line or few-line diffs, read as diffs only"
+  ],
+  "second_round": {
+   "run_id": 12046,
+   "filed": 1,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 18,
+    "changed": 28,
+    "listed": 10
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 28,
+   "read_whole": 18,
+   "deleted": [],
+   "runs": [
+    12045,
+    12046
+   ],
+   "range": {
+    "base": "ef4ad373c5e3060a71f118471e4ec2dbfe042bda",
+    "head": "1753d3f3041fd3cbb45b5898e5a57babe10d778a",
+    "source": "commits",
+    "hunk_base": "9be1705b6d2d455aece46583897812feff7c6195",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "partly-opened",
+     "section": "lines 1-445 of 445",
+     "reason": "seen only through a shell command: $s, git diff",
+     "size_lines": 445,
+     "hunks": []
+    },
+    {
+     "path": "internal/comments/comments_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-455 of 455",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 455,
+     "hunks": []
+    },
+    {
+     "path": "internal/comments/remove_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-394 of 394",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 394,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/admin_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-441 of 441",
+     "reason": "seen only as 15 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 441,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/branch_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-550 of 550",
+     "reason": "seen only as 1 Grep line; seen only through a shell command: git diff",
+     "size_lines": 550,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-1196 of 1196",
+     "reason": "seen only as 4 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 1196,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/remove_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-816 of 816",
+     "reason": "seen only as 5 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 816,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/router.go",
+     "state": "partly-opened",
+     "section": "lines 1-171 of 171",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 171,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/static/site.css",
+     "state": "partly-opened",
+     "section": "lines 1-42 of 42",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 42,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/vote_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-479, 640-648 of 648",
+     "reason": "a Read returned only part of it; seen only as 5 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 648,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

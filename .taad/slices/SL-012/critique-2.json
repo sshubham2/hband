@@ -211,5 +211,146 @@
     "result": "The block, unblock and blocked-page routes sit behind RequireOwner, OwnerRoute and CrossOriginProtection. GitHubID appears only on admin pages. Removed bodies are blanked in SQL on the Blocked page. Private feedback reads stay inside the Owner* fence. The only weakness is that the owner refusal is not enforced at the store (m2). Unblock has no owner check, so self-blocking is recoverable."
    }
   ]
+ },
+ "prescribed": {
+  "host": 714,
+  "at": "2026-11-24T13:47:19.673Z",
+  "runs": [
+   {
+    "run_id": 12040,
+    "resumed_from": "eb35c74b-2079-43a4-962b-77ff250e67c7",
+    "ending": "completed",
+    "cost_usd": 1.1894479999999998,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 2042,
+    "key": "M1",
+    "digest": "5b6e350bf114608b"
+   },
+   {
+    "finding_id": 2043,
+    "key": "m1",
+    "digest": "1517523ab056e9ac"
+   },
+   {
+    "finding_id": 2044,
+    "key": "m2",
+    "digest": "cca3c41df4111e50"
+   },
+   {
+    "finding_id": 2045,
+    "key": "m3",
+    "digest": "34d56eb310743798"
+   },
+   {
+    "finding_id": 2046,
+    "key": "m4",
+    "digest": "2aaed4ab2ee1675c"
+   },
+   {
+    "finding_id": 2047,
+    "key": "m5",
+    "digest": "7d1a6301a58bd7ce"
+   },
+   {
+    "finding_id": 2048,
+    "key": "m6",
+    "digest": "47ce01645c0709fb"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 2042,
+    "key": "M1",
+    "digest": "5b6e350bf114608b",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "internal/server/admin.go:273-295 (the from enum and the landing switch `case toAdmin || !published:`). internal/server/remove_body_corpus_test.go:43-116 (the bodyRow fields and how TestCommentRemoveBodyShapes works out the landing). internal/server/remove_test.go:365-404 (TestCommentRemove's landing table and the draft/unpublished landing cases). remove_body_corpus_test.go:160-185 (the TestPostRoutesAreClassified class for /remove).",
+    "why": "The fix's direction is right, and the rest of it can be built. Two gaps remain. (1) The corpus cannot take from=blocked rows as written. bodyRow's last field is a bool, and TestCommentRemoveBodyShapes turns it into one of only two landings (remove_body_corpus_test.go:97-101: `loc := \"/reports/x#comments\"; if c.admin { loc = \"/admin/reports/x#comments\" }`). A from=blocked 303 row would therefore assert the wrong Location whichever way the bool is set. (2) The fix says from=blocked lands on /admin/blocked, but it does not say this beats the existing `toAdmin || !published` branch. Blocked() lists comments on drafts and unpublished reports. A builder who appends `case fromBlocked:` after that branch sends a removal pressed on the Blocked users page for a draft's comment to /admin/reports/<slug>#comments. No row in the prescribed tests covers that combination. The rest holds: the landing is built from nothing in the request, the strict parse in removeFrom is unchanged, and the census class 'optional: from (removeBodyRows)' still applies. One thing is unverified: whether finish line 2's reader of the /admin/blocked li text tolerates the 'Remove' / 'Remove for everyone' text inside each not-removed li. I could not read the epic-44 body, because no shell was available for the read-only SELECT.",
+    "instead": "Change bodyRow's landing from `admin bool` to a landing string (or a three-way enum) and add the from=blocked urlencoded and multipart rows with Location /admin/blocked. In adminCommentRemove, make the from=blocked case come first: it lands on /admin/blocked whatever the report's status. Add TestCommentRemove landing rows for from=blocked on a published report, on an unpublished one and on a draft, plus 'from=Blocked' (400) and 'from=admin&from=blocked' (400). Run finish line 2 against the built page before closing the build."
+   },
+   {
+    "finding_id": 2043,
+    "key": "m1",
+    "digest": "1517523ab056e9ac",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "internal/server/thread.go:72-125 (modItem, where ParentRemoved is set at :113 for any placeholder parent). internal/server/templates/admin_report.html:46. A grep of internal/ for ParentRemoved and 'removed comment': the only uses are thread.go, the template and remove_test.go:648/:704. tests/acceptance/check_e006_1_stops_at_block.py:4-9: finish line 1 reads reader pages, not the admin moderation list.",
+    "why": "The rename touches only the struct, one template line and two test expectations. The new wording 'in reply to a hidden comment' contains no 'blocked' (so it cannot trip the 'blocked only inside a blocked sender's feedback-<n>' reader), and it adds no digit beside 'comment'. It is also true in both cases. For a blocked parent, unblocking brings it back, which 'removed' would wrongly deny. For a removed parent it is still accurate. Reader-page placeholder text is not touched.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2044,
+    "key": "m2",
+    "digest": "cca3c41df4111e50",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "internal/auth/owner.go:20-22 (IsOwner). The internal/auth imports (config, store only, so comments→auth makes no cycle). The fitness.yaml must_not_import rules (nothing bars comments from importing auth). internal/server/router.go:71-73 (comments.New(st.DB(), clock), the only production constructor). internal/comments/comments.go:55-64.",
+    "why": "Moving the check into Block is right, but a per-call ownerID parameter still leaves the rule depending on the caller. Any int64 compiles. auth.IsOwner(ownerID, u) is `ownerID > 0 && githubID == ownerID`, so a caller passing 0 (a test fixture, a zero-value config, a new helper that forgets the config) gets false and Block proceeds: the store fails open. The rule 'the owner cannot be blocked' still rests on every caller supplying the right value, which is the class the finding was about.",
+    "instead": "Bind the owner id when the Book is built, by construction: comments.New(db, now, ownerID), set at router.go:72 from a.cfg.OwnerGitHubID, with the test fixtures updated mechanically. Block then refuses with ErrOwnerBlock when u == b.ownerID, and fails closed with an error when b.ownerID <= 0, never treating that as 'nobody is the owner'. TestBlock asserts both refusals at store level and the 400 through the route."
+   },
+   {
+    "finding_id": 2045,
+    "key": "m3",
+    "digest": "34d56eb310743798",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "internal/votes/votes.go:53-84 (Cast and Withdraw: one ExecContext on b.db, no seam). internal/comments/comments.go:54-64 and :91-116 (Book{db, now}, Post). The CC-002 check in this project's reviewer lessons. A grep for an existing seam in the store packages: none, only a.tree in server.",
+    "why": "The contract is now right: a failed follow-up read gives a wrapped error and a 503, never the existing refusal or nil, and all three handlers already answer 503 for other errors. But neither example test can be built to test it. A closed pool makes the ExecContext fail first ('sql: database is closed'), so the test covers the existing 'votes: cast: %w' path and passes without any follow-up-read code. That is exactly the shadowing CC-002 records across three handlers. 'A ctx cancelled between the Exec and the read' has no hook: Book holds only db and now, and both calls happen inside one method. Dropping or renaming blocked_accounts fails the write too, because its NOT EXISTS names the table. So, as written, the read-failure branch ships untested and nothing would show it.",
+    "instead": "Add an unexported seam per Book, for example `isBlocked func(ctx context.Context, githubID int64) (bool, error)`, set in New to the real EXISTS read and replaced in each package's internal test. The unit case makes the write refuse (a blocked row, or an unpublished report for Post/Cast/Send) with the seam returning an error, and asserts a wrapped non-sentinel error: not errors.Is ErrBlocked, ErrNoTarget or ErrNotOpen, and not nil for Withdraw. Add one handler case per route asserting a 503 with nothing stored."
+   },
+   {
+    "finding_id": 2046,
+    "key": "m4",
+    "digest": "2aaed4ab2ee1675c",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "internal/server/branch_test.go:100-153 (TestThreadCapFive: the block row at :105, chains a/b/c/e grown by account 7, Post as 9 at :111, the assertions read only that the hidden reply and 'blocked-nine' are not drawn) and :443-457. internal/server/comment_test.go:439-471 (TestCommentParentRefused posts as reader/owner only after the block), :722-809 (only the reader posts after the block). internal/comments/comments_test.go:310-377 (byBlocked posted before the block, every refusal posted as account 1). internal/comments/remove_test.go:179-209 (posts as 8 only while unblocked). internal/server/remove_test.go:259-275. comment_test.go:1082 is raw SQL.",
+    "why": "Every test that plants a block row was checked for a later post as the blocked account. Only the two the fix names do it. Moving the INSERT at branch_test.go:105 to after :113 changes nothing else: chains a, b, c and e are written by account 7, and the later assertions need only C-hidden-6-end to be hidden, which the block row still does when it lands after the Post. The :443 subtest rewritten as a 403-and-nothing-stored case at parents 0, chain[0] and chain[cap+2] is what the slice asks for. Vote and feedback tests plant no block rows.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2047,
+    "key": "m5",
+    "digest": "7d1a6301a58bd7ce",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "internal/server/comment.go:111-122 (landing: a.tree, then comments.Find, then branchRoot, falling back to /reports/<slug>#comment-<id>). internal/server/thread.go:138-148 (branchRoot: a nil path has depth 0 and returns nil). internal/comments/comments.go:11-18 (a hidden comment with nothing visible below it is dropped from the tree). The design's admin_report.html decision: 'no element whose id is comment-<n>'.",
+    "why": "Three gaps. (1) a.tree returns the pruned forest. When the parent is itself hidden (removed, or written by a blocked account, very often the same blocked account answering itself) and the blocked reply is the only thing under it, the parent is dropped. Find then returns nil, and landing's logic quietly falls back to /reports/<slug>#comment-<parent> even when the parent sits below the cap. The fix does not say what the link is in that case, or that the page should show that the parent is not publicly visible. (2) For a report that is not published, the fix keeps comment-<parent> in an /admin/reports/<slug>#comment-<parent> href, but the admin page deliberately draws no comment-<n> ids, so that anchor never exists. The parent cannot be found there either, because moderationList leaves hidden parents out. (3) a.tree takes a report id, and Blocked() as designed returns only Slug and Title. The fix adds status but not the id the tree read needs. One thing is unverified: whether finish line 2 matches the parent href exactly or only by containing comment-<parent>. The build check describes it as 'a comment-<parent> link', but the epic-44 body was not readable here.",
+    "instead": "Blocked() returns ReportID and Status per comment. GET /admin/blocked does one a.tree per distinct published report, with a 500 on error as for the rest of the page. For a parent that Find locates, use branchRoot's page with #comment-<parent>. For a parent that Find does not locate (hidden, nothing visible below), draw the li's parent reference as text, 'in reply to a hidden comment', with no anchor link. For a report that is not published, link the report to /admin/reports/<slug> and give the parent reference as text, not a #comment-<parent> anchor the page never draws. TestBlockedPage covers a parent below the cap, a hidden parent and a draft."
+   },
+   {
+    "finding_id": 2048,
+    "key": "m6",
+    "digest": "47ce01645c0709fb",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": ".taad/fitness.yaml:430-441 (the rule's because is a plain multi-line scalar, not quoted). Lesson #971 (go test's loadRules accepts invalid YAML, and the engine's Fitness op=check rejects the whole file). The regex at :433, which stays quiet on reads, so no corpus rows change.",
+    "why": "The need is real, but the instruction 'keep it single-quoted' describes a state the file is not in: the because at :434-438 is an unquoted plain scalar. A builder who 'keeps' its style and writes the new list of reads with a colon, for example 'the reads it allows: NOT EXISTS inside writes, …', produces a plain scalar containing ': '. That is invalid YAML, which go test still passes and the engine rejects whole (#971). The text must also stay true with m2: 'Block and Unblock in internal/comments are where the pinned owner's own id is refused' becomes true only once m2 moves the refusal into the store.",
+    "instead": "Rewrite the because as a single-quoted scalar, with apostrophes doubled (for example 'owner''s'). List the three read shapes: NOT EXISTS inside the write statements of votes and feedback, the follow-up EXISTS read after a refused write, and the blocked column of feedback's owner inbox. Keep the sentence about where the owner refusal lives in step with how m2 is built. Run the engine's Fitness op=check, not only go test, before leaving the build."
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:2042",
+   "finding:2044",
+   "finding:2045",
+   "finding:2047",
+   "finding:2048"
+  ],
+  "counts": {
+   "holds": 2,
+   "hole": 5,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "Seven prescriptions checked against the tree. m1 and m4 hold. In m4 I checked every test that plants a block row: only branch_test.go:105-111 and :443-457 post as a blocked account. TestCommentParentRefused, the comments package tests and the server's remove/count tests post as that account only before the block or after the unblock. The other five have holes. M1: the removeBodyRows corpus records the landing as a two-valued `admin bool`, so from=blocked rows cannot be added as written. It also never says that from=blocked must take precedence over the existing 'not published goes to the admin report page' branch. m2: Block(ctx, ownerID, u) fails open on ownerID <= 0, because auth.IsOwner returns false there, so the rule still holds only if every caller remembers it. m3: neither suggested test (a closed pool, a ctx cancelled between the Exec and the read) can make only the follow-up read fail. A closed pool fails the Exec first, which is the exact CC-002 trap. m5: Find runs on a pruned forest, which cannot place a hidden parent that has nothing visible below it. The /admin/reports/<slug>#comment-<parent> link on unpublished reports points at an anchor the admin page deliberately never draws, and Blocked() must also return the report id. m6 says 'keep it single-quoted', but the because at fitness.yaml:434-438 is currently a plain scalar. Finish line 2's exact href and li-text checks could not be read: no shell was available to run the read-only ledger SELECT. So the M1 and m5 markup changes are unverified against that body.",
+  "why": "",
+  "round": "landed"
  }
 }
