@@ -505,8 +505,8 @@ func (w *dislikeWorld) observe(t *testing.T) observation {
 	t.Helper()
 	h, obs := w.h, observation{}
 	reads := []string{"/", "/reports/x", "/reports/y", "/reports", "/admin", "/admin/reports/x",
-		// The branch page of the seeded comment: another reader page that is drawn
-		// from the thread and the likes, and must never mention a dislike either.
+		// The branch page of the seeded comment: another reader page, drawn from the
+		// thread, which must never mention a dislike either.
 		"/reports/x/comments/" + strconv.FormatInt(w.first, 10)}
 	// Each observer also sends a comment POST and a feedback POST that write
 	// nothing: a visitor's is answered with the 303 back to the report, and a

@@ -9,7 +9,7 @@ import (
 
 // cssBox is the horizontal space one rule of site.css puts around a box, in CSS
 // px, by property and side. Each side is set by the last declaration that names it.
-type cssBox map[string]float64 // "margin-left", "padding-right", "border-left-width", ...
+type cssBox map[string]float64 // "margin-left", "padding-right", "border-left", ...
 
 var cssLen = regexp.MustCompile(`^(-?[0-9]*\.?[0-9]+)(px|rem|em)?$`)
 
@@ -82,8 +82,8 @@ func boxOf(t *testing.T, sel, decls string) cssBox {
 			}
 		case name == "border" || name == "border-left" || name == "border-right" || name == "border-inline" ||
 			name == "border-inline-start" || name == "border-inline-end":
-			// A width is the first length of the value; none or hidden, or no length at all
-			// (medium), is read as 0 only for none and hidden, and as an error otherwise.
+			// A width is the last length in the value, and none or hidden makes it 0. A
+			// value with no length and neither of those (medium, say) is an error.
 			w, found := 0.0, false
 			for _, v := range vals {
 				if cssLen.MatchString(v) {

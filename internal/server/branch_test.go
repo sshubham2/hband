@@ -89,7 +89,7 @@ func checkDrawn(t *testing.T, what, body, slug string, cut map[int64]bool) []thr
 	if got := strings.Count(body, "continue this thread"); got != len(cut) {
 		t.Errorf("%s: %d continue links, want %d", what, got, len(cut))
 	}
-	// Ids that a comment's own markup could be mistaken for stay out of the page.
+	// Every toggle names an element that is on the page: the two counts agree.
 	if strings.Count(body, `aria-controls="replies-`) != strings.Count(body, `id="replies-`) {
 		t.Errorf("%s: a toggle controls an element that is not on the page", what)
 	}
