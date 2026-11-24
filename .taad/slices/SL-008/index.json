@@ -34,87 +34,27 @@
   },
   {
    "stage": "build-slice",
-   "issue": "m7 (.toggle[hidden]{display:none}): waived to note N-066; .toggle sets no display, so the no-JS default holds."
+   "issue": "The approved finish body in the ledger (epics id 42, item 2) still lists msedge.exe and ignores CHROME_BIN. It was already reported to the person. The scratch runner patches around it and the body itself is untouched."
   },
   {
    "stage": "build-slice",
-   "issue": "m8 (Content-Type media type assertion in TestStaticThreadScript): waived to note N-067; the test checks the 200, the script body, the page tags and the raw CSP only."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "The phone-width real-browser check is a runner mode (`look`) for validate, not a Go test; the Go test models the CSS arithmetic only."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Report to the person that the approved epics.finish body for test_e004_2 falls back to msedge.exe and ignores CHROME_BIN. The scratch runner guards it; the ledger body is untouched."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "internal/server/harness_test.go was not gofmt-clean before this slice (struct field alignment); left as it was."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Q-012 (site JavaScript) stays open: thread.js is DOM-only and under the fitness fence, but it is now site JavaScript on the reader pages."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Validate should run `run_finish_e004_2.py look` itself and view the screenshots at 360 and 400 px; the unbroken-login control only shows if the viewer width is the one asked for."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: TestReaderPathVariants: the existing row POST /reports/x/comments/extra changed from 404 to 405 Allow: GET, HEAD. The new GET /reports/{slug}/comments/{id} pattern also matches any single extra segment, so the mux answers a POST with 405 before any handler. The critique only checked the trailing-slash row. Routing was not changed to suit the test."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The critic's look prescribed `scrollWidth <= innerWidth`. Measured under mobile emulation it is blind: an overflowing page widens innerWidth too (572 of 572 without the login fix). The look compares scrollWidth to the width asked for."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: A removed comment that has replies drawn below it also carries the toggle (the design says every comment with rendered replies), so TestCommentPlaceholders accepts 'comment removed Hide replies'. Case F of that test is rebuilt around the cap, because a depth-6 leaf is no longer on the report page. TestCommentLiteralHTML allows the one site script tag."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The first look seeded a 39-character login with a hyphen, which is a break point, so it was blind. It now uses 39 'w' characters."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: A serve mode was added to the runner so the engine can open the new screens, because config refuses to start the app without HBAND_* variables (lesson #961). It reuses the finish test's Product class with a one-line port patch applied only in serve mode."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Waived by a person, so not built: m7 (.toggle[hidden] guard, N-066) and m8 (Content-Type assertion, N-067). The toggle rule has no display property, so the no-JS default stays hidden. No setting or notice was added: nothing here works around a defect outside this project (the Edge guard is a rule for the tests, and the login wrap is a layout fix)."
+   "issue": "The tracked .taad/slices/SL-008/__pycache__/run_finish_e004_2.cpython-314.pyc is stale. It was already modified in the tree before this attempt and I did not regenerate or commit it. It should be removed from version control by a person."
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-1194 of 1194) -- partly-opened: seen only as 54 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-39, 65-319, 370-539, 825-1194 of 1194) -- partly-opened: a Read returned only part of it; seen only as 1 Grep line (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/server/harness_test.go (not seen: lines 1-353 of 353) -- partly-opened: seen only as 23 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/server/harness_test.go (not seen: lines 1-59, 145-353 of 353) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/server/reader_test.go (not seen: lines 1-707 of 707) -- partly-opened: seen only as 34 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/server/reader_test.go (not seen: lines 1-575 of 707) -- partly-opened: a Read returned only part of it; 1 returned line differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-635 of 635) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/comment_test.go -- read only as this slice's diff hunks (say(), TestCommentLiteralHTML, TestCommentThreadCap, TestCommentPlaceholders case F), not the whole file"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/reader_test.go -- read the diff hunk of TestReaderPathVariants and the check helpers at :50 and :595-627; not read whole"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/vote_test.go -- read only the diff hunks (dislikeWorld.first, observe's reads list), not the whole of observe's comparison"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/server/harness_test.go -- read only the diff hunks (h.app, newApp/handler in newHarness and rebuild)"
+   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-454, 545-635 of 635) -- partly-opened: a Read returned only part of it; seen only as 10 Grep lines (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
@@ -126,27 +66,31 @@
   },
   {
    "stage": "validate-slice",
-   "issue": "not reached: No real phone, Firefox or Safari: phone readability was measured only in desktop Chrome with Emulation.setDeviceMetricsOverride (mobile) at 360 and 400 px."
+   "issue": "not reached: No real phone, Firefox or Safari. Phone readability was measured only in desktop headless Chrome with Emulation.setDeviceMetricsOverride (mobile) at 360 and 400 px."
   },
   {
    "stage": "validate-slice",
-   "issue": "not reached: The phone width for a signed-in viewer whose own login is long (header 'Signed in as @login') was not re-measured. The code review measured an overflow of 482 at 360 px (waived N-069)."
+   "issue": "not reached: No production path: no VPS reverse proxy over WireGuard, no real GitHub OAuth, no real https origin. Every run used the finish test's stand-in GitHub, https://hband.test as the base URL, and 127.0.0.1. This is why the report iframe is refused (frame-ancestors) and the avatars are blocked in the screens."
   },
   {
    "stage": "validate-slice",
-   "issue": "not reached: The production path (VPS reverse proxy over WireGuard, real GitHub OAuth, https base URL): every run used the finish test's stand-in GitHub, https://hband.test as base URL, and 127.0.0.1."
+   "issue": "not reached: No-JavaScript rendering (toggles hidden, replies open) was not rendered. The scripts-disabled Chrome dump came back empty, so that state is known only from the markup and site.css."
   },
   {
    "stage": "validate-slice",
-   "issue": "not reached: The branch page was exercised with a single nine-level chain. No real-sized thread (Q-020's 10,000 comments) was loaded to see the branch page's cost or behaviour."
+   "issue": "not reached: A draft report's branch URL was checked only by TestBranchNotFoundIdentical. The live seed has no draft."
   },
   {
    "stage": "validate-slice",
-   "issue": "not reached: A draft report's branch URL was checked only by TestBranchNotFoundIdentical, not by the live-binary probe (the serve seed has no draft)."
+   "issue": "not reached: No real-sized thread (Q-020's 10,000 comments) was loaded. The branch page was exercised with one 9-level chain."
   },
   {
    "stage": "validate-slice",
-   "issue": "not reached: The no-JavaScript reading (toggles stay hidden, replies open) was checked from the markup only, not rendered in a browser with scripts disabled."
+   "issue": "not reached: A signed-in viewer whose own login is long ('Signed in as @…' in the header) was not re-measured. The overflow is waived to N-069 and this run browsed as plain-reader."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A relative CHROME_BIN and the '…msedge.exe\\.' shape (N-090) were not re-probed."
   }
  ],
  "stages": [
@@ -229,7 +173,7 @@
    "stage": "build-slice",
    "title": "Build",
    "order": 7,
-   "state": "sent back",
+   "state": "passed",
    "attempts": [
     {
      "n": 1,
@@ -245,6 +189,34 @@
       "measured_by_git": 22
      },
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T08:57:26.050Z",
+     "head": "203bba07ffa63917b4da83b06c1a2aa7713bded0",
+     "summary": "Fixed the one defect the validation found: the scratch finish runner fell back to Chrome paths written in its own code when CHROME_BIN was unset.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "validation partial this build: This stage only read the tree and the ledger, so its contact is `code`. Every product criterion of SC-013/SC-014 was verified, but the one failed defect check is real. It was waived only until a run showed it failing, and the validator's run has now shown that. What I checked myself: - **The defect is in the code.** `.taad/slices/SL-008/run_finish_e004_2.py:29-30` defines `CHROME_PATHS` as the two Chrome paths under Program Files. `chrome()` at line 41 loops over `(os.environ.get(\"CHROME_BIN\"), *CHROME_PATHS)`, so with CHROME_BIN unset it falls back to a browser path written into the code. The docstrings repeat the fallback: line 12 (\"from CHROME_BIN or from the install paths\"), line 39 (\"CHROME_BIN, else an installed Chrome\") and the line 49 message (\"no Chrome is installed at the usual paths\"). The file is tracked and was added in 78c9ccc, the build commit. - **The ledger rows.** I read them in place (`mode=ro`, SELECT only). - Decision 14105 (finding-triage, accepted-pending) confirmed code-review m3. It says the machine's CHROME_BIN-only rule outranks the earlier m5 wording (\"CHROME_BIN and the Chrome install paths only\"), so no person needs to decide between them. - Decision 14110 waived O-014 to N-071 only because the code review gave no reproduction. It says the item \"becomes work when a run shows it failing\". - The validator then reproduced it: with CHROME_BIN removed, importing the runner and calling `chrome()` returned `C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe`. That meets the waiver's own condition, and N-071 is still open. - **The fix will not break later runs.** CHROME_BIN is set in this environment and points at an existing chrome.exe, so a runner that reads only CHROME_BIN still runs the finish line and the look. - **I did not re-run anything.** The product evidence (the probe, the mutations, the 13 named tests, the Chrome look at 360/400/1000 px) is the validator's, and I accepted it as reported. What the builder must change, in `.taad/slices/SL-008/run_finish_e004_2.py` only: 1. Delete `CHROME_PATHS`. 2. Make `chrome()` read only `os.environ.get(\"CHROME_BIN\")`. 3. Keep refusing any basename that starts with msedge. 4. When CHROME_BIN is unset, empty, not a file, or Edge, print a message saying so on stderr and exit 3. It must never exit 0 and never 1. 5. Rewrite the module docstring (lines 5 and 12), the `chrome()` docstring and the line 49 message so they describe CHROME_BIN-only behaviour, with no mention of install paths. 6. Keep everything else as it is: the read-only ledger SELECT, the ROOT and browser-list patches that must each match exactly once (exit 4 otherwise), the assertion that no msedge text is left, and the look and serve modes. How to show it is fixed: - With CHROME_BIN removed from the environment, `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py --root <worktree>` exits 3 without starting a browser. - With CHROME_BIN pointing at an msedge.exe, it also exits 3. - With CHROME_BIN pointing at the installed chrome.exe, finish line 2 exits 0 and the Edge process count is the same before and after. Not part of this rebuild: - `internal/testutil/headless/headless.go:44-45`. Its Chrome default was decided in SL-004 and pinned by lesson #946. - The approved ledger finish body that still lists msedge. It was already reported to the person. - The stray tracked `__pycache__` .pyc. That is an extra and is carried, though the builder should not commit a regenerated one. - The waived N-066, N-067, N-069 and N-070.",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-012",
+       "O-013",
+       "O-014",
+       "O-015"
+      ]
+     },
+     "changed": {
+      "config": 1,
+      "listed": 1,
+      "measured_by_git": 8
+     },
+     "details": "build-slice-2.json"
     }
    ]
   },
@@ -266,13 +238,41 @@
     },
     {
      "n": 2,
-     "state": "unrecorded",
+     "state": "passed",
      "at": "2026-11-24T08:40:06.226Z",
-     "head": "",
+     "head": "203bba07ffa63917b4da83b06c1a2aa7713bded0",
      "summary": "The build matches the SC-013/SC-014 design.",
-     "caused_by": null,
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-24T08:49:47.986Z, and build-slice has judged since (2026-11-24T08:58:42.006Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
      "changed": {},
      "details": "code-review-2.json"
+    },
+    {
+     "n": 3,
+     "state": "unrecorded",
+     "at": "2026-11-24T08:58:42.553Z",
+     "head": "",
+     "summary": "This is a re-read after the tree moved.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-24T08:49:47.986Z, and build-slice has judged since (2026-11-24T08:58:42.006Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-3.json"
     }
    ]
   },
@@ -280,7 +280,7 @@
    "stage": "validate-slice",
    "title": "Validate",
    "order": 9,
-   "state": "failed",
+   "state": "passed",
    "attempts": [
     {
      "n": 1,
@@ -291,6 +291,16 @@
      "caused_by": null,
      "changed": {},
      "details": "validate-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T09:05:08.172Z",
+     "head": "203bba07ffa63917b4da83b06c1a2aa7713bded0",
+     "summary": "Attempt 1 was sent back for one defect: the finish runner fell back to Chrome install paths written into its own code.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-2.json"
     }
    ]
   }

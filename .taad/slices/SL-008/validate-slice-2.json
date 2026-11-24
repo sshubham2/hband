@@ -1,0 +1,309 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-008",
+ "stage": "validate-slice",
+ "attempt": 2,
+ "at": "2026-11-24T09:05:08.172Z",
+ "head": "203bba07ffa63917b4da83b06c1a2aa7713bded0",
+ "run_id": 11941,
+ "summary": "Attempt 1 was sent back for one defect: the finish runner fell back to Chrome install paths written into its own code. That defect is fixed. `.taad/slices/SL-008/run_finish_e004_2.py` chrome() (lines 37-50) now reads only CHROME_BIN, and it exits 3 with a stderr message when CHROME_BIN is:\n- unset;\n- blank;\n- a path that is not a file;\n- Edge's real path;\n- C:\\nope\\MSEDGE.EXE.\n\nNo browser started during those probes: msedge processes were 5 before and 5 after, and chrome processes 15 before and 15 after.\n\nEvery SC-013/SC-014 criterion was re-measured on this tree (HEAD 203bba0), with TAAD3_HOME set to a scratch folder and CHROME_BIN set to Chrome:\n- `go vet ./...` and `go test -count=1 ./...` exit 0.\n- All 12 named tests pass: TestThreadCapFive, TestBranchNotFoundIdentical, TestReplyRedirectTable, TestStaticThreadScript, TestThreadFitsPhoneWidth, TestReplyRedirectRereadFails, TestStoreFaultSteps, TestBranchStoreFailure, TestReaderPathVariants, TestDislikesDoNotInterfere, TestCommentThreadCap and TestReaderPagesShareOneLayout.\n- Finish line 2 through the runner: 'Ran 1 test … OK', exit 0.\n- The signed-in look in headless Chrome passed at 360, 400 and 1000 px. scrollWidth equalled innerWidth at 360 and 400. A toggle clicked twice returned to its starting state. Replies at levels 6-9 landed on /reports/e004-look/comments/5#comment-N.\n\nI also probed the seeded product live over HTTP:\n- The report page has 5 articles and no level 6. It has exactly one 'continue this thread →' link, to /reports/e004-look/comments/5.\n- The branch page answers 200 with 'Back to the full report' linking to /reports/e004-look. It has no iframe, loads thread.js with defer, draws levels 5-9 and does not draw level 4.\n- abc, 01, 0, 999 and an unknown slug all get the same 19-byte 404. POST to the branch URL gets 405 with Allow: GET, HEAD.\n- /static/thread.js answers 200 as text/javascript, and its script only changes attributes and text.\n- /raw keeps script-src 'none'.\n- In a Chrome DOM dump with JavaScript on, all 4 toggles are shown.\n\nFitness: all 29 rules hold. No hband or test Chrome process was left over, and the tracked .pyc was not rewritten.\n\nContact is `code`, not `real`. Everything ran against a locally built binary with the finish test's stand-in GitHub, an https://hband.test base URL and 127.0.0.1, and 'phone' means Chrome device emulation, not a phone.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "Attempt 1 was sent back for one defect: the finish runner fell back to Chrome install paths written into its own code. That defect is fixed. `.taad/slices/SL-008/run_finish_e004_2.py` chrome() (lines 37-50) now reads only CHROME_BIN, and it exits 3 with a stderr message when CHROME_BIN is:\n- unset;\n- blank;\n- a path that is not a file;\n- Edge's real path;\n- C:\\nope\\MSEDGE.EXE.\n\nNo browser started during those probes: msedge processes were 5 before and 5 after, and chrome processes 15 before and 15 after.\n\nEvery SC-013/SC-014 criterion was re-measured on this tree (HEAD 203bba0), with TAAD3_HOME set to a scratch folder and CHROME_BIN set to Chrome:\n- `go vet ./...` and `go test -count=1 ./...` exit 0.\n- All 12 named tests pass: TestThreadCapFive, TestBranchNotFoundIdentical, TestReplyRedirectTable, TestStaticThreadScript, TestThreadFitsPhoneWidth, TestReplyRedirectRereadFails, TestStoreFaultSteps, TestBranchStoreFailure, TestReaderPathVariants, TestDislikesDoNotInterfere, TestCommentThreadCap and TestReaderPagesShareOneLayout.\n- Finish line 2 through the runner: 'Ran 1 test … OK', exit 0.\n- The signed-in look in headless Chrome passed at 360, 400 and 1000 px. scrollWidth equalled innerWidth at 360 and 400. A toggle clicked twice returned to its starting state. Replies at levels 6-9 landed on /reports/e004-look/comments/5#comment-N.\n\nI also probed the seeded product live over HTTP:\n- The report page has 5 articles and no level 6. It has exactly one 'continue this thread →' link, to /reports/e004-look/comments/5.\n- The branch page answers 200 with 'Back to the full report' linking to /reports/e004-look. It has no iframe, loads thread.js with defer, draws levels 5-9 and does not draw level 4.\n- abc, 01, 0, 999 and an unknown slug all get the same 19-byte 404. POST to the branch URL gets 405 with Allow: GET, HEAD.\n- /static/thread.js answers 200 as text/javascript, and its script only changes attributes and text.\n- /raw keeps script-src 'none'.\n- In a Chrome DOM dump with JavaScript on, all 4 toggles are shown.\n\nFitness: all 29 rules hold. No hband or test Chrome process was left over, and the tracked .pyc was not rewritten.\n\nContact is `code`, not `real`. Everything ran against a locally built binary with the finish test's stand-in GitHub, an https://hband.test base URL and 127.0.0.1, and 'phone' means Chrome device emulation, not a phone.",
+  "checks": [
+   {
+    "what": "go vet on the tree",
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "evidence": "exit 0 on go1.27.4 windows/amd64"
+   },
+   {
+    "what": "Whole suite as the project runs it (TAAD3_HOME set to scratch)",
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "exit 0; every package ok (server 11.756s, votes 6.088s, comments 1.715s …)"
+   },
+   {
+    "what": "The slice's named Go tests and the ones it extends",
+    "command": "go test -count=1 -v -run 'TestThreadCapFive|TestBranchNotFoundIdentical|TestReplyRedirectTable|TestStaticThreadScript|TestThreadFitsPhoneWidth|TestReplyRedirectRereadFails|TestStoreFaultSteps|TestBranchStoreFailure|TestReaderPathVariants|TestDislikesDoNotInterfere|TestCommentThreadCap|TestReaderPagesShareOneLayout' ./internal/server/",
+    "outcome": "passed",
+    "evidence": "all 12 '--- PASS', ok 1.039s, exit 0"
+   },
+   {
+    "what": "The fixed defect: the runner reads only CHROME_BIN and refuses bad values without starting a browser",
+    "command": "python -B -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py --root <worktree>, with CHROME_BIN unset / ' ' / C:\\nope\\chrome.exe / the Edge msedge.exe path / C:\\nope\\MSEDGE.EXE",
+    "outcome": "passed",
+    "evidence": "Exit 3 for all five cases. The stderr messages were: 'no Chrome: CHROME_BIN is unset or empty', '… is not a file' (twice), and 'refusing CHROME_BIN=…msedge.exe: that is Edge…' (twice). msedge processes 5 before and 5 after; chrome processes 15 before and 15 after."
+   },
+   {
+    "what": "Finish line 2 run through the runner with CHROME_BIN set to Chrome",
+    "command": "python -B -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py --root <worktree> --scratch <scratch>\\finish",
+    "outcome": "passed",
+    "evidence": "test_threads_nest_at_most_five_deep_continue_on_a_branch_page_and_fold_in_a_browser ... ok; Ran 1 test in 8.512s; OK; exit 0"
+   },
+   {
+    "what": "Signed-in look in headless Chrome at phone and desktop widths, plus the toggle",
+    "command": "python -B -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py look --root <worktree> --scratch .. --shots ..",
+    "outcome": "passed",
+    "evidence": "PASS at 360, 400 and 1000 px on both /reports/e004-look/comments/5 and /reports/e004-look; scrollWidth was 360, 400 and 985. Toggle: before [hidden=false, 'true', 'Hide replies'], folded [true, 'false', 'Show replies'], after [false, 'true', 'Hide replies']; replyOpen 5. Levels 6-9 landed on /reports/e004-look/comments/5#comment-6..9. Exit 0."
+   },
+   {
+    "what": "Live HTTP probe of the seeded product (runner serve mode on a random loopback port)",
+    "command": "python … run_finish_e004_2.py serve --port N; Invoke-WebRequest the report page, the branch page, the bad ids, POST and HEAD on the branch URL, /raw and /",
+    "outcome": "passed",
+    "evidence": "Report page: 200, 'private, no-cache', 5 articles, 'level 6 text' absent, 1 continue link href=/reports/e004-look/comments/5, 4 toggles. Branch page /comments/5: 200, 'no-cache, private', <a class=\"back\" href=\"/reports/e004-look\">Back to the full report</a>, no iframe, <script src=\"/static/thread.js\" defer>, level 9 drawn, level 4 not. HEAD 200."
+   },
+   {
+    "what": "Branch not-found answers are identical",
+    "command": "GET /reports/e004-look/comments/{abc,01,0,999} and /reports/nope/comments/1",
+    "outcome": "passed",
+    "evidence": "All five 404 text/plain, 19 bytes; distinct bodies: 1"
+   },
+   {
+    "what": "POST on the branch pattern",
+    "command": "POST /reports/e004-look/comments/5",
+    "outcome": "passed",
+    "evidence": "405, Allow: GET;HEAD"
+   },
+   {
+    "what": "Isolated report path still forbids every script",
+    "command": "GET /raw/e004-look (live)",
+    "outcome": "passed",
+    "evidence": "CSP: sandbox allow-popups allow-popups-to-escape-sandbox; default-src 'none'; script-src 'none'; … frame-ancestors https://hband.test"
+   },
+   {
+    "what": "thread.js is served from the site's own path with a JavaScript type and is DOM-only",
+    "command": "GET /static/thread.js (live) and read its body",
+    "outcome": "passed",
+    "evidence": "200, text/javascript; charset=utf-8, 993 bytes. It only sets .hidden, aria-expanded and textContent, and adds a click listener. It builds no markup and makes no request. So nosniff will not block it on this machine (N-067's concern)."
+   },
+   {
+    "what": "In a real browser with JS on, thread.js un-hides the toggles",
+    "command": "chrome --headless=new --user-data-dir=<scratch> --virtual-time-budget=3000 --dump-dom http://127.0.0.1:N/reports/e004-look/comments/5",
+    "outcome": "passed",
+    "evidence": "4 toggles and 0 still hidden: <button type=\"button\" class=\"toggle\" aria-expanded=\"true\" aria-controls=\"replies-5\">Hide replies</button>"
+   },
+   {
+    "what": "No-JS rendering of the branch page in a browser",
+    "command": "chrome --headless=new --blink-settings=scriptEnabled=false --virtual-time-budget=3000 --dump-dom <branch URL>",
+    "outcome": "not-run",
+    "evidence": "The dump came back empty (length 0), probably because the flag combination does not work together, and I did not retry it. From the markup only: comments.html:23 renders the button with `hidden`, and site.css has no .toggle display rule (line 29 is margin only). So with no script the buttons stay hidden and every replies div stays open. This was not rendered."
+   },
+   {
+    "what": "First attempt at the serve probe",
+    "command": "same serve probe with a helper function named H",
+    "outcome": "not-run",
+    "evidence": "My own script error: `H` is PowerShell's alias for Get-History, so no request was made. The product came up, and the runner and its children were stopped. I re-ran it as Probe (the check above)."
+   },
+   {
+    "what": "Architecture rules",
+    "command": "Fitness op=check",
+    "outcome": "passed",
+    "evidence": "29 rules checked against 68 parsed files; every declared rule holds (it includes the static-script fence)"
+   },
+   {
+    "what": "No browser path written into code, and nothing starts Edge",
+    "command": "Grep '(?i)msedge|CHROME_BIN|Program Files' outside .taad",
+    "outcome": "failed",
+    "nature": "pre-existing",
+    "evidence": "internal/testutil/headless/headless.go:44-45 hard-codes two Chrome install paths. This file is not in `git diff --stat a4328f2..HEAD`; it dates from SL-004. The attempt-1 revoker explicitly excluded it ('decided in SL-004 and pinned by lesson #946'). Nothing in the slice's own files names a browser path."
+   },
+   {
+    "what": "No processes left behind, Edge never started, tracked .pyc untouched",
+    "command": "Get-Process msedge/hband*; Win32_Process chrome.exe with my profile paths; git status .taad/slices/SL-008/__pycache__",
+    "outcome": "passed",
+    "evidence": "msedge stayed at 5 across all runs. 0 hband processes and 0 chrome processes with an sl008-val2 or hband-chrome- profile were left over. The pyc is not modified, because I ran python with -B."
+   },
+   {
+    "what": "How the reader pages are composed (O-006)",
+    "command": "Grep threadOf/writeReader/threadDepthCap in internal/server non-test files",
+    "outcome": "passed",
+    "evidence": "renderReader (reader.go:125, 145) and readBranch (reader.go:205, 221) both go through threadOf (reader.go:155-169: buildThread with a.cfg.OwnerGitHubID and threadDepthCap, set once) and writeReader (reader.go:176-177: Cache-Control 'private, no-cache'). threadDepthCap = 5 at thread.go:20, and branchRoot is at thread.go:70-75."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "No page (/, /reports/<slug>, a branch page) nests a comment more than five levels deep",
+    "met": "yes",
+    "how": "TestThreadCapFive passes; it covers /, /reports/x and the branch pages. Live, the report page with a 9-level chain draws 5 articles and no 'level 6 text'. The branch page of comment 5 draws levels 5-9, which is 5 levels."
+   },
+   {
+    "criterion": "A depth-5 comment whose replies are cut shows a 'continue this thread →' link to /reports/<slug>/comments/<id>",
+    "met": "yes",
+    "how": "Live: exactly one <a class=\"continue\" href=\"/reports/e004-look/comments/5\">continue this thread &rarr;</a>. TestThreadCapFive checks it appears only on cut depth-5 nodes that kept replies. It is also visible on the phone screen s1-phone-light."
+   },
+   {
+    "criterion": "GET /reports/{slug}/comments/{id} opens that branch on its own page, with a link back to the full report and reply forms for a signed-in reader; hidden or unknown report, bad id or pruned id → the same 404",
+    "met": "yes",
+    "how": "Live: 200, with the back link to /reports/e004-look and no iframe. In the signed-in look, 5 details.reply forms opened on the branch page. abc, 01, 0, 999 and an unknown slug all return one identical 19-byte 404. POST returns 405 with Allow: GET, HEAD. A draft report's branch URL is covered only by TestBranchNotFoundIdentical (passes); the live seed has no draft."
+   },
+   {
+    "criterion": "A reply posted below the cap is answered 303 to the branch page that shows it (#comment-<id>), and to /reports/<slug>#comments if the re-read fails",
+    "met": "yes",
+    "how": "In the look, replies at levels 6-9 posted through the real handler landed on /reports/e004-look/comments/5#comment-6..9, and that page draws them. TestReplyRedirectTable (depths 1-17, each landing fetched and checked) and TestReplyRedirectRereadFails (303 #comments, row stored, no 5xx) both pass."
+   },
+   {
+    "criterion": "Every comment with shown replies has a collapse/expand toggle that, in a browser, hides and then shows everything beneath it, using /static/thread.js served from the site's own path",
+    "met": "yes",
+    "how": "In headless Chrome (look), clicking a toggle set replies hidden, aria-expanded=false and 'Show replies'; a second click restored all three. The JS-on DOM dump shows 4 toggles, none hidden. /static/thread.js answers 200 as text/javascript and is loaded with defer from report.html and branch.html. Finish line 2 drives the same toggle, signed out."
+   },
+   {
+    "criterion": "The isolated report path still forbids every script",
+    "met": "yes",
+    "how": "Live /raw/e004-look: CSP has script-src 'none', default-src 'none' and sandbox without allow-scripts. TestStaticThreadScript passes."
+   },
+   {
+    "criterion": "Deep conversations stay readable on phones (the cut at five keeps a depth-5 comment body a usable width)",
+    "met": "yes",
+    "how": "The look uses Chrome's Emulation.setDeviceMetricsOverride (mobile). At 360 and 400 px, scrollWidth equals innerWidth on both the branch page and the report page, with a 39-character login and a 120-character unbroken body. TestThreadFitsPhoneWidth passes (at least 240 px of comment width at 360 px). In the phone screens the depth-5 body reads at about 280 px. This was emulation, not a real phone."
+   },
+   {
+    "criterion": "site script stays DOM-only under the static-script fence",
+    "met": "yes",
+    "how": "Fitness op=check: all 29 rules hold. I read thread.js: it only sets hidden, aria-expanded and textContent."
+   }
+  ],
+  "planned": [
+   {
+    "ordinal": 1,
+    "met": "yes",
+    "evidence": "Every component the design fixed is on the tree and was measured:\n- threadDepthCap = 5 (thread.go:20) and branchRoot (thread.go:70-75).\n- The continue anchor (comments.html:26).\n- readBranch rendering branch.html, with the back link and no iframe (live 200).\n- The redirect to the ancestor branch (look landings; TestReplyRedirectTable) and the #comments fallback (TestReplyRedirectRereadFails).\n- The hidden-until-JS button.toggle with aria-controls replies-<id> (comments.html:23), flipped by /static/thread.js (live DOM dump and the look's double click).\n- The TestReaderPathVariants rows (passes; live 404, 404 and 405 Allow: GET, HEAD).\n- TestDislikesDoNotInterfere (passes).\n- The four named Go tests (pass).\n- Finish line 2 run from a scratch copy with ROOT patched (exit 0, OK)."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "verified": "yes",
+    "evidence": "TestThreadCapFive passes. Live: the report page has 5 articles, no level 6, and one continue link."
+   },
+   {
+    "key": "O-002",
+    "verified": "yes",
+    "evidence": "TestThreadFitsPhoneWidth passes. The look passed at 360 and 400 (scrollWidth equals innerWidth) and at 1000 px (985)."
+   },
+   {
+    "key": "O-003",
+    "verified": "yes",
+    "evidence": "TestReplyRedirectTable passes. Levels 6-9 posted through the real handler landed on /comments/5#comment-N, and that page draws them."
+   },
+   {
+    "key": "O-004",
+    "verified": "yes",
+    "evidence": "TestReplyRedirectRereadFails and TestStoreFaultSteps pass."
+   },
+   {
+    "key": "O-005",
+    "verified": "yes",
+    "evidence": "TestBranchStoreFailure passes."
+   },
+   {
+    "key": "O-006",
+    "verified": "yes",
+    "evidence": "readBranch and renderReader both use threadOf (reader.go:155-169) and writeReader (reader.go:176-177). Live, the branch and report pages both send Cache-Control 'no-cache, private'."
+   },
+   {
+    "key": "O-007",
+    "verified": "yes",
+    "evidence": "Live: the branch page for comment 5 draws level 5 first and down to level 9, and does not draw level 4. So the page is built over the found node, not path[0]."
+   },
+   {
+    "key": "O-008",
+    "verified": "yes",
+    "evidence": "Runner probes: unset, blank, missing and both Edge spellings exit 3 before any launch, and msedge stayed at 5. The patched finish ran Chrome only."
+   },
+   {
+    "key": "O-009",
+    "verified": "yes",
+    "evidence": "`run_finish_e004_2.py look` ran signed in on Chrome: 5 details.reply forms were opened, the toggle round-trip passed, and every width passed."
+   },
+   {
+    "key": "O-011",
+    "verified": "yes",
+    "evidence": "Waived to N-067. Measured on this machine anyway: /static/thread.js is served as text/javascript; charset=utf-8, and Chrome ran it under nosniff (the toggles were un-hidden in the JS-on dump)."
+   },
+   {
+    "key": "O-014",
+    "verified": "yes",
+    "evidence": "Waived to N-071, and now fixed in attempt 2. chrome() (run_finish_e004_2.py:37-50) has no CHROME_PATHS and reads only CHROME_BIN. With CHROME_BIN unset it exits 3 with 'no Chrome: CHROME_BIN is unset or empty'."
+   },
+   {
+    "key": "O-017",
+    "verified": "cannot-tell",
+    "evidence": "Waived to N-090. I did not probe a relative CHROME_BIN or the `…\\msedge.exe\\.` shape this run. chrome() still has no os.path.abspath call (lines 40-50), so the code review's observation still matches the code."
+   }
+  ],
+  "not_reached": [
+   "No real phone, Firefox or Safari. Phone readability was measured only in desktop headless Chrome with Emulation.setDeviceMetricsOverride (mobile) at 360 and 400 px.",
+   "No production path: no VPS reverse proxy over WireGuard, no real GitHub OAuth, no real https origin. Every run used the finish test's stand-in GitHub, https://hband.test as the base URL, and 127.0.0.1. This is why the report iframe is refused (frame-ancestors) and the avatars are blocked in the screens.",
+   "No-JavaScript rendering (toggles hidden, replies open) was not rendered. The scripts-disabled Chrome dump came back empty, so that state is known only from the markup and site.css.",
+   "A draft report's branch URL was checked only by TestBranchNotFoundIdentical. The live seed has no draft.",
+   "No real-sized thread (Q-020's 10,000 comments) was loaded. The branch page was exercised with one 9-level chain.",
+   "A signed-in viewer whose own login is long ('Signed in as @…' in the header) was not re-measured. The overflow is waived to N-069 and this run browsed as plain-reader.",
+   "A relative CHROME_BIN and the '…msedge.exe\\.' shape (N-090) were not re-probed."
+  ],
+  "screens": [
+   {
+    "screen": "s1-wide-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "Comments section",
+      "what": "It says 'No comments yet.', while the phone screenshot of the same report page shows the 5-level thread with toggles and the continue link. The wide shot seems to have been taken before the thread was seeded, so it shows none of this slice's work and does not match the screen beside it."
+     },
+     {
+      "where": "Report frame (large bordered box)",
+      "what": "The frame is an empty white box filling most of the page, because the report was refused framing (frame-ancestors https://hband.test with a 127.0.0.1 origin). This comes from the stand-in base URL, but a reader would see a blank report."
+     }
+    ]
+   },
+   {
+    "screen": "s1-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "Avatar images beside every commenter name",
+      "what": "Each avatar shows a broken-image icon, because the stand-in avatars.example is blocked by img-src. This comes from the stand-in, but it looks broken."
+     },
+     {
+      "where": "Report frame",
+      "what": "The frame is empty for the same frame-ancestors reason as the wide shot."
+     },
+     {
+      "where": "Level-4 comment header",
+      "what": "The 39-character login wraps onto two lines and pushes the date onto its own line. It is readable and nothing overflows, but this header is taller and less tidy than the others."
+     }
+    ]
+   },
+   {
+    "screen": "s2-wide-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "Under the 'Thread' heading",
+      "what": "A signed-out reader gets no 'Sign in to comment' line here, unlike the report page ('Sign in to comment.' under Comments). From this page alone it is unclear how to reply; the only cue is the header's 'Sign in with GitHub'."
+     },
+     {
+      "where": "Avatar images",
+      "what": "Broken-image icons (the stand-in avatars.example is blocked by CSP)."
+     }
+    ]
+   },
+   {
+    "screen": "s2-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "Under the 'Thread' heading",
+      "what": "As on the wide branch screen, there is no 'Sign in to comment' prompt for a signed-out reader."
+     },
+     {
+      "where": "Avatar images",
+      "what": "Broken-image icons (stand-in avatar host)."
+     }
+    ]
+   }
+  ]
+ }
+}
