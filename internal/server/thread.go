@@ -8,12 +8,19 @@ import (
 )
 
 // threadDepthCap is how many levels of a thread one page draws; top-level
-// comments are level 1. It is the only copy of the number. Browsers stop
-// building nested elements at a fixed depth (Chrome 158 flattened the nesting
-// at the 256th reply of a chain, measured), so a page must never nest without
-// limit. Writes accept any depth: replies below the cap are stored and are
-// beyond what this page draws.
-const threadDepthCap = 100
+// comments are level 1. It is the only copy of the number. It is a readability
+// limit before it is anything else: each level indents by about 1.3rem
+// (site.css), so five levels leave a phone a usable body width
+// (TestThreadFitsPhoneWidth holds the two together), and browsers stop building
+// nested elements at a fixed depth (Chrome 158 flattened the nesting at the
+// 256th reply of a chain, measured), so a page must never nest without limit.
+// Writes accept any depth: a comment below the cap is stored, and drawn on the
+// branch page that continues the thread (/reports/<slug>/comments/<id>), whose
+// root is drawn at level 1 again.
+const threadDepthCap = 5
+
+// branchRoot below would never end for a cap under 2.
+const _ uint = threadDepthCap - 2
 
 // commentView is one comment as the template draws it.
 type commentView struct {
@@ -45,6 +52,29 @@ type commentView struct {
 // GitHubID 0, and is excluded as well, so it cannot carry the badge.
 func buildThread(nodes []*comments.Node, slug string, signedIn bool, ownerID int64, limit int) []commentView {
 	return buildLevel(nodes, slug, signedIn, ownerID, limit, 1)
+}
+
+// branchRoot says which page draws a comment. path is the comment's path from a
+// top-level comment down to itself (comments.Find), so its length is its depth
+// in the report. A comment at or above the cap is drawn on the report page and
+// branchRoot is nil. A deeper one is drawn on a branch page, whose root is a
+// comment that an earlier page cut: the report page cuts at depth cap, the
+// branch page rooted there cuts at depth cap+(cap-1), and so on. The page chosen
+// is the first whose cut comes at or below the comment, so the comment is drawn
+// at level 2 or deeper of it (or is the cut comment of that page, with its own
+// "continue this thread" link). It is the one place that repeats buildLevel's
+// cut rule, and TestReplyRedirectTable checks it against what the pages really
+// draw.
+func branchRoot(path []*comments.Node) *comments.Node {
+	depth := len(path)
+	if depth <= threadDepthCap {
+		return nil
+	}
+	root := threadDepthCap
+	for depth > root+threadDepthCap-1 {
+		root += threadDepthCap - 1
+	}
+	return path[root-1]
 }
 
 // buildLevel draws one level; it recurses at most limit levels deep, whatever

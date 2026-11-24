@@ -1,0 +1,308 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-008",
+ "title": "Deep threads stay readable: 'continue this thread →' pages beyond five levels, and a collapse/expand toggle on every comment",
+ "status": "active",
+ "branch": "slice/SL-008",
+ "opened_at": "2026-11-24T06:50:44.539Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "No page (/, /reports/<slug>, a branch page) nests a comment more than five levels deep: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "A depth-5 comment whose replies are cut shows a 'continue this thread →' link to /reports/<slug>/comments/<id>: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "GET /reports/{slug}/comments/{id} opens that branch on its own page, with a link back to the full report and reply forms for a signed-in reader; hidden or unknown report, bad id or pruned id → the same 404: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "A reply posted below the cap is answered 303 to the branch page that shows it (#comment-<id>), and to /reports/<slug>#comments if the re-read fails: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Every comment with shown replies has a collapse/expand toggle that, in a browser, hides and then shows everything beneath it, using /static/thread.js served from the site's own path: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Deep conversations stay readable on phones (the cut at five keeps a depth-5 comment body a usable width): missing"
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The approved finish body in the ledger (epics id 42, item 2) still lists msedge.exe and ignores CHROME_BIN. It was already reported to the person. The scratch runner patches around it and the body itself is untouched."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The tracked .taad/slices/SL-008/__pycache__/run_finish_e004_2.cpython-314.pyc is stale. It was already modified in the tree before this attempt and I did not regenerate or commit it. It should be removed from version control by a person."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-39, 65-319, 370-539, 825-1194 of 1194) -- partly-opened: a Read returned only part of it; seen only as 1 Grep line (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/harness_test.go (not seen: lines 1-59, 145-353 of 353) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/reader_test.go (not seen: lines 1-575 of 707) -- partly-opened: a Read returned only part of it; 1 returned line differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-454, 545-635 of 635) -- partly-opened: a Read returned only part of it; seen only as 10 Grep lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/server/thread.go:47-49 -- buildThread's doc says a comment at depth limit has its replies left out 'with Cut set'. Cut is set only when that comment has replies. The code is right and the sentence is loose, so I left it."
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/server/thread.go:14-16 -- the doc cites a Chrome 158 measurement (nesting flattened at the 256th reply). I cannot check that from the code, so I left it."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: No real phone, Firefox or Safari. Phone readability was measured only in desktop headless Chrome with Emulation.setDeviceMetricsOverride (mobile) at 360 and 400 px."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: No production path: no VPS reverse proxy over WireGuard, no real GitHub OAuth, no real https origin. Every run used the finish test's stand-in GitHub, https://hband.test as the base URL, and 127.0.0.1. This is why the report iframe is refused (frame-ancestors) and the avatars are blocked in the screens."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: No-JavaScript rendering (toggles hidden, replies open) was not rendered. The scripts-disabled Chrome dump came back empty, so that state is known only from the markup and site.css."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A draft report's branch URL was checked only by TestBranchNotFoundIdentical. The live seed has no draft."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: No real-sized thread (Q-020's 10,000 comments) was loaded. The branch page was exercised with one 9-level chain."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A signed-in viewer whose own login is long ('Signed in as @…' in the header) was not re-measured. The overflow is waived to N-069 and this run browsed as plain-reader."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A relative CHROME_BIN and the '…msedge.exe\\.' shape (N-090) were not re-probed."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T06:58:58.146Z",
+     "head": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+     "summary": "Composed by the engine from E-004's design (design 225, made by SL-006 for the whole epic and attacked once, whole).",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T06:58:58.715Z",
+     "head": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+     "summary": "The design fits the tree as surveyed.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T07:07:33.322Z",
+     "head": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T07:11:26.541Z",
+     "head": "78c9ccc47bf60dec9e50c06dc5fca11e1e134370",
+     "summary": "Built SC-013 and SC-014 on the design.",
+     "caused_by": null,
+     "changed": {
+      "src": 16,
+      "config": 1,
+      "listed": 17,
+      "measured_by_git": 22
+     },
+     "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T08:57:26.050Z",
+     "head": "203bba07ffa63917b4da83b06c1a2aa7713bded0",
+     "summary": "Fixed the one defect the validation found: the scratch finish runner fell back to Chrome paths written in its own code when CHROME_BIN was unset.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "validation partial this build: This stage only read the tree and the ledger, so its contact is `code`. Every product criterion of SC-013/SC-014 was verified, but the one failed defect check is real. It was waived only until a run showed it failing, and the validator's run has now shown that. What I checked myself: - **The defect is in the code.** `.taad/slices/SL-008/run_finish_e004_2.py:29-30` defines `CHROME_PATHS` as the two Chrome paths under Program Files. `chrome()` at line 41 loops over `(os.environ.get(\"CHROME_BIN\"), *CHROME_PATHS)`, so with CHROME_BIN unset it falls back to a browser path written into the code. The docstrings repeat the fallback: line 12 (\"from CHROME_BIN or from the install paths\"), line 39 (\"CHROME_BIN, else an installed Chrome\") and the line 49 message (\"no Chrome is installed at the usual paths\"). The file is tracked and was added in 78c9ccc, the build commit. - **The ledger rows.** I read them in place (`mode=ro`, SELECT only). - Decision 14105 (finding-triage, accepted-pending) confirmed code-review m3. It says the machine's CHROME_BIN-only rule outranks the earlier m5 wording (\"CHROME_BIN and the Chrome install paths only\"), so no person needs to decide between them. - Decision 14110 waived O-014 to N-071 only because the code review gave no reproduction. It says the item \"becomes work when a run shows it failing\". - The validator then reproduced it: with CHROME_BIN removed, importing the runner and calling `chrome()` returned `C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe`. That meets the waiver's own condition, and N-071 is still open. - **The fix will not break later runs.** CHROME_BIN is set in this environment and points at an existing chrome.exe, so a runner that reads only CHROME_BIN still runs the finish line and the look. - **I did not re-run anything.** The product evidence (the probe, the mutations, the 13 named tests, the Chrome look at 360/400/1000 px) is the validator's, and I accepted it as reported. What the builder must change, in `.taad/slices/SL-008/run_finish_e004_2.py` only: 1. Delete `CHROME_PATHS`. 2. Make `chrome()` read only `os.environ.get(\"CHROME_BIN\")`. 3. Keep refusing any basename that starts with msedge. 4. When CHROME_BIN is unset, empty, not a file, or Edge, print a message saying so on stderr and exit 3. It must never exit 0 and never 1. 5. Rewrite the module docstring (lines 5 and 12), the `chrome()` docstring and the line 49 message so they describe CHROME_BIN-only behaviour, with no mention of install paths. 6. Keep everything else as it is: the read-only ledger SELECT, the ROOT and browser-list patches that must each match exactly once (exit 4 otherwise), the assertion that no msedge text is left, and the look and serve modes. How to show it is fixed: - With CHROME_BIN removed from the environment, `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py --root <worktree>` exits 3 without starting a browser. - With CHROME_BIN pointing at an msedge.exe, it also exits 3. - With CHROME_BIN pointing at the installed chrome.exe, finish line 2 exits 0 and the Edge process count is the same before and after. Not part of this rebuild: - `internal/testutil/headless/headless.go:44-45`. Its Chrome default was decided in SL-004 and pinned by lesson #946. - The approved ledger finish body that still lists msedge. It was already reported to the person. - The stray tracked `__pycache__` .pyc. That is an extra and is carried, though the builder should not commit a regenerated one. - The waived N-066, N-067, N-069 and N-070.",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-012",
+       "O-013",
+       "O-014",
+       "O-015"
+      ]
+     },
+     "changed": {
+      "config": 1,
+      "listed": 1,
+      "measured_by_git": 8
+     },
+     "details": "build-slice-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T07:30:34.216Z",
+     "head": "78c9ccc47bf60dec9e50c06dc5fca11e1e134370",
+     "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 2:10pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T08:40:06.226Z",
+     "head": "203bba07ffa63917b4da83b06c1a2aa7713bded0",
+     "summary": "The build matches the SC-013/SC-014 design.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-24T08:49:47.986Z, and build-slice has judged since (2026-11-24T08:58:42.006Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    },
+    {
+     "n": 3,
+     "state": "unrecorded",
+     "at": "2026-11-24T08:58:42.553Z",
+     "head": "",
+     "summary": "This is a re-read after the tree moved.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-24T08:49:47.986Z, and build-slice has judged since (2026-11-24T08:58:42.006Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-3.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "failed",
+     "at": "2026-11-24T08:51:15.634Z",
+     "head": "50e3ab0450baac66d1aedac5b841951343105d59",
+     "summary": "Every acceptance criterion of SC-013 and SC-014 was checked on the built binary of this tree, and all of them hold.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T09:05:08.172Z",
+     "head": "203bba07ffa63917b4da83b06c1a2aa7713bded0",
+     "summary": "Attempt 1 was sent back for one defect: the finish runner fell back to Chrome install paths written into its own code.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-2.json"
+    }
+   ]
+  }
+ ]
+}

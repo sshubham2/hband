@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "head" .}}
+<script src="/static/thread.js" defer></script>
+</head>
+<body>
+{{template "header" .}}
+<main class="reader">
+<h1>{{.Report.Title}}</h1>
+<p class="meta"><a class="back" href="/reports/{{.Report.Slug}}">Back to the full report</a></p>
+<section class="comments branch" id="comments">
+<h2>Thread</h2>
+{{range .Thread}}{{template "comment" .}}{{end}}</section>
+</main>
+</body>
+</html>

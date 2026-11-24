@@ -1,0 +1,55 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-008",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-24T08:57:26.050Z",
+ "head": "203bba07ffa63917b4da83b06c1a2aa7713bded0",
+ "run_id": 11936,
+ "summary": "Fixed the one defect the validation found: the scratch finish runner fell back to Chrome paths written in its own code when CHROME_BIN was unset. I deleted CHROME_PATHS, and chrome() now reads only CHROME_BIN. It exits 3 with a stderr message when CHROME_BIN is unset, empty, not a file, or names an msedge* file. The docstrings and messages now describe CHROME_BIN-only behaviour. Everything else in the runner (read-only ledger SELECT, the ROOT and browser-list patches that must each match once, the no-Edge-text assertion, and the finish, look and serve modes) is unchanged. No Go, template, CSS or JS file changed.",
+ "payload": {
+  "status": "complete",
+  "summary": "Fixed the one defect the validation found: the scratch finish runner fell back to Chrome paths written in its own code when CHROME_BIN was unset. I deleted CHROME_PATHS, and chrome() now reads only CHROME_BIN. It exits 3 with a stderr message when CHROME_BIN is unset, empty, not a file, or names an msedge* file. The docstrings and messages now describe CHROME_BIN-only behaviour. Everything else in the runner (read-only ledger SELECT, the ROOT and browser-list patches that must each match once, the no-Edge-text assertion, and the finish, look and serve modes) is unchanged. No Go, template, CSS or JS file changed.",
+  "files": [
+   {
+    "path": ".taad/slices/SL-008/run_finish_e004_2.py",
+    "change": "modified",
+    "why": "Delete CHROME_PATHS. chrome() reads only CHROME_BIN, refuses any msedge* basename, and exits 3 (never 0 or 1) with a stderr message when it is unset, empty, not a file or Edge. Docstrings and messages rewritten with no mention of install paths."
+   }
+  ],
+  "obligations": [],
+  "tests": [
+   {
+    "command": "python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py --root <worktree>   (CHROME_BIN removed)",
+    "outcome": "passed",
+    "note": "Exit 3, stderr 'no Chrome: CHROME_BIN is unset or empty'. No browser started. Before this fix the same call returned the Program Files chrome.exe."
+   },
+   {
+    "command": "same command with CHROME_BIN='' and with CHROME_BIN=C:\\nope\\chrome.exe",
+    "outcome": "passed",
+    "note": "Both exit 3. The messages are 'unset or empty' and 'is not a file'."
+   },
+   {
+    "command": "same command with CHROME_BIN pointing at the Edge msedge.exe path",
+    "outcome": "passed",
+    "note": "Exit 3, 'refusing CHROME_BIN=...: that is Edge, which is never started on this machine'. Refused by name before any launch. The msedge process count was 5 before and 5 after (the person's own Edge, not started by this run)."
+   },
+   {
+    "command": "python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py --root <worktree>   (CHROME_BIN = C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe, TAAD3_HOME = scratch folder)",
+    "outcome": "passed",
+    "note": "Finish line 2: 'Ran 1 test in 8.504s OK', exit 0. msedge count 5 before and 5 after, 0 leftover hband processes."
+   },
+   {
+    "command": "python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py look --root <worktree>   (CHROME_BIN = Chrome)",
+    "outcome": "passed",
+    "note": "Signed-in look exit 0: PASS at 360, 400 and 1000 px on the branch page and the report page (scrollWidth 360, 400, 985). The toggle click and re-click restored hidden, aria-expanded and the label. msedge count unchanged, 0 leftover hband processes."
+   }
+  ],
+  "deviations": [],
+  "not_built": [],
+  "follow_ups": [
+   "The approved finish body in the ledger (epics id 42, item 2) still lists msedge.exe and ignores CHROME_BIN. It was already reported to the person. The scratch runner patches around it and the body itself is untouched.",
+   "The tracked .taad/slices/SL-008/__pycache__/run_finish_e004_2.cpython-314.pyc is stale. It was already modified in the tree before this attempt and I did not regenerate or commit it. It should be removed from version control by a person."
+  ]
+ }
+}

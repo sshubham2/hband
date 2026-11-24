@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -24,7 +25,8 @@ const maxCommentBody = 64 << 10
 // anything is said about the visitor, so a draft, an unpublished, a deleted and
 // an unknown slug answer the same 404 to everybody. A visitor who is not signed
 // in is sent back to the report and nothing is parsed or written. Every answer
-// that is not an error is a 303 to the report, built from the stored slug and
+// that is not an error is a 303 to a page of the report (the report page, or the
+// branch page that draws a deep reply), built from the stored slug and ids and
 // never from the request.
 func (a *app) postComment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -90,8 +92,33 @@ func (a *app) postComment(w http.ResponseWriter, r *http.Request) {
 		slog.Error("comment: write", "error", err)
 		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 	default:
-		auth.SeeOther(w, "/reports/"+rep.Slug+"#comment-"+strconv.FormatInt(id, 10))
+		auth.SeeOther(w, a.landing(r.Context(), rep, id))
 	}
+}
+
+// landing is where a reader is sent after a comment of theirs was stored: the
+// page that draws it, at its own anchor. The report page draws the first
+// threadDepthCap levels of a thread, and a branch page (branchRoot) every level
+// below. The comment is looked up in the thread as readers see it, so the page
+// is chosen by what the pages draw and never by a depth the writer reported.
+//
+// The write has already happened, so nothing here may turn it into an error: a
+// thread that cannot be read sends the reader to the comments of the report,
+// where the comment is drawn when the read works again. A comment that is not in
+// the thread at all (its writer is blocked: stored, never drawn) keeps the
+// anchor on the report page, where there is nothing to scroll to, as it always
+// has.
+func (a *app) landing(ctx context.Context, rep reports.Report, id int64) string {
+	anchor := "#comment-" + strconv.FormatInt(id, 10)
+	nodes, err := a.tree(ctx, rep.ID)
+	if err != nil {
+		slog.Error("comment: read the thread after a write", "error", err)
+		return "/reports/" + rep.Slug + "#comments"
+	}
+	if root := branchRoot(comments.Find(nodes, id)); root != nil {
+		return "/reports/" + rep.Slug + "/comments/" + strconv.FormatInt(root.ID, 10) + anchor
+	}
+	return "/reports/" + rep.Slug + anchor
 }
 
 // canonicalID reads the one value of a comment id field: a positive decimal

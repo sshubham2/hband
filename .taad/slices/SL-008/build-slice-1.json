@@ -1,0 +1,284 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-008",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-24T07:11:26.541Z",
+ "head": "78c9ccc47bf60dec9e50c06dc5fca11e1e134370",
+ "run_id": 11927,
+ "summary": "Built SC-013 and SC-014 on the design. threadDepthCap is 5. A cut comment draws a 'continue this thread →' anchor to the new GET /reports/{slug}/comments/{id} (readBranch, branch.html). A reply deeper than the cap is answered 303 to the branch page that draws it, or to #comments if the re-read fails. Comments with replies carry a hidden-until-JS toggle driven by /static/thread.js. The full suite and vet pass, and finish line 1 still passes. Finish line 2 exits 0 through the Chrome-only scripted runner. A signed-in Chrome look at 360, 400 and 1000 px passes, and it fails without the .login wrap fix (scrollWidth 572 at 360 px).",
+ "payload": {
+  "status": "complete",
+  "summary": "Built SC-013 and SC-014 on the design. threadDepthCap is 5. A cut comment draws a 'continue this thread →' anchor to the new GET /reports/{slug}/comments/{id} (readBranch, branch.html). A reply deeper than the cap is answered 303 to the branch page that draws it, or to #comments if the re-read fails. Comments with replies carry a hidden-until-JS toggle driven by /static/thread.js. The full suite and vet pass, and finish line 1 still passes. Finish line 2 exits 0 through the Chrome-only scripted runner. A signed-in Chrome look at 360, 400 and 1000 px passes, and it fails without the .login wrap fix (scrollWidth 572 at 360 px).",
+  "files": [
+   {
+    "path": "internal/server/thread.go",
+    "change": "modified",
+    "why": "threadDepthCap = 5 (compile-time guard for a cap under 2); branchRoot, the single helper that picks the page that draws a comment"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "modified",
+    "why": "New split into newApp + handler (so a test keeps the *app); app.tree seam; GET /reports/{slug}/comments/{id} route"
+   },
+   {
+    "path": "internal/server/reader.go",
+    "change": "modified",
+    "why": "readBranch; threadOf and writeReader shared by renderReader and readBranch (owner id, cap, Cache-Control once); all thread reads go through a.tree"
+   },
+   {
+    "path": "internal/server/comment.go",
+    "change": "modified",
+    "why": "landing(): the 303 after a stored comment goes to the page that draws it; #comments if the re-read fails; unchanged for a comment nobody can see"
+   },
+   {
+    "path": "internal/server/templates/comments.html",
+    "change": "modified",
+    "why": "continue anchor replaces the cut note; hidden button.toggle plus div.replies#replies-<id>"
+   },
+   {
+    "path": "internal/server/templates/branch.html",
+    "change": "added",
+    "why": "the branch page: back link, thread section, no iframe, no top-level comment form, loads thread.js"
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "change": "modified",
+    "why": "loads /static/thread.js with defer when a report is shown"
+   },
+   {
+    "path": "internal/server/static/thread.js",
+    "change": "added",
+    "why": "DOM-only collapse and expand: un-hides the toggles, flips hidden, aria-expanded and the label; no HTML from strings, no network (fitness fence)"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": ".login overflow-wrap: anywhere (a 39-character login overflowed a phone at the cap), .continue tap target, .toggle margin (no display rule, so [hidden] still hides it)"
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "change": "modified",
+    "why": "harness keeps the *app (h.app) via newApp/handler so tests can set a.tree"
+   },
+   {
+    "path": "internal/server/branch_test.go",
+    "change": "added",
+    "why": "TestThreadCapFive, TestBranchNotFoundIdentical, TestBranchStoreFailure, TestReplyRedirectTable (page-oracle), TestReplyRedirectRereadFails, TestStaticThreadScript"
+   },
+   {
+    "path": "internal/server/phone_test.go",
+    "change": "added",
+    "why": "TestThreadFitsPhoneWidth: strict site.css reader tying the cap to the indent at 360 px"
+   },
+   {
+    "path": "internal/server/storefault_test.go",
+    "change": "added",
+    "why": "TestStoreFaultSteps: corpus and census of every store-touching step of the thread handlers, each failed alone"
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "change": "modified",
+    "why": "TestCommentThreadCap for cap 5 and the continue link; placeholder case F rebuilt around the cap; placeholder text may carry the toggle label; the site script tag is allowed in the literal-HTML check; say() accepts a branch-page Location"
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "change": "modified",
+    "why": "TestReaderPathVariants: branch-page rows; POST /reports/x/comments/extra is now 405 Allow: GET, HEAD"
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "change": "modified",
+    "why": "TestDislikesDoNotInterfere observes the branch page of the seeded comment"
+   },
+   {
+    "path": ".taad/slices/SL-008/run_finish_e004_2.py",
+    "change": "added",
+    "why": "scripted finish-line runner (Chrome only, patch-checked, exit 3 and 4), signed-in phone look, and serve mode for the engine's screens"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "Case C-001 is exercised by TestThreadCapFive: through the real handlers it draws chains of 12, 5 and 5 and a removed comment at the cap, on /, /reports/x and five branch pages, for anonymous and signed-in viewers. It checks the depth cap, the continue link only on cut depth-5 nodes that kept replies, the branch root at relative level 1, and the toggle markup."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "TestThreadFitsPhoneWidth parses site.css, shorthands included. It fails on any horizontal margin, padding or border on html, body, main, article, .comment, .comments or .body, or on .replies other than its three left declarations. It requires at least 240 px at 360 px (244 now) and pins .login overflow-wrap: anywhere. The signed-in look (`run_finish_e004_2.py look`) uses Emulation.setDeviceMetricsOverride at 360, 400 and 1000 px with a 39-character login, a 120-character unbroken body, the Author badge and an open details.reply: PASS at all three. Without the .login fix it FAILS with scrollWidth 572 at 360 px, so the .login fix was needed and was made in this build.",
+    "mutation": {
+     "file": "internal/server/thread.go",
+     "find": "const threadDepthCap = 5",
+     "replace": "const threadDepthCap = 9",
+     "test_command": "go test -count=1 -run TestThreadFitsPhoneWidth ./internal/server/"
+    }
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "TestReplyRedirectTable posts a reply at every depth from 1 to 17 through the real handler and parses Location. The fragment must be exactly comment-<id>. The path must be /reports/x for depth ≤ cap, else /reports/x/comments/<n> with n an ancestor in the chain. A GET of that path must draw the comment as an article holding its own text (anonymous and signed in). Further rows cover branch roots that are removed comments, and a blocked poster's reply (stored, never drawn): exact Location /reports/x#comment-<id>. The ancestor choice is the single branchRoot helper in thread.go beside buildLevel.",
+    "mutation": {
+     "file": "internal/server/thread.go",
+     "find": "for depth > root+threadDepthCap-1 {",
+     "replace": "for depth > root+threadDepthCap {",
+     "test_command": "go test -count=1 -run TestReplyRedirectTable ./internal/server/"
+    }
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "The harness keeps the *app (newApp plus handler(), New calls both). a.tree is the seam, and renderReader, readBranch and postComment all read through it. TestReplyRedirectRereadFails fails only the read that follows a stored comment and asserts 303 /reports/x#comments, the row stored and no 5xx for a top-level, a shallow and a deep reply. The class is closed in TestStoreFaultSteps: 17 rows over every store-touching step of postComment, readReport, home and readBranch. Each row breaks one step and first proves the earlier steps still read. A census fails the test when a step has no row.",
+    "corpus": "internal/server/storefault_test.go",
+    "mutation": {
+     "file": "internal/server/comment.go",
+     "find": "return \"/reports/\" + rep.Slug + \"#comments\"",
+     "replace": "return \"/reports/\" + rep.Slug",
+     "test_command": "go test -count=1 -run TestReplyRedirectRereadFails ./internal/server/"
+    }
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "readBranch answers a PublishedBySlug error other than ErrNotFound, and a Tree error, with the 503 'Reports cannot be shown right now' page that renderReader draws from report.html in stateUnavailable. TestBranchStoreFailure has three cases: comments table renamed, reports table renamed (503, not 404), and a.tree failing alone. Each proves the other lookup still reads and checks the 503 page, Cache-Control and no thread or report drawn.",
+    "mutation": {
+     "file": "internal/server/reader.go",
+     "find": "views, found, err := a.threadOf(r.Context(), rep, signedIn, id)",
+     "replace": "views, found, err := a.threadOf(r.Context(), rep, signedIn, id)\n\tif err != nil {\n\t\thttp.NotFound(w, r)\n\t\treturn\n\t}",
+     "test_command": "go test -count=1 -run TestBranchStoreFailure ./internal/server/"
+    }
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "reader.go has threadOf (forest through a.tree, a.cfg.OwnerGitHubID and threadDepthCap supplied once) and writeReader (Cache-Control 'private, no-cache'). renderReader and readBranch both call them, and the unavailable path is renderReader's stateUnavailable for both. Only Next differs by page. TestThreadCapFive checks the branch page's Cache-Control; the existing tests check the report pages'.",
+    "mutation": {
+     "file": "internal/server/reader.go",
+     "find": "w.Header().Set(\"Cache-Control\", \"private, no-cache\")",
+     "replace": "w.Header().Set(\"Cache-Control\", \"no-store\")",
+     "test_command": "go test -count=1 -run TestThreadCapFive ./internal/server/"
+    }
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "threadOf builds the page over path[len(path)-1:], the found node, not path[0]. TestThreadCapFive asserts that the branch page of a depth-5 cut node draws that node at level 1 and its depth-6 reply at level 2, and likewise for the other branch roots.",
+    "mutation": {
+     "file": "internal/server/reader.go",
+     "find": "nodes = path[len(path)-1:]",
+     "replace": "nodes = path[:1]",
+     "test_command": "go test -count=1 -run TestThreadCapFive ./internal/server/"
+    }
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": ".taad/slices/SL-008/run_finish_e004_2.py is the one scripted step. It reads the approved body read-only from epics id 42 and patches ROOT and the browser list, each asserted to match exactly once. It asserts 'msedge' (case-insensitive) is gone from the patched text and refuses any browser whose file name starts with msedge, from CHROME_BIN or the install paths. It exits 3 when no Chrome is found and 4 on a patch mismatch. Probed: CHROME_BIN set to Edge with no Chrome gives 3, no browser gives 3, a body that does not match gives 4. Finish line 2 through it exits 0. The approved body in the ledger is untouched.",
+    "not_mutable": "A tooling script outside the product and its tests; verified by the probes above and by the real run (exit 0, Chrome only)."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "The runner's docstring states what finish line 2 drives: HTTP for levels 1-8 and the branch page, and Chrome only for the fold toggle, signed out. The owed signed-in check is built as `run_finish_e004_2.py look`. It uses the finish test's own Product (built binary, stand-in GitHub, fresh data), Browser and Chrome classes on Chrome via CDP with --remote-debugging-port=0 and a patched, never-Edge launcher. A signed-in reader opens the depth-5 branch page and the details.reply forms are opened. Toggle: the first click sets hidden on replies-<id>, aria-expanded=false and 'Show replies', and the second click restores all three. Each step is logged and a watchdog names the last step done if no step finishes within 90 s, with children killed. It ran: all PASS.",
+    "not_mutable": "A validation harness script, not product code or a test the engine can mutate; it was run and its failing control (login fix removed) was observed."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "server.TestThreadCapFive",
+    "test_command": "go test -count=1 -run TestThreadCapFive ./internal/server/"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "note": "clean"
+   },
+   {
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "every package ok, server 12 s (includes the headless-Chrome TestReportScriptsNeverRun); TAAD3_HOME pointed at an empty scratch folder"
+   },
+   {
+    "command": "python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py --root <worktree>",
+    "outcome": "passed",
+    "note": "finish line 2 on a built binary in headless Chrome, exit 0. The patched copy has no Edge path. 11 msedge processes were present on the machine afterwards; no before-count was taken, and none were started by this run."
+   },
+   {
+    "command": "python -I -X utf8 <scratch>/test_e004_1_comments_and_replies.py (ROOT patched, no browser)",
+    "outcome": "passed",
+    "note": "finish line 1 still passes on this tree"
+   },
+   {
+    "command": "python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py look --root <worktree> --shots <scratch>",
+    "outcome": "passed",
+    "note": "signed in, depth-5 branch page and report page: scrollWidth ≤ width at 360, 400 and 1000 px; toggle click hides then restores replies-<id>. Screenshot read: byline, Author badge, open reply form, Hide replies button."
+   },
+   {
+    "command": "the same look with .login overflow-wrap removed from site.css (restored afterwards)",
+    "outcome": "failed",
+    "note": "expected failure: scrollWidth 572 and 551 at 360 and 400 px, so the control is sensitive and the login fix is needed"
+   },
+   {
+    "command": "python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port 18733, then GET the pages, then kill python",
+    "outcome": "passed",
+    "note": "report page 200 with 1 continue link and 4 toggles; branch page 200; /static/thread.js 200 (993 bytes); a bad id 404. hband processes 0 before and 0 after the kill (job object)."
+   },
+   {
+    "command": "six mutations applied and restored (cap 9, redirect loop off by one, fallback target, path[:1], Tree error as 404, Cache-Control)",
+    "outcome": "failed",
+    "note": "each named test failed with its mutation in, as intended; the files were restored and the suite is green"
+   },
+   {
+    "command": "python probes of the runner: CHROME_BIN=Edge, no Chrome, patch mismatch",
+    "outcome": "passed",
+    "note": "exits 3, 3 and 4 as designed"
+   }
+  ],
+  "deviations": [
+   "TestReaderPathVariants: the existing row POST /reports/x/comments/extra changed from 404 to 405 Allow: GET, HEAD. The new GET /reports/{slug}/comments/{id} pattern also matches any single extra segment, so the mux answers a POST with 405 before any handler. The critique only checked the trailing-slash row. Routing was not changed to suit the test.",
+   "The critic's look prescribed `scrollWidth <= innerWidth`. Measured under mobile emulation it is blind: an overflowing page widens innerWidth too (572 of 572 without the login fix). The look compares scrollWidth to the width asked for.",
+   "A removed comment that has replies drawn below it also carries the toggle (the design says every comment with rendered replies), so TestCommentPlaceholders accepts 'comment removed Hide replies'. Case F of that test is rebuilt around the cap, because a depth-6 leaf is no longer on the report page. TestCommentLiteralHTML allows the one site script tag.",
+   "The first look seeded a 39-character login with a hyphen, which is a break point, so it was blind. It now uses 39 'w' characters.",
+   "A serve mode was added to the runner so the engine can open the new screens, because config refuses to start the app without HBAND_* variables (lesson #961). It reuses the finish test's Product class with a one-line port patch applied only in serve mode.",
+   "Waived by a person, so not built: m7 (.toggle[hidden] guard, N-066) and m8 (Content-Type assertion, N-067). The toggle rule has no display property, so the no-JS default stays hidden. No setting or notice was added: nothing here works around a defect outside this project (the Edge guard is a rule for the tests, and the login wrap is a layout fix)."
+  ],
+  "not_built": [
+   "m7 (.toggle[hidden]{display:none}): waived to note N-066; .toggle sets no display, so the no-JS default holds.",
+   "m8 (Content-Type media type assertion in TestStaticThreadScript): waived to note N-067; the test checks the 200, the script body, the page tags and the raw CSP only.",
+   "The phone-width real-browser check is a runner mode (`look`) for validate, not a Go test; the Go test models the CSS arithmetic only."
+  ],
+  "follow_ups": [
+   "Report to the person that the approved epics.finish body for test_e004_2 falls back to msedge.exe and ignores CHROME_BIN. The scratch runner guards it; the ledger body is untouched.",
+   "internal/server/harness_test.go was not gofmt-clean before this slice (struct field alignment); left as it was.",
+   "Q-012 (site JavaScript) stays open: thread.js is DOM-only and under the fitness fence, but it is now site JavaScript on the reader pages.",
+   "Validate should run `run_finish_e004_2.py look` itself and view the screenshots at 360 and 400 px; the unbroken-login control only shows if the viewer width is the one asked for."
+  ],
+  "architecture": [
+   {
+    "block": "C-008",
+    "kind": "depends",
+    "add": [
+     "C-005"
+    ],
+    "why": "internal/server/reader.go now imports internal/comments (readBranch and threadOf call comments.Find and read the forest through a.tree); the branch page and the redirect landing are the same thread logic C-005 owns"
+   }
+  ],
+  "screens": [
+   {
+    "name": "Report page with its comment thread",
+    "open": "/reports/e004-look"
+   },
+   {
+    "name": "Branch page (continue this thread)",
+    "open": "/reports/e004-look/comments/5"
+   }
+  ],
+  "app": {
+   "command": "python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}",
+   "url": "http://127.0.0.1:{port}/"
+  }
+ }
+}

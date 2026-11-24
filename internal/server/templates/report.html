@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 {{template "head" .}}
-</head>
+{{if .HasReport}}<script src="/static/thread.js" defer></script>
+{{end}}</head>
 <body>
 {{template "header" .}}
 <main class="reader">

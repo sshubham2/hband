@@ -67,6 +67,9 @@ type harness struct {
 
 	mu      sync.Mutex
 	handler http.Handler
+	// app is the *app behind handler, kept so that a test can change a seam (app.tree)
+	// before it sends a request. rebuild replaces both.
+	app *app
 }
 
 func newHarness(t *testing.T, useTLS bool) *harness {
@@ -105,7 +108,8 @@ func newHarness(t *testing.T, useTLS bool) *harness {
 	if err != nil {
 		t.Fatalf("reports.Open: %v", err)
 	}
-	h.handler = New(cfg, st, h.lib, h.clock.Now)
+	h.app = newApp(cfg, st, h.lib, h.clock.Now)
+	h.handler = h.app.handler()
 	ts.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h.mu.Lock()
 		cur := h.handler
@@ -131,7 +135,8 @@ func (h *harness) rebuild(owner int64) {
 	cfg := h.cfg
 	cfg.OwnerGitHubID = owner
 	h.mu.Lock()
-	h.handler = New(cfg, h.store, h.lib, h.clock.Now)
+	h.app = newApp(cfg, h.store, h.lib, h.clock.Now)
+	h.handler = h.app.handler()
 	h.mu.Unlock()
 }
 

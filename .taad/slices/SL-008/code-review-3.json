@@ -1,0 +1,1073 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-008",
+ "stage": "code-review",
+ "attempt": 3,
+ "at": "2026-11-24T08:58:42.553Z",
+ "head": "",
+ "run_id": 11937,
+ "summary": "This is a re-read after the tree moved. The only code that changed since my last review is chrome() in .taad/slices/SL-008/run_finish_e004_2.py, and I read the whole file. The commit in between (50e3ab0) changed comments only in branch_test.go, phone_test.go and vote_test.go; I checked that every changed line outside .taad is a comment. So the Go measurements from my last review still stand.\n\nchrome() now takes its path only from CHROME_BIN. CHROME_PATHS is gone, and nothing falls back to a hard-coded path. I ran each bad value and all of them exit 3 with a clear stderr message:\n- CHROME_BIN unset;\n- CHROME_BIN empty;\n- CHROME_BIN=C:\\nope\\chrome.exe ('is not a file');\n- CHROME_BIN set to the real msedge.exe path (refused by name before anything starts);\n- C:\\nope\\MSEDGE.EXE (refused regardless of case).\n\nI imported the runner and patched the approved body through it. The Chrome class's exe list became the single CHROME_BIN path (patched line 310). No other browser source is left; the only other executable lookup is the Go toolchain.\n\nRuns on this tree, with TAAD3_HOME set to a scratch folder and CHROME_BIN set to Chrome:\n- `go vet ./...`: exit 0.\n- `go test -count=1 ./...`: exit 0 (server 11.7 s).\n- Finish line 2 through the runner: 'Ran 1 test in 8.495s OK', exit 0.\n- msedge processes: 5 before and 5 after, so no Edge was started.\n- Leftovers: 0 hband processes and 0 Chrome processes with an hband-chrome- profile.\n- Fitness op=check: all 29 rules hold.\n\nThe four findings from my last round:\n- The runner's hard-coded Chrome paths (m3 / O-014) are now fixed.\n- The vote_test.go comment (t1 / O-015) was corrected by the comment fixer.\n- The `.who` overflow-wrap (O-012) and the home 'identify the viewer' fault row (O-013) are still not built. Both were waived to notes N-069 and N-070, and I am not re-opening them.\n\nOne new text finding. In the runner's docstring, step 4 and the exit-code list overstate what the code does:\n- The check refuses 'msedge', not every mention of Edge. The patched body still says 'Edge' on three lines.\n- The look watchdog's exit 5 is not in the exit-code list.\n\nThe code itself is right.\n\nSecond reader, for inputs: This review read only the inputs side, since the tree moved for one reason: attempt 2 rewrote `chrome()` in `.taad/slices/SL-008/run_finish_e004_2.py` to read only CHROME_BIN. No Go, template, CSS or JS file changed, so the measurements from my earlier rounds still stand for those files.\n\n**Confirmed by running `chrome()` with CHROME_BIN values; it never starts a browser itself.** It refuses as it should when CHROME_BIN is:\n- unset, empty, or blank;\n- a quoted path;\n- `msedge.exe` followed by `\\`, `/`, `.` or `::$DATA`;\n- Edge's own path.\n\n**One defect, confirmed end to end.** `chrome()` returns a relative CHROME_BIN unchanged. The finish body then starts it from its own scratch folder, so the browser start fails.\n- With CHROME_BIN=`chrome.exe`, run from Chrome's install folder, the finish line ended with `FileNotFoundError` and exit 1. That is the code that means the test failed, when the runner promises 3 for \"no usable Chrome\".\n- No browser started: Edge 5 before and 5 after, Chrome 15 before and 15 after, and no hband process was left over.\n\n**A second shape the same fix covers.** CHROME_BIN = `…\\msedge.exe\\.` (or `/.`) gets past the Edge-name check, because the file-name part of that path is `.`, and `chrome()` returns it. Windows does start a program spelt that way: `hostname.exe\\.` ran with exit 0. On every path that uses `chrome()` today, the separate search of the patched body for the word \"msedge\" still refuses it, so Edge is never started. It ends with exit 4 (\"patch mismatch\") instead of the promised 3.\n\n**The fix.** Adding `p = os.path.abspath(p)` before the Edge-name check makes both repro tests pass. Both fail on the current code.\n\n**No other breaking input found.** The patch step quotes the path with `repr` and replaces it through a lambda, so an odd path cannot break the patched source. The ledger read is read-only.\n\n**Pyc.** My first probe imported the runner without `-B` and rewrote the tracked `.pyc`. I restored it with `git checkout`, and the tree is as it was.\n\nReading pass: I have now read in full every changed range the engine listed: branch_test.go, phone_test.go, storefault_test.go, thread.go, reader.go, comment.go, router.go, thread.js, branch.html, comments.html, report.html, site.css, and the changed ranges of comment_test.go, harness_test.go, reader_test.go and vote_test.go. I also read run_finish_e004_2.py whole in the previous turn. None of it adds a new finding.\n\nDesign against code:\n- **Depth cap.** thread.go:20 sets threadDepthCap = 5. thread.go:23 makes a cap under 2 a compile error.\n- **Ancestor choice.** branchRoot (thread.go:68-78) is the one place that picks the ancestor. For cap 5 it gives branch roots at depths 5, 9, 13 and so on, as the design requires.\n- **Continue link.** comments.html:26 draws `<a class=\"continue\" href=\"/reports/{{.Slug}}/comments/{{.ID}}\">continue this thread &rarr;</a>` only when Cut is set.\n- **Toggle.** comments.html:23-24 puts a hidden button.toggle (aria-expanded=\"true\", aria-controls=\"replies-N\") immediately before div.replies#replies-N, as a direct child of the comment's article.\n- **Branch page.** It is served by readBranch (reader.go:188-222), registered at router.go:92. The report lookup comes first, so every hidden report gets the same 404. A bad id gets canonicalID's 404, an id not in the pruned forest gets http.NotFound, and a lookup or thread read that fails gets renderReader's 503 page from stateUnavailable. Next is /reports/<slug>/comments/<id>. branch.html has the link back, loads thread.js with defer, and has no iframe.\n- **Shared helpers.** threadOf (reader.go:155-170) builds the page over path[len(path)-1:] and supplies a.tree, OwnerGitHubID and threadDepthCap once. writeReader sets 'private, no-cache'.\n- **Redirect after a post.** postComment answers through landing (comment.go:111-122). If the re-read fails it sends 303 #comments; if the comment is not in the thread it keeps the report anchor.\n- **Script.** thread.js only changes hidden, aria-expanded and textContent. report.html loads it only when HasReport.\n- **Seam.** newApp/handler (router.go:59-78) and harness_test.go keep the *app, so tests can set a.tree. A grep confirms a.tree is the only way the thread is read in non-test code (reader.go:156, comment.go:113).\n- **Path variants.** reader_test.go:662-686 has the design's rows (POST /reports/x/comments/1 → 405 Allow: GET, HEAD; abc, 01, 0, -1 and %2B1 → the same 404 for a draft and an unknown x).\n- **Privacy check.** vote_test.go:507-510 observes the branch page, and its comment now says correctly that the page is drawn from the thread.\n\nMeasured on this tree, with TAAD3_HOME set to a scratch folder and CHROME_BIN set to Chrome:\n- `go vet ./...`: exit 0.\n- `go test -count=1 ./...`: exit 0.\n- Finish line 2 through the runner: OK, exit 0.\n- msedge processes: 5 before and 5 after.\n- Leftovers: 0 hband processes and 0 Chrome processes with an hband-chrome- profile.\n- Fitness: all 29 rules hold.\n\nThe runner's CHROME_BIN-only chrome() exits 3 when CHROME_BIN is unset, empty, a missing file, msedge.exe or MSEDGE.EXE.\n\nThe only finding is still the text one from the previous turn. The runner's docstring promises a check against any mention of Edge, but the code checks only for 'msedge'. Its exit-code list also leaves out the watchdog's 5.\n\nTwo items remain open by decision and I am not re-opening them: .who overflow (N-069) and the home page's 'identify the viewer' row (N-070).",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "This is a re-read after the tree moved. The only code that changed since my last review is chrome() in .taad/slices/SL-008/run_finish_e004_2.py, and I read the whole file. The commit in between (50e3ab0) changed comments only in branch_test.go, phone_test.go and vote_test.go; I checked that every changed line outside .taad is a comment. So the Go measurements from my last review still stand.\n\nchrome() now takes its path only from CHROME_BIN. CHROME_PATHS is gone, and nothing falls back to a hard-coded path. I ran each bad value and all of them exit 3 with a clear stderr message:\n- CHROME_BIN unset;\n- CHROME_BIN empty;\n- CHROME_BIN=C:\\nope\\chrome.exe ('is not a file');\n- CHROME_BIN set to the real msedge.exe path (refused by name before anything starts);\n- C:\\nope\\MSEDGE.EXE (refused regardless of case).\n\nI imported the runner and patched the approved body through it. The Chrome class's exe list became the single CHROME_BIN path (patched line 310). No other browser source is left; the only other executable lookup is the Go toolchain.\n\nRuns on this tree, with TAAD3_HOME set to a scratch folder and CHROME_BIN set to Chrome:\n- `go vet ./...`: exit 0.\n- `go test -count=1 ./...`: exit 0 (server 11.7 s).\n- Finish line 2 through the runner: 'Ran 1 test in 8.495s OK', exit 0.\n- msedge processes: 5 before and 5 after, so no Edge was started.\n- Leftovers: 0 hband processes and 0 Chrome processes with an hband-chrome- profile.\n- Fitness op=check: all 29 rules hold.\n\nThe four findings from my last round:\n- The runner's hard-coded Chrome paths (m3 / O-014) are now fixed.\n- The vote_test.go comment (t1 / O-015) was corrected by the comment fixer.\n- The `.who` overflow-wrap (O-012) and the home 'identify the viewer' fault row (O-013) are still not built. Both were waived to notes N-069 and N-070, and I am not re-opening them.\n\nOne new text finding. In the runner's docstring, step 4 and the exit-code list overstate what the code does:\n- The check refuses 'msedge', not every mention of Edge. The patched body still says 'Edge' on three lines.\n- The look watchdog's exit 5 is not in the exit-code list.\n\nThe code itself is right.\n\nSecond reader, for inputs: This review read only the inputs side, since the tree moved for one reason: attempt 2 rewrote `chrome()` in `.taad/slices/SL-008/run_finish_e004_2.py` to read only CHROME_BIN. No Go, template, CSS or JS file changed, so the measurements from my earlier rounds still stand for those files.\n\n**Confirmed by running `chrome()` with CHROME_BIN values; it never starts a browser itself.** It refuses as it should when CHROME_BIN is:\n- unset, empty, or blank;\n- a quoted path;\n- `msedge.exe` followed by `\\`, `/`, `.` or `::$DATA`;\n- Edge's own path.\n\n**One defect, confirmed end to end.** `chrome()` returns a relative CHROME_BIN unchanged. The finish body then starts it from its own scratch folder, so the browser start fails.\n- With CHROME_BIN=`chrome.exe`, run from Chrome's install folder, the finish line ended with `FileNotFoundError` and exit 1. That is the code that means the test failed, when the runner promises 3 for \"no usable Chrome\".\n- No browser started: Edge 5 before and 5 after, Chrome 15 before and 15 after, and no hband process was left over.\n\n**A second shape the same fix covers.** CHROME_BIN = `…\\msedge.exe\\.` (or `/.`) gets past the Edge-name check, because the file-name part of that path is `.`, and `chrome()` returns it. Windows does start a program spelt that way: `hostname.exe\\.` ran with exit 0. On every path that uses `chrome()` today, the separate search of the patched body for the word \"msedge\" still refuses it, so Edge is never started. It ends with exit 4 (\"patch mismatch\") instead of the promised 3.\n\n**The fix.** Adding `p = os.path.abspath(p)` before the Edge-name check makes both repro tests pass. Both fail on the current code.\n\n**No other breaking input found.** The patch step quotes the path with `repr` and replaces it through a lambda, so an odd path cannot break the patched source. The ledger read is read-only.\n\n**Pyc.** My first probe imported the runner without `-B` and rewrote the tracked `.pyc`. I restored it with `git checkout`, and the tree is as it was.\n\nReading pass: I have now read in full every changed range the engine listed: branch_test.go, phone_test.go, storefault_test.go, thread.go, reader.go, comment.go, router.go, thread.js, branch.html, comments.html, report.html, site.css, and the changed ranges of comment_test.go, harness_test.go, reader_test.go and vote_test.go. I also read run_finish_e004_2.py whole in the previous turn. None of it adds a new finding.\n\nDesign against code:\n- **Depth cap.** thread.go:20 sets threadDepthCap = 5. thread.go:23 makes a cap under 2 a compile error.\n- **Ancestor choice.** branchRoot (thread.go:68-78) is the one place that picks the ancestor. For cap 5 it gives branch roots at depths 5, 9, 13 and so on, as the design requires.\n- **Continue link.** comments.html:26 draws `<a class=\"continue\" href=\"/reports/{{.Slug}}/comments/{{.ID}}\">continue this thread &rarr;</a>` only when Cut is set.\n- **Toggle.** comments.html:23-24 puts a hidden button.toggle (aria-expanded=\"true\", aria-controls=\"replies-N\") immediately before div.replies#replies-N, as a direct child of the comment's article.\n- **Branch page.** It is served by readBranch (reader.go:188-222), registered at router.go:92. The report lookup comes first, so every hidden report gets the same 404. A bad id gets canonicalID's 404, an id not in the pruned forest gets http.NotFound, and a lookup or thread read that fails gets renderReader's 503 page from stateUnavailable. Next is /reports/<slug>/comments/<id>. branch.html has the link back, loads thread.js with defer, and has no iframe.\n- **Shared helpers.** threadOf (reader.go:155-170) builds the page over path[len(path)-1:] and supplies a.tree, OwnerGitHubID and threadDepthCap once. writeReader sets 'private, no-cache'.\n- **Redirect after a post.** postComment answers through landing (comment.go:111-122). If the re-read fails it sends 303 #comments; if the comment is not in the thread it keeps the report anchor.\n- **Script.** thread.js only changes hidden, aria-expanded and textContent. report.html loads it only when HasReport.\n- **Seam.** newApp/handler (router.go:59-78) and harness_test.go keep the *app, so tests can set a.tree. A grep confirms a.tree is the only way the thread is read in non-test code (reader.go:156, comment.go:113).\n- **Path variants.** reader_test.go:662-686 has the design's rows (POST /reports/x/comments/1 → 405 Allow: GET, HEAD; abc, 01, 0, -1 and %2B1 → the same 404 for a draft and an unknown x).\n- **Privacy check.** vote_test.go:507-510 observes the branch page, and its comment now says correctly that the page is drawn from the thread.\n\nMeasured on this tree, with TAAD3_HOME set to a scratch folder and CHROME_BIN set to Chrome:\n- `go vet ./...`: exit 0.\n- `go test -count=1 ./...`: exit 0.\n- Finish line 2 through the runner: OK, exit 0.\n- msedge processes: 5 before and 5 after.\n- Leftovers: 0 hband processes and 0 Chrome processes with an hband-chrome- profile.\n- Fitness: all 29 rules hold.\n\nThe runner's CHROME_BIN-only chrome() exits 3 when CHROME_BIN is unset, empty, a missing file, msedge.exe or MSEDGE.EXE.\n\nThe only finding is still the text one from the previous turn. The runner's docstring promises a check against any mention of Edge, but the code checks only for 'msedge'. Its exit-code list also leaves out the watchdog's 5.\n\nTwo items remain open by decision and I am not re-opening them: .who overflow (N-069) and the home page's 'identify the viewer' row (N-070).",
+  "findings": [
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "Two parts of the runner's docstring promise more than the code does.\n\n- Step 4 says the script 'asserts the patched text no longer mentions Edge anywhere (case-insensitive)', and the failure message at line 81 says 'still mentions Edge'. The check at line 80 actually searches only for EDGE = 'ms'+'edge'. The patched body still says 'Edge' in three places: its module docstring ('a headless Chrome or Edge of the test's own'), the Chrome class docstring, and the check message 'no Chrome or Edge to open the page in'. The guard is right, since it refuses Edge's executable name, but the docstring makes it sound broader than it is.\n- The exit-code list at line 17 names 0 to 4. look()'s watchdog ends the run with os._exit(5) (line 204), and that code is missing from the list.",
+    "file": ".taad/slices/SL-008/run_finish_e004_2.py",
+    "line": 11,
+    "end_line": 17,
+    "evidence": "Patching through the runner (CHROME_BIN = Chrome) left lines 8, 307 and 311 of the patched body still containing 'Edge'. The check is `if re.search(EDGE, body, re.I)` (line 80), with EDGE = \"ms\" + \"edge\" (line 30). The watchdog does `os._exit(5)` (line 204).",
+    "quote": {
+     "path": ".taad/slices/SL-008/run_finish_e004_2.py",
+     "line": 11,
+     "text": "  4. asserts the patched text no longer mentions Edge anywhere (case-insensitive);"
+    },
+    "fix": "Change step 4 to say the script asserts the patched text no longer names Edge's executable ('msedge', in any case), and change the message at line 81 the same way. Add '5 the look's watchdog timed out' to the exit-code list at line 17."
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": ".taad/slices/SL-008/run_finish_e004_2.py",
+    "line": 40,
+    "end_line": 50,
+    "claim": "`chrome()` checks the CHROME_BIN text as given and returns that same text without making it absolute or normalising it. Two shapes get through.\n\n(1) A relative CHROME_BIN, e.g. `chrome.exe`, passes `os.path.isfile` against the runner's working folder. It is then written into the patched body as `exe = ['chrome.exe']`. The body starts it with `subprocess.Popen([exe[0], ...])` from its own scratch folder (`finish()` runs it with `cwd=os.path.dirname(path)`).\n- Measured: CHROME_BIN=chrome.exe, run from `C:\\Program Files\\Google\\Chrome\\Application`, made finish line 2 end with `FileNotFoundError` and exit 1.\n- Exit 1 is the runner's code for 'the test failed'. A broken browser path is reported as a failing product, not as the promised exit 3 for no usable Chrome, which is the distinct code m5's critic asked for.\n\n(2) `…\\msedge.exe\\.` or `…\\msedge.exe/.` names Edge, because Windows drops the trailing `.` segment when it starts a program (measured: `hostname.exe\\.` ran with rc 0). But `os.path.basename` of that string is `.`, so the Edge-name check at line 44 misses it and `chrome()` returns it.\n- Only the later search of the patched body for 'msedge' (line 80) stops it, with exit 4 'patch does not apply', instead of the exit 3 the docstring (line 13) promises for a CHROME_BIN that names Edge.\n- Any future caller of `chrome()` that does not go through `patched_body` would start Edge.",
+    "evidence": "Probe, from scratch: `chrome()` returned 'chrome.exe' unchanged, and returned 'C:\\\\Program Files (x86)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\\\\.' and the '/.' form unchanged; `os.path.isfile` of `hostname.exe\\.` is True, and starting it gives rc 0.\n\nEnd to end: `python -I -X utf8 run_finish_e004_2.py --root <wt>` with CHROME_BIN=chrome.exe, run from Chrome's folder, gave 'FileNotFoundError: [WinError 2]', 'FAILED (errors=1)', EXIT=1. msedge 5→5, chrome 15→15, 0 leftover hband.\n\nThe repro fails 2 of 2 on this tree and passes 2 of 2 on a copy with `p = os.path.abspath(p)` added.",
+    "fix": "In `chrome()`, after the empty check and before the Edge-name check, add `p = os.path.abspath(p)`. `abspath` calls GetFullPathNameW, which resolves the path against the working folder and drops `\\.` segments. The Edge-name check, the `isfile` check and the returned value then all use the canonical absolute path.",
+    "class_of": "CHROME_BIN spellings chrome() checks without canonicalising",
+    "threat": "accident",
+    "quote": {
+     "path": ".taad/slices/SL-008/run_finish_e004_2.py",
+     "line": 40,
+     "text": "    p = os.environ.get(\"CHROME_BIN\")\n    if not p:\n        print(\"no Chrome: CHROME_BIN is unset or empty\", file=sys.stderr)\n        sys.exit(3)\n    if os.path.basename(p).lower().startswith(EDGE):"
+    },
+    "repro": {
+     "path": ".taad/slices/SL-008/test_run_finish_chrome_bin.py",
+     "command": "python -I -B -X utf8 .taad/slices/SL-008/test_run_finish_chrome_bin.py",
+     "body": "\"\"\"chrome() must hand the finish body a browser path that means the same file wherever the body runs, and must\nrecognise Edge however CHROME_BIN spells its path. Nothing here starts a browser: the files are empty stand-ins.\"\"\"\nimport importlib.util, os, sys, tempfile, unittest\n\nsys.dont_write_bytecode = True\nRUNNER = os.path.join(os.path.dirname(os.path.abspath(__file__)), \"run_finish_e004_2.py\")\n\n\ndef load():\n    spec = importlib.util.spec_from_file_location(\"sl008_runner_under_test\", RUNNER)\n    mod = importlib.util.module_from_spec(spec)\n    spec.loader.exec_module(mod)\n    return mod\n\n\nclass ChromeBinShapes(unittest.TestCase):\n    def setUp(self):\n        self.runner = load()\n        self.dir = tempfile.mkdtemp(prefix=\"sl008-chromebin-\")\n        self.cwd, self.old = os.getcwd(), os.environ.get(\"CHROME_BIN\")\n\n    def tearDown(self):\n        os.chdir(self.cwd)\n        if self.old is None:\n            os.environ.pop(\"CHROME_BIN\", None)\n        else:\n            os.environ[\"CHROME_BIN\"] = self.old\n\n    def stand_in(self, name):\n        path = os.path.join(self.dir, name)\n        open(path, \"wb\").close()\n        return path\n\n    def test_relative_chrome_bin_is_made_absolute_or_refused(self):\n        fake = self.stand_in(\"chrome.exe\")\n        os.chdir(self.dir)\n        os.environ[\"CHROME_BIN\"] = \"chrome.exe\"\n        try:\n            got = self.runner.chrome()\n        except SystemExit as e:\n            self.assertEqual(e.code, 3)\n            return\n        finally:\n            os.chdir(self.cwd)\n        # the finish body launches this path from its own scratch folder, not from here\n        self.assertTrue(os.path.isabs(got), f\"chrome() handed on the relative path {got!r}\")\n        self.assertTrue(os.path.samefile(got, fake))\n\n    def test_edge_with_a_trailing_dot_segment_is_refused_with_3(self):\n        edge = self.stand_in(\"ms\" + \"edge.exe\")\n        for spelling in (edge + \"\\\\.\", edge + \"/.\"):\n            os.environ[\"CHROME_BIN\"] = spelling\n            with self.assertRaises(SystemExit, msg=f\"chrome() accepted {spelling!r}\") as cm:\n                self.runner.chrome()\n            self.assertEqual(cm.exception.code, 3, spelling)\n\n\nif __name__ == \"__main__\":\n    unittest.main(verbosity=2)\n"
+    }
+   },
+   {
+    "id": "RD-t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "Two parts of the runner's docstring promise more than the code does.\n\n- Step 4 says the script 'asserts the patched text no longer mentions Edge anywhere (case-insensitive)', and the failure message at line 81 says 'still mentions Edge'. The check at line 80 actually searches only for EDGE = 'ms'+'edge'. The patched body still says 'Edge' in three places: its module docstring, the Chrome class docstring, and the check message 'no Chrome or Edge to open the page in'. The guard is right, since it refuses Edge's executable name, but the docstring makes it sound broader than it is.\n- The exit-code list at line 17 names 0 to 4. look()'s watchdog ends the run with os._exit(5) (line 204), and that code is missing from the list.",
+    "file": ".taad/slices/SL-008/run_finish_e004_2.py",
+    "line": 11,
+    "end_line": 17,
+    "evidence": "Patching through the runner (CHROME_BIN = Chrome) left lines 8, 307 and 311 of the patched body still containing 'Edge'. The check is `if re.search(EDGE, body, re.I)` (line 80), with EDGE = \"ms\" + \"edge\" (line 30). The watchdog does `os._exit(5)` (line 204).",
+    "quote": {
+     "path": ".taad/slices/SL-008/run_finish_e004_2.py",
+     "line": 11,
+     "text": "  4. asserts the patched text no longer mentions Edge anywhere (case-insensitive);"
+    },
+    "fix": "Change step 4 to say the script asserts the patched text no longer names Edge's executable ('msedge', in any case), and change the message at line 81 the same way. Add '5 the look's watchdog timed out' to the exit-code list at line 17."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "No Go code changed since my last review, which ran TestThreadCapFive and the related tests against this code; 50e3ab0 only edits comments in branch_test.go, phone_test.go and vote_test.go. The full suite passes again on this tree (exit 0), and finish line 2 passes through the runner (exit 0)."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "internal/server/phone_test.go (TestThreadFitsPhoneWidth) is unchanged apart from a comment, and it passes in the full suite. site.css:24 still has `.login { font-weight: 600; overflow-wrap: anywhere; }`."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "TestReplyRedirectTable and branchRoot in thread.go are unchanged since my last review, which read them and ran them green. They pass again in this run's full suite."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "internal/server/storefault_test.go: the a.tree seam, TestReplyRedirectRereadFails and TestStoreFaultSteps are all present and pass. The home-page identify row is still missing, but that gap was waived separately as O-013 / N-070."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "readBranch's 503 paths and TestBranchStoreFailure are unchanged since my last review, which checked them against the code; the tests pass in this run."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "In reader.go, threadOf and writeReader are shared by renderReader and readBranch. Unchanged since my last review."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "threadOf builds the branch page over path[len(path)-1:], the found node. TestThreadCapFive asserts the relative depths. Unchanged and green."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "In .taad/slices/SL-008/run_finish_e004_2.py, chrome() (lines 37-50) reads only CHROME_BIN. I ran it with CHROME_BIN unset, empty, a missing file, the real msedge.exe and MSEDGE.EXE, and every one exited 3. The ROOT and browser-list patches each have to match exactly once (exit 4 otherwise), and any 'msedge' left in the patched text is refused. Patching through the runner left the body's exe list as the single CHROME_BIN path. Finish line 2 through it exited 0, msedge processes went 5 before → 5 after, and no processes were left over."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "look() in run_finish_e004_2.py is unchanged in this build. It does the signed-in CDP look at 360, 400 and 1000 px with the toggle folded and restored, and has the 90 s step watchdog. My last review ran it and it passed."
+   },
+   {
+    "key": "O-010",
+    "discharged": "no",
+    "evidence": "Waived to note N-066. site.css has no `.toggle[hidden]` rule (grep found none in internal/server). That matches the waiver."
+   },
+   {
+    "key": "O-011",
+    "discharged": "no",
+    "evidence": "Waived to note N-067. No test under internal/server parses the Content-Type of /static/thread.js (grep for ParseMediaType or javascript found nothing relevant). That matches the waiver."
+   },
+   {
+    "key": "O-012",
+    "discharged": "no",
+    "evidence": "Waived to note N-069. site.css still has no `.who` rule; line 24 styles only .login. Not re-opened."
+   },
+   {
+    "key": "O-013",
+    "discharged": "no",
+    "evidence": "Waived to note N-070. storefault_test.go has 'identify the viewer' rows only for readReport (:71) and readBranch (:82), and the census at :91-93 leaves it out for home. Not re-opened."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "Fixed in build attempt 2 even though it was waived. CHROME_PATHS was deleted, chrome() reads only CHROME_BIN, and it exits 3 on every bad value I tried, as recorded under O-008."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "internal/server/vote_test.go:508-509 now reads 'another reader page, drawn from the thread, which must never mention a dislike either.' The comment fixer corrected it in 50e3ab0."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "internal/server/branch_test.go TestThreadCapFive (unchanged since my last review apart from one comment). It posts chains through the real handlers and reads /, /reports/x and the branch pages, anonymous and signed in. It checks the depth cap of 5, that the continue link appears only on cut depth-5 nodes that kept replies, that a branch page's root sits at relative level 1, and the toggle markup. It passes in this run's full suite. Finish line 2 drives levels 1-8 over HTTP and the toggle in Chrome, and it passed (exit 0)."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 11938,
+   "filed": 1,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "never-opened product file",
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 11939,
+   "session": "91e866bc-d725-4411-91c6-fac420b35dd4",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/server/branch_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       544
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      544
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/comment.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       4,
+       4
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      9
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/comment.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       28,
+       29
+      ],
+      [
+       95,
+       95
+      ],
+      [
+       99,
+       123
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": 31,
+       "header": "func (a *app) postComment(w http.ResponseWriter, r *http.Request) {"
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      23,
+      128
+     ],
+     "header": "func (a *app) postComment(w http.ResponseWriter, r *http.Request) {",
+     "line": 31,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       50,
+       52
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 44,
+       "header": "func (h *harness) say(sid, slug, text string, parent int64) int64 {"
+      }
+     ],
+     "read": [
+      44,
+      60
+     ],
+     "header": "func (h *harness) say(sid, slug, text string, parent int64) int64 {",
+     "line": 44,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       349,
+       351
+      ],
+      [
+       353,
+       353
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 326,
+       "header": "func TestCommentLiteralHTML(t *testing.T) {"
+      },
+      {
+       "line": 326,
+       "header": "func TestCommentLiteralHTML(t *testing.T) {"
+      }
+     ],
+     "read": [
+      326,
+      366
+     ],
+     "header": "func TestCommentLiteralHTML(t *testing.T) {",
+     "line": 326,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       548,
+       548
+      ],
+      [
+       550,
+       550
+      ],
+      [
+       552,
+       553
+      ],
+      [
+       559,
+       560
+      ],
+      [
+       565,
+       565
+      ],
+      [
+       588,
+       590
+      ],
+      [
+       595,
+       596
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 547,
+       "header": "func TestCommentThreadCap(t *testing.T) {"
+      },
+      {
+       "line": 547,
+       "header": "func TestCommentThreadCap(t *testing.T) {"
+      },
+      {
+       "line": 547,
+       "header": "func TestCommentThreadCap(t *testing.T) {"
+      },
+      {
+       "line": 547,
+       "header": "func TestCommentThreadCap(t *testing.T) {"
+      },
+      {
+       "line": 547,
+       "header": "func TestCommentThreadCap(t *testing.T) {"
+      },
+      {
+       "line": 547,
+       "header": "func TestCommentThreadCap(t *testing.T) {"
+      },
+      {
+       "line": 547,
+       "header": "func TestCommentThreadCap(t *testing.T) {"
+      }
+     ],
+     "read": [
+      547,
+      612
+     ],
+     "header": "func TestCommentThreadCap(t *testing.T) {",
+     "line": 547,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       708,
+       709
+      ],
+      [
+       711,
+       711
+      ],
+      [
+       714,
+       714
+      ],
+      [
+       719,
+       719
+      ],
+      [
+       726,
+       726
+      ],
+      [
+       728,
+       735
+      ],
+      [
+       759,
+       761
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 683,
+       "header": "func TestCommentPlaceholders(t *testing.T) {"
+      },
+      {
+       "line": 683,
+       "header": "func TestCommentPlaceholders(t *testing.T) {"
+      },
+      {
+       "line": 683,
+       "header": "func TestCommentPlaceholders(t *testing.T) {"
+      },
+      {
+       "line": 683,
+       "header": "func TestCommentPlaceholders(t *testing.T) {"
+      },
+      {
+       "line": 683,
+       "header": "func TestCommentPlaceholders(t *testing.T) {"
+      },
+      {
+       "line": 683,
+       "header": "func TestCommentPlaceholders(t *testing.T) {"
+      },
+      {
+       "line": 683,
+       "header": "func TestCommentPlaceholders(t *testing.T) {"
+      }
+     ],
+     "read": [
+      683,
+      822
+     ],
+     "header": "func TestCommentPlaceholders(t *testing.T) {",
+     "line": 683,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/harness_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       70,
+       72
+      ],
+      [
+       111,
+       112
+      ],
+      [
+       138,
+       139
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": 75,
+       "header": "func newHarness(t *testing.T, useTLS bool) *harness {"
+      },
+      {
+       "line": 134,
+       "header": "func (h *harness) rebuild(owner int64) {"
+      }
+     ],
+     "read": [
+      65,
+      141
+     ],
+     "header": "func newHarness(t *testing.T, useTLS bool) *harness {",
+     "line": 75,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/phone_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       210
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      210
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/reader.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       4,
+       4
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       11,
+       11
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      16
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/reader.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       125,
+       125
+      ],
+      [
+       130,
+       130
+      ],
+      [
+       145,
+       176
+      ],
+      [
+       178,
+       221
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 104,
+       "header": "func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPage, rep reports.Report, state readerState) {"
+      },
+      {
+       "line": 104,
+       "header": "func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPage, rep reports.Report, state readerState) {"
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      104,
+      222
+     ],
+     "header": "func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPage, rep reports.Report, state readerState) {",
+     "line": 104,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/reader_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       662,
+       668
+      ],
+      [
+       673,
+       686
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 576,
+       "header": "func TestReaderPathVariants(t *testing.T) {"
+      },
+      {
+       "line": 576,
+       "header": "func TestReaderPathVariants(t *testing.T) {"
+      }
+     ],
+     "read": [
+      576,
+      707
+     ],
+     "header": "func TestReaderPathVariants(t *testing.T) {",
+     "line": 576,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/router.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       46,
+       51
+      ],
+      [
+       60,
+       65
+      ],
+      [
+       76,
+       78
+      ],
+      [
+       80,
+       82
+      ],
+      [
+       89,
+       92
+      ],
+      [
+       110,
+       112
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": 81,
+       "header": "func (a *app) handler() http.Handler {"
+      },
+      {
+       "line": 81,
+       "header": "func (a *app) handler() http.Handler {"
+      }
+     ],
+     "read": [
+      41,
+      135
+     ],
+     "header": "func (a *app) handler() http.Handler {",
+     "line": 81,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/static/site.css",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       24,
+       24
+      ],
+      [
+       28,
+       29
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      19,
+      31
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/static/thread.js",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       26
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      26
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/storefault_test.go",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       171
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      171
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/branch.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       17
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      17
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/comments.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       23,
+       24
+      ],
+      [
+       26,
+       26
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      18,
+      28
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/report.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       5,
+       6
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      11
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/thread.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       11,
+       23
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      6,
+      28
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/thread.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       57,
+       79
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      52,
+      84
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/vote_test.go",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       466,
+       468
+      ],
+      [
+       486,
+       486
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": 471,
+       "header": "func newDislikeWorld(t *testing.T) *dislikeWorld {"
+      }
+     ],
+     "read": [
+      461,
+      493
+     ],
+     "header": "func newDislikeWorld(t *testing.T) *dislikeWorld {",
+     "line": 471,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/vote_test.go",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       507,
+       510
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 504,
+       "header": "func (w *dislikeWorld) observe(t *testing.T) observation {"
+      }
+     ],
+     "read": [
+      504,
+      540
+     ],
+     "header": "func (w *dislikeWorld) observe(t *testing.T) observation {",
+     "line": 504,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 54,
+   "named": [],
+   "before": {
+    "read_whole": 0,
+    "changed": 16,
+    "listed": 16
+   },
+   "filed": 1,
+   "read_after": 54,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 16,
+   "read_whole": 12,
+   "deleted": [],
+   "runs": [
+    11937,
+    11938,
+    11939
+   ],
+   "range": {
+    "base": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+    "head": "203bba07ffa63917b4da83b06c1a2aa7713bded0",
+    "source": "commits",
+    "hunk_base": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": "internal/server/comment_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-39, 65-319, 370-539, 825-1194 of 1194",
+     "reason": "a Read returned only part of it; seen only as 1 Grep line",
+     "size_lines": 1194,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/harness_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-59, 145-353 of 353",
+     "reason": "a Read returned only part of it",
+     "size_lines": 353,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-575 of 707",
+     "reason": "a Read returned only part of it; 1 returned line differ from the reviewed file (read before it changed)",
+     "size_lines": 707,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/vote_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-454, 545-635 of 635",
+     "reason": "a Read returned only part of it; seen only as 10 Grep lines",
+     "size_lines": 635,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

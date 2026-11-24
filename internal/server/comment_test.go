@@ -47,7 +47,9 @@ func (h *harness) say(sid, slug, text string, parent int64) int64 {
 	loc := res.Location()
 	const anchor = "#comment-"
 	i := strings.Index(loc, anchor)
-	if res.Status != http.StatusSeeOther || !strings.HasPrefix(loc, "/reports/"+slug+anchor) || i < 0 {
+	// A reply deeper than the report page draws is answered with the branch page
+	// that draws it (TestReplyRedirectTable pins which); here only the anchor counts.
+	if res.Status != http.StatusSeeOther || !strings.HasPrefix(loc, "/reports/"+slug) || i < 0 {
 		h.t.Fatalf("comment %q on %s (parent %d): %d %q %q", text, slug, parent, res.Status, loc, res.Body)
 	}
 	id, err := strconv.ParseInt(loc[i+len(anchor):], 10, 64)
@@ -344,8 +346,11 @@ func TestCommentLiteralHTML(t *testing.T) {
 			if strings.ContainsAny(m[1], "<>") || !strings.Contains(m[1], "&lt;b&gt;bold&lt;/b&gt;") || !strings.Contains(m[1], "{{.}}") {
 				t.Errorf("%s GET %s: the body is not escaped text: %s", viewer, p, m[1])
 			}
+			// The one script on the page is the site's own, loaded by its path; the typed
+			// one is literal text.
+			page := strings.Replace(got.Body, `<script src="/static/thread.js" defer></script>`, "", 1)
 			for _, live := range []string{"<b>", "<script", "<img src=x", "onerror=\"", "<!--"} {
-				if strings.Contains(got.Body, live) {
+				if strings.Contains(page, live) {
 					t.Errorf("%s GET %s: the page holds live markup %q:\n%s", viewer, p, live, got.Body)
 				}
 			}
@@ -540,24 +545,24 @@ func chainThread(t *testing.T, h *harness, slug string, who int64, n int) []int6
 }
 
 func TestCommentThreadCap(t *testing.T) {
-	t.Run("a 40-level chain is drawn in full, each reply inside the one it answers", func(t *testing.T) {
+	t.Run("a chain as deep as the cap is drawn in full, each reply inside the one it answers", func(t *testing.T) {
 		h, _, _ := commentWorld(t)
-		ids := chainThread(t, h, "x", 7, 40)
+		ids := chainThread(t, h, "x", 7, threadDepthCap)
 		arts := parseThread(t, h.serve("GET", "/reports/x").Body)
-		if len(arts) != 40 {
-			t.Fatalf("%d articles, want 40", len(arts))
+		if len(arts) != threadDepthCap {
+			t.Fatalf("%d articles, want %d", len(arts), threadDepthCap)
 		}
 		for i, a := range arts {
 			if a.ID != ids[i] || a.Depth != i+1 || (i > 0 && a.Parent != ids[i-1]) {
 				t.Fatalf("article %d = %+v, want id %d at depth %d inside %v", i, a, ids[i], i+1, ids[:i])
 			}
-			if strings.Contains(a.Own, "Deeper replies") {
-				t.Errorf("level %d carries the cut note", i+1)
+			if strings.Contains(a.Own, "continue this thread") {
+				t.Errorf("level %d carries a continue link, though nothing is below it", i+1)
 			}
 		}
 	})
 
-	t.Run("a 150-level chain stored through Post is drawn to the cap and no deeper", func(t *testing.T) {
+	t.Run("a 150-level chain stored through Post is drawn to the cap and no deeper, and continues on a branch page", func(t *testing.T) {
 		h, _, reader := commentWorld(t)
 		const n = 150
 		ids := chainThread(t, h, "x", 7, n)
@@ -580,14 +585,15 @@ func TestCommentThreadCap(t *testing.T) {
 				t.Errorf("GET %s: deepest article at %d, want %d", p, max, threadDepthCap)
 			}
 			last := arts[threadDepthCap-1]
-			if last.ID != ids[threadDepthCap-1] || !strings.Contains(last.Own, `<p class="cut">Deeper replies are not shown on this page.</p>`) {
-				t.Errorf("GET %s: the article at the cap is %+v, want the cut note", p, last)
+			link := `<a class="continue" href="/reports/x/comments/` + strconv.FormatInt(ids[threadDepthCap-1], 10) + `">continue this thread &rarr;</a>`
+			if last.ID != ids[threadDepthCap-1] || !strings.Contains(last.Own, link) {
+				t.Errorf("GET %s: the article at the cap is %+v, want the link %s", p, last, link)
 			}
 			if strings.Contains(last.Own, `class="replies"`) {
 				t.Errorf("GET %s: the article at the cap draws replies", p)
 			}
-			if strings.Count(got.Body, "Deeper replies are not shown") != 1 {
-				t.Errorf("GET %s: the cut note is not shown exactly once", p)
+			if strings.Count(got.Body, "continue this thread") != 1 {
+				t.Errorf("GET %s: the continue link is not shown exactly once", p)
 			}
 			if !strings.Contains(got.Body, "level-"+strconv.Itoa(threadDepthCap)+"-end") {
 				t.Errorf("GET %s: the comment at the cap is not shown", p)
@@ -699,26 +705,34 @@ func TestCommentPlaceholders(t *testing.T) {
 	// E: a blocked account's comment with another reader's reply.
 	e1 := say(nine, "x", "E-blocked-text", 0)
 	e2 := say(reader, "x", "E-visible-reply", e1)
-	// F: a removed chain five deep over one visible leaf at depth six.
+	// F: a removed chain one short of the depth cap over one visible leaf at the cap
+	// (the deepest level a report page draws).
 	f := []int64{say(reader, "x", "F-removed-text-1", 0)}
-	for i := 2; i <= 5; i++ {
+	for i := 2; i < threadDepthCap; i++ {
 		f = append(f, say(eight, "x", "F-removed-text-"+strconv.Itoa(i), f[i-2]))
 	}
-	f6 := say(reader, "x", "F-visible-leaf", f[4])
+	f6 := say(reader, "x", "F-visible-leaf", f[len(f)-1])
 	// G: the owner's own removed comment with a visible reply.
 	g1 := say(owner, "x", "G-owner-removed-text", 0)
 	g2 := say(reader, "x", "G-visible-reply", g1)
 
-	for _, id := range []int64{a2, b1, b2, b3, c1, c2, d1, d2, d3, f[0], f[1], f[2], f[3], f[4], g1} {
+	for _, id := range append([]int64{a2, b1, b2, b3, c1, c2, d1, d2, d3, g1}, f...) {
 		h.exec(`UPDATE comments SET removed_at = 5 WHERE id = ?`, id)
 	}
 	h.exec(`INSERT INTO blocked_accounts (github_id, blocked_at) VALUES (9, 5)`)
 	rows := h.commentCount("1 = 1")
 
 	placeholders := map[int64]int64{ // id: parent it sits in
-		b1: 0, b2: b1, b3: b2, c1: 0, c2: c1, e1: 0, f[0]: 0, f[1]: f[0], f[2]: f[1], f[3]: f[2], f[4]: f[3], g1: 0,
+		b1: 0, b2: b1, b3: b2, c1: 0, c2: c1, e1: 0, g1: 0,
 	}
-	visible := map[int64]int64{a1: 0, b4: b3, c3: c2, e2: e1, f6: f[4], g2: g1}
+	for i, id := range f {
+		if i == 0 {
+			placeholders[id] = 0
+		} else {
+			placeholders[id] = f[i-1]
+		}
+	}
+	visible := map[int64]int64{a1: 0, b4: b3, c3: c2, e2: e1, f6: f[len(f)-1], g2: g1}
 	gone := []int64{a2, d1, d2, d3}
 	secrets := []string{"A-removed-leaf-text", "B-removed-text", "C-removed-text", "D-removed-text", "E-blocked-text", "F-removed-text", "G-owner-removed-text", "blocked-nine"}
 
@@ -742,7 +756,9 @@ func TestCommentPlaceholders(t *testing.T) {
 				case art.Parent != parent:
 					t.Errorf("%s GET %s: placeholder %d sits in %d, want %d", when, p, id, art.Parent, parent)
 				default:
-					if got := plain(art.Own); got != "comment removed" {
+					// The notice, and the toggle's label when replies are drawn below it: the
+					// replies are real comments and fold like any other.
+					if got := plain(art.Own); got != "comment removed" && got != "comment removed Hide replies" {
 						t.Errorf("%s GET %s: placeholder %d reads %q, want just the notice", when, p, id, got)
 					}
 					for _, leak := range []string{"<img", `class="login"`, `class="badge"`, "<form", "<textarea", "<details", `class="body"`, "<time"} {
