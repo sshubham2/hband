@@ -70,6 +70,9 @@ func (a *app) postFeedback(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, feedback.ErrBadBody):
 		http.Error(w, "Bad request", http.StatusBadRequest)
+	case errors.Is(err, feedback.ErrBlocked):
+		// The sender's account is blocked: nothing was stored.
+		http.Error(w, blockedRefusal, http.StatusForbidden)
 	case errors.Is(err, feedback.ErrNoTarget):
 		// The report was unpublished or deleted since the lookup: the same answer
 		// as for a report that was never there.

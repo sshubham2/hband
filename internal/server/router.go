@@ -69,7 +69,7 @@ func newApp(cfg config.Config, st *store.Store, lib *reports.Library, clock func
 		reports:  lib,
 		auth:     auth.New(cfg, st, clock),
 		votes:    votes.New(st.DB(), clock),
-		comments: comments.New(st.DB(), clock),
+		comments: comments.New(st.DB(), clock, cfg.OwnerGitHubID),
 		feedback: feedback.New(st.DB(), clock),
 		pages:    template.Must(template.ParseFS(templateFS, "templates/*.html")),
 	}

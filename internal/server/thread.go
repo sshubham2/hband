@@ -71,7 +71,10 @@ func buildThread(nodes []*comments.Node, slug string, tv threadViewer, ownerID i
 
 // modItem is one visible comment of the owner's moderation list.
 type modItem struct {
-	ID        int64
+	ID int64
+	// GitHubID is the writer's account id, for the Block form. It is on the admin
+	// page only and is never put on a reader page.
+	GitHubID  int64
 	Login     string
 	AvatarURL string
 	Body      string
@@ -80,9 +83,10 @@ type modItem struct {
 	Author bool
 	// ParentLogin is the parent's writer, set when the parent is shown.
 	ParentLogin string
-	// ParentRemoved is set when the parent is a placeholder: hidden, and kept only
-	// for the replies below it.
-	ParentRemoved bool
+	// ParentHidden is set when the parent is a placeholder: hidden, and kept only
+	// for the replies below it. Hidden says no more than that: the parent was
+	// removed, or its writer is blocked and unblocking would bring it back.
+	ParentHidden bool
 }
 
 // moderationList flattens a pruned forest into the comments a reader can see,
@@ -105,12 +109,12 @@ func moderationList(forest []*comments.Node, ownerID int64) []modItem {
 		n := f.node
 		if !n.Placeholder {
 			item := modItem{
-				ID: n.ID, Login: n.Login, AvatarURL: n.AvatarURL, Body: n.Body, When: n.Posted,
+				ID: n.ID, GitHubID: n.GitHubID, Login: n.Login, AvatarURL: n.AvatarURL, Body: n.Body, When: n.Posted,
 				Author: auth.IsOwner(ownerID, n.GitHubID),
 			}
 			if p := f.parent; p != nil {
 				if p.Placeholder {
-					item.ParentRemoved = true
+					item.ParentHidden = true
 				} else {
 					item.ParentLogin = p.Login
 				}

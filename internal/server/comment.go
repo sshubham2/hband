@@ -17,6 +17,10 @@ import (
 // field, is 60 KB and a little; 64 KiB covers it.
 const maxCommentBody = 64 << 10
 
+// blockedRefusal is the answer of every public write (comment, reply, feedback,
+// vote, withdrawal) to a blocked account: a 403 with this text and nothing stored.
+const blockedRefusal = "Your account cannot take part here."
+
 // postComment handles POST /reports/{slug}/comments. The form carries body, and
 // parent (the id of the comment being answered) for a reply. The owner posts
 // through the same form as any reader.
@@ -83,6 +87,9 @@ func (a *app) postComment(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, comments.ErrBadBody):
 		http.Error(w, "Bad request", http.StatusBadRequest)
+	case errors.Is(err, comments.ErrBlocked):
+		// The writer's account is blocked: nothing was stored.
+		http.Error(w, blockedRefusal, http.StatusForbidden)
 	case errors.Is(err, comments.ErrNoTarget):
 		// The report was unpublished or deleted since the lookup, or the parent
 		// is missing, on another report, removed or written by a blocked account:
@@ -105,9 +112,9 @@ func (a *app) postComment(w http.ResponseWriter, r *http.Request) {
 // The write has already happened, so nothing here may turn it into an error: a
 // thread that cannot be read sends the reader to the comments of the report,
 // where the comment is drawn when the read works again. A comment that is not in
-// the thread at all (its writer is blocked: stored, never drawn) keeps the
-// anchor on the report page, where there is nothing to scroll to, as it always
-// has.
+// the thread at all (its writer was blocked after the write: stored, never
+// drawn) keeps the anchor on the report page, where there is nothing to scroll
+// to. A writer who is blocked when it posts never gets here: Post refuses it.
 func (a *app) landing(ctx context.Context, rep reports.Report, id int64) string {
 	anchor := "#comment-" + strconv.FormatInt(id, 10)
 	nodes, err := a.tree(ctx, rep.ID)

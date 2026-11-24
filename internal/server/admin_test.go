@@ -76,7 +76,8 @@ func invariant(t *testing.T, who, method, path string, res result) {
 //     (GET and HEAD on the POST-only rows, POST on the GET-only rows);
 //   - a row asked with its own method, with no report "x" stored: 404 from the
 //     handler, except POST /admin/reports with no body, which is not a
-//     multipart form: 400.
+//     multipart form: 400, and GET /admin/blocked, which is a page with no id in
+//     it and answers 200 (observed: the Blocked users page with nobody blocked).
 //
 // A GET row also answers HEAD. Routing is not changed to fit this table.
 func ownerRouteStatus(method, path string) int {
@@ -90,6 +91,9 @@ func ownerRouteStatus(method, path string) int {
 		if rt.Method == method || (method == "HEAD" && rt.Method == "GET") {
 			if rt.Method == "POST" && rt.Pattern == "/admin/reports" {
 				return http.StatusBadRequest
+			}
+			if rt.Method == "GET" && rt.Pattern == "/admin/blocked" {
+				return http.StatusOK
 			}
 			return http.StatusNotFound
 		}

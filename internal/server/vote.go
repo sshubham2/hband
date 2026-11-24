@@ -79,6 +79,10 @@ func (a *app) vote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case errors.Is(err, votes.ErrBlocked):
+		// A blocked account's vote is frozen: not cast, changed or withdrawn, and
+		// it keeps counting.
+		http.Error(w, blockedRefusal, http.StatusForbidden)
 	case errors.Is(err, votes.ErrNotOpen):
 		// Unpublished or deleted between the lookup and the write.
 		http.NotFound(w, r)
