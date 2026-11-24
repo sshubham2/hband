@@ -149,6 +149,27 @@ func arrange(rows []row) ([]*Node, error) {
 	return roots, nil
 }
 
+// Visible is the public comment count of a forest Tree returned: the comments a
+// reader sees, at every depth. A placeholder is not counted, and the visible
+// replies under it are, so removing one visible comment lowers the count by
+// exactly one whether it leaves a placeholder or nothing. arrange keeps every
+// shown row and makes a placeholder of exactly the rows that are hidden, so this
+// equals the number of the report's comments that pass visibleSQL. It is pure
+// and uses no recursion, so a thread of any depth is safe.
+func Visible(forest []*Node) int {
+	n := 0
+	stack := append([]*Node(nil), forest...)
+	for len(stack) > 0 {
+		at := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if !at.Placeholder {
+			n++
+		}
+		stack = append(stack, at.Replies...)
+	}
+	return n
+}
+
 // Find returns the path from a top-level comment down to the comment with the
 // given id in a forest Tree returned, the comment itself last, or nil when the
 // forest holds no such comment (it was never there, belongs to another report,

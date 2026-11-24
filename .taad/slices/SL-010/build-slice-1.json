@@ -1,0 +1,372 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-010",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-24T11:00:22.262Z",
+ "head": "6c60c2da8005b91f9ec91d29e6c6152b81e3cf51",
+ "run_id": 11985,
+ "summary": "Built the SC-020 half of SL-010. The owner can remove any comment at any depth through POST /admin/comments/{n}/remove, which is one idempotent UPDATE of removed_at and never a delete. Removal is offered from the reader pages, the branch pages and a new flat moderation list on /admin/reports/{slug}. Readers now see a public \"N comments\" line, computed by comments.Visible over the whole forest before any branch narrowing. The full suite passes (`go test -count=1 ./...`, `go vet`). The real binary was run through the planted E-003, E-004 line 1, E-005 and E-006 finish bodies. E-003, E-004 line 1 and E-005 exit 0 on both e64753c and this tree, and E-006 line 1 now stops only at the block route, which belongs to SC-021. The owner pages were also rendered in Chrome. The tree held one uncommitted file at the start, .taad/fitness.yaml, with the two design rules. The baseline build and tests were green, so I kept it and added the second `removed_at` pattern.",
+ "payload": {
+  "status": "complete",
+  "summary": "Built the SC-020 half of SL-010. The owner can remove any comment at any depth through POST /admin/comments/{n}/remove, which is one idempotent UPDATE of removed_at and never a delete. Removal is offered from the reader pages, the branch pages and a new flat moderation list on /admin/reports/{slug}. Readers now see a public \"N comments\" line, computed by comments.Visible over the whole forest before any branch narrowing. The full suite passes (`go test -count=1 ./...`, `go vet`). The real binary was run through the planted E-003, E-004 line 1, E-005 and E-006 finish bodies. E-003, E-004 line 1 and E-005 exit 0 on both e64753c and this tree, and E-006 line 1 now stops only at the block route, which belongs to SC-021. The owner pages were also rendered in Chrome. The tree held one uncommitted file at the start, .taad/fitness.yaml, with the two design rules. The baseline build and tests were green, so I kept it and added the second `removed_at` pattern.",
+  "files": [
+   {
+    "path": "internal/comments/comments.go",
+    "change": "modified",
+    "why": "Book.RemoveTarget (one SELECT) and Book.Remove (one COALESCE UPDATE of removed_at); package comment says Remove is the only write of removed_at; ErrNoTarget doc names them"
+   },
+   {
+    "path": "internal/comments/tree.go",
+    "change": "modified",
+    "why": "comments.Visible(forest): pure, explicit-stack count of non-placeholder nodes at every depth"
+   },
+   {
+    "path": "internal/server/thread.go",
+    "change": "modified",
+    "why": "threadViewer struct replaces the signedIn bool; commentView.CanRemove = Owner && !Placeholder; modItem and moderationList (flat pre-order, explicit stack, shown nodes only)"
+   },
+   {
+    "path": "internal/server/reader.go",
+    "change": "modified",
+    "why": "threadOf takes a threadViewer and returns the visible count (taken before branch narrowing); readerData.CommentCount; renderReader and readBranch build the viewer"
+   },
+   {
+    "path": "internal/server/admin.go",
+    "change": "modified",
+    "why": "adminRoutes row POST /admin/comments/{n}/remove, adminCommentRemove (target-first, strict from=admin enum, 1 KiB cap), maxRemoveBody; adminReport reads a.tree and fills adminData.Moderation"
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "change": "modified",
+    "why": "<p class=\"comment-count\">N comments</p> directly after the likes paragraph (spike placement F1)"
+   },
+   {
+    "path": "internal/server/templates/comments.html",
+    "change": "modified",
+    "why": "owner-only <details class=\"remove\"> two-step form on shown comments, in the non-placeholder branch; also drawn by the branch page"
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "change": "modified",
+    "why": "moderation section id=comments after the feedback inbox: one article per visible comment with reply-to line and a remove form carrying from=admin"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "neutral-colour rules for .comment-count, .remove, .moderation, .mod, .reply-to (no pure red or green)"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "kept the two design rules found uncommitted; added the second must_not_match (removed_at = NULL) to 'removal never deletes a comment row' and named the known holes (O-016)"
+   },
+   {
+    "path": "internal/comments/remove_test.go",
+    "change": "added",
+    "why": "TestRemove (leaf, held, chain-collapses, deep-300, already-removed, blocked-writer-commutes, unknown, report-deleted, closed-store), TestRemoveTarget, TestVisible, TestCountReconciles"
+   },
+   {
+    "path": "internal/server/remove_test.go",
+    "change": "added",
+    "why": "TestCommentRemove, TestRemoveControl, TestCommentCount, TestAdminCommentList, TestRemoveReadFailure, TestThreadViewerCanRemove"
+   },
+   {
+    "path": "internal/server/storefault_test.go",
+    "change": "modified",
+    "why": "M1: census extended with adminCommentRemove (3 steps) and adminReport (6 steps); world struct with fresh targets; writeFault kind with a trigger and a probe update; doc comment bound widened"
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "change": "modified",
+    "why": "observe() gains POST /admin/comments/<first>/remove for anonymous, nonvoter and upvoter (#948)"
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "change": "modified",
+    "why": "TestReaderPagesShareOneLayout asserts the owner's page has a remove form on every shown comment and none on the placeholder, and the non-owner's has none"
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "change": "modified",
+    "why": "three buildThread callers take a threadViewer"
+   },
+   {
+    "path": "internal/server/feedback_test.go",
+    "change": "modified",
+    "why": "TestFeedbackReplyMarkup pinned 'no number beside a label on the reader page'; now pins exactly the new comment count 0"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "TestCommentRemove/leaf feeds a lone writer's only top-level comment through the owner POST: 303 to /reports/x#comments, the writer's login and text and the comment-N id leave / and /reports/x for anonymous, reader and owner, and the count goes 2 comments to 1 comment. TestRemove/leaf covers the store."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "TestCommentRemove/held removes the reply three levels deep that has a visible reply, then the reply above it. Each is a bare 'comment removed' placeholder in place, nested, with no form, login, body or time. The count goes 4, 3, 2 for all three viewers. TestRemove/held covers the store."
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "TestCommentRemove/chain-collapses removes the last visible reply under two placeholders. Three nodes collapse, the count drops 2 to 1, and ids 2-4 and their replies- containers are absent from the page source for all three viewers."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "TestCommentRemove/below-cap builds a 300-deep chain over HTTP. Depth 7 and the end of the chain are drawn only on their branch pages, which carry the control. Both are removed through it, the count goes 300 to 298, and depth 7 is held as a bare placeholder on its branch page. TestRemove/deep-300 covers the store."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "TestRemove/already-removed (a later clock leaves the first removed_at and the count) and TestRemove/blocked-writer-commutes (removal under a block, then the block row deleted, still hidden; a control comment that was only blocked does return). TestCountReconciles checks Visible against the database after every step of random removals, repeats, blocks and unblocks. The server side is TestCommentRemove/already-hidden. The recalled same-value RowsAffected behaviour held."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "TestCommentRemove/ids sends x, 0, 01, +1, -1, an overflow, an unknown id and the comment of a deleted report, each with no body, a form and an oversize body: always 404 with no Location, and nothing removed. TestRemove/unknown, report-deleted and TestRemoveTarget cover the store. TestAdminAccessMatrix still passes with the new row."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "TestCommentRemove/refused covers an anonymous visitor, a signed-in reader and a reader with the owner's login on id 999: 403. A cross-site POST by the owner: 403. The owner's GET and HEAD: 405. removed_at stays NULL and the owner's same-origin control removes. observe() in TestDislikesDoNotInterfere gained the route for the three non-owners."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "TestCommentRemove/landing: from absent gives /reports/x#comments; from=admin gives /admin/reports/x#comments; another value, empty, other case, repeated and a body over 1 KiB give 400 with nothing removed; ?from=admin in the query string is ignored. A report that was published and taken down, and a draft that never was, both land in the admin page."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "TestRemoveControl: on /, /reports/x and a branch page the owner has exactly one control per shown comment and none on any placeholder, the owner's two reader pages are identical bytes, and the control has no digit, no field and no 'comment' in its text. A reader and a visitor see no /admin/comments/ at all. TestThreadViewerCanRemove pins the Go flag below the template, and TestReaderPagesShareOneLayout asserts it for owner and non-owner."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "TestCommentCount covers 0, 1 ('1 comment') and many comments, placeholders, a blocked writer's comments, and comments below the cap. Every case is checked for the three viewers on / and /reports/x. The page count equals the database's COUNT under the visibility predicate, there is exactly one number beside a comments label, and the count paragraph follows the likes paragraph. The branch page prints no count. The found-state blank assay (TestReportScriptsNeverRun, engine Chrome) passes in the full suite."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "TestAdminCommentList: flat pre-order list through a 12-level chain, a reply under a placeholder reading 'in reply to a removed comment', a removed comment's text nowhere on the page, forms with from=admin, no comment-N, feedback-N or count line in the section, the dislike number alone, and a draft report's list and removal landing back at #comments. 'Nothing visible' is shown when there is none."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "TestRemoveReadFailure fails the a.tree seam alone: /, /reports/x and a branch page are 503 outage pages with no count line, the admin report page is a 500 with no list, and the removal still answers 303."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "Planted epic 44 line 0 from the ledger (read-only SELECT) into a scratch copy of this tree and ran `python -I tests/acceptance/test_e006_1_removal_and_placeholders.py` against a freshly built binary. It exits 1 with one failure: `404 not less than 400 : the owner's POST /admin/users/8003/block answered 404`, raised by the press helper's status assertion (body L409) at the block press (L420). Baseline e64753c fails earlier, at L405: 'visible-comment count reads []'. The exit-1 command is the case's expected outcome by design: the block route is SC-021's."
+   },
+   {
+    "key": "O-015",
+    "done": true,
+    "how": "TestStoreFaultSteps now covers adminCommentRemove (identify the owner, look up the comment by renaming reports, remove the comment by a BEFORE UPDATE OF removed_at trigger) and adminReport (identify, report, votes, feedback, feedback replies with a seeded message, comments via the seam, all as the owner). Each of the three critic changes is built: a fresh target per request (control removes the first comment, the faulted request aims at the second, and its removed_at must stay NULL with a 500 and no Location); a writeFault kind proved isolated by readable tables plus a failing probe UPDATE; and the doc bound widened. 26 subtests pass.",
+    "mutation": {
+     "file": "internal/server/admin.go",
+     "find": "slog.Error(\"admin: remove the comment\", \"error\", err)",
+     "replace": "auth.SeeOther(w, \"/reports/\"+slug+\"#comments\"); return",
+     "test_command": "go test -count=1 -run TestStoreFaultSteps ./internal/server/"
+    }
+   },
+   {
+    "key": "O-016",
+    "done": true,
+    "how": "Added `(?i)\\bremoved_at\\s*=\\s*NULL\\b` to the rule 'removal never deletes a comment row' (critic's version: no |0 arm), and the because names the holes: a bound nil, CASE or NULLIF, concatenation, a quoted identifier, the row-value SET, REPLACE or INSERT OR REPLACE INTO comments. A scratch Go test, since deleted, showed the rule fires on `SET removed_at = NULL` in any case or spacing and on DELETE FROM comments, and stays quiet on the COALESCE UPDATE, `IS NULL` and `= 0`. The tree stays quiet (TestRulesHoldOnTheTree passes).",
+    "not_mutable": "A tripwire in .taad/fitness.yaml. No committed test exercises it, because adding a corpus row was waived (O-018, note N-122). It was checked by a throwaway test, now removed."
+   },
+   {
+    "key": "O-017",
+    "done": true,
+    "how": "Read finish[0].body of epic 44 in place (read-only SELECT). look() runs after posting (L410) and after each of the three removals (L413, L416, L419), each before the block press (L420). Each look() asserts the count at L405 and the gone, held and nesting states. So an exit 1 whose only failure is the press helper's status assertion (L409) for POST /admin/users/<id>/block with 404 proves posting and the three removals passed on the real binary. Observed on this tree: `404 not less than 400 : the owner's POST /admin/users/8003/block answered 404`.",
+    "not_mutable": "A measurement run of a planted body, not a code change."
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "how": "Critic's version: baseline measured on a `git archive HEAD` copy (e64753c), not taken from finish_proofs. Ran epic 41 line 0, 42 line 0, 43 line 0 and 44 line 0 on baseline and on a copy of this tree with python -I and an empty TAAD3_HOME. Baseline: e003_1 exit 0, e004_1 exit 0, e005_1 exit 0, e006_1 exit 1 at L405. This tree: e003_1 exit 0, e004_1 exit 0, e005_1 exit 0, e006_1 exit 1 at the block press (L409 and L420), later than baseline. Nothing got worse. No body reads a reader page as the owner and parses it: all four read /admin/reports/<slug> as the owner (E-004 line 1's has 7 comments, so it draws the moderation list), and E-006 line 1 only fetches /reports/<slug> as the owner as a referer before posting by a hard-coded path. So the remove control's markup is proven by httptest (TestRemoveControl) and my Chrome render, not by a finish body. E-006 line 2 also now fails later ('blocking failed', 404) than baseline (count reads []).",
+    "not_mutable": "A measurement run of planted bodies, not a code change."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "server.TestCommentRemove/leaf",
+    "test_command": "go test -count=1 -run TestCommentRemove/leaf ./internal/server/"
+   },
+   {
+    "key": "C-002",
+    "test_name": "server.TestCommentRemove/held",
+    "test_command": "go test -count=1 -run TestCommentRemove/held ./internal/server/"
+   },
+   {
+    "key": "C-003",
+    "test_name": "server.TestCommentRemove/chain-collapses",
+    "test_command": "go test -count=1 -run TestCommentRemove/chain-collapses ./internal/server/"
+   },
+   {
+    "key": "C-004",
+    "test_name": "server.TestCommentRemove/below-cap",
+    "test_command": "go test -count=1 -run TestCommentRemove/below-cap ./internal/server/"
+   },
+   {
+    "key": "C-005",
+    "test_name": "comments.TestRemove/already-removed, TestRemove/blocked-writer-commutes, TestCountReconciles",
+    "test_command": "go test -count=1 -run TestRemove/already-removed|TestRemove/blocked-writer-commutes|TestCountReconciles ./internal/comments/"
+   },
+   {
+    "key": "C-006",
+    "test_name": "server.TestCommentRemove/ids",
+    "test_command": "go test -count=1 -run TestCommentRemove/ids ./internal/server/"
+   },
+   {
+    "key": "C-007",
+    "test_name": "server.TestCommentRemove/refused",
+    "test_command": "go test -count=1 -run TestCommentRemove/refused ./internal/server/"
+   },
+   {
+    "key": "C-008",
+    "test_name": "server.TestCommentRemove/landing",
+    "test_command": "go test -count=1 -run TestCommentRemove/landing ./internal/server/"
+   },
+   {
+    "key": "C-009",
+    "test_name": "server.TestRemoveControl",
+    "test_command": "go test -count=1 -run TestRemoveControl ./internal/server/"
+   },
+   {
+    "key": "C-010",
+    "test_name": "server.TestCommentCount",
+    "test_command": "go test -count=1 -run TestCommentCount ./internal/server/"
+   },
+   {
+    "key": "C-011",
+    "test_name": "server.TestAdminCommentList",
+    "test_command": "go test -count=1 -run TestAdminCommentList ./internal/server/"
+   },
+   {
+    "key": "C-012",
+    "test_name": "server.TestRemoveReadFailure",
+    "test_command": "go test -count=1 -run TestRemoveReadFailure ./internal/server/"
+   },
+   {
+    "key": "C-013",
+    "test_name": "tests/acceptance/test_e006_1_removal_and_placeholders.py (planted from epic 44 finish[0]); expected outcome is exit 1 with its one failure at the block press",
+    "test_command": "python -I tests/acceptance/test_e006_1_removal_and_placeholders.py"
+   }
+  ],
+  "mandatory": [
+   {
+    "id": "C1",
+    "met": "yes",
+    "where": "comments.Book.RemoveTarget/Remove (comments.go) and adminCommentRemove behind RequireOwner/OwnerRoute (admin.go); TestCommentRemove/* and /refused"
+   },
+   {
+    "id": "C2",
+    "met": "yes",
+    "where": "commentView.CanRemove and the <details class=\"remove\"> in comments.html, drawn on the report, home and branch pages; TestRemoveControl, TestThreadViewerCanRemove"
+   },
+   {
+    "id": "C3",
+    "met": "yes",
+    "where": "moderationList and the moderation section in admin_report.html, fed by adminReport via a.tree; TestAdminCommentList"
+   },
+   {
+    "id": "C4",
+    "met": "yes",
+    "where": "removal sets removed_at, which the existing visibleSQL/treeSQL redaction hides from everyone; checked for anonymous, reader and owner on / and /reports/x in TestCommentRemove/leaf, /held, /chain-collapses and /below-cap, and on the admin page in TestAdminCommentList"
+   },
+   {
+    "id": "C7",
+    "met": "yes",
+    "where": "comments.Visible (tree.go), readerData.CommentCount and <p class=\"comment-count\"> in report.html; TestVisible, TestCountReconciles, TestCommentCount"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go build ./... ; go test -count=1 ./... (tree as found, before any edit)",
+    "outcome": "passed",
+    "note": "every package ok; baseline green with the uncommitted fitness.yaml in place"
+   },
+   {
+    "command": "go vet ./... ; go test -count=1 ./... (final)",
+    "outcome": "passed",
+    "note": "all packages ok, including internal/server (14-15 s, launches the engine-given Chrome through TestReportScriptsNeverRun), fitnessrules and comments"
+   },
+   {
+    "command": "go test -count=1 -v -run TestStoreFaultSteps ./internal/server/",
+    "outcome": "passed",
+    "note": "26 subtests: the four reader handlers plus adminCommentRemove and adminReport rows"
+   },
+   {
+    "command": "mutations, each file restored afterwards: drop Remove's 500 arm; drop RemoveTarget's 500 arm; Visible counts placeholders; Remove overwrites removed_at; CanRemove ignores placeholders (after adding TestThreadViewerCanRemove); unpublished reports land on the reader page; any `from` accepted; ParentRemoved never set; body cap removed",
+    "outcome": "failed",
+    "note": "expected: each named test went red with the fix out. The first run of the CanRemove mutation stayed green because the template alone guards placeholders, so TestThreadViewerCanRemove was added and then went red. git status confirms every file was restored."
+   },
+   {
+    "command": "python -I <planted finish bodies> on a `git archive HEAD` copy (e64753c) and on a copy of this tree, TAAD3_HOME empty; each body runs `go build ./cmd/hband`, starts the real binary on a free port with a stand-in GitHub, and drives it over HTTP",
+    "outcome": "passed",
+    "note": "e003_1, e004_1 and e005_1 exit 0 on both trees. e006_1 exits 1: baseline at L405 (count reads []), this tree only at the block press (404 on /admin/users/<id>/block, SC-021's route). e006_2 exits 1 on both trees, later on this one (blocking failed, 404)."
+   },
+   {
+    "command": "python -I tests/acceptance/test_e006_1_removal_and_placeholders.py (this tree)",
+    "outcome": "failed",
+    "note": "expected by the design: AssertionError '404 not less than 400 : the owner's POST /admin/users/8003/block answered 404', after posting and the three removal look() steps passed"
+   },
+   {
+    "command": "Chrome headless --screenshot of the owner's /reports/x and /admin/reports/x rendered from the test harness with CSS inlined, controls forced open",
+    "outcome": "passed",
+    "note": "seen: '3 comments' under the likes; the placeholder is bare 'comment removed' with its reply nested under it; Remove controls only on shown comments; the admin list shows reply-to lines, no removed text and readable, pressable buttons. Not a signed-in browser session: the engine cannot start the app bare (#961)."
+   }
+  ],
+  "deviations": [
+   "modItem omits GitHubID and ParentID. The design lists both, but only SC-021's Block form would read them and nothing in this slice does, so they would be dead fields. SC-021 adds them with their reader.",
+   "TestFeedbackReplyMarkup (SL-009) pinned 'no number beside a comments label on the reader page'. That is untrue by design now that the reader page carries the count. I changed it to the observed new markup, exactly one count of 0, and did not loosen it.",
+   "TestStoreFaultSteps rows now take a world struct instead of (reader, top), and every subtest seeds a second comment and one feedback message. This is what the critic's fix to M1 requires: fresh targets for the removal rows and a message so the inbox's replies read runs.",
+   "The second fitness pattern is `removed_at = NULL` without the `|0` arm, per the critic's check (0 still means removed). The `because` names the holes.",
+   "Kept 'in reply to a removed comment' and ParentRemoved on the moderation list, as the design and case C-011 say. The m6 rename to ParentHidden was waived (O-019, note N-123), and until SC-021 a placeholder is always a removed comment."
+  ],
+  "not_built": [
+   "All [SC-021] components: block.go (Block, Unblock, Blocked, ErrBlocked), the blocked refusal in Post, Cast, Withdraw and Send, the feedback 'blocked' mark and OwnerInboxBySender, the block, unblock and /admin/blocked routes with admin_blocked.html, and the Block forms. They belong to SC-021 (epic_parts). E-006 lines 1 and 2 cannot exit 0 until it lands.",
+   "Case 14, a removal racing 20 concurrent Posts. The design marked it material:false: Remove is one statement and the fitness rule already forbids the transaction that would cause BUSY.",
+   "Deferred findings m4 (landing at the parent's anchor), m5 (a remove form on the Blocked users page) and m7 (a shared or linked confirm page). They are decided deferrals.",
+   "No screens or app are declared. internal/config refuses to start without five HBAND_* variables, and the app command allows no environment, so the engine cannot open the app bare (#961). I rendered the owner's pages in Chrome myself instead."
+  ],
+  "follow_ups": [
+   "SC-021 must build POST /admin/users/{u}/block and /unblock, GET /admin/blocked, the blocked refusal, and a remove form on each comment of the Blocked users page (m5, with a from=blocked landing). Until then E-006 lines 1 and 2 stop at a 404 on the block route.",
+   "Arrange a signed-in session for Chrome on this project (#961, #970): the owner's remove controls, summary disclosure and phone layout have only been rendered from harness-produced HTML, never as a signed-in browser session.",
+   "No planted finish body parses the owner's remove control; E-006 line 1 presses it by a hard-coded path. If E-006 should prove the control exists on the page, that is a change to that planted test, not to this slice.",
+   "Owner page weight at 10k comments (m7, #960): each shown comment now carries one more details/form for the owner."
+  ],
+  "architecture": [
+   {
+    "block": "C-009",
+    "kind": "line",
+    "find": "where the owner answers each message through a reply form (POST /admin/feedback/{n}/reply, adminFeedbackReply) and sees each reply under the message it answers.",
+    "replace": "where the owner answers each message through a reply form (POST /admin/feedback/{n}/reply, adminFeedbackReply) and sees each reply under the message it answers. The same page lists every comment a reader can see under the report, at any depth and drafts included, in one flat list with a Remove form on each (POST /admin/comments/{n}/remove, adminCommentRemove; removed text is shown to nobody).",
+    "why": "admin.go: adminRoutes row and adminCommentRemove; adminReport reads a.tree into adminData.Moderation; admin_report.html section.moderation id=comments"
+   },
+   {
+    "block": "C-009",
+    "kind": "paths",
+    "add": [
+     "internal/server/templates/admin_report.html"
+    ],
+    "why": "admin_report.html is the owner's per-report page and now holds the feedback inbox and the comment moderation list; no block's globs match it (C-009 lists only templates/admin.html)"
+   },
+   {
+    "block": "C-009",
+    "kind": "depends",
+    "add": [
+     "C-005"
+    ],
+    "why": "internal/server/admin.go imports internal/comments for RemoveTarget and Remove, and calls moderationList from thread.go"
+   }
+  ]
+ }
+}

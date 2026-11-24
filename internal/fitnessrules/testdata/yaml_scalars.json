@@ -1,0 +1,479 @@
+{
+ "about": "Corpus of text the engine's YAML reader refuses (or reads as something else) and the lenient line loader in rules_test.go accepts, in the shapes people write into .taad/fitness.yaml. Bounded by who writes it: a prose author (name, because), a pattern author (items of must_not_match and must_not_import), a glob author (files, items of except_files). expect refuse: yamlScalarRefusals must report the first finding on `line` (1-based, in `yaml`). expect accept: it must report nothing. carriers lists every key of fitness.yaml that holds a scalar, and the census test fails when the real file uses a key this list does not name or a carrier has no refuse row and no accept row. The oracle for refuse rows is the YAML 1.2 spec and the engine's own error on SL-010 attempt 1 (ScannerError: mapping values are not allowed here); no YAML parser is installed on the build machine to run them through.",
+ "carriers": [
+  "name",
+  "files",
+  "because",
+  "must_not_match",
+  "must_not_import",
+  "except_files"
+ ],
+ "rows": [
+  {
+   "id": "because-colon-space",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: Removal is one UPDATE: the write",
+   "why": "a plain scalar holding ': ' is a mapping key to YAML"
+  },
+  {
+   "id": "because-colon-space-continuation",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    because: Removal is the one UPDATE of removed_at. 0 would not un-remove\n      by itself: visibleSQL tests IS NULL.",
+   "why": "SL-010 attempt 1: ': ' on a folded continuation line"
+  },
+  {
+   "id": "because-trailing-colon",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: These are the known holes:",
+   "why": "a value that ends in ':' is a mapping key"
+  },
+  {
+   "id": "because-trailing-colon-continuation",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    because: The guard is a test over a removed comment\n      (and the unblock test):",
+   "why": "SL-010 attempt 1: a folded line ending in ':'"
+  },
+  {
+   "id": "because-trailing-colon-then-spaces",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: These are the known holes:   ",
+   "why": "trailing blanks do not hide the colon"
+  },
+  {
+   "id": "because-space-hash",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: Fixes #12 from the review",
+   "why": "' #' starts a comment: the value is cut short without an error"
+  },
+  {
+   "id": "because-continuation-reads-as-key",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    because: Removal is one UPDATE\n      note: and not a delete",
+   "why": "a deeper line that begins 'word: ' is refused, not read as a sibling key"
+  },
+  {
+   "id": "because-colon-space-crlf",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\r\n  - name: r\r\n    because: Removal is the one UPDATE of removed_at. 0 would not un-remove\r\n      by itself: visibleSQL tests IS NULL.",
+   "why": "the same text with CRLF line endings (the working copy on Windows)"
+  },
+  {
+   "id": "because-trailing-colon-crlf",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\r\n  - name: r\r\n    because: These are the known holes:",
+   "why": "the trailing colon with CRLF line endings"
+  },
+  {
+   "id": "because-plain-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    because: Scheme and host come only from HBAND_BASE_URL (http://x:8080/a#b), not from issue#12; SC-021's note.\n      A second line with a colon:no-space and a hash#inside.",
+   "why": "colon without a space, hash without a space, an apostrophe: all plain-safe"
+  },
+  {
+   "id": "because-single-quoted-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    because: 'It says: no #1 here, and it''s fine: really:'",
+   "why": "inside single quotes ': ', ' #', a trailing ':' and a doubled apostrophe are text"
+  },
+  {
+   "id": "because-single-quoted-multiline-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    because: 'First line:\n      second: line with #hash and it''s doubled:\n      done.'\n    files: x",
+   "why": "a folded single-quoted scalar over three lines"
+  },
+  {
+   "id": "because-single-quoted-apostrophe",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: 'it's the rule'",
+   "why": "an apostrophe that is not doubled closes the scalar early"
+  },
+  {
+   "id": "because-single-quoted-apostrophe-continuation",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    because: 'first line\n      SC-021's unblock test\n      done.'",
+   "why": "SL-010 attempt 1's own fix, done wrong: the apostrophe is on a continuation line"
+  },
+  {
+   "id": "because-single-quoted-closes-early",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    because: 'the writers'\n      reply is a comment'",
+   "why": "the scalar closes at the end of a line and text follows on the next"
+  },
+  {
+   "id": "because-single-quoted-unterminated",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: 'never closed",
+   "why": "a quote that is never closed swallows the file"
+  },
+  {
+   "id": "because-double-quoted-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    because: \"a \\\"quoted\\\" word, a backslash \\\\ and a tab\\there: ok\"",
+   "why": "escaped quote, backslash and tab"
+  },
+  {
+   "id": "because-double-quoted-unknown-escape",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: \"pattern \\s+ is a regex\"",
+   "why": "\\s is not a YAML escape"
+  },
+  {
+   "id": "because-double-quoted-unescaped-quote",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: \"a \"quoted\" word\"",
+   "why": "an unescaped quote closes the scalar early"
+  },
+  {
+   "id": "because-block-scalar-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    because: >-\n      Text: with a colon and # hash,\n      and a trailing colon:\n    except_files:\n    - internal/x/**",
+   "why": "a block scalar takes its text as it comes"
+  },
+  {
+   "id": "because-starts-with-backtick",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: `go test` must pass",
+   "why": "a backtick cannot start a plain scalar"
+  },
+  {
+   "id": "because-starts-with-bracket",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: [x] is not a pattern",
+   "why": "a leading [ opens a flow sequence"
+  },
+  {
+   "id": "because-starts-with-at",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    because: @owner decides",
+   "why": "a leading @ is reserved"
+  },
+  {
+   "id": "because-tab-indent",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n\tbecause: x",
+   "why": "a tab in the indentation"
+  },
+  {
+   "id": "comments-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "# a comment: with a colon # and hash:\nrules:\n  # another: one:\n  - name: r",
+   "why": "comment lines say anything"
+  },
+  {
+   "id": "name-colon-space",
+   "carrier": "name",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 2,
+   "yaml": "rules:\n  - name: no cookie: ever Strict",
+   "why": "a rule name with ': '"
+  },
+  {
+   "id": "name-ok",
+   "carrier": "name",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: no cookie is ever SameSite=Strict",
+   "why": "a plain name"
+  },
+  {
+   "id": "name-single-quoted-ok",
+   "carrier": "name",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: 'a rule: about colons'",
+   "why": "a quoted name may hold a colon"
+  },
+  {
+   "id": "files-star-alias",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    files: **/*.go",
+   "why": "a leading * is an alias to YAML, which the document never defines"
+  },
+  {
+   "id": "files-star-bare",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    files: *.go",
+   "why": "the same, one star"
+  },
+  {
+   "id": "files-braces",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n    files: {a,b}/*.go",
+   "why": "a leading { opens a flow mapping"
+  },
+  {
+   "id": "files-plain-path-ok",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    files: internal/comments/**/*.go",
+   "why": "a plain glob that does not begin with *"
+  },
+  {
+   "id": "files-single-quoted-ok",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    files: '**/*.go'",
+   "why": "the form the file uses"
+  },
+  {
+   "id": "files-double-quoted-ok",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    files: \"**/*.go\"",
+   "why": "double quotes carry a leading star too"
+  },
+  {
+   "id": "item-colon-space",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - (?i)password: \\w+",
+   "why": "a pattern with ': '"
+  },
+  {
+   "id": "item-space-hash",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - (?i)foo # bar",
+   "why": "a pattern with ' #' is cut short"
+  },
+  {
+   "id": "item-trailing-colon",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - (?i)\\bAuthorization:",
+   "why": "a pattern ending in ':'"
+  },
+  {
+   "id": "item-bracket-start",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - [a-z]+secret",
+   "why": "a character class at the start reads as a flow sequence"
+  },
+  {
+   "id": "item-star-start",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - *.go",
+   "why": "a leading * is an alias"
+  },
+  {
+   "id": "item-reads-as-mapping",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - Authorization: Bearer",
+   "why": "a header-shaped item is a one-key mapping, not the string written"
+  },
+  {
+   "id": "item-quoted-mapping-lookalike-ok",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - 'Authorization: Bearer'",
+   "why": "quoted, it is the string"
+  },
+  {
+   "id": "item-regexes-ok",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - (?i)\\bremoved_at\\s*=\\s*NULL\\b\n    - (?i)\\b(INTO|UPDATE(\\s+OR\\s+\\w+)?|DELETE\\s+FROM)\\s+\\S*blocked_accounts\\b\n    - (?:a|b)c\n    - ^http://x:8080",
+   "why": "the regexes the file holds: backslashes, groups, '(?:', a port"
+  },
+  {
+   "id": "item-single-quoted-bracket-ok",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - '[a-z]+secret'",
+   "why": "quoted, a class at the start is text"
+  },
+  {
+   "id": "item-double-quoted-escape",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - \"\\s+secret\"",
+   "why": "\\s in double quotes is not an escape"
+  },
+  {
+   "id": "item-double-quoted-escaped-ok",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - \"\\\\s+secret\"",
+   "why": "an escaped backslash"
+  },
+  {
+   "id": "item-undoubled-apostrophe",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - 'it's'",
+   "why": "an apostrophe inside single quotes must be doubled"
+  },
+  {
+   "id": "import-path-ok",
+   "carrier": "must_not_import",
+   "who": "pattern author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    must_not_import:\n    - github.com/foo/bar\n    - net/http",
+   "why": "import paths"
+  },
+  {
+   "id": "import-colon-space",
+   "carrier": "must_not_import",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_import:\n    - net/http: forbidden",
+   "why": "a path with ': '"
+  },
+  {
+   "id": "import-reads-as-mapping",
+   "carrier": "must_not_import",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_import:\n    - http: x",
+   "why": "a word, a colon and a value is a mapping"
+  },
+  {
+   "id": "except-star-start",
+   "carrier": "except_files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    except_files:\n    - **/*_test.go",
+   "why": "a leading * is an alias"
+  },
+  {
+   "id": "except-single-quoted-ok",
+   "carrier": "except_files",
+   "who": "glob author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    except_files:\n    - '**/*_test.go'",
+   "why": "the form the file uses"
+  },
+  {
+   "id": "except-plain-path-ok",
+   "carrier": "except_files",
+   "who": "glob author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    except_files:\n    - internal/comments/**\n    - cmd/hband/main.go",
+   "why": "plain paths"
+  },
+  {
+   "id": "empty-keys-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n\n  - name: r\n    must_not_match:\n    except_files:",
+   "why": "blank lines and keys with no value"
+  },
+  {
+   "id": "crlf-clean-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\r\n  - name: r\r\n    files: '**/*.go'\r\n    because: Plain text, no colon-space.\r\n      Second line.",
+   "why": "a clean snippet with CRLF line endings"
+  }
+ ]
+}

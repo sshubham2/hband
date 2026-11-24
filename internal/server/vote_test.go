@@ -532,6 +532,9 @@ func (w *dislikeWorld) observe(t *testing.T) observation {
 		// The owner's reply route is closed to all three: the same 403 for a message
 		// that exists and for one that does not, and nothing written.
 		obs[who.name+" POST /admin/feedback/1/reply"] = h.postReply(who.sid, "1", who.feedback)
+		// And the owner's removal route, aimed at a comment that exists: refused with
+		// the same 403 for all three, and nothing is removed.
+		obs[who.name+" POST /admin/comments/<first>/remove"] = h.removeComment(who.sid, strconv.FormatInt(w.first, 10), "")
 	}
 	for _, p := range []string{"/", "/reports/x", "/reports/y"} {
 		res := h.serve("GET", p, h.withSID(w.owner))

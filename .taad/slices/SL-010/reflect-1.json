@@ -1,0 +1,170 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-010",
+ "stage": "reflect",
+ "attempt": 1,
+ "at": "2026-11-24T12:01:45.047Z",
+ "head": "f146203b09864305db92598ac6a68e5eb45e1eb2",
+ "run_id": 12002,
+ "summary": "SL-010 built the SC-020 half of PS-020. The owner can remove a comment at any depth through POST /admin/comments/{n}/remove, which is one idempotent UPDATE of removed_at. Removal is offered from the reader pages, the branch pages and a new flat moderation list on /admin/reports/{slug}, and readers now see a public \"N comments\" line from comments.Visible. The product behaviour held under review and validation. The rework came from tooling and config: invalid YAML in fitness.yaml that `go test` could not see, request-body encodings the handler did not read, and design case commands the engine could not run. The slice's own finish proof, E-006 line 1, still exits 1 at the block press, which is SC-021's route.",
+ "payload": {
+  "status": "complete",
+  "reason": "All stages of SL-010 (SC-020 half) have recorded accounts. The reflection is written from those records, with no further tool reads.",
+  "summary": "SL-010 built the SC-020 half of PS-020. The owner can remove a comment at any depth through POST /admin/comments/{n}/remove, which is one idempotent UPDATE of removed_at. Removal is offered from the reader pages, the branch pages and a new flat moderation list on /admin/reports/{slug}, and readers now see a public \"N comments\" line from comments.Visible. The product behaviour held under review and validation. The rework came from tooling and config: invalid YAML in fitness.yaml that `go test` could not see, request-body encodings the handler did not read, and design case commands the engine could not run. The slice's own finish proof, E-006 line 1, still exits 1 at the block press, which is SC-021's route.",
+  "estimate_error": "Sized medium / high risk, and it ran larger than medium while the risk sat in a different place than the tier assumed. The product risk the tier priced in did not materialise: the soft-remove, count and placeholder logic passed every case, and the 10k-comment race, the 300-deep chain and the E-003/E-004/E-005 finish bodies all held. The effort went into things the tier did not price. Build ran 2 times, code review 4, critique 2 and critique-review 2. Two minor findings were each answered with a whole-class closure: a 54-row YAML scalar corpus (internal/fitnessrules/testdata/yaml_scalars.json, 479 lines) plus a scanner in 3 test files, and a 33-row request-body corpus (internal/server/remove_body_corpus_test.go). The YAML class still had a missing member (indentation) at the next review, so that closure was not complete either. The design also carried 4 SC-021 components and 4 SC-021 contracts that this slice did not build. Size it large when a slice edits .taad/fitness.yaml or adds a POST route with optional fields. Tier the risk by the config and test tooling it touches, not only by the product logic.",
+  "learned": [
+   {
+    "kind": "codebase",
+    "lesson": "Any prose put into a `because` in .taad/fitness.yaml must be a single-quoted scalar with apostrophes doubled. The file has two readers that disagree. `go test` uses the lenient line-regexp loadRules (rules_test.go:37, 90-110) and accepts invalid YAML. The engine's Fitness op=check uses a real parser and rejects the whole file, so no architecture rule is evaluated. A builder has no parser, so a slice that edits fitness.yaml must have Fitness op=check run on the tree before it leaves build. The builder cannot do that check itself.",
+    "evidence": "Build attempt 1 wrote a plain scalar with ': ' at fitness.yaml:421 and a trailing ':' at :423. Fitness op=check answered 'ScannerError: mapping values are not allowed here ... line 421, column 42' while `go test ./...` stayed green. Code review #1 halted on it. After the fix the engine reports '31 rule(s) checked ... Every declared rule holds'. internal/fitnessrules/yaml_scalar_test.go now catches the plain-scalar form in `go test`."
+   },
+   {
+    "kind": "process",
+    "lesson": "Write every design case `check` as one command that exits 0 on pass and names exactly one top-level test. Go splits `-run` at '/', so `-run 'TestA/x|TestB/y'` runs only TestA. The engine also reads a non-zero exit as failing, so a case whose pass condition is 'exits 1 at the block press' needs a checker script that exits 0 on that outcome. This design shipped both kinds of command, and attempt 2 had to rewrite them.",
+    "evidence": "Code review #1 side note: 'TestRemoveControl/branch|TestCommentRemove/below-cap' and 'TestCommentRemove/refused|TestDislikesDoNotInterfere|TestAdminAccessMatrix' run only the first top-level test. Build attempt 2 rewrote C-005 to the single `TestCommentRemove/already-hidden` and C-013 to tests/acceptance/check_e006_1_stops_at_block.py, which exits 0 only when the planted body passes or stops solely at the 404 on /admin/users/<id>/block."
+   },
+   {
+    "kind": "design",
+    "lesson": "A POST handler whose form fields are all optional is not protected by ParseForm. ParseForm reads only urlencoded bodies, so multipart, text/plain, JSON and untyped bodies skip both the 1 KiB cap and the strict-field check and land in the 'field absent' arm. The sibling handlers dodge this because each requires a field. SC-021's POST /admin/users/{u}/block and /unblock are specified as 'No fields', so the same class applies to them. Give them a body policy, either by reusing removeFrom's strictness or by a decided choice to ignore the body, and classify them in TestPostRoutesAreClassified.",
+    "evidence": "IN-m1: as the owner, a multipart from=bogus, a 2 KiB text/plain body, a 2 KiB untyped body and a JSON body each got a 303 and removed the comment. removeFrom (admin.go:311-333) now runs ParseForm, then ParseMultipartForm tolerating only ErrNotMultipart, then reads the rest through the cap, and refuses any non-empty non-form body. TestPostRoutesAreClassified is the census of adminRoutes POST rows."
+   },
+   {
+    "kind": "estimate",
+    "lesson": "A class-closure demand on a minor finding costs far more than the finding and does not guarantee closure. When the class is a language grammar (here YAML), a hand-written scanner plus a corpus keeps missing members. A strict loader, or the real parser, closes the class where each corpus row closes only one spelling. Before sending a build back to 'close the class', ask whether a structural check exists.",
+    "evidence": "O-021 produced yaml_scalar_scan_test.go, yaml_scalar_corpus_test.go and yaml_scalars.json (54 refuse/accept rows by carrier, 479 lines). Code review #3 still found a missing member, a rule key indented less than its siblings. loadRules drops such a key silently, so the rule goes quiet. That member was waived and carried to SC-037."
+   },
+   {
+    "kind": "process",
+    "lesson": "Nothing in the loop runs gofmt, and the working tree cannot be checked directly. The tree is CRLF under core.autocrlf=true, so `gofmt -l` lists every file. Check LF blobs with `git show HEAD:<f> | gofmt -l`. The comment-fixer step also edits Go code (comments) after review and does not re-run formatting, so a formatting fault can arrive after the last review. This slice reached commit with admin.go failing gofmt.",
+    "evidence": "Validate's 'gofmt on the LF git blobs' row failed: no blank line before adminRaw's comment at admin.go:333, present at acd0063 and still at HEAD. Code review #4 had written 'the comment fixer left admin.go:333 ... formatting is code, so I did not touch it' and did not file it."
+   },
+   {
+    "kind": "risk",
+    "lesson": "SC-020 does not make E-006 pass. After this slice, E-003 line 1, E-004 line 1 and E-005 line 1 exit 0 against the real binary. E-006 line 1 exits 1 only at the 404 on POST /admin/users/<id>/block (body L409/L420, after posting and all three removals with look() checks passed). E-006 line 2 exits 1 at 'blocking failed'. SC-021's done condition is therefore both epic-44 bodies exiting 0, not the C-013 checker. tests/acceptance/check_e006_1_stops_at_block.py is scaffolding that accepts 'stops at the block press', and it should go once the real bodies pass. The bodies live only in the ledger (epics ids 41-44) and are read in place with a mode=ro SELECT.",
+    "evidence": "Validate ran the epic bodies on a scratch copy of the tree against the built binary. Results: E-003 exit 0, E-004 line 1 exit 0, E-005 exit 0, E-006 line 1 exit 1 ('404 not less than 400 : the owner's POST /admin/users/8003/block answered 404'), E-006 line 2 exit 1. The baseline e64753c failed E-006 line 1 earlier, at L405 ('visible-comment count reads []')."
+   },
+   {
+    "kind": "design",
+    "lesson": "SC-021's design brief must pick up the findings deferred or waived to it here. (1) m5: the Blocked users page needs a remove form per not-removed comment, which needs a new strict `from` value such as from=blocked, because from=admin lands on /admin/reports/<slug>#comments. (2) m6: once a placeholder can mean 'blocked' as well as 'removed', modItem.ParentRemoved and the admin text 'in reply to a removed comment' are false for a blocked parent. Rename it ParentHidden, with wording like 'in reply to a hidden comment'. (3) SC-021's own test 6 must drive a real Unblock against a removed comment. Only a SQL-deleted block row was tested here.",
+    "evidence": "Decision records for m5 (deferred to SC-021), m6 (waived as note N-123) and the code-review LEFT OPEN line 'SC-021 must build ... a remove form on the Blocked users page (m5)'. Validate lists 'interaction of removal with a real SC-021 Unblock' as not reached."
+   },
+   {
+    "kind": "risk",
+    "lesson": "The owner's signed-in UI has now gone unrendered in a real browser for a third slice (#961), and the unverified parts are load-bearing for PS-020. The `<details>` two-step is the only misclick guard on an irreversible action, and it rests on a 'recalled' outside claim. A real browser's Sec-Fetch-Site/Origin against http.CrossOriginProtection on a same-origin form POST was never exercised. The #941 blank-page assay is anonymous only, so the owner-only styles (.remove, .moderation) were never assayed. The existing TestReportScriptsNeverRun already drives the engine-given Chrome from a Go test, so a session cookie seeded through the test store is the cheap way in.",
+    "evidence": "Validate 'not reached': 'A signed-in owner's reader page and admin page drawn in a real browser ... The remove control's markup is proven only by httptest.' Design outside_claims list the `<details>` behaviour and CrossOriginProtection as evidence 'recalled'. Build #2 left open 'Arrange a signed-in session for Chrome on this project (#961)'."
+   },
+   {
+    "kind": "design",
+    "lesson": "For SC-007 (the show-all page, E-002): the public count is comments.Visible over the whole forest, rendered as 'N comments' / '1 comment' in its own block. A show-all row must show no comment count or the same number, counted with fmtVisible in one statement. Never put a count directly after the publish date separated only by whitespace, because E-002's Go reader then fails every row ('cannot be read apart'). The spike measured this layout constraint. The build never exercised it, because SL-010 has no show-all rows.",
+    "evidence": "Spike comment-count-format-fits-all-finish-readers: 'N comments' passed 2064 checks, and a bare number after the date failed E-002's reader on 4/4 rows. Design contract for Visible and its 'fails' invariant (a show-all row and the report page are two snapshots)."
+   }
+  ],
+  "what_went_wrong": [
+   "Build attempt 1 added prose to the `because` of 'removal never deletes a comment row' as a plain YAML scalar, with ': ' at fitness.yaml:421 and a trailing ':' at :423. The engine could no longer read the file, so none of the 31 architecture rules was evaluated. `go test` stayed green because loadRules is lenient. Code review #1 found it by running the engine's Fitness check. The builder had no parser and no such tool, and this alone forced build attempt 2.",
+   "The design's case check commands were not runnable as written. C-005 used a multi-test `-run` with '|' inside slash patterns, so only the first top-level test ran. C-013's pass condition was 'exits 1', which the engine reads as failing. Neither critique pass looked at the commands, and build attempt 2 spent work rewriting both.",
+   "The builder's 'class closure' for the YAML finding was a hand-written scanner and a 54-row corpus. It missed a member (a key indented less than its siblings), which code review #3 found. It was then waived and carried to SC-037. A third review lap and three test files went into a class that is still not closed.",
+   "The builder wrote 'an empty body of any type removes' into the removeFrom doc comment, the corpus comment and its O-022 account. It is false: an empty multipart body or an unparseable Content-Type gets a 400. Code review #3 measured it, and the comment fixer corrected the comments.",
+   "admin.go is not gofmt-clean at HEAD (no blank line before adminRaw's comment, admin.go:333). Code review #4 saw it and did not file it. Validate failed it, and the validation still passed, so the slice goes to commit with a known gofmt failure.",
+   "The slice's own acceptance proof does not pass. E-006 line 1 exits 1 at the SC-021 block press, so PS-020's finish proof stays at 'fails'. Validation leaned on a checker script (check_e006_1_stops_at_block.py) that treats 'stops at the block press' as a pass.",
+   "Case 14 (a removal racing 20 concurrent Posts) was judged immaterial by the design and has no committed test. Validation ran it only as a scratch test: 120 rounds, 81 held and 39 gone, no failures. The design's call held, but nothing in the repository guards it."
+  ],
+  "missed": [
+   {
+    "gate": "critique",
+    "what": "The design's handler step 3 was 'MaxBytesReader with a 1 KiB cap, then ParseForm' for a route whose only field is optional. The critique never asked what ParseForm does with a multipart, text/plain, JSON or untyped body. It reads none of them, so the cap never trips and the absent-`from` arm removes the comment. That breaks the contract's own 'unreadable body or over 1 KiB: 400; every refusal changes nothing' on an irreversible action. A check that would have caught it: take each sibling handler's required field away and see which body shapes still reach the write.",
+    "dimension": "missing-edge-cases",
+    "severity": "minor",
+    "caught_by": "code-review #1, second reader (IN-m1), measured through a go test -overlay probe as the owner",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique",
+    "what": "The critique did not check whether the design's case `check` commands could be run and judged by the engine. C-005 put '|' inside a slash `-run` pattern, which Go splits per level, so it ran only the first top-level test. Case 13's pass condition was 'exits 1', which the engine reads as a failing command. Both cases were marked owed to the build and could not be discharged as written. This forced build attempt 2 to rewrite them.",
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "caught_by": "code-review #1 side note, then the engine at build attempt 2 (C-005 and C-013 named as unrunnable)",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "code-review",
+    "what": "internal/server/admin.go lost its gofmt formatting (no blank line between the closing brace of removeFrom and the comment of adminRaw, admin.go:333). Code review #4 recorded it under LEFT OPEN as 'formatting is code, so I did not touch it' and did not file it as a finding. No review ran gofmt, and the CRLF working tree makes `gofmt -l` useless unless it is run on LF blobs. Validate caught it later.",
+    "dimension": "cross-cutting-conformance",
+    "severity": "minor",
+    "caught_by": "validate-slice, gofmt on `git show HEAD:<f>` blobs of the changed Go files",
+    "prescribed_fix": ""
+   }
+  ],
+  "lessons_judged": [
+   {
+    "id": 959,
+    "verdict": "used",
+    "why": "The read-time hide model held: Remove is one UPDATE of removed_at keyed by id, with no DELETE, no transaction and no change to Tree or visibleSQL. The new route got its observe() rows by hand. The lesson's 'handler must use auth.Participant' advice was knowingly set aside for an owner route, because RequireOwner already answers 503 and admin.go is exempt from the ViewerFrom rule. The blocked-poster question is left to SC-021."
+   },
+   {
+    "id": 954,
+    "verdict": "wrong",
+    "why": "It says threadDepthCap=100 and that deep replies get an anchor the page never draws. The tree has threadDepthCap=5 with branch pages (the design's code_claims check). TestCommentRemove/below-cap built depth 7 and a 300-deep chain and removed the deep comments through the branch-page control. Its point that SC-013 is a release prerequisite was not exercised."
+   },
+   {
+    "id": 950,
+    "verdict": "used",
+    "why": "It decided the landing. Reader forms carry no page-dependent field, so / and /reports/<newest> stay byte-identical for the owner. Only the admin form carries the fixed from=admin. TestRemoveControl and TestReaderPagesShareOneLayout assert the identity for owner and non-owner."
+   },
+   {
+    "id": 948,
+    "verdict": "used",
+    "why": "observe() in TestDislikesDoNotInterfere gained POST /admin/comments/<first>/remove rows for the anonymous, nonvoter and upvoter observers, as the lesson asked."
+   },
+   {
+    "id": 944,
+    "verdict": "used",
+    "why": "The count and the remove control went through the shared renderReader/threadOf path with its found/empty/unavailable states. A thread read error stays a 503 with no count (TestRemoveReadFailure). The lesson's point that reader routes are not in the access matrix did not apply, because the new route is an adminRoutes row and joined TestAdminAccessMatrix automatically."
+   },
+   {
+    "id": 941,
+    "verdict": "used",
+    "why": "The design kept the new .comment-count and .remove styles away from pure #ff0000/#00ff00. The found-state blank assay (TestReportScriptsNeverRun, engine Chrome) passed in every full-suite run with the count line on the anonymous page. The assay is anonymous only, so it says nothing about the owner-only styles."
+   },
+   {
+    "id": 961,
+    "verdict": "used",
+    "why": "It predicted the wall. The design recorded the known limit and chose markup assertions plus the HTTP-level finish run. Validation again could not render the owner's controls in a real browser, so the lesson is still open for the next UI slice."
+   },
+   {
+    "id": 949,
+    "verdict": "used",
+    "why": "Remove is a single statement with no transaction, and fitness.yaml:290-302 already forbids transactions in internal/comments. The recalled same-value RowsAffected claim held (TestRemove/already-removed). Validation's 120-round race of one removal against 20 concurrent Posts saw no BUSY or lost writes."
+   },
+   {
+    "id": 960,
+    "verdict": "used",
+    "why": "It supplied the page-weight figures behind the critique's m7 (about +1 MB on the owner's page at 10k comments from the remove forms). That finding was deferred by a person and the size was not measured, so nothing was built from it."
+   }
+  ],
+  "candidates": [
+   {
+    "title": "Fix admin.go's gofmt fault and add an in-process gofmt guard that ignores CRLF",
+    "urgency": "soon",
+    "why": "internal/server/admin.go:333 has no blank line between the closing brace of removeFrom and adminRaw's comment. Validate's 'gofmt on LF git blobs' row failed on it at HEAD, and it was present at acd0063. No stage runs gofmt, and the CRLF working tree (core.autocrlf=true) makes `gofmt -l` list every file. A Go test that runs go/format.Source on each tracked .go file with CRLF stripped and compares the result would close it for later slices. Check `git show HEAD:internal/server/admin.go | gofmt -l` first, since the tree has moved since validation."
+   },
+   {
+    "title": "Make loadRules fail on any rules-file line it cannot place, or parse .taad/fitness.yaml with a real YAML parser",
+    "urgency": "soon",
+    "why": "loadRules (internal/fitnessrules/rules_test.go:37, 90-110) matches keys only at exactly four spaces and lets other lines fall through silently. A mis-indented key silently loses a rule's files glob, and it also hid the invalid YAML that stopped the engine reading the file in build attempt 1 (fitness.yaml:421/423). The scalar scanner (yaml_scalar_scan_test.go, 54-row yaml_scalars.json) closes spellings one at a time, and code review #3 still found a missing member. That member was carried to SC-037 under O-025. If SC-037 is scoped as one more scanner row, widen it to this structural check. Also see the skip of must_not_import on files that open with a doc comment (#931)."
+   },
+   {
+    "title": "Drive the owner's remove flow in the engine's Chrome with a seeded owner session",
+    "urgency": "soon",
+    "why": "Validate: 'not reached: a signed-in owner's reader page and admin page drawn in a real browser ... proven only by httptest', and the engine's screens are anonymous. Three things rest on recalled or hand-built evidence: the `<details>` two-step as the only misclick guard (design outside_claim, evidence 'recalled'), a real browser's Origin/Sec-Fetch-Site against http.CrossOriginProtection on the same-origin form POST to /admin/comments/{n}/remove, and the #941 assay never seeing the owner-only .remove and .moderation styles. TestReportScriptsNeverRun already launches the engine-given Chrome from a Go test, so a sibling test can seed an owner session in its test store, open / and /admin/reports/x, expand the details, press 'Remove for everyone', and assert the comment is gone and the count is one lower. The same test should assert there is no pure-red or pure-green chrome in the owner's view."
+   }
+  ],
+  "unknowns": [
+   "Does a same-origin owner form POST pass http.CrossOriginProtection when the app sits behind the VPS and WireGuard proxy, with real Origin and Host headers? Every run so far was loopback or httptest, so Q-006/Q-010 territory is still unmeasured for the new route.",
+   "Is SC-037 scoped as a strict loader or as one more scanner row for the misindented-key member? The record carries only 'carried to SC-037', so I cannot tell whether the candidate above duplicates it.",
+   "Does a real SC-021 Unblock leave a removed comment hidden? Only a SQL DELETE of the blocked_accounts row was tested, and the fitness rule against `removed_at = NULL` is a tripwire with named holes, not proof.",
+   "How large does the owner's reader page get at about 10k comments with a per-comment remove form on top of the reply form? Critique m7 estimated about +1 MB on the 5.8 MB signed-in page (Q-020), and nothing measured it after the build.",
+   "E-004 finish line 2 (fold toggle in a browser) was never run in this slice or in validate: its ledger body hard-codes an msedge path and ignores CHROME_BIN. Is it still passing on this machine?"
+  ],
+  "filed": []
+ }
+}

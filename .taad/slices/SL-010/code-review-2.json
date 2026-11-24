@@ -1,0 +1,360 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-010",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-24T11:45:03.580Z",
+ "head": "acd006366136a5ecbf5579f80f0eadde9231a8b2",
+ "run_id": 11995,
+ "summary": "Re-read the attempt-2 diff (5238ebf, acd0063) against 6c60c2d and verified that both things sent back are fixed.\n\n**M1/O-021 (fitness.yaml would not parse): fixed.**\n- The `because` of 'removal never deletes a comment row' is now a single-quoted scalar with its apostrophes doubled.\n- The engine's Fitness op=check reads the file again: \"31 rule(s) checked against 76 parsed file(s) ... Every declared rule holds.\"\n- internal/fitnessrules/yaml_scalar_test.go is my repro, logic unchanged, and it passes.\n\n**IN-m1/O-022 (bodies the remove handler did not read): fixed.**\n- removeFrom (admin.go:311-333) runs ParseForm first, then ParseMultipartForm, tolerating only ErrNotMultipart.\n- It refuses file parts, reads the rest of the body through the 1 KiB cap, and refuses any non-empty body that is not a form.\n- I checked it against the installed net/http source: ParseMultipartForm merges multipart values into PostForm. The refusal is decided before Remove, so a refused request changes nothing.\n\n**What I ran:**\n- `go vet ./...` and `go test -count=1 ./...`: every package ok.\n- `python -I tests/acceptance/check_e006_1_stops_at_block.py` (the new C-013 command), with an empty TAAD3_HOME: exit 0, with \"stops at the block press ... AssertionError: 404 not less than 400 : the owner's POST /admin/users/8003/block answered 404\". It read the ledger read-only into a scratch copy of the tree.\n\n**New findings. None is a blocker, and none is in the product's behaviour.**\n1. Text, admin.go:309-310 and remove_body_corpus_test.go:21: the comments say an empty body of any Content-Type removes. Measured through an overlay, an empty body sent as multipart (with or without a boundary) or with an unparseable Content-Type gets 400 and nothing is removed. Refusing is the safe behaviour; only the comments are wrong. The builder's O-022 claim says the same false thing.\n2. A missing member of the YAML family that O-021 claimed closed: a rule key indented less than its siblings. YAML refuses the file, but yamlScalarRefusals accepts it, and loadRules silently drops the key, so the rule loses its files glob and goes quiet. A repro fails today.\n\nNo undeclared departures: the stricter refusal of non-form bodies and the C-013 checker script are both declared.\n\nSecond round: Second pass, reading the attempt-2 code as an attacker. Nothing new found beyond the first round's t1, t2 and m1.\n\n**removeFrom (admin.go:311-333).** I traced each Content-Type path through the installed net/http source:\n- An unparseable type, or a multipart body with no boundary, fails before anything is written.\n- An urlencoded body or a closed multipart body has `from` read strictly.\n- multipart/mixed falls to \"not a form\" and is refused when non-empty.\n- Anything over the cap trips MaxBytesReader in ParseForm, in ParseMultipartForm or in the final io.Copy.\n\nThe remaining shapes cannot steer a removal: a nameless part is dropped by ReadForm, the multipart epilogue is ignored, a field named FROM is an unknown field, and 'from=admin\\r\\n' is refused. Files cannot reach disk under the 1 KiB cap. No lock is released and retaken.\n\n**Gap between RemoveTarget and Remove.** A report deleted in the gap gives ErrNoTarget and a 404. Comment ids cannot be reused, because 0004_comments.sql:35 declares AUTOINCREMENT. So a stale remove form cannot reach a different comment.\n\n**check_e006_1_stops_at_block.py.** copytree's ignore of 'tests' matches only the root tests/ directory, which I confirmed by glob. The ledger is opened read-only with SELECT only. The STOP regex pins the block press with a 404, and I observed exit 0 on this tree.\n\n**The YAML scanner.** The residual problems are the indentation member already filed as m1, and false refusals that fail loudly rather than silently. Neither is worth another lap.\n\nReading pass: I read all of internal/fitnessrules/testdata/yaml_scalars.json (lines 1-479). Nothing new to file.\n\nI checked every row against the YAML rules and against the PyYAML-style scanner whose error the engine reported. Each verdict holds:\n- **Refused:** ': ' inside a plain scalar, a trailing ':', ' #', and a continuation line that reads as a key. Also an undoubled apostrophe, a quote closed early, an unterminated quote, an unknown double-quoted escape such as \\s, a leading * & { [ @ or backtick, a tab in the indentation, and a list item that reads as a mapping.\n- **Accepted:** a colon or hash with no space after it, the same text inside single quotes, a single-quoted scalar over several lines, a block scalar, valid escapes, comment lines, keys with no value, and CRLF forms.\n- **Line numbers:** every refuse row names the line on which YAML first fails.\n\nThe `about` text is a little loose. It says the census fails when a carrier has 'no refuse row and no accept row'; the test fails when either one is missing. It describes test data, not code, so it is not worth a lap.\n\nThe only remaining member of this class, the misindented key, is already filed as m1 in the first round.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "Re-read the attempt-2 diff (5238ebf, acd0063) against 6c60c2d and verified that both things sent back are fixed.\n\n**M1/O-021 (fitness.yaml would not parse): fixed.**\n- The `because` of 'removal never deletes a comment row' is now a single-quoted scalar with its apostrophes doubled.\n- The engine's Fitness op=check reads the file again: \"31 rule(s) checked against 76 parsed file(s) ... Every declared rule holds.\"\n- internal/fitnessrules/yaml_scalar_test.go is my repro, logic unchanged, and it passes.\n\n**IN-m1/O-022 (bodies the remove handler did not read): fixed.**\n- removeFrom (admin.go:311-333) runs ParseForm first, then ParseMultipartForm, tolerating only ErrNotMultipart.\n- It refuses file parts, reads the rest of the body through the 1 KiB cap, and refuses any non-empty body that is not a form.\n- I checked it against the installed net/http source: ParseMultipartForm merges multipart values into PostForm. The refusal is decided before Remove, so a refused request changes nothing.\n\n**What I ran:**\n- `go vet ./...` and `go test -count=1 ./...`: every package ok.\n- `python -I tests/acceptance/check_e006_1_stops_at_block.py` (the new C-013 command), with an empty TAAD3_HOME: exit 0, with \"stops at the block press ... AssertionError: 404 not less than 400 : the owner's POST /admin/users/8003/block answered 404\". It read the ledger read-only into a scratch copy of the tree.\n\n**New findings. None is a blocker, and none is in the product's behaviour.**\n1. Text, admin.go:309-310 and remove_body_corpus_test.go:21: the comments say an empty body of any Content-Type removes. Measured through an overlay, an empty body sent as multipart (with or without a boundary) or with an unparseable Content-Type gets 400 and nothing is removed. Refusing is the safe behaviour; only the comments are wrong. The builder's O-022 claim says the same false thing.\n2. A missing member of the YAML family that O-021 claimed closed: a rule key indented less than its siblings. YAML refuses the file, but yamlScalarRefusals accepts it, and loadRules silently drops the key, so the rule loses its files glob and goes quiet. A repro fails today.\n\nNo undeclared departures: the stricter refusal of non-form bodies and the C-013 checker script are both declared.\n\nSecond round: Second pass, reading the attempt-2 code as an attacker. Nothing new found beyond the first round's t1, t2 and m1.\n\n**removeFrom (admin.go:311-333).** I traced each Content-Type path through the installed net/http source:\n- An unparseable type, or a multipart body with no boundary, fails before anything is written.\n- An urlencoded body or a closed multipart body has `from` read strictly.\n- multipart/mixed falls to \"not a form\" and is refused when non-empty.\n- Anything over the cap trips MaxBytesReader in ParseForm, in ParseMultipartForm or in the final io.Copy.\n\nThe remaining shapes cannot steer a removal: a nameless part is dropped by ReadForm, the multipart epilogue is ignored, a field named FROM is an unknown field, and 'from=admin\\r\\n' is refused. Files cannot reach disk under the 1 KiB cap. No lock is released and retaken.\n\n**Gap between RemoveTarget and Remove.** A report deleted in the gap gives ErrNoTarget and a 404. Comment ids cannot be reused, because 0004_comments.sql:35 declares AUTOINCREMENT. So a stale remove form cannot reach a different comment.\n\n**check_e006_1_stops_at_block.py.** copytree's ignore of 'tests' matches only the root tests/ directory, which I confirmed by glob. The ledger is opened read-only with SELECT only. The STOP regex pins the block press with a 404, and I observed exit 0 on this tree.\n\n**The YAML scanner.** The residual problems are the indentation member already filed as m1, and false refusals that fail loudly rather than silently. Neither is worth another lap.\n\nReading pass: I read all of internal/fitnessrules/testdata/yaml_scalars.json (lines 1-479). Nothing new to file.\n\nI checked every row against the YAML rules and against the PyYAML-style scanner whose error the engine reported. Each verdict holds:\n- **Refused:** ': ' inside a plain scalar, a trailing ':', ' #', and a continuation line that reads as a key. Also an undoubled apostrophe, a quote closed early, an unterminated quote, an unknown double-quoted escape such as \\s, a leading * & { [ @ or backtick, a tab in the indentation, and a list item that reads as a mapping.\n- **Accepted:** a colon or hash with no space after it, the same text inside single quotes, a single-quoted scalar over several lines, a block scalar, valid escapes, comment lines, keys with no value, and CRLF forms.\n- **Line numbers:** every refuse row names the line on which YAML first fails.\n\nThe `about` text is a little loose. It says the census fails when a carrier has 'no refuse row and no accept row'; the test fails when either one is missing. It describes test data, not code, so it is not worth a lap.\n\nThe only remaining member of this class, the misindented key, is already filed as m1 in the first round.",
+  "findings": [
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "removeFrom's doc comment says that \"an empty body of any type is the plain form with no field\". The builder's O-022 account repeats it: 'An empty body of any type still removes'. The code refuses several empty bodies. Measured through a scratch overlay test as the owner:\n- empty body, Content-Type 'multipart/form-data; boundary=b': 400, not removed;\n- 'multipart/form-data' with no boundary: 400, not removed;\n- ';;;' (does not parse): 400, not removed;\n- '', 'text/plain', 'application/json' and urlencoded: 303, removed.\nAn empty multipart body is malformed multipart, and an unparseable type fails ParseForm, so refusing them is right. Only the comment is wrong.",
+    "evidence": "internal/server/admin.go:309-310. Overlay probe TestCR2EmptyBodies logged: multipart with a boundary 400, multipart without a boundary 400, ';;;' 400; '', text/plain, application/json and urlencoded 303.",
+    "file": "internal/server/admin.go",
+    "line": 309,
+    "end_line": 310,
+    "quote": {
+     "path": "internal/server/admin.go",
+     "line": 309,
+     "text": "//   - a body that is not a form is refused unless it is empty: an empty body of any\n//     type is the plain form with no field."
+    },
+    "fix": "Change the sentence to: 'an empty body that is not a form is the plain form with no field; an empty multipart body is malformed multipart, and a Content-Type that does not parse is refused like any unreadable body.'"
+   },
+   {
+    "id": "t2",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "The comment above the body corpus states the contract as 'An empty body of any type is the plain form.' The handler answers 400 to an empty multipart body (with or without a boundary) and to an empty body whose Content-Type does not parse. The corpus has no empty-multipart row: 'multipart, no field at all' holds the closing boundary, so it is not empty. The stated contract is broader than what the code does and what the corpus pins.",
+    "evidence": "internal/server/remove_body_corpus_test.go:21, against the overlay measurement in t1.",
+    "file": "internal/server/remove_body_corpus_test.go",
+    "line": 21,
+    "quote": {
+     "path": "internal/server/remove_body_corpus_test.go",
+     "line": 21,
+     "text": "// nothing is changed by a refusal. An empty body of any type is the plain form."
+    },
+    "fix": "Reword to: 'An empty body that is not a form is the plain form; an empty multipart body, or one whose type does not parse, is refused.'"
+   },
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "O-021 closed the class 'fitness.yaml text that the engine's YAML reader refuses but the lenient Go line loader accepts', with yamlScalarRefusals as its scanner and yaml_scalars.json as its corpus. The scanner misses one member: a rule key indented less than the keys beside it, such as `   files: ...` at three spaces under a rule whose mapping starts at four.\n- A YAML parser refuses it: the block mapping ends, and a mapping start at column 3 inside the block sequence is 'expected <block end>, but found <block mapping start>'.\n- loadRules in rules_test.go only reads keys at exactly four spaces (`^    ([a-z_]+):`). It skips the line without a word, so the rule loses its `files` glob, applies to nothing, and TestRulesHoldOnTheTree stays green.\n- yamlScalarRefusals has no indentation check for key lines, so it accepts the line too.\nThat is the same silent-and-unenforced outcome the class exists to stop. It is an ordinary authoring accident. The corpus covers tabs and continuation lines that read as keys, but not a key at the wrong column.",
+    "evidence": "internal/fitnessrules/yaml_scalar_scan_test.go:60-97: a key line is read by yamlKeyLine with no comparison against its siblings' column. Overlay probe: the source 'rules:\\n  - name: r\\n    must_not_match:\\n    - x\\n   files: internal/comments/**/*.go\\n' comes back with no refusal.",
+    "file": "internal/fitnessrules/yaml_scalar_scan_test.go",
+    "line": 76,
+    "end_line": 90,
+    "quote": {
+     "path": "internal/fitnessrules/yaml_scalar_scan_test.go",
+     "line": 76,
+     "text": "\t\tcase m != nil:\n\t\t\tcol = len(line) - len(rest)\n\t\t\tvalue = m[2]"
+    },
+    "fix": "In yamlScalarRefusals, remember the column of the first key of each rule mapping (the key after '- ', for example name). Refuse a later key line of that rule whose column differs and which is not a new '- ' item. Add refuse rows to yaml_scalars.json, for example 'key-misindented-less' ('rules:\\n  - name: r\\n    must_not_match:\\n    - x\\n   files: a/**' refused at line 5) and 'key-misindented-two' (a key at two spaces after '  - name: r'), plus an accept row with every key at four spaces.",
+    "class_of": "fitness.yaml text that the engine's YAML reader refuses but the lenient Go line loader accepts",
+    "threat": "accident",
+    "repro": {
+     "path": "internal/fitnessrules/yaml_indent_test.go",
+     "command": "go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/",
+     "body": "package fitnessrules\n\nimport \"testing\"\n\n// TestYAMLScanRefusesMisindentedRuleKey: a rule key indented less than the keys\n// beside it (three spaces where the rule's mapping starts at four) is refused by a\n// YAML parser (\"expected <block end>, but found '<block mapping start>'\"), and the\n// line loader in rules_test.go, which only reads keys at exactly four spaces, skips\n// it without a word, so the rule silently loses that key. The scan must refuse it.\nfunc TestYAMLScanRefusesMisindentedRuleKey(t *testing.T) {\n\tsrc := \"rules:\\n  - name: r\\n    must_not_match:\\n    - x\\n   files: internal/comments/**/*.go\\n\"\n\tgot := yamlScalarRefusals(src)\n\tif len(got) == 0 {\n\t\tt.Fatalf(\"a rule key at three spaces under a mapping at four is not refused\")\n\t}\n\tif n := firstLine(got); n != 5 {\n\t\tt.Errorf(\"first refused at line %d, want 5: %v\", n, got)\n\t}\n}\n"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go TestCommentRemove/leaf is unchanged since my first reading. The full suite passes on acd0063."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "TestCommentRemove/held and TestRemove/held are unchanged. They pass."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "TestCommentRemove/chain-collapses and TestRemove/chain-collapses are unchanged. They pass."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "TestCommentRemove/below-cap and TestRemove/deep-300 are unchanged. They pass."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "TestCommentRemove/already-hidden (remove_test.go:259-291) now carries the case on its own. TestRemove/already-removed, TestRemove/blocked-writer-commutes and TestCountReconciles remain. All pass."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "TestCommentRemove/ids is unchanged. canonicalID and RemoveTarget still run before removeFrom (admin.go:251-265). It passes."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "TestCommentRemove/refused and the observe() row at vote_test.go:537 are unchanged. They pass."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "TestCommentRemove/landing still passes with removeFrom in place: urlencoded `from` shapes, the query string ignored, and the over-cap body refused. The new corpus extends it to every encoding."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "TestRemoveControl, TestThreadViewerCanRemove and the reader_test.go:250-265 assertions are unchanged. They pass."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "TestCommentCount, TestVisible and TestCountReconciles are unchanged. They pass."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "TestAdminCommentList is unchanged and passes. The admin form's from=admin is urlencoded, which removeFrom reads (admin.go:315)."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "TestRemoveReadFailure is unchanged. They pass."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "I ran `python -I tests/acceptance/check_e006_1_stops_at_block.py` on this tree with an empty TAAD3_HOME. The body is not planted, so the script read epic 44 from the ledger read-only into a scratch copy. It exited 0: 'finish line 1 stops at the block press ... AssertionError: 404 not less than 400 : the owner's POST /admin/users/8003/block answered 404'. The script (L34, L79-83) requires exit 1, exactly one such stop, 'Ran 1 test' and 'FAILED (failures=1)'. It also accepts an outright pass."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "Unchanged. removeSQL keeps the first removal time with COALESCE (comments.go:143). visibleSQL tests the block separately (comments.go:70). The `removed_at = NULL` pattern (fitness.yaml:412) is now evaluated by the engine. TestRemove/blocked-writer-commutes and TestCountReconciles pass. SC-021's real Unblock does not exist yet."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "storefault_test.go is unchanged since my first reading. TestStoreFaultSteps passes in the full suite."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "The pattern is at .taad/fitness.yaml:412, and its `because` is now a valid single-quoted scalar (L413-427). The engine's Fitness op=check reads the file: 31 rules, every one holds."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "The planted body's order was verified in my first reading (look at L410/413/416/419, block press at L420). The checker's STOP regex pins the press helper's message for the block POST at 404."
+   },
+   {
+    "key": "O-018",
+    "discharged": "no",
+    "evidence": "Still waived to N-122. rule_spellings.json has no rows for the two rules. The waiver stands as decided."
+   },
+   {
+    "key": "O-019",
+    "discharged": "no",
+    "evidence": "Still waived to N-123. admin_report.html:46 still reads 'in reply to a removed comment'. Until SC-021, a placeholder can only be a removed comment."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "On 6c60c2d I measured E-003, E-004 line 1 and E-005 at exit 0. The only product change since is removeFrom inside adminCommentRemove, and none of those bodies posts to the remove route. The engine's architecture check passes."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "The specific defect is fixed:\n- .taad/fitness.yaml:413-427 is single-quoted, with '' doubled.\n- The engine's Fitness op=check reads the file: 31 rules, all hold.\n- internal/fitnessrules/yaml_scalar_test.go is my repro, logic unchanged, and it passes.\n- The corpus (yaml_scalars.json, 54 rows, all sound by the YAML spec as far as I can tell) and the census tests pass.\nThe class closure has one gap, a rule key at the wrong indentation, filed as m1 under the same class_of."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "admin.go:298-333 removeFrom, called at admin.go:268, runs before Remove.\n- TestCommentRemoveRefusesBodiesItDoesNotRead (remove_body_shapes_test.go) passes.\n- TestCommentRemoveBodyShapes covers 33 rows; TestRemoveBodyShapesCoverEveryClass and TestPostRoutesAreClassified also pass.\n- Against net/http's ParseMultipartForm source: multipart values reach PostForm, and ErrNotMultipart discards the parse error only for a body that is not multipart.\nThe stricter refusal of a non-empty non-form body is declared. The claim 'an empty body of any type still removes' is false for empty multipart and unparseable types, which get 400. That is the safe direction (t1, t2)."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/leaf and TestRemove/leaf are unchanged: a lone top-level comment with no replies, removed over HTTP and in the store."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/held and TestRemove/held: c3, three levels deep with the visible reply c4, then c2."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/chain-collapses and TestRemove/chain-collapses: the last visible reply under two placeholders."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/below-cap (a 300-deep chain over HTTP, removed through the branch-page controls) and TestRemove/deep-300."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "The command is now TestCommentRemove/already-hidden. It inserts a blocked_accounts row for writer 8, removes the block-hidden comment, deletes the block row and finds the comment still hidden. It then removes a comment twice under an advanced clock and finds removed_at unchanged."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/ids feeds x, 0, 01, +1, -1, an overflow, an unknown id and a deleted report's comment, each with three bodies."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/refused: anonymous, a reader, an impostor with the owner's login on another id, cross-site headers, and the owner's GET and HEAD."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/landing (every `from` shape, oversize, unpublished and draft) plus the new TestCommentRemoveBodyShapes, which feeds the same `from` shapes and the cap boundary in multipart, text, JSON and untyped bodies."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "TestRemoveControl on /, /reports/x and a branch page, with placeholders, for the owner, a reader and a visitor."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "TestCommentCount subtests 0-1-many, placeholders, blocked-writer, below-the-cap and reconciles."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "TestAdminCommentList: a 12-level chain, a reply under a placeholder, a removed leaf, and an unpublished report's list and removal."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "TestRemoveReadFailure with a.tree failing alone."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "I ran tests/acceptance/check_e006_1_stops_at_block.py. It plants epic 44's line-1 body (read-only from the ledger) into a scratch copy and runs it on the real binary. It exits 0 because the only stop is the block press with 404, after look() has passed for posting and for each of the three removals."
+   },
+   {
+    "key": "C-014",
+    "exercised": "no",
+    "evidence": "Deferred as material:false, and the reason still holds. Remove is one ExecContext (comments.go:154-167). 'comment writes never open a transaction' (fitness.yaml:290) forbids the transaction that would produce BUSY, and the engine now evaluates it again."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [
+   ".taad/fitness.yaml:1-379 -- I read only lines 380-442 and the attempt-2 diff, and the earlier unchanged rules only by grep. Fitness op=check now evaluates the whole file (31 rules hold).",
+   "internal/fitnessrules/testdata/yaml_scalars.json -- read as a parsed dump of every row (id, carrier, expect, line, and the yaml cut to 150 chars), not as raw lines; long rows were seen only in part."
+  ],
+  "second_round": {
+   "run_id": 11996,
+   "filed": 0
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 11997,
+   "session": "d4f4099a-2c8f-4117-9989-56e208762c1c",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/fitnessrules/testdata/yaml_scalars.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       479
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      479
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 1,
+   "named": [],
+   "before": {
+    "read_whole": 6,
+    "changed": 9,
+    "listed": 3
+   },
+   "filed": 0,
+   "read_after": 1,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 9,
+   "read_whole": 7,
+   "deleted": [],
+   "runs": [
+    11988,
+    11995,
+    11996,
+    11997
+   ],
+   "range": {
+    "base": "e64753c60c57cc40daa3c98168b8f6acb1853f3a",
+    "head": "acd006366136a5ecbf5579f80f0eadde9231a8b2",
+    "source": "commits",
+    "hunk_base": "6c60c2da8005b91f9ec91d29e6c6152b81e3cf51",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "partly-opened",
+     "section": "lines 1-379, 413-414, 423, 427 of 441",
+     "reason": "a Read returned only part of it; seen only as 7 Grep lines (before the build); seen only through a shell command: $s (before the build), git diff (before the build), git log; 5 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 441,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/admin.go",
+     "state": "partly-opened",
+     "section": "lines 6-227, 336-340, 342-379 of 379",
+     "reason": "a Read returned only part of it; seen only as 8 Grep lines (before the build); seen only through a shell command: git log; 337 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 379,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

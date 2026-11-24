@@ -1,0 +1,245 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-010",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-24T11:55:02.177Z",
+ "head": "f146203b09864305db92598ac6a68e5eb45e1eb2",
+ "run_id": 12000,
+ "summary": "SL-010's removal half (SC-020) passes everything I could run.\n\n**Suite and rules**\n- `go vet ./...` passes.\n- `go test -count=1 ./...` passes in about 17 s, with CHROME_BIN set and TAAD3_HOME set to an empty scratch folder. That run includes TestReportScriptsNeverRun in Chrome.\n- Fitness op=check reads .taad/fitness.yaml and reports that all 31 rules hold.\n\n**Per-criterion tests.** Every test for cases 1–12 passes when run verbosely:\n- the 9 TestRemove subtests (comments package), TestRemoveTarget, TestVisible and TestCountReconciles;\n- the 8 TestCommentRemove subtests (server package);\n- TestRemoveControl, the 5 TestCommentCount subtests, TestAdminCommentList and TestRemoveReadFailure;\n- TestStoreFaultSteps, all 26 steps, including the three adminCommentRemove steps;\n- TestThreadViewerCanRemove, TestReaderPagesShareOneLayout, TestAdminAccessMatrix, TestDislikesDoNotInterfere, TestCommentRemoveRefusesBodiesItDoesNotRead, TestCommentRemoveBodyShapes and TestPostRoutesAreClassified.\n\n**Finish bodies against the built binary.** I read the epic finish bodies from the ledger with one read-only SELECT. I ran them against the real binary, built from a scratch copy of this tree, with a stand-in GitHub:\n- E-003 line 1: exit 0.\n- E-004 line 1: exit 0.\n- E-005 line 1: exit 0.\n- E-006 line 1: exit 1, with its only failure at the block press (`404 not less than 400 : the owner's POST /admin/users/8003/block answered 404`). So posting, the three removals and every look() before the block passed on the real binary.\n- The committed C-013 checker exits 0.\n- E-006 line 2: exits 1 at 'blocking failed'. That failure belongs to SC-021.\n\n**Case 14 (a removal racing 20 concurrent Posts).** No committed test covers it, so I ran a scratch-only test on a copy of the tree. It passed 120 rounds:\n- Both interleavings occurred: the target was held as a placeholder in 81 rounds and gone in 39.\n- Only replies to the removed target were refused, each with ErrNoTarget.\n- Visible equalled the SQL control total and the number of successful posts in every round.\n\n**O-014.** Verified. The only non-test write of removed_at is `UPDATE comments SET removed_at = COALESCE(removed_at, ?)` (comments.go:143). TestRemove/blocked-writer-commutes and TestCountReconciles pass, and the fitness rule against `removed_at = NULL` holds.\n\n**One miss, filed as extra.** internal/server/admin.go is not gofmt-clean: a blank line is missing before adminRaw's comment. It came in with build attempt 2 (acd0063) and is still there at HEAD.\n\n**Not a loop.** The index shows one revoke, from code review, and it changed src.\n\n**Contact is `code`.** Everything ran locally: httptest, plus the real binary on localhost against a stand-in GitHub. No real deployment, real GitHub sign-in or signed-in browser view of the owner's controls was reached.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "SL-010's removal half (SC-020) passes everything I could run.\n\n**Suite and rules**\n- `go vet ./...` passes.\n- `go test -count=1 ./...` passes in about 17 s, with CHROME_BIN set and TAAD3_HOME set to an empty scratch folder. That run includes TestReportScriptsNeverRun in Chrome.\n- Fitness op=check reads .taad/fitness.yaml and reports that all 31 rules hold.\n\n**Per-criterion tests.** Every test for cases 1–12 passes when run verbosely:\n- the 9 TestRemove subtests (comments package), TestRemoveTarget, TestVisible and TestCountReconciles;\n- the 8 TestCommentRemove subtests (server package);\n- TestRemoveControl, the 5 TestCommentCount subtests, TestAdminCommentList and TestRemoveReadFailure;\n- TestStoreFaultSteps, all 26 steps, including the three adminCommentRemove steps;\n- TestThreadViewerCanRemove, TestReaderPagesShareOneLayout, TestAdminAccessMatrix, TestDislikesDoNotInterfere, TestCommentRemoveRefusesBodiesItDoesNotRead, TestCommentRemoveBodyShapes and TestPostRoutesAreClassified.\n\n**Finish bodies against the built binary.** I read the epic finish bodies from the ledger with one read-only SELECT. I ran them against the real binary, built from a scratch copy of this tree, with a stand-in GitHub:\n- E-003 line 1: exit 0.\n- E-004 line 1: exit 0.\n- E-005 line 1: exit 0.\n- E-006 line 1: exit 1, with its only failure at the block press (`404 not less than 400 : the owner's POST /admin/users/8003/block answered 404`). So posting, the three removals and every look() before the block passed on the real binary.\n- The committed C-013 checker exits 0.\n- E-006 line 2: exits 1 at 'blocking failed'. That failure belongs to SC-021.\n\n**Case 14 (a removal racing 20 concurrent Posts).** No committed test covers it, so I ran a scratch-only test on a copy of the tree. It passed 120 rounds:\n- Both interleavings occurred: the target was held as a placeholder in 81 rounds and gone in 39.\n- Only replies to the removed target were refused, each with ErrNoTarget.\n- Visible equalled the SQL control total and the number of successful posts in every round.\n\n**O-014.** Verified. The only non-test write of removed_at is `UPDATE comments SET removed_at = COALESCE(removed_at, ?)` (comments.go:143). TestRemove/blocked-writer-commutes and TestCountReconciles pass, and the fitness rule against `removed_at = NULL` holds.\n\n**One miss, filed as extra.** internal/server/admin.go is not gofmt-clean: a blank line is missing before adminRaw's comment. It came in with build attempt 2 (acd0063) and is still there at HEAD.\n\n**Not a loop.** The index shows one revoke, from code review, and it changed src.\n\n**Contact is `code`.** Everything ran locally: httptest, plus the real binary on localhost against a stand-in GitHub. No real deployment, real GitHub sign-in or signed-in browser view of the owner's controls was reached.",
+  "checks": [
+   {
+    "what": "go vet over the whole module",
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "evidence": "exit 0"
+   },
+   {
+    "what": "Full suite as the project runs it, with the engine-given Chrome and a scratch TAAD3_HOME",
+    "command": "$env:TAAD3_HOME=<new empty scratch>; go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "Every package ok: comments 3.6s, server 15.1s, fitnessrules, votes, store, and the others. Exit 0 in 17 s."
+   },
+   {
+    "what": "The engine's architecture rules read .taad/fitness.yaml and hold",
+    "command": "Fitness op=check (rebuild)",
+    "outcome": "passed",
+    "evidence": "31 rule(s) checked against 76 parsed file(s), 43 file(s) read. Every declared rule holds."
+   },
+   {
+    "what": "gofmt on the LF git blobs of the Go files this slice changed. The working tree is CRLF under core.autocrlf=true, which makes gofmt -l list every file.",
+    "command": "foreach changed *.go: git show HEAD:<f> | gofmt -l; gofmt -d on the admin.go blob at HEAD and at acd0063",
+    "outcome": "failed",
+    "nature": "extra",
+    "evidence": "16 of 17 files are clean. internal/server/admin.go is not: gofmt adds a blank line between removeFrom's closing brace and the `// adminRaw` comment (HEAD around line 336). The same diff is at acd0063, so build attempt 2 introduced it. The base e64753c is clean. It does nothing wrong at runtime, and no criterion or test requires gofmt."
+   },
+   {
+    "what": "Store-level removal, the target lookup, the count and the control-total reconcile",
+    "command": "go test -count=1 -v -run 'TestRemove$|TestRemoveTarget|TestCountReconciles|TestVisible' ./internal/comments/",
+    "outcome": "passed",
+    "evidence": "TestRemove subtests PASS: leaf, held, chain-collapses, deep-300, already-removed, blocked-writer-commutes, unknown, report-deleted, closed-store. TestRemoveTarget, TestVisible and TestCountReconciles also PASS."
+   },
+   {
+    "what": "Server-side tests for cases 1-12",
+    "command": "go test -count=1 -v -run 'TestCommentRemove|TestRemoveControl|TestCommentCount|TestAdminCommentList|TestRemoveReadFailure|TestStoreFaultSteps|TestThreadViewerCanRemove|TestReaderPagesShareOneLayout|TestReportScriptsNeverRun|TestAdminAccessMatrix|TestDislikesDoNotInterfere|TestPostRoutesAreClassified' ./internal/server/",
+    "outcome": "passed",
+    "evidence": "All PASS:\n- TestCommentRemove/{leaf, held, chain-collapses, below-cap, already-hidden, ids, refused, landing}\n- TestRemoveControl\n- TestCommentCount/{0-1-many, placeholders, blocked-writer, below-the-cap, reconciles}\n- TestAdminCommentList, TestRemoveReadFailure, TestThreadViewerCanRemove\n- TestStoreFaultSteps, all 26 steps, including 17-19 for adminCommentRemove\n- TestReaderPagesShareOneLayout, TestReportScriptsNeverRun (Chrome, 6.4 s), TestAdminAccessMatrix\n- TestCommentRemoveRefusesBodiesItDoesNotRead, TestCommentRemoveBodyShapes, TestPostRoutesAreClassified\n\nok, 8.6 s."
+   },
+   {
+    "what": "Finish bodies that read comment counts, run against the real built binary with a stand-in GitHub. The ledger was read in place: one mode=ro connection, a single SELECT, then closed. The bodies were written into a scratch copy of the tree.",
+    "command": "python -I <scratch>/finish_runs.py <worktree> <scratch>: SELECT id, finish FROM epics WHERE id IN (41,42,43,44); each body run with python -I and its own empty TAAD3_HOME",
+    "outcome": "passed",
+    "evidence": "- epic 41 (E-003) line 0: exit 0, Ran 1 test, OK.\n- epic 42 (E-004) line 0: exit 0, OK.\n- epic 43 (E-005) line 0: exit 0, OK.\n\nThe new count line and remove control did not break the other epics' count readers. This re-measures O-020 independently."
+   },
+   {
+    "what": "E-006 finish line 1 (case 13) on the real binary",
+    "command": "same harness, epic 44 line 0 (test_e006_1_removal_and_placeholders.py)",
+    "outcome": "passed",
+    "evidence": "exit 1, `AssertionError: 404 not less than 400 : the owner's POST /admin/users/8003/block answered 404 | Ran 1 test in 4.200s | FAILED (failures=1)`. That is the expected stop at SC-021's block route: posting, the three removals and every look() before them passed on the real binary."
+   },
+   {
+    "what": "The committed C-013 case command",
+    "command": "python -I tests/acceptance/check_e006_1_stops_at_block.py (scratch TAAD3_HOME)",
+    "outcome": "passed",
+    "evidence": "Printed 'finish line 1 stops at the block press, after posting and the three removals passed: AssertionError: 404 not less than 400 : the owner's POST /admin/users/8003/block answered 404'. Exit 0."
+   },
+   {
+    "what": "E-006 finish line 2 (blocking and unblocking) on the real binary",
+    "command": "same harness, epic 44 line 1 (test_e006_2_blocking_and_unblocking.py)",
+    "outcome": "failed",
+    "nature": "pre-existing",
+    "evidence": "exit 1, 'AssertionError: 404 not less than 400 : blocking failed'. The block route is SC-021's, not this slice's. O-020 recorded that the same body failed earlier on baseline e64753c ('count reads []'). It now fails later, at blocking."
+   },
+   {
+    "what": "E-004 finish line 2 (fold toggle in a browser)",
+    "command": "not run",
+    "outcome": "not-run",
+    "evidence": "The ledger body's `class Chrome` (L306-310) hard-codes browser paths, including C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe, and does not take CHROME_BIN. msedge must not be started on this machine, so the body was not run. The hard-coded paths are in the epic's ledger finish body, not in this slice's code. This slice does not touch the fold toggle."
+   },
+   {
+    "what": "Case 14: a removal racing 20 concurrent Posts on one report",
+    "command": "scratch-only test TestValRemoveRaces20Posts, written into a scratch copy of the tree (never into the repository): go test -count=3 -run TestValRemoveRaces20Posts ./internal/comments/. 40 rounds per run: one Remove(c1) against 20 goroutines (10 replying to c1, 10 top-level) released by one barrier.",
+    "outcome": "passed",
+    "evidence": "3 runs x 40 rounds, all PASS (96 s). The target was held as a placeholder in 27/26/28 rounds and gone in 13/14/12, so both interleavings occurred. 221/246/225 replies were refused, all with ErrNoTarget, and all were replies to c1. No other error occurred. In every round:\n- rows = successful posts + 1;\n- Visible = the SQL control total = successful posts;\n- the target is held exactly when a reply landed and absent otherwise.\n\nNo committed test covers this case; the design marked it material:false."
+   },
+   {
+    "what": "Nothing un-removes: the only non-test write of removed_at",
+    "command": "git grep -n -i -E 'removed_at\\s*=|SET\\s+removed_at' -- '*.go' ':!*_test.go'",
+    "outcome": "passed",
+    "evidence": "One hit: internal/comments/comments.go:143 `UPDATE comments SET removed_at = COALESCE(removed_at, ?) WHERE id = ?`."
+   },
+   {
+    "what": "No browser install path (msedge or chrome.exe) in any file this slice changed",
+    "command": "git grep -n -i -E 'msedge|Microsoft\\\\?Edge|chrome\\.exe' -- <git diff --name-only e64753c HEAD>",
+    "outcome": "passed",
+    "evidence": "exit 1 (no match)"
+   },
+   {
+    "what": "Templates carry the control and the count where the design put them",
+    "command": "git grep -n -E 'comment-count|/admin/comments/|from' -- comments.html report.html admin_report.html",
+    "outcome": "passed",
+    "evidence": "- comments.html:25 has a form posting to /admin/comments/{{.ID}}/remove.\n- admin_report.html:50-51 has the same form with hidden from=admin.\n- report.html:15 has `<p class=\"comment-count\">{{.CommentCount}} comment|comments</p>`."
+   },
+   {
+    "what": "Engine screenshots of the first screen",
+    "command": "Read .taad-scratch/screens/s1-wide-light.png and s1-phone-light.png",
+    "outcome": "passed",
+    "evidence": "Both opened and seen.\n- Wide: '0 likes / 0 comments / Sign in to vote.', with 'No comments yet.'\n- Phone: '0 likes / 9 comments' and a thread 5 levels deep ending in 'continue this thread →'.\n\nThe count line reads correctly in both. Both are anonymous views only. Problems are listed under screens."
+   },
+   {
+    "what": "No stray processes and scratch cleaned",
+    "command": "Get-Process hband; Remove-Item <scratch>/fin; git status --short",
+    "outcome": "passed",
+    "evidence": "No hband process is running. The scratch tree copy was removed. The worktree status is unchanged from the start of the run."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "1. the owner removes a comment — a top-level comment with no replies",
+    "met": "yes",
+    "how": "TestCommentRemove/leaf and TestRemove/leaf PASS. On the real binary, E-006 line 1 removed its comments through POST /admin/comments/<n>/remove and every look() passed before it stopped at the block press."
+   },
+   {
+    "criterion": "2. a reply three levels deep that has a visible reply beneath it, and then the reply above it",
+    "met": "yes",
+    "how": "TestCommentRemove/held and TestRemove/held PASS (shapes 1(2(3*(4))) then 1(2*(3*(4))), count 4→3→2). On the real binary, E-006 line 1's 'held' look() checks passed: the placeholder is nested, has no login or text, and reads 'comment removed'."
+   },
+   {
+    "criterion": "3. the last visible reply beneath a chain of two placeholders",
+    "met": "yes",
+    "how": "TestCommentRemove/chain-collapses and TestRemove/chain-collapses PASS: three nodes collapse, the count goes 2→1, and no row is deleted."
+   },
+   {
+    "criterion": "4. a comment below threadDepthCap (depth 7) and the end of a 300-deep chain",
+    "met": "yes",
+    "how": "TestCommentRemove/below-cap (300-deep over HTTP, removed through the branch-page control) and TestRemove/deep-300 PASS. The count goes 300→299→298, and depth 7 is held as a placeholder."
+   },
+   {
+    "criterion": "5. the comment is already hidden: removed before, or its writer is blocked",
+    "met": "yes",
+    "how": "TestRemove/already-removed (the first removed_at is kept and the count does not change), TestRemove/blocked-writer-commutes and TestCommentRemove/already-hidden PASS. The block row is planted by SQL, because SC-021 is not built."
+   },
+   {
+    "criterion": "6. non-canonical, unknown or deleted-report ids",
+    "met": "yes",
+    "how": "TestCommentRemove/ids, TestRemove/unknown, TestRemove/report-deleted and TestRemoveTarget PASS: 404 with no Location, and nothing removed."
+   },
+   {
+    "criterion": "7. someone other than the owner tries to remove",
+    "met": "yes",
+    "how": "TestCommentRemove/refused, TestAdminAccessMatrix and TestDislikesDoNotInterfere PASS:\n- anonymous, signed-in reader and owner's-login-on-another-id: 403;\n- cross-site POST: 403;\n- the owner's GET and HEAD: 405.\n\nThese are httptest only. On the real binary the non-owner presses come after the block press in E-006 line 1, so they were not reached."
+   },
+   {
+    "criterion": "8. landing after a removal: from absent/admin/other/repeated, a body over 1 KiB, a draft or unpublished report",
+    "met": "yes",
+    "how": "TestCommentRemove/landing, TestCommentRemoveRefusesBodiesItDoesNotRead and TestCommentRemoveBodyShapes (33-row corpus) PASS."
+   },
+   {
+    "criterion": "9. the owner's remove control is drawn (owner, reader, anonymous on /, /reports/<slug>, branch; with a placeholder)",
+    "met": "yes",
+    "how": "TestRemoveControl, TestThreadViewerCanRemove and TestReaderPagesShareOneLayout PASS, and comments.html:25 has the form. These are httptest only: no signed-in owner page was rendered in a browser in this run."
+   },
+   {
+    "criterion": "10. readers see the public visible-comment count (0, 1, many, placeholders, blocked writer, below the cap)",
+    "met": "yes",
+    "how": "The 5 TestCommentCount subtests PASS. On the real binary, E-006 line 1's L405 count assertion passed after posting and after each of the three removals. E-003, E-004 line 1 and E-005 still exit 0 with the new count line. The engine's screenshots show '0 comments' and '9 comments' drawn under the likes line."
+   },
+   {
+    "criterion": "11. the owner removes a comment from the admin page (draft, 12 deep, reply under a placeholder, removed comment)",
+    "met": "yes",
+    "how": "TestAdminCommentList PASS, and admin_report.html:50-51 has a form with from=admin. This is httptest only: the admin form was not posted on the real binary."
+   },
+   {
+    "criterion": "12. pages that draw the thread when the thread cannot be read",
+    "met": "yes",
+    "how": "TestRemoveReadFailure and TestStoreFaultSteps (steps 17-25, including Remove's own write fault) PASS."
+   },
+   {
+    "criterion": "13. E-006 finish line 1 against SC-020's tree",
+    "met": "yes",
+    "how": "I ran the ledger body myself against the real built binary: exit 1, with its only failure at the block press (404 on /admin/users/8003/block). The committed checker exits 0."
+   },
+   {
+    "criterion": "14. a removal racing 20 concurrent Posts on the same report (design: material:false)",
+    "met": "yes",
+    "how": "No committed test covers it. My scratch-only test passed 120 rounds on a copy of the tree, with both interleavings seen and a consistent count, rows and placeholder state. Only replies to the removed target were refused, each with ErrNoTarget."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-014",
+    "verified": "yes",
+    "evidence": "Removal and a block commute, and nothing un-removes:\n- TestRemove/blocked-writer-commutes PASS: a removal under a block is recorded, the count does not drop twice, the comment stays hidden after the block row is deleted, and a control comment that was only blocked does come back.\n- TestRemove/already-removed PASS: a repeat removal keeps the first removed_at and the count.\n- TestCountReconciles PASS: random removals, repeats, blocks and unblocks, checked against SQL after every step.\n- The only non-test write of removed_at is the COALESCE UPDATE (comments.go:143), found by git grep.\n- Fitness op=check holds, including the rule that forbids `removed_at = NULL`.\n\nLimit: the unblock is simulated by a SQL DELETE, because SC-021's Unblock does not exist yet."
+   }
+  ],
+  "planned": [],
+  "screens": [
+   {
+    "screen": "s1-wide-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "whole screen, compared with s1-phone-light.png",
+      "what": "The same report, 'Look Notes', is shown with different data in the two screens: 0 comments and 'No comments yet.' here, 9 comments and a 5-level thread on the phone. Side by side, the screens do not show the same state."
+     },
+     {
+      "where": "likes/count block under the report frame",
+      "what": "'0 comments' sits between '0 likes' and 'Sign in to vote.', inside the voting block, two sections above the Comments heading. It reads as part of the vote controls rather than the comment section. The spike and design fixed this placement, so this is a lesser note."
+     },
+     {
+      "where": "whole screen",
+      "what": "Only the anonymous view was captured. The slice's new owner remove control is not on any screen, so it has not been seen in a browser."
+     }
+    ]
+   },
+   {
+    "screen": "s1-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "count line versus the Comments thread",
+      "what": "The page says '9 comments' but draws only 5, followed by 'continue this thread →'. A reader who counts the thread finds 5. The count includes comments below the depth cap by design (criterion 10), and nothing near the count explains the difference."
+     },
+     {
+      "where": "fourth comment's byline",
+      "what": "A very long login ('wwww…') wraps over two lines and pushes the date onto its own line. It stays readable and nothing overflows."
+     }
+    ]
+   }
+  ],
+  "not_reached": [
+   "A real deployment: the home server behind the VPS and WireGuard proxy. Every run here was local, either httptest or the built binary on 127.0.0.1.",
+   "Real GitHub OAuth. The real-binary runs signed in through the finish bodies' stand-in GitHub.",
+   "A signed-in owner's reader page and admin page drawn in a real browser. The engine's screens are anonymous only, and no Chrome session with the owner's cookie was arranged (#961). The remove control's markup is proven only by httptest.",
+   "The admin-page form (from=admin) and the non-owner refusals (reader, owner's-login twin, cross-site) on the real binary. E-006 line 1 reaches the non-owner presses only after SC-021's block route.",
+   "E-004 finish line 2 (fold toggle). Its ledger body hard-codes a browser path including msedge and does not take CHROME_BIN, so it was not run.",
+   "The production database (Q-015/Q-016 user_version) and the size of the owner's page at about 10k comments through the VPS (critique m7, Q-020).",
+   "The interaction of removal with a real SC-021 Unblock. Only a SQL-deleted block row was tested, because SC-021 is not built."
+  ]
+ }
+}

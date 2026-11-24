@@ -403,3 +403,39 @@ rules:
       opened outside the package and handed in through an interface.'
     except_files:
     - '**/*_test.go'
+
+  # settled by SL-010
+  - name: removal never deletes a comment row
+    files: internal/comments/**/*.go
+    must_not_match:
+    - (?i)\bDELETE\s+FROM\s+\S*comments\b
+    - (?i)\bremoved_at\s*=\s*NULL\b
+    because: 'Removal is the one UPDATE of removed_at. A DELETE of a removed leaf would make
+      it ''vanish'' just as the prune does, but it would lose the row that the Blocked users page
+      lists, and break the guarantee that unblocking never restores a removed comment. With
+      replies, a DELETE fails with 787 (NO ACTION self-FK), which would surface as a 500. The
+      existing schema tests that DELETE on purpose are _test.go files. The rule that only internal/comments
+      writes the comments table already covers every file outside internal/comments; this one
+      covers the inside. The second pattern guards the other way a removal could be undone, a
+      write of NULL back into removed_at (the reads say IS NULL, which it leaves alone). Setting
+      removed_at to 0 would not un-remove: visibleSQL tests IS NULL, so 0 still means removed.
+      Known holes, named and not chased (this is a tripwire over spellings; the behavioural guard
+      is TestRemove/blocked-writer-commutes and SC-021''s unblock test over a removed comment):
+      a bound nil argument (removed_at = ?), CASE or NULLIF expressions, concatenated SQL, a
+      quoted identifier ("removed_at" = NULL), the row-value form SET (removed_at) = (NULL),
+      and REPLACE INTO or INSERT OR REPLACE INTO comments, which re-inserts the row with
+      removed_at NULL.'
+    except_files:
+    - '**/*_test.go'
+  - name: only internal/comments writes the blocked_accounts table
+    files: '**/*.go'
+    must_not_match:
+    - (?i)\b(INTO|UPDATE(\s+OR\s+\w+)?|DELETE\s+FROM)\s+\S*blocked_accounts\b
+    because: Block and Unblock in internal/comments are where the pinned owner's own id is refused,
+      and they sit inside the no-transaction fence. A second writer in votes, feedback or server
+      could block the author, hiding every Author comment on the site, or could write inside
+      a transaction. votes and feedback may only READ the table, inside their own write statements
+      (NOT EXISTS), and this pattern leaves those reads alone.
+    except_files:
+    - internal/comments/**
+    - '**/*_test.go'

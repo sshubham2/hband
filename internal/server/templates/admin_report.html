@@ -39,6 +39,23 @@
 {{else}}<p>No feedback on this report yet.</p>
 {{end}}</section>
 
+<section class="moderation" id="comments">
+<h2>Comments</h2>
+{{range .Moderation}}<article class="mod">
+<header class="byline">{{if .AvatarURL}}<img class="avatar" src="{{.AvatarURL}}" alt="" width="24" height="24"> {{end}}<span class="login">{{.Login}}</span> {{if .Author}}<span class="badge">Author</span> {{end}}<time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></header>
+<p class="reply-to">{{if .ParentRemoved}}in reply to a removed comment{{else if .ParentLogin}}in reply to @{{.ParentLogin}}{{else}}top level{{end}}</p>
+<p class="body">{{.Body}}</p>
+<details class="remove">
+<summary>Remove</summary>
+<form method="post" action="/admin/comments/{{.ID}}/remove">
+<input type="hidden" name="from" value="admin">
+<button type="submit">Remove for everyone</button>
+</form>
+</details>
+</article>
+{{else}}<p>Nothing visible on this report.</p>
+{{end}}</section>
+
 <h2>Preview</h2>
 <iframe sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" src="/admin/reports/{{.Report.Slug}}/raw" title="Preview of {{.Report.Title}}" width="100%" height="600"></iframe>
 

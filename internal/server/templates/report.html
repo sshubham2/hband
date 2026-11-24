@@ -12,6 +12,7 @@
 <iframe class="report-frame" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" src="/raw/{{.Report.Slug}}" title="{{.Report.Title}}" width="100%" height="800"></iframe>
 <section class="votes" id="votes">
 <p class="likes">{{.Votes.Likes}} {{if eq .Votes.Likes 1}}like{{else}}likes{{end}}</p>
+<p class="comment-count">{{.CommentCount}} {{if eq .CommentCount 1}}comment{{else}}comments{{end}}</p>
 {{if .SignedIn}}{{if eq .Votes.Mine "up"}}<p class="your-vote">Your vote: thumbs up.</p>
 {{else if eq .Votes.Mine "down"}}<p class="your-vote">Your vote: thumbs down.</p>
 {{end}}<form method="post" action="/reports/{{.Report.Slug}}/vote">

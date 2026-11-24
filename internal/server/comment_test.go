@@ -625,7 +625,7 @@ func chainNodes(n int) []*comments.Node {
 
 func TestBuildThreadDepth(t *testing.T) {
 	for _, limit := range []int{1, 5, threadDepthCap} {
-		views := buildThread(chainNodes(10000), "x", true, 0, limit)
+		views := buildThread(chainNodes(10000), "x", threadViewer{SignedIn: true}, 0, limit)
 		depth, last := 0, (*commentView)(nil)
 		for v := views; len(v) > 0; v = v[0].Replies {
 			depth++
@@ -636,7 +636,7 @@ func TestBuildThreadDepth(t *testing.T) {
 		}
 	}
 	// A chain shorter than the cap has no cut.
-	views := buildThread(chainNodes(3), "x", false, 0, 5)
+	views := buildThread(chainNodes(3), "x", threadViewer{}, 0, 5)
 	if v := views[0].Replies[0].Replies[0]; v.Cut || v.CanReply || len(v.Replies) != 0 {
 		t.Errorf("the end of a short chain: %+v", v)
 	}
@@ -1125,7 +1125,7 @@ func TestThreadTenThousandTiming(t *testing.T) {
 		t.Fatal(err)
 	}
 	t1 := time.Now()
-	views := buildThread(nodes, "x", true, testOwnerID, threadDepthCap)
+	views := buildThread(nodes, "x", threadViewer{SignedIn: true}, testOwnerID, threadDepthCap)
 	buildTook := time.Since(t1)
 	pages := template.Must(template.ParseFS(templateFS, "templates/*.html"))
 	data := readerData{
