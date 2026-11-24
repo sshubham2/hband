@@ -376,6 +376,10 @@ func TestCommentRemove(t *testing.T) {
 		}{
 			{"no field", "", "", 303, "/reports/x#comments"},
 			{"from admin", "from=admin", "", 303, "/admin/reports/x#comments"},
+			{"from blocked, on a published report", "from=blocked", "", 303, "/admin/blocked"},
+			{"from blocked in other case", "from=Blocked", "", 400, ""},
+			{"from admin and from blocked", "from=admin&from=blocked", "", 400, ""},
+			{"from blocked in the query string only", "", "?from=blocked", 303, "/reports/x#comments"},
 			{"another value", "from=reports", "", 400, ""},
 			{"an empty value", "from=", "", 400, ""},
 			{"the value in other case", "from=Admin", "", 400, ""},
@@ -399,11 +403,16 @@ func TestCommentRemove(t *testing.T) {
 		// seeded by SQL, since a draft takes no comment).
 		h.mustUpload(owner, "taken-down", "Taken down", "published", reportHTML(300, "down"))
 		unpublished := h.say(reader, "taken-down", "written while the report was published", 0)
+		unpublishedBlocked := h.say(reader, "taken-down", "written while the report was published too", 0)
 		h.mustAct(owner, "taken-down", "unpublish")
 		h.mustUpload(owner, "never-live", "Never live", "draft", reportHTML(300, "never"))
 		h.exec(`INSERT INTO comments (report_id, github_id, body, created_at) VALUES (?, 7, 'on a draft', 1)`, h.reportOf("never-live"))
-		var draft int64
+		h.exec(`INSERT INTO comments (report_id, github_id, body, created_at) VALUES (?, 7, 'on a draft too', 1)`, h.reportOf("never-live"))
+		var draft, draftBlocked int64
 		if err := h.store.DB().QueryRow(`SELECT id FROM comments WHERE body = 'on a draft'`).Scan(&draft); err != nil {
+			t.Fatal(err)
+		}
+		if err := h.store.DB().QueryRow(`SELECT id FROM comments WHERE body = 'on a draft too'`).Scan(&draftBlocked); err != nil {
 			t.Fatal(err)
 		}
 		for _, c := range []struct {
@@ -416,6 +425,18 @@ func TestCommentRemove(t *testing.T) {
 			res := h.removeComment(owner, itoa(c.id), "")
 			if res.Status != 303 || res.Location() != "/admin/reports/"+c.slug+"#comments" || !gone(itoa(c.id)) {
 				t.Errorf("a comment of %s: %d %q removed=%v", c.slug, res.Status, res.Location(), gone(itoa(c.id)))
+			}
+		}
+		// Pressed on the Blocked users page, the same comments land back on that page:
+		// from=blocked comes before the rule that sends a report with no reader page to
+		// its admin page, because the Blocked users page lists comments of both.
+		for _, c := range []struct {
+			slug string
+			id   int64
+		}{{"taken-down", unpublishedBlocked}, {"never-live", draftBlocked}} {
+			res := h.removeComment(owner, itoa(c.id), "from=blocked")
+			if res.Status != 303 || res.Location() != "/admin/blocked" || !gone(itoa(c.id)) {
+				t.Errorf("a comment of %s removed from the Blocked users page: %d %q removed=%v, want a 303 to /admin/blocked", c.slug, res.Status, res.Location(), gone(itoa(c.id)))
 			}
 		}
 	})
@@ -645,7 +666,7 @@ func TestAdminCommentList(t *testing.T) {
 		t.Fatalf("the list is %v, want %v (flat pre-order, 12 levels deep, placeholders and removed comments left out)", gotIDs, wantIDs)
 	}
 	replyTo := map[int64]string{top: "top level", chain[0]: "top level", chain[1]: "in reply to @reader", chain[2]: "in reply to @writer-eight",
-		chain[11]: "in reply to @reader", p2: "in reply to a removed comment", mine: "top level"}
+		chain[11]: "in reply to @reader", p2: "in reply to a hidden comment", mine: "top level"}
 	for _, it := range got {
 		if want, ok := replyTo[it.id]; ok && it.replyTo != want {
 			t.Errorf("item %d reads %q, want %q", it.id, it.replyTo, want)
@@ -701,7 +722,7 @@ func TestAdminCommentList(t *testing.T) {
 	h.mustRemoveFromAdmin(t, owner, d1, "drafty")
 	after := h.adminPageOf(owner, "drafty")
 	if strings.Contains(after, "d1: written while published") || !strings.Contains(after, "d2: a reply") ||
-		!strings.Contains(after, "in reply to a removed comment") {
+		!strings.Contains(after, "in reply to a hidden comment") {
 		t.Errorf("after removing d1 from the draft's page:\n%s", after)
 	}
 

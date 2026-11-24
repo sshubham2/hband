@@ -1,0 +1,69 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-012",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-24T14:20:07.674Z",
+ "head": "ed49afe43eedb5f6e4e2d2678f19dca8261c42ed",
+ "run_id": 12048,
+ "summary": "Fixed O-009 only. blockedComment gains ParentUnpublished, set in adminBlocked when `bc.Reply && !c.Published`. admin_blocked.html prints ', in reply to a comment (the report has no reader page)' for it, and keeps ', in reply to a hidden comment' only for a published report whose parent Find did not locate. The code review's test is now at internal/server/blocked_unpublished_label_test.go and passes. The full suite and both E-006 finish-line bodies (scratch copy, real binary) still pass.",
+ "payload": {
+  "status": "complete",
+  "summary": "Fixed O-009 only. blockedComment gains ParentUnpublished, set in adminBlocked when `bc.Reply && !c.Published`. admin_blocked.html prints ', in reply to a comment (the report has no reader page)' for it, and keeps ', in reply to a hidden comment' only for a published report whose parent Find did not locate. The code review's test is now at internal/server/blocked_unpublished_label_test.go and passes. The full suite and both E-006 finish-line bodies (scratch copy, real binary) still pass.",
+  "files": [
+   {
+    "path": "internal/server/admin.go",
+    "change": "modified",
+    "why": "blockedComment.ParentUnpublished set when the reply is on a report with no reader page; doc comments on the type and on adminBlocked say which case 'hidden' covers"
+   },
+   {
+    "path": "internal/server/templates/admin_blocked.html",
+    "change": "modified",
+    "why": "separate wording for a reply on an unpublished report; 'hidden' kept only for a published report's undrawn parent"
+   },
+   {
+    "path": "internal/server/blocked_unpublished_label_test.go",
+    "change": "added",
+    "why": "the code review's test, TestBlockedPageUnpublishedReplyIsNotToAHiddenComment, as given (CRLF line endings only)"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "adminBlocked sets blockedComment.ParentUnpublished for a reply on a draft or unpublished report. The template prints ', in reply to a comment (the report has no reader page)' for it, and ', in reply to a hidden comment' only when the report is published and Find located no parent (TestBlockedPage still checks that case). `go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server` passes. With the flag forced to false the test fails.",
+    "mutation": {
+     "file": "internal/server/admin.go",
+     "find": "bc.ParentUnpublished = bc.Reply && !c.Published",
+     "replace": "bc.ParentUnpublished = false",
+     "test_command": "go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server"
+    }
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server",
+    "outcome": "passed",
+    "note": "The engine's own closing run. With the fix removed (ParentUnpublished forced to false) it fails."
+   },
+   {
+    "command": "go test -count=1 -v -run ^(TestBlockedPage|TestBlock|TestBlockedRefusals|TestUnblockRestores|TestBlockControls)$ ./internal/server",
+    "outcome": "passed",
+    "note": "TestBlockedPage still asserts the unpublished 'gone' entry links to /admin/reports/gone with no #comment- anchor, and the hidden-parent entry still says 'in reply to a hidden comment'."
+   },
+   {
+    "command": "go test -count=1 -p 4 ./...",
+    "outcome": "passed",
+    "note": "Every package ok; go vet ./internal/server clean; admin.go and the new test are gofmt-clean on LF-normalised content."
+   },
+   {
+    "command": "python -I tests\\acceptance\\test_e006_2_blocking_and_unblocking.py and test_e006_1_removal_and_placeholders.py (bodies read from the ledger with a mode=ro SELECT, run in a scratch copy of this tree)",
+    "outcome": "passed",
+    "note": "Both exit 0 against the real built binary. The scratch folder was removed afterwards."
+   }
+  ],
+  "not_built": [
+   "Obligations O-010 to O-013 (the stale ErrBlocked doc and the 'six' comments) were waived by a person; I did not touch them."
+  ]
+ }
+}

@@ -102,15 +102,17 @@ func TestThreadCapFive(t *testing.T) {
 	}
 	h, _, reader := commentWorld(t)
 	h.mint(9, "blocked-nine")
-	h.exec(`INSERT INTO blocked_accounts (github_id, blocked_at) VALUES (9, 5)`)
 	rep, _, _, _ := h.reportRow("x")
 
 	a := grow(t, h, "x", 7, 0, 12, "A") // twelve levels: cut at 5, and the branch below it is cut at 9
 	b := grow(t, h, "x", 7, 0, 5, "B")  // exactly the cap: nothing below, so no link
 	c := grow(t, h, "x", 7, 0, 5, "C")  // the cap, with only a hidden reply below: pruned, so no link
+	// The hidden reply is written before its writer is blocked: a blocked account's
+	// Post is refused, and this test is about the depth cap, not about blocking.
 	if _, err := h.book().Post(bg, rep, 9, c[4], "C-hidden-6-end"); err != nil {
 		t.Fatal(err)
 	}
+	h.exec(`INSERT INTO blocked_accounts (github_id, blocked_at) VALUES (9, 5)`)
 	e := grow(t, h, "x", 7, 0, 5, "E") // the cap, removed, with a visible reply: a placeholder with a link
 	e6 := grow(t, h, "x", 7, e[4], 1, "E6")[0]
 	h.exec(`UPDATE comments SET removed_at = 5 WHERE id = ?`, e[4])
@@ -440,19 +442,23 @@ func TestReplyRedirectTable(t *testing.T) {
 		}
 	})
 
-	t.Run("a comment nobody can see keeps the report page", func(t *testing.T) {
-		// A blocked account's comment is stored and never drawn, so no page has it: the
-		// 303 is the report page's anchor, as before, at any depth.
+	t.Run("a blocked account's comment is refused at any depth and stored nowhere", func(t *testing.T) {
+		// A blocked account's comment is refused, so no page and no row has it: a 403 and
+		// no Location, whether the comment is top level, a reply to the first comment of a
+		// chain or a reply far below the depth cap (it used to be stored and never drawn).
 		h, _, _ := commentWorld(t)
 		blocked := h.mint(9, "blocked-nine")
 		h.exec(`INSERT INTO blocked_accounts (github_id, blocked_at) VALUES (9, 5)`)
 		chain := grow(t, h, "x", 7, 0, threadDepthCap+3, "V")
+		before := h.commentCount("1 = 1")
 		for _, parent := range []int64{0, chain[0], chain[len(chain)-1]} {
 			res := h.postComment(blocked, "x", commentForm("written by a blocked account", parent))
-			path, id := landing(t, res)
-			if path != "/reports/x" || res.Location() != "/reports/x#comment-"+strconv.FormatInt(id, 10) {
-				t.Errorf("a blocked account's reply to %d: %q, want /reports/x#comment-%d", parent, res.Location(), id)
+			if res.Status != http.StatusForbidden || res.Location() != "" || !strings.Contains(res.Body, blockedRefusal) {
+				t.Errorf("a blocked account's reply to %d: %d %q (Location %q), want a 403 with %q", parent, res.Status, res.Body, res.Location(), blockedRefusal)
 			}
+		}
+		if after := h.commentCount("1 = 1"); after != before {
+			t.Errorf("%d comments stored, want %d: a blocked account's comment was kept", after, before)
 		}
 	})
 }

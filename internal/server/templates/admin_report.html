@@ -25,7 +25,7 @@
 <section class="feedback-inbox" id="feedback">
 <h2>Feedback for the author</h2>
 {{range .Feedback}}<article class="feedback-message" id="feedback-{{.ID}}">
-<header class="byline">{{if .AvatarURL}}<img class="avatar" src="{{.AvatarURL}}" alt="" width="24" height="24"> {{end}}<span class="login">{{.Login}}</span> <time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></header>
+<header class="byline">{{if .AvatarURL}}<img class="avatar" src="{{.AvatarURL}}" alt="" width="24" height="24"> {{end}}<span class="login">{{.Login}}</span> {{if .Blocked}}<span class="badge">blocked</span> {{end}}<time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></header>
 <p class="body">{{.Body}}</p>
 {{range .Replies}}<div class="feedback-reply">
 <header class="byline"><span class="badge">Author</span> <time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></header>
@@ -43,7 +43,7 @@
 <h2>Comments</h2>
 {{range .Moderation}}<article class="mod">
 <header class="byline">{{if .AvatarURL}}<img class="avatar" src="{{.AvatarURL}}" alt="" width="24" height="24"> {{end}}<span class="login">{{.Login}}</span> {{if .Author}}<span class="badge">Author</span> {{end}}<time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></header>
-<p class="reply-to">{{if .ParentRemoved}}in reply to a removed comment{{else if .ParentLogin}}in reply to @{{.ParentLogin}}{{else}}top level{{end}}</p>
+<p class="reply-to">{{if .ParentHidden}}in reply to a hidden comment{{else if .ParentLogin}}in reply to @{{.ParentLogin}}{{else}}top level{{end}}</p>
 <p class="body">{{.Body}}</p>
 <details class="remove">
 <summary>Remove</summary>
@@ -52,7 +52,13 @@
 <button type="submit">Remove for everyone</button>
 </form>
 </details>
-</article>
+{{if not .Author}}<details class="block">
+<summary>Block</summary>
+<form method="post" action="/admin/users/{{.GitHubID}}/block">
+<button type="submit">Block @{{.Login}}</button>
+</form>
+</details>
+{{end}}</article>
 {{else}}<p>Nothing visible on this report.</p>
 {{end}}</section>
 

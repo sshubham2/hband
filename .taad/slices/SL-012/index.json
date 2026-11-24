@@ -1,0 +1,274 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-012",
+ "title": "Author blocks a GitHub account and unblocks it from a Blocked users page: its comments leave public view everywhere, it can no longer comment, send feedback or vote, and its vote stays as it was",
+ "status": "active",
+ "branch": "slice/SL-012",
+ "opened_at": "2026-11-24T12:15:36.046Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C1 The author blocks a GitHub account (POST /admin/users/{u}/block, writing blocked_accounts through internal/comments): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C2 A blocked account can no longer comment or reply (refused, stored nowhere): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C3 A blocked account can no longer send feedback: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4 A blocked account can no longer like or dislike, and cannot change or withdraw its vote (vote frozen): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C5 Blocking changes no vote numbers: a blocked account's likes and dislikes keep counting: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C7 Blocked users page (SC-022): lists each blocked account with every comment it posted (its report and, for a reply, the parent comment), removed ones without text, its feedback, and an Unblock control. Reached from an admin link: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C8 Unblocking from the Blocked users page restores the account's comments and counts publicly and lets it take part again (a comment removed while blocked stays hidden): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C9 The account's feedback is marked 'blocked' on the report's admin view, only for blocked senders, and Block controls exist on the admin moderation list: missing"
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Obligations O-010 to O-013 (the stale ErrBlocked doc and the 'six' comments) were waived by a person; I did not touch them."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/admin.go (not seen: lines 501-563 of 563) -- partly-opened: a Read returned only part of it; seen only as 2 Grep lines (before the build); seen only through a shell command: git log; 126 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/templates/admin_blocked.html (not seen: lines 20 of 43) -- partly-opened: a Read returned only part of it; seen only through a shell command: git log; 2 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Nobody has seen the owner pages this slice added rendered in a real browser: /admin/blocked, the Block forms on /admin/reports/<slug>, the Unblock form, and the details.remove two-step. That includes phone width. The engine's screens show only the signed-out reader page. I read the HTML only."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Real GitHub OAuth and real accounts. Every sign-in went through the acceptance harness's stand-in GitHub on loopback."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The VPS reverse proxy and WireGuard path. The cross-site refusal of the block and unblock routes was measured with headers forged locally, not behind the real proxy (Q-024)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A production database with existing comments, votes and feedback: block and unblock were never run against real data or at real size. The Blocked page has no size limit, and its size at scale was not measured."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Timing races, for example an unblock landing between a refused write and its follow-up EXISTS read, were not reproduced. Only the code review reasoned about them."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Q-026 stays open, but there is new evidence: on the real binary, a comment removed through the Blocked page's own form while its writer was blocked stayed hidden after the real Unblock route."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T12:22:47.020Z",
+     "head": "c86560004b05b46eed42cb71ca4afbe37473f784",
+     "summary": "Composed by the engine from E-006's design (design 229, made by SL-010 for the whole epic and attacked once, whole).",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T12:22:47.566Z",
+     "head": "c86560004b05b46eed42cb71ca4afbe37473f784",
+     "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 7:10pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    },
+    {
+     "n": 2,
+     "state": "unrecorded",
+     "at": "2026-11-24T13:40:08.576Z",
+     "head": "",
+     "summary": "The core of the design fits the code as it stands.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T13:47:19.248Z",
+     "head": "c86560004b05b46eed42cb71ca4afbe37473f784",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T13:51:01.202Z",
+     "head": "1753d3f3041fd3cbb45b5898e5a57babe10d778a",
+     "summary": "Built SC-021 as designed.",
+     "caused_by": null,
+     "changed": {
+      "src": 27,
+      "config": 1,
+      "listed": 28,
+      "measured_by_git": 28
+     },
+     "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T14:20:07.674Z",
+     "head": "ed49afe43eedb5f6e4e2d2678f19dca8261c42ed",
+     "summary": "Fixed O-009 only.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "1 defect(s) in lines this slice wrote were accepted by the code review (O-009). None weighs a lap on its own, so they go back to the builder TOGETHER, once, before validation -- instead of to the backlog and from there to a send-back at the merge. Fix exactly these with the smallest change: one scoped re-check reads only your fix. Sent back with what raised them: O-009 (fix): m1 (minor): On the Blocked users page, a reply on a report that is not published gets the text 'in reply to a hidden comment' whatever its parent is. adminBlocked resolves a parent only when `c.Published`, so a reply on a draft or unpublished report always has an empty ParentHref, and the template's `{{else if .Reply}}` branch prints 'hidden'. In the admin vocabulary this slice set (m1, modItem.ParentHidden: 'the parent was removed, or its writer is blocked'), that tells the author a visible comment is hidden. The same report's admin page lists that parent as an ordinary visible comment. The critic's m5 note kept the two cases apart: 'hidden' is for a parent the thread does not draw, and for an unpublished report the note asks only for 'the parent reference as text'. Confirmed in a scratch copy: the entry reads `<span class=\"body\">bad-eight answers the reader</span> on <a href=\"/admin/reports/gone\">Gone Report</a>, in reply to a hidden comment` while the parent is visible on /admin/reports/gone. Keep the two cases apart. Add a flag to blockedComment (for example `ParentUnpublished`, set when `bc.Reply && !c.Published`) and have the template print something like ', in reply to a comment (the report has no reader page)' for it. Keep 'in reply to a hidden comment' only for a published report whose parent Find did not locate. [shown by a failing run] The engine ran the code review's test for this, internal/server/blocked_unpublished_label_test.go, with `go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server`, and it FAILED. Put that test at internal/server/blocked_unpublished_label_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server` again in your tree, and that run is what closes this; your word does not. The test: package server import ( \"strings\" \"testing\" ) // A blocked account's reply on a report that is not published, to a parent that is // visible (it is on the report's admin page), must not be described as a reply to a // hidden comment: in the admin pages \"hidden\" means removed or written by a blocked // account, and this parent is neither. func TestBlockedPageUnpublishedReplyIsNotToAHiddenComment(t *testing.T) { h, owner, reader := commentWorld(t) h.mustUpload(owner, \"gone\", \"Gone Report\", \"published\", reportHTML(300, \"gone\")) bad := h.mint(8, \"bad-eight\") h.say(bad, \"gone\", \"bad-eight writes top level\", 0) parent := h.say(reader, \"gone\", \"a visible comment by the reader\", 0) h.say(bad, \"gone\", \"bad-eight answers the reader\", parent) h.mustAct(owner, \"gone\", \"unpublish\") h.mustBlock(owner, 8) admin := h.adminPageOf(owner, \"gone\") if !strings.Contains(admin, \"a visible comment by the reader\") { t.Fatalf(\"INVALID: the parent is not listed as visible on the report's admin page:\\n%s\", admin) } secs := blockedSections(h.page(owner, \"/admin/blocked\")) if len(secs) != 1 || secs[0].ID != 8 { t.Fatalf(\"sections %+v, want the one for account 8\", secs) } e := entryWith(t, \"the reply\", secs[0].List, \"bad-eight answers the reader\") if strings.Contains(e, \"hidden comment\") { t.Errorf(\"a reply to a visible comment on an unpublished report is described as a reply to a hidden comment:\\n%s\", e) } }",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-009",
+       "O-010",
+       "O-011",
+       "O-012",
+       "O-013"
+      ]
+     },
+     "changed": {
+      "src": 3,
+      "listed": 3,
+      "measured_by_git": 7
+     },
+     "details": "build-slice-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T14:12:32.878Z",
+     "head": "1753d3f3041fd3cbb45b5898e5a57babe10d778a",
+     "summary": "SC-021 is built as designed, and every departure from the design is declared.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-24T14:21:50.467Z",
+     "head": "ed49afe43eedb5f6e4e2d2678f19dca8261c42ed",
+     "summary": "The fix for O-009 removes the defect, and it introduces nothing new.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-24T14:20:05.558Z, and build-slice has judged since (2026-11-24T14:21:49.008Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T14:25:24.926Z",
+     "head": "373d9cb6c63e39aa355786fb2b8af6ec63313c2e",
+     "summary": "SC-021/SC-022 is built and works through the real binary.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    }
+   ]
+  }
+ ]
+}

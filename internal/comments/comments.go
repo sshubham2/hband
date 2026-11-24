@@ -23,6 +23,10 @@
 // block. Removal and blocking are two separate facts, so they commute: a second
 // removal changes nothing, and lifting a block never brings a removed comment
 // back.
+//
+// Block and Unblock (block.go) are the only writes of blocked_accounts. A blocked
+// account takes no part: Post refuses it inside its own statement, and votes and
+// feedback do the same for their writes, each reading the table only.
 package comments
 
 import (
@@ -49,18 +53,33 @@ var (
 	// not see. RemoveTarget and Remove return it too, when no comment has the id
 	// (never stored, or deleted with its report).
 	ErrNoTarget = errors.New("comments: nothing to comment on")
+	// ErrBlocked is returned by Post when the writer's account is blocked. Feedback
+	// returns this same value for its writes (feedback.ErrBlocked is it); votes has
+	// its own, votes.ErrBlocked.
+	ErrBlocked = errors.New("comments: this account is blocked")
 )
 
 // Book is the comments of one database.
 type Book struct {
 	db  *sql.DB
 	now func() time.Time
+	// ownerID is the pinned owner's GitHub id. It is bound when the book is built,
+	// so Block can refuse the author without any caller having to remember to.
+	ownerID int64
+	// isBlocked says whether an account has a blocked_accounts row. It is the read
+	// that picks the refusal after a write was refused (see Post); it is a field
+	// only so that a test can make that one read fail.
+	isBlocked func(ctx context.Context, githubID int64) (bool, error)
 }
 
 // New returns the book over db, which must have foreign keys enforced (the
 // store's serving pool does) so that deleting a report deletes its comments.
-func New(db *sql.DB, now func() time.Time) *Book {
-	return &Book{db: db, now: now}
+// ownerID is the pinned owner's GitHub id: Block never blocks that account, and
+// refuses to block anyone when it is not positive.
+func New(db *sql.DB, now func() time.Time, ownerID int64) *Book {
+	b := &Book{db: db, now: now, ownerID: ownerID}
+	b.isBlocked = b.blockedRow
+	return b
 }
 
 // visibleSQL is the one definition of "a reader may see this comment", over the
@@ -76,7 +95,8 @@ INSERT INTO comments (report_id, parent_id, github_id, body, created_at)
 SELECT r.id, NULLIF(?, 0), ?, ?, ?
 FROM reports r
 WHERE r.id = ? AND r.status = 'published'
-  AND (? = 0 OR EXISTS (SELECT 1 FROM comments p WHERE p.id = ? AND p.report_id = r.id AND ` + fmtVisible("p") + `))`
+  AND (? = 0 OR EXISTS (SELECT 1 FROM comments p WHERE p.id = ? AND p.report_id = r.id AND ` + fmtVisible("p") + `))
+  AND NOT EXISTS (SELECT 1 FROM blocked_accounts k WHERE k.github_id = ?)`
 
 // Post adds a comment by githubID under the report, as a reply to parentID, or
 // as a top-level comment when parentID is 0, and returns its id. The body is
@@ -87,7 +107,12 @@ WHERE r.id = ? AND r.status = 'published'
 // parent is on the same report and visible, are checked inside that same
 // statement, so a comment can never attach to a report that was unpublished or
 // deleted between the caller's lookup and this write, or under a comment that
-// cannot be answered; ErrNoTarget says so.
+// cannot be answered; ErrNoTarget says so. A blocked writer is refused inside
+// that statement too, so a block that lands mid-request cannot let one last
+// comment through. When no row was written a second read only picks the answer:
+// ErrBlocked for a blocked writer, whatever the report and the parent are, and
+// ErrNoTarget otherwise. If that read fails the error is wrapped and returned, never
+// turned into either answer.
 func (b *Book) Post(ctx context.Context, reportID, githubID, parentID int64, body string) (int64, error) {
 	body, err := Normalize(body)
 	if err != nil {
@@ -97,7 +122,7 @@ func (b *Book) Post(ctx context.Context, reportID, githubID, parentID int64, bod
 		return 0, ErrNoTarget
 	}
 	res, err := b.db.ExecContext(ctx, postSQL,
-		parentID, githubID, body, b.now().Unix(), reportID, parentID, parentID)
+		parentID, githubID, body, b.now().Unix(), reportID, parentID, parentID, githubID)
 	if err != nil {
 		return 0, fmt.Errorf("comments: post: %w", err)
 	}
@@ -106,6 +131,13 @@ func (b *Book) Post(ctx context.Context, reportID, githubID, parentID int64, bod
 		return 0, fmt.Errorf("comments: post: %w", err)
 	}
 	if n == 0 {
+		blocked, err := b.isBlocked(ctx, githubID)
+		if err != nil {
+			return 0, fmt.Errorf("comments: post: is blocked: %w", err)
+		}
+		if blocked {
+			return 0, ErrBlocked
+		}
 		return 0, ErrNoTarget
 	}
 	id, err := res.LastInsertId()

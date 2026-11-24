@@ -9,6 +9,7 @@
 <p>{{if .Viewer.AvatarURL}}<img class="avatar" src="{{.Viewer.AvatarURL}}" alt="" width="24" height="24"> {{end}}@{{.Viewer.Login}} (owner)</p>
 <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
 <p><a href="/">Back to the site</a></p>
+<p><a href="/admin/blocked">Blocked users</a></p>
 
 {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
 

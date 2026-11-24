@@ -1,0 +1,160 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-012",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-24T14:21:50.467Z",
+ "head": "ed49afe43eedb5f6e4e2d2678f19dca8261c42ed",
+ "run_id": 12049,
+ "summary": "The fix for O-009 removes the defect, and it introduces nothing new.\n\n**What changed:**\n- `blockedComment` gains a `ParentUnpublished` field, set at admin.go:480 as `bc.Reply && !c.Published`.\n- admin_blocked.html:20 now picks one of three labels for a reply:\n  - a link to the parent;\n  - ', in reply to a comment (the report has no reader page)' for a reply on a draft or unpublished report;\n  - ', in reply to a hidden comment' only for a published report whose parent the thread does not draw.\n- The test is at internal/server/blocked_unpublished_label_test.go, unchanged from the one I gave.\n\n**What I ran on ed49afe:**\n- The repro passes: `go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server`. It failed on 1753d3f.\n- TestBlockedPage, TestBlock, TestBlockedRefusals, TestUnblockRestores, TestBlockControls, TestAdminAccessMatrix, TestDislikesDoNotInterfere and TestFeedbackDoesNotInterfere all pass. TestBlockedPage still requires 'in reply to a hidden comment' for the hidden-parent entry, and an admin link with no #comment- anchor for the unpublished one.\n- The full suite `go test -count=1 -p 4 ./...` passes.\n- Both E-006 finish-line bodies from epic 44 exit 0 against the real binary in a scratch copy: test_e006_1_removal_and_placeholders.py and test_e006_2_blocking_and_unblocking.py. That matters because those readers parse the li text this fix changed.\n\n**Read as someone trying to break it:**\n- A top-level comment on an unpublished report gets no label.\n- A removed reply on an unpublished report gets the new wording.\n- A published report's undrawn parent is still called hidden.\n\nThe two doc comments that described the old behaviour were rewritten in the same diff: the type doc at admin.go:427-437 and the adminBlocked doc at :458-462. Both are true of the code.\n\n**Not acted on, as decided:** the stale `comments.ErrBlocked` doc and the two 'six ways' test comments (O-010 to O-013) were waived to notes and are still unchanged.\n\nSecond round: This round found nothing new; I walked the changed code again looking for inputs and paths that break it.\n\n**Parsers and readers.** This slice adds no new parser of an outside format.\n- The block and unblock routes read only the path id, through the existing `canonicalID`, which rejects 0, signs, leading zeros, spaces and percent-encodings. They never read the body.\n- `removeFrom` only gained an exact-match value, 'blocked'. The corpus already feeds it urlencoded and multipart bodies, aliases, repeats, wrong case and oversize bodies.\n- The tests' regular expressions use `\\s*` and `(?s)`, so they read CRLF and LF template output alike.\n\n**Boundaries.**\n- Every Book in the tree is built through `New`, so the `isBlocked` seam is never nil. The only callers are router.go:71-73 and comment_test.go:80.\n- An account with no comments, no users row or no report row is COALESCEd in `blockedSQL`. Its rows stay together because `github_id` is the table's primary key and the query orders by `blocked_at`, then `github_id`.\n- `Find` on the pruned forest locates a parent only where the page draws an element with id `comment-<n>`, placeholders included.\n- A thread read cached as nil still counts as seen in `forests`, so it is not read twice.\n- The bool scans of SQLite 0 and 1 values are exercised by tests that pass.\n\n**Error and partial-failure paths.**\n- `adminBlocked` renders only after every read has succeeded, so a failure never sends half a page; it is a 500.\n- A block that succeeds followed by a 500 on the page it lands on leaves the block in place, which is correct.\n\n**Check, release, act.** Every refusal happens inside the single write statement. The follow-up read only chooses the answer. An unblock landing between the two can make a refused Withdraw answer 303, or a refused Post answer 404. Nothing is written in either case, and the account is already unblocked by then, so no second caller gets past a refusal.\n\n**Fix batch.** O-009 is fixed at admin.go:480 and admin_blocked.html:20. Its test, both E-006 finish lines (epic 44) and the full suite all pass on ed49afe.",
+ "payload": {
+  "status": "complete",
+  "verdict": "clean",
+  "matches_design": true,
+  "summary": "The fix for O-009 removes the defect, and it introduces nothing new.\n\n**What changed:**\n- `blockedComment` gains a `ParentUnpublished` field, set at admin.go:480 as `bc.Reply && !c.Published`.\n- admin_blocked.html:20 now picks one of three labels for a reply:\n  - a link to the parent;\n  - ', in reply to a comment (the report has no reader page)' for a reply on a draft or unpublished report;\n  - ', in reply to a hidden comment' only for a published report whose parent the thread does not draw.\n- The test is at internal/server/blocked_unpublished_label_test.go, unchanged from the one I gave.\n\n**What I ran on ed49afe:**\n- The repro passes: `go test -count=1 -run ^TestBlockedPageUnpublishedReplyIsNotToAHiddenComment$ ./internal/server`. It failed on 1753d3f.\n- TestBlockedPage, TestBlock, TestBlockedRefusals, TestUnblockRestores, TestBlockControls, TestAdminAccessMatrix, TestDislikesDoNotInterfere and TestFeedbackDoesNotInterfere all pass. TestBlockedPage still requires 'in reply to a hidden comment' for the hidden-parent entry, and an admin link with no #comment- anchor for the unpublished one.\n- The full suite `go test -count=1 -p 4 ./...` passes.\n- Both E-006 finish-line bodies from epic 44 exit 0 against the real binary in a scratch copy: test_e006_1_removal_and_placeholders.py and test_e006_2_blocking_and_unblocking.py. That matters because those readers parse the li text this fix changed.\n\n**Read as someone trying to break it:**\n- A top-level comment on an unpublished report gets no label.\n- A removed reply on an unpublished report gets the new wording.\n- A published report's undrawn parent is still called hidden.\n\nThe two doc comments that described the old behaviour were rewritten in the same diff: the type doc at admin.go:427-437 and the adminBlocked doc at :458-462. Both are true of the code.\n\n**Not acted on, as decided:** the stale `comments.ErrBlocked` doc and the two 'six ways' test comments (O-010 to O-013) were waived to notes and are still unchanged.\n\nSecond round: This round found nothing new; I walked the changed code again looking for inputs and paths that break it.\n\n**Parsers and readers.** This slice adds no new parser of an outside format.\n- The block and unblock routes read only the path id, through the existing `canonicalID`, which rejects 0, signs, leading zeros, spaces and percent-encodings. They never read the body.\n- `removeFrom` only gained an exact-match value, 'blocked'. The corpus already feeds it urlencoded and multipart bodies, aliases, repeats, wrong case and oversize bodies.\n- The tests' regular expressions use `\\s*` and `(?s)`, so they read CRLF and LF template output alike.\n\n**Boundaries.**\n- Every Book in the tree is built through `New`, so the `isBlocked` seam is never nil. The only callers are router.go:71-73 and comment_test.go:80.\n- An account with no comments, no users row or no report row is COALESCEd in `blockedSQL`. Its rows stay together because `github_id` is the table's primary key and the query orders by `blocked_at`, then `github_id`.\n- `Find` on the pruned forest locates a parent only where the page draws an element with id `comment-<n>`, placeholders included.\n- A thread read cached as nil still counts as seen in `forests`, so it is not read twice.\n- The bool scans of SQLite 0 and 1 values are exercised by tests that pass.\n\n**Error and partial-failure paths.**\n- `adminBlocked` renders only after every read has succeeded, so a failure never sends half a page; it is a 500.\n- A block that succeeds followed by a 500 on the page it lands on leaves the block in place, which is correct.\n\n**Check, release, act.** Every refusal happens inside the single write statement. The follow-up read only chooses the answer. An unblock landing between the two can make a refused Withdraw answer 303, or a refused Post answer 404. Nothing is written in either case, and the account is already unblocked by then, so no second caller gets past a refusal.\n\n**Fix batch.** O-009 is fixed at admin.go:480 and admin_blocked.html:20. Its test, both E-006 finish lines (epic 44) and the full suite all pass on ed49afe.",
+  "findings": [],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "Unchanged from the first full read. The fix touches only the Blocked users page's reply label. The SC-021 tests and both E-006 finish lines (epic 44) pass again on ed49afe, re-run in this review."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "Unchanged: admin_blocked.html:22-28 still draws the from=blocked remove two-step, and admin.go handles from=blocked first. TestUnblockRestores passes on ed49afe."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "Unchanged: thread.go modItem.ParentHidden and admin_report.html:46 'in reply to a hidden comment'. TestBlockControls passes."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "Unchanged: block.go:30-44 holds the owner refusal and fails closed, router.go:72 binds the owner id, and admin.go maps ErrOwnerBlock to 400. TestBlock passes."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "Unchanged: comments.go, votes.go and feedback.go wrap a failed follow-up read. The full suite passes on ed49afe."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "Unchanged: branch_test.go:111-115 and :445-463. The full suite passes."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "admin.go:480-497: parents are resolved only for published reports, through a.tree, Find and branchRoot. TestBlockedPage still covers a parent below the cap, a hidden parent, an unpublished report and the 500s. The unpublished wording is now separate (O-009)."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "Unchanged: .taad/fitness.yaml. The engine measured the architecture rules passing after this build."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "- admin.go:437 adds blockedComment.ParentUnpublished, set at :480 as `bc.Reply && !c.Published`.\n- admin_blocked.html:20 prints '{{else if .ParentUnpublished}}, in reply to a comment (the report has no reader page){{else if .Reply}}, in reply to a hidden comment', so 'hidden' is reached only for a published report whose parent Find did not locate.\n- internal/server/blocked_unpublished_label_test.go is the review's test, as given, and it passes here. It failed on 1753d3f."
+   },
+   {
+    "key": "O-010",
+    "discharged": "no",
+    "evidence": "Waived to note N-143 by decision, not acted on. internal/comments/comments.go:56-58 still says votes return this same value, while votes.go:39 declares its own. It is text only and the waiver stands."
+   },
+   {
+    "key": "O-011",
+    "discharged": "no",
+    "evidence": "Waived to note N-144, not acted on: internal/server/block_test.go:311 still says 'each of the six goes through' over four writes."
+   },
+   {
+    "key": "O-012",
+    "discharged": "no",
+    "evidence": "Waived to note N-145, not acted on: internal/server/unblock_test.go:164 still says 'in all six ways' over four writes."
+   },
+   {
+    "key": "O-013",
+    "discharged": "no",
+    "evidence": "Waived to note N-146, not acted on. It is the same stale doc as O-010, at internal/comments/comments.go:56-58."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "Unchanged from the first review: TestBlock, TestBlockedRefusals, TestBlockedPage, TestUnblockRestores, TestBlockControls, ownerRouteStatus and observe() feed every designed shape. All pass on ed49afe, and both E-006 finish lines (epic 44) exit 0. The new TestBlockedPageUnpublishedReplyIsNotToAHiddenComment adds the shape of a reply to a visible parent on an unpublished report."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12050,
+   "filed": 0
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 1,
+    "changed": 3,
+    "listed": 2
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 3,
+   "read_whole": 1,
+   "deleted": [],
+   "runs": [
+    12045,
+    12049,
+    12050
+   ],
+   "range": {
+    "base": "ef4ad373c5e3060a71f118471e4ec2dbfe042bda",
+    "head": "ed49afe43eedb5f6e4e2d2678f19dca8261c42ed",
+    "source": "commits",
+    "hunk_base": "1753d3f3041fd3cbb45b5898e5a57babe10d778a",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [
+    {
+     "path": "internal/server/admin.go",
+     "state": "partly-opened",
+     "section": "lines 501-563 of 563",
+     "reason": "a Read returned only part of it; seen only as 2 Grep lines (before the build); seen only through a shell command: git log; 126 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 563,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/templates/admin_blocked.html",
+     "state": "partly-opened",
+     "section": "lines 20 of 43",
+     "reason": "a Read returned only part of it; seen only through a shell command: git log; 2 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 43,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

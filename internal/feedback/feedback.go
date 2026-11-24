@@ -13,10 +13,13 @@
 // locked".
 //
 // What may leave this package is decided by who calls it. OwnerInbox returns
-// every message on a report with each sender's login and avatar and the author's
-// replies, and OwnerReplyTarget and OwnerReply serve the author's reply route;
-// all three are for the owner's admin handlers alone, and the fitness rules keep
-// every other file from naming them. SenderThreads is for the reader page alone
+// every message on a report with each sender's login and avatar, whether the
+// sender is blocked, and the author's replies; OwnerInboxBySender returns every
+// message one account sent, for the Blocked users page; OwnerReplyTarget and
+// OwnerReply serve the author's reply route. All four are for the owner's admin
+// handlers alone, and the fitness rules keep every other file from naming them.
+// Blocking never hides or drops a message from the author: a blocked sender's
+// messages stay in the inbox, marked, and Send refuses only new ones. SenderThreads is for the reader page alone
 // and is keyed by the signed-in viewer's own id. Send hands back no row id, and
 // the types a reader is shown (Sent, Reply) have none: the only public caller is
 // the sender's own form, and an id is a counter shared with every other reader's
@@ -43,34 +46,58 @@ var (
 	// moment of the write (it is a draft, was unpublished or was deleted), and by
 	// OwnerReplyTarget and OwnerReply when no message has that id.
 	ErrNoTarget = errors.New("feedback: nothing to send feedback on")
+	// ErrBlocked is returned by Send when the sender's account is blocked. It is the
+	// same value as comments.ErrBlocked, as ErrBadBody is, so a caller tests for one
+	// error.
+	ErrBlocked = comments.ErrBlocked
 )
 
 // Book is the feedback of one database.
 type Book struct {
 	db  *sql.DB
 	now func() time.Time
+	// isBlocked says whether an account has a blocked_accounts row. It is the read
+	// that picks the refusal after a send was refused; it is a field only so that a
+	// test can make that one read fail.
+	isBlocked func(ctx context.Context, githubID int64) (bool, error)
 }
 
 // New returns the book over db, which must have foreign keys enforced (the
 // store's serving pool does) so that deleting a report deletes its feedback.
 func New(db *sql.DB, now func() time.Time) *Book {
-	return &Book{db: db, now: now}
+	b := &Book{db: db, now: now}
+	b.isBlocked = b.blockedRow
+	return b
+}
+
+// blockedRow reads whether the account is blocked. This package only reads
+// blocked_accounts (here, and as the blocked column of the owner's inbox);
+// internal/comments is the only writer of the table.
+func (b *Book) blockedRow(ctx context.Context, githubID int64) (bool, error) {
+	var blocked bool
+	err := b.db.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM blocked_accounts WHERE github_id = ?)`, githubID).Scan(&blocked)
+	return blocked, err
 }
 
 // sendSQL stores one message, and only when the report is published at the
-// moment of the write: the check is inside the statement, so a message can never
-// attach to a report that was unpublished or deleted after the caller looked it
-// up.
+// moment of the write and the sender is not blocked: both checks are inside the
+// statement, so a message can never attach to a report that was unpublished or
+// deleted after the caller looked it up, and a block that lands mid-request
+// cannot let one last message through.
 const sendSQL = `
 INSERT INTO feedback (report_id, github_id, body, created_at)
 SELECT r.id, ?, ?, ?
 FROM reports r
-WHERE r.id = ? AND r.status = 'published'`
+WHERE r.id = ? AND r.status = 'published'
+  AND NOT EXISTS (SELECT 1 FROM blocked_accounts k WHERE k.github_id = ?)`
 
 // Send stores a message from githubID on the report. The body is normalised
 // here (comments.Normalize), so every message that is stored satisfies the body
-// rules whoever calls; ErrBadBody is returned before any SQL runs. It returns
-// ErrNoTarget when the report is not published at write time.
+// rules whoever calls; ErrBadBody is returned before any SQL runs. When no row was
+// written a second read only picks the answer: ErrBlocked for a blocked sender,
+// ErrNoTarget otherwise (the report is not published at write time). If that read
+// fails the error is wrapped and returned, never turned into either answer.
 //
 // It returns no id on purpose. The caller is the public handler, and a message's
 // id is global across reports and readers: a sender who learned it could count
@@ -80,7 +107,7 @@ func (b *Book) Send(ctx context.Context, reportID, githubID int64, body string) 
 	if err != nil {
 		return err
 	}
-	res, err := b.db.ExecContext(ctx, sendSQL, githubID, body, b.now().Unix(), reportID)
+	res, err := b.db.ExecContext(ctx, sendSQL, githubID, body, b.now().Unix(), reportID, githubID)
 	if err != nil {
 		return fmt.Errorf("feedback: send: %w", err)
 	}
@@ -89,6 +116,13 @@ func (b *Book) Send(ctx context.Context, reportID, githubID int64, body string) 
 		return fmt.Errorf("feedback: send: %w", err)
 	}
 	if n == 0 {
+		blocked, err := b.isBlocked(ctx, githubID)
+		if err != nil {
+			return fmt.Errorf("feedback: send: is blocked: %w", err)
+		}
+		if blocked {
+			return ErrBlocked
+		}
 		return ErrNoTarget
 	}
 	return nil
@@ -115,8 +149,26 @@ type Message struct {
 	Body      string
 	// When is the time the message was sent, in UTC.
 	When time.Time
+	// Blocked is set when the sender's account is blocked now. The message was
+	// stored all the same (it may predate the block) and is not hidden from the
+	// author; the owner's page marks it.
+	Blocked bool
 	// Replies are the author's answers to this message, oldest first.
 	Replies []Reply
+}
+
+// SenderMessage is one message of a single sender, for the author's Blocked users
+// page, with the report it was sent on. Like Message it is the owner's type.
+type SenderMessage struct {
+	ID   int64
+	Body string
+	// When is the time the message was sent, in UTC.
+	When time.Time
+	// Slug and Title name the report, and Published says whether it has a reader
+	// page.
+	Slug      string
+	Title     string
+	Published bool
 }
 
 // Sent is one of a reader's own messages as that reader is shown it, with the
@@ -137,7 +189,8 @@ type Sent struct {
 func unixUTC(s int64) time.Time { return time.Unix(s, 0).UTC() }
 
 const inboxSQL = `
-SELECT f.id, f.github_id, u.login, u.avatar_url, f.body, f.created_at
+SELECT f.id, f.github_id, u.login, u.avatar_url, f.body, f.created_at,
+       EXISTS (SELECT 1 FROM blocked_accounts k WHERE k.github_id = f.github_id)
 FROM feedback f JOIN users u ON u.github_id = f.github_id
 WHERE f.report_id = ?
 ORDER BY f.id DESC`
@@ -163,7 +216,7 @@ func (b *Book) OwnerInbox(ctx context.Context, reportID int64) ([]Message, error
 	for rows.Next() {
 		var m Message
 		var created int64
-		if err := rows.Scan(&m.ID, &m.GitHubID, &m.Login, &m.AvatarURL, &m.Body, &created); err != nil {
+		if err := rows.Scan(&m.ID, &m.GitHubID, &m.Login, &m.AvatarURL, &m.Body, &created, &m.Blocked); err != nil {
 			return nil, fmt.Errorf("feedback: inbox: %w", err)
 		}
 		m.When = unixUTC(created)
@@ -181,6 +234,38 @@ func (b *Book) OwnerInbox(ctx context.Context, reportID int64) ([]Message, error
 	}
 	for i := range out {
 		out[i].Replies = replies[out[i].ID]
+	}
+	return out, nil
+}
+
+const bySenderSQL = `
+SELECT f.id, f.body, f.created_at, r.slug, r.title, r.status = 'published'
+FROM feedback f JOIN reports r ON r.id = f.report_id
+WHERE f.github_id = ?
+ORDER BY f.id`
+
+// OwnerInboxBySender returns every message the account sent, on any report,
+// oldest first, each with the report it was sent on. It applies no limit. It is
+// for the owner's Blocked users page only, which lists a blocked account's
+// messages under its name; an id that sent nothing is answered with no messages.
+func (b *Book) OwnerInboxBySender(ctx context.Context, githubID int64) ([]SenderMessage, error) {
+	rows, err := b.db.QueryContext(ctx, bySenderSQL, githubID)
+	if err != nil {
+		return nil, fmt.Errorf("feedback: inbox by sender: %w", err)
+	}
+	defer rows.Close()
+	var out []SenderMessage
+	for rows.Next() {
+		var m SenderMessage
+		var created int64
+		if err := rows.Scan(&m.ID, &m.Body, &created, &m.Slug, &m.Title, &m.Published); err != nil {
+			return nil, fmt.Errorf("feedback: inbox by sender: %w", err)
+		}
+		m.When = unixUTC(created)
+		out = append(out, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("feedback: inbox by sender: %w", err)
 	}
 	return out, nil
 }

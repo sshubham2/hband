@@ -76,7 +76,9 @@ func (h *harness) commentCount(where string, args ...any) int {
 }
 
 // book is a comment book on the harness's store and clock, for seeding.
-func (h *harness) book() *comments.Book { return comments.New(h.store.DB(), h.clock.Now) }
+func (h *harness) book() *comments.Book {
+	return comments.New(h.store.DB(), h.clock.Now, h.cfg.OwnerGitHubID)
+}
 
 func (c *fakeClock) Set(t time.Time) {
 	c.mu.Lock()

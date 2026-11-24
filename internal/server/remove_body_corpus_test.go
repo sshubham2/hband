@@ -21,12 +21,20 @@ import (
 // nothing is changed by a refusal. An empty body that is not a form is the plain
 // form; an empty multipart body, or one whose type does not parse, is refused.
 
-// bodyRow is one request body. want is the status; admin is the landing of a 303.
+// bodyRow is one request body. want is the status; landing is the Location of a 303.
 type bodyRow struct {
 	name, ctype, body string
 	want              int
-	admin             bool
+	landing           string
 }
+
+// The three landings of a removal: the comments of the reader page, of the report's
+// admin page, and the Blocked users page.
+const (
+	landReader  = "/reports/x#comments"
+	landAdmin   = "/admin/reports/x#comments"
+	landBlocked = "/admin/blocked"
+)
 
 const (
 	urlenc  = "application/x-www-form-urlencoded"
@@ -44,41 +52,53 @@ func removeBodyRows() []bodyRow {
 	pad := func(n int) string { return strings.Repeat("a", n) }
 	return []bodyRow{
 		// Urlencoded: the reader page's form, the admin page's, the aliases of the type, the cap.
-		{"urlencoded, no field", urlenc, "", 303, false},
-		{"urlencoded, from=admin", urlenc, "from=admin", 303, true},
-		{"urlencoded alias: upper case with a charset", "Application/X-WWW-Form-Urlencoded; charset=UTF-8", "from=admin", 303, true},
-		{"urlencoded, an unknown field", urlenc, "other=1", 303, false},
-		{"urlencoded, another from", urlenc, "from=bogus", 400, false},
-		{"urlencoded, an empty from", urlenc, "from=", 400, false},
-		{"urlencoded, from repeated", urlenc, "from=admin&from=admin", 400, false},
-		{"urlencoded, exactly the cap", urlenc, "pad=" + pad(1024-len("pad=")), 303, false},
-		{"urlencoded, one byte over the cap", urlenc, "pad=" + pad(1024-len("pad=")+1), 400, false},
-		{"urlencoded, 2 KiB", urlenc, "from=admin&pad=" + pad(2<<10), 400, false},
+		{"urlencoded, no field", urlenc, "", 303, landReader},
+		{"urlencoded, from=admin", urlenc, "from=admin", 303, landAdmin},
+		{"urlencoded alias: upper case with a charset", "Application/X-WWW-Form-Urlencoded; charset=UTF-8", "from=admin", 303, landAdmin},
+		{"urlencoded, an unknown field", urlenc, "other=1", 303, landReader},
+		{"urlencoded, another from", urlenc, "from=bogus", 400, ""},
+		{"urlencoded, an empty from", urlenc, "from=", 400, ""},
+		{"urlencoded, from repeated", urlenc, "from=admin&from=admin", 400, ""},
+		// The Blocked users page's form: from=blocked, and nothing like it.
+		{"urlencoded, from=blocked", urlenc, "from=blocked", 303, landBlocked},
+		{"urlencoded alias: from=blocked, upper case with a charset", "Application/X-WWW-Form-Urlencoded; charset=UTF-8", "from=blocked", 303, landBlocked},
+		{"urlencoded, from=Blocked", urlenc, "from=Blocked", 400, ""},
+		{"urlencoded, from=blocked and from=admin", urlenc, "from=admin&from=blocked", 400, ""},
+		{"urlencoded, from=blocked repeated", urlenc, "from=blocked&from=blocked", 400, ""},
+		{"urlencoded, from=blocked over the cap", urlenc, "from=blocked&pad=" + pad(2<<10), 400, ""},
+		{"urlencoded, exactly the cap", urlenc, "pad=" + pad(1024-len("pad=")), 303, landReader},
+		{"urlencoded, one byte over the cap", urlenc, "pad=" + pad(1024-len("pad=")+1), 400, ""},
+		{"urlencoded, 2 KiB", urlenc, "from=admin&pad=" + pad(2<<10), 400, ""},
 		// Multipart: read as a form, and checked the same way.
-		{"multipart, from=admin", multipt, part("from", "admin") + endPart, 303, true},
-		{"multipart alias: other case, quoted boundary", `Multipart/Form-Data; boundary="b"`, part("from", "admin") + endPart, 303, true},
-		{"multipart, another from", multipt, part("from", "bogus") + endPart, 400, false},
-		{"multipart, from repeated", multipt, part("from", "admin") + part("from", "admin") + endPart, 400, false},
-		{"multipart, an unknown field", multipt, part("other", "1") + endPart, 303, false},
-		{"multipart, no field at all", multipt, endPart, 303, false},
-		{"multipart, a file part", multipt, "--b\r\nContent-Disposition: form-data; name=\"f\"; filename=\"f.txt\"\r\nContent-Type: text/plain\r\n\r\nx\r\n" + endPart, 400, false},
-		{"multipart, no boundary parameter", "multipart/form-data", part("from", "admin") + endPart, 400, false},
-		{"multipart, never closed", multipt, part("from", "admin"), 400, false},
-		{"multipart, over the cap", multipt, part("pad", pad(2<<10)) + endPart, 400, false},
+		{"multipart, from=admin", multipt, part("from", "admin") + endPart, 303, landAdmin},
+		{"multipart alias: other case, quoted boundary", `Multipart/Form-Data; boundary="b"`, part("from", "admin") + endPart, 303, landAdmin},
+		{"multipart, another from", multipt, part("from", "bogus") + endPart, 400, ""},
+		{"multipart, from=blocked", multipt, part("from", "blocked") + endPart, 303, landBlocked},
+		{"multipart, from=blocked and from=admin", multipt, part("from", "admin") + part("from", "blocked") + endPart, 400, ""},
+		{"multipart, from repeated", multipt, part("from", "admin") + part("from", "admin") + endPart, 400, ""},
+		{"multipart, an unknown field", multipt, part("other", "1") + endPart, 303, landReader},
+		{"multipart, no field at all", multipt, endPart, 303, landReader},
+		{"multipart, a file part", multipt, "--b\r\nContent-Disposition: form-data; name=\"f\"; filename=\"f.txt\"\r\nContent-Type: text/plain\r\n\r\nx\r\n" + endPart, 400, ""},
+		{"multipart, no boundary parameter", "multipart/form-data", part("from", "admin") + endPart, 400, ""},
+		{"multipart, never closed", multipt, part("from", "admin"), 400, ""},
+		{"multipart, over the cap", multipt, part("pad", pad(2<<10)) + endPart, 400, ""},
 		// Encodings that are not forms: unread, so refused unless empty.
-		{"text/plain, empty", "text/plain", "", 303, false},
-		{"text/plain, from=admin", "text/plain", "from=admin", 400, false},
-		{"text/plain with a charset, from=admin", "text/plain; charset=utf-8", "from=admin", 400, false},
-		{"text/plain, 2 KiB", "text/plain", pad(2 << 10), 400, false},
-		{"JSON, empty", "application/json", "", 303, false},
-		{"JSON, an empty object", "application/json", "{}", 400, false},
-		{"JSON, another from", "application/json", `{"from":"bogus"}`, 400, false},
-		{"JSON, 2 KiB", "application/json", `{"pad":"` + pad(2<<10) + `"}`, 400, false},
-		{"octet-stream, a byte", "application/octet-stream", "x", 400, false},
-		{"no type, empty", "", "", 303, false},
-		{"no type, from=admin", "", "from=admin", 400, false},
-		{"no type, 2 KiB", "", pad(2 << 10), 400, false},
-		{"a type that does not parse", ";;;", "x", 400, false},
+		{"text/plain, empty", "text/plain", "", 303, landReader},
+		{"text/plain, from=admin", "text/plain", "from=admin", 400, ""},
+		{"text/plain, from=blocked", "text/plain", "from=blocked", 400, ""},
+		{"text/plain with a charset, from=admin", "text/plain; charset=utf-8", "from=admin", 400, ""},
+		{"text/plain, 2 KiB", "text/plain", pad(2 << 10), 400, ""},
+		{"JSON, empty", "application/json", "", 303, landReader},
+		{"JSON, an empty object", "application/json", "{}", 400, ""},
+		{"JSON, another from", "application/json", `{"from":"bogus"}`, 400, ""},
+		{"JSON, from=blocked", "application/json", `{"from":"blocked"}`, 400, ""},
+		{"JSON, 2 KiB", "application/json", `{"pad":"` + pad(2<<10) + `"}`, 400, ""},
+		{"octet-stream, a byte", "application/octet-stream", "x", 400, ""},
+		{"no type, empty", "", "", 303, landReader},
+		{"no type, from=admin", "", "from=admin", 400, ""},
+		{"no type, from=blocked", "", "from=blocked", 400, ""},
+		{"no type, 2 KiB", "", pad(2 << 10), 400, ""},
+		{"a type that does not parse", ";;;", "x", 400, ""},
 	}
 }
 
@@ -95,12 +115,8 @@ func TestCommentRemoveBodyShapes(t *testing.T) {
 			t.Errorf("%s: removed = %v for a request that is answered %d", c.name, removed, c.want)
 		}
 		if c.want == http.StatusSeeOther {
-			loc := "/reports/x#comments"
-			if c.admin {
-				loc = "/admin/reports/x#comments"
-			}
-			if res.Location() != loc {
-				t.Errorf("%s: Location %q, want %q", c.name, res.Location(), loc)
+			if res.Location() != c.landing {
+				t.Errorf("%s: Location %q, want %q", c.name, res.Location(), c.landing)
 			}
 		} else if res.Location() != "" {
 			t.Errorf("%s: a refusal with Location %q", c.name, res.Location())
@@ -165,6 +181,11 @@ func TestPostRoutesAreClassified(t *testing.T) {
 		"/admin/reports/{slug}/delete":    "no field",
 		"/admin/feedback/{n}/reply":       "required: body",
 		"/admin/comments/{n}/remove":      "optional: from (removeBodyRows)",
+		// Block and unblock have no field, and the handlers never read the body: a
+		// body of any type is ignored, so none can steer them (the class this census
+		// exists for is a handler that reads an optional field).
+		"/admin/users/{u}/block":   "no field",
+		"/admin/users/{u}/unblock": "no field",
 	}
 	var seen []string
 	for _, rt := range adminRoutes(nil) {

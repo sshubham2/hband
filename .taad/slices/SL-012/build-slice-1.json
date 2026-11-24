@@ -1,0 +1,384 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-012",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-24T13:51:01.202Z",
+ "head": "1753d3f3041fd3cbb45b5898e5a57babe10d778a",
+ "run_id": 12041,
+ "summary": "Built SC-021 as designed. The new `comments.Block`, `Unblock` and `Blocked` store lives in `block.go`. Post, Cast, Withdraw and Send each refuse a blocked account inside their own single statement, and a follow-up read picks the 403. The owner gets block, unblock and `/admin/blocked` routes, an `admin_blocked.html` page, a Block form on the moderation list and a 'blocked' badge on feedback. The full suite `go test -count=1 -p 4 ./...` passes. Both E-006 finish-line bodies (read from the ledger, run in a scratch copy of this tree) exit 0 against the real built binary.",
+ "payload": {
+  "status": "complete",
+  "summary": "Built SC-021 as designed. The new `comments.Block`, `Unblock` and `Blocked` store lives in `block.go`. Post, Cast, Withdraw and Send each refuse a blocked account inside their own single statement, and a follow-up read picks the 403. The owner gets block, unblock and `/admin/blocked` routes, an `admin_blocked.html` page, a Block form on the moderation list and a 'blocked' badge on feedback. The full suite `go test -count=1 -p 4 ./...` passes. Both E-006 finish-line bodies (read from the ledger, run in a scratch copy of this tree) exit 0 against the real built binary.",
+  "files": [
+   {
+    "path": "internal/comments/block.go",
+    "change": "added",
+    "why": "Block, Unblock, Blocked, ErrOwnerBlock, isBlocked read; the only writer of blocked_accounts"
+   },
+   {
+    "path": "internal/comments/comments.go",
+    "change": "modified",
+    "why": "New takes ownerID; Book gets the isBlocked seam; ErrBlocked; postSQL refuses a blocked writer in-statement; Post picks ErrBlocked/ErrNoTarget by a follow-up read"
+   },
+   {
+    "path": "internal/votes/votes.go",
+    "change": "modified",
+    "why": "ErrBlocked; NOT EXISTS inside Cast's INSERT…SELECT and Withdraw's DELETE; follow-up read picks the answer; seam"
+   },
+   {
+    "path": "internal/feedback/feedback.go",
+    "change": "modified",
+    "why": "ErrBlocked = comments.ErrBlocked; sendSQL refuses blocked senders; inbox Blocked column; OwnerInboxBySender; seam"
+   },
+   {
+    "path": "internal/server/admin.go",
+    "change": "modified",
+    "why": "adminBlock, adminUnblock, adminBlocked, blockedView types; from=blocked landing in adminCommentRemove; new adminRoutes rows"
+   },
+   {
+    "path": "internal/server/comment.go",
+    "change": "modified",
+    "why": "403 for ErrBlocked, blockedRefusal text; landing() comment rewritten"
+   },
+   {
+    "path": "internal/server/vote.go",
+    "change": "modified",
+    "why": "403 for votes.ErrBlocked"
+   },
+   {
+    "path": "internal/server/feedback.go",
+    "change": "modified",
+    "why": "403 for feedback.ErrBlocked"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "modified",
+    "why": "comments.New gets cfg.OwnerGitHubID"
+   },
+   {
+    "path": "internal/server/thread.go",
+    "change": "modified",
+    "why": "modItem gains GitHubID; ParentRemoved renamed ParentHidden"
+   },
+   {
+    "path": "internal/server/templates/admin_blocked.html",
+    "change": "added",
+    "why": "Blocked users page: one section per account, one li per comment, remove two-step with from=blocked, feedback list, Unblock form"
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "change": "modified",
+    "why": "Block two-step on items not by the author; 'blocked' badge on a blocked sender's feedback; 'in reply to a hidden comment'"
+   },
+   {
+    "path": "internal/server/templates/admin.html",
+    "change": "modified",
+    "why": "Blocked users link"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "styles for .block and .blocked-account"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "blocked_accounts rule's because rewritten as a single-quoted scalar naming the three read shapes and the store-bound owner refusal (m6)"
+   },
+   {
+    "path": "internal/comments/block_test.go",
+    "change": "added",
+    "why": "store tests: TestBlockStore, TestPostRefusesBlocked, TestPostBlockIsInTheStatement, TestPostBlockReadFails, TestBlockedList, TestUnblockKeepsRemoved"
+   },
+   {
+    "path": "internal/votes/blocked_test.go",
+    "change": "added",
+    "why": "frozen vote, in-statement refusal, read-failure seam"
+   },
+   {
+    "path": "internal/feedback/blocked_test.go",
+    "change": "added",
+    "why": "Send refusal, in-statement, read failure, inbox mark, OwnerInboxBySender"
+   },
+   {
+    "path": "internal/server/block_test.go",
+    "change": "added",
+    "why": "TestBlock, TestBlockedRefusals, TestBlockedReadFault, TestBlockedPage"
+   },
+   {
+    "path": "internal/server/unblock_test.go",
+    "change": "added",
+    "why": "TestUnblockRestores (real forms: block, remove from the Blocked page, unblock) and TestBlockControls"
+   },
+   {
+    "path": "internal/server/admin_test.go",
+    "change": "modified",
+    "why": "ownerRouteStatus: 200 for the owner's GET and HEAD of /admin/blocked"
+   },
+   {
+    "path": "internal/server/remove_body_corpus_test.go",
+    "change": "modified",
+    "why": "bodyRow landing is a string; from=blocked rows; census entries for block/unblock as 'no field'"
+   },
+   {
+    "path": "internal/server/remove_test.go",
+    "change": "modified",
+    "why": "from=blocked landing rows (published, unpublished, draft); 'hidden comment' wording"
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "change": "modified",
+    "why": "observe() gains the block/unblock POSTs and GET /admin/blocked for every non-owner"
+   },
+   {
+    "path": "internal/server/branch_test.go",
+    "change": "modified",
+    "why": "TestThreadCapFive posts the hidden reply before the block row; the 'nobody can see' subtest becomes a 403-and-nothing-stored case"
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "change": "modified",
+    "why": "harness book() passes the owner id"
+   },
+   {
+    "path": "internal/comments/comments_test.go",
+    "change": "modified",
+    "why": "fixture passes testOwner to New"
+   },
+   {
+    "path": "internal/comments/remove_test.go",
+    "change": "modified",
+    "why": "New call passes testOwner"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "Built the whole SC-021 shape list and fed every shape in by tests. Route and store shapes are in TestBlock and TestBlockStore; refusals in TestBlockedRefusals; the page in TestBlockedPage; restore in TestUnblockRestores; matrix, dislike and feedback noninterference through ownerRouteStatus and observe(). Both E-006 finish-line bodies exit 0 against the built binary."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "Each not-removed comment on the Blocked users page has a details.remove two-step posting to /admin/comments/<id>/remove with hidden from=blocked. adminCommentRemove has from=blocked as a first-class case that lands on /admin/blocked whatever the report's state. bodyRow now carries a landing string with from=blocked rows (urlencoded, alias, multipart; 'Blocked', admin+blocked and repeated are 400). TestCommentRemove has landing rows for published, unpublished and draft reports. TestUnblockRestores presses the real remove forms while blocked, then the real Unblock form.",
+    "mutation": {
+     "file": "internal/server/admin.go",
+     "find": "case len(from) == 1 && from[0] == \"blocked\":",
+     "replace": "case false:",
+     "test_command": "go test -count=1 -run ^TestUnblockRestores$ ./internal/server"
+    }
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "modItem.ParentRemoved is now ParentHidden; admin_report.html says 'in reply to a hidden comment'; the two remove_test.go expectations are updated. TestBlockControls checks a reply under a blocked parent says 'hidden' and not 'removed'.",
+    "mutation": {
+     "file": "internal/server/templates/admin_report.html",
+     "find": "in reply to a hidden comment{{else if .ParentLogin}}",
+     "replace": "in reply to a removed comment{{else if .ParentLogin}}",
+     "test_command": "go test -count=1 -run ^TestBlockControls$ ./internal/server"
+    }
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "Followed the critic's version. comments.New(db, now, ownerID) binds the owner id at router.go from cfg.OwnerGitHubID. Block returns ErrOwnerBlock for that id and fails closed with an error (not ErrOwnerBlock) when ownerID <= 0. The handler maps ErrOwnerBlock to 400. TestBlockStore asserts the store-level refusals (owner, no owner pinned, non-account ids); TestBlock asserts the 400 through the route.",
+    "mutation": {
+     "file": "internal/comments/block.go",
+     "find": "if githubID == b.ownerID {",
+     "replace": "if false {",
+     "test_command": "go test -count=1 -run ^TestBlockStore$ ./internal/comments"
+    }
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "Each of Post, Cast, Withdraw and Send returns a wrapped error (for example 'votes: withdraw: is blocked: %w') when the follow-up read fails. Each Book has an unexported isBlocked seam, replaced in the package's own tests: TestPostBlockReadFails, TestBlockedReadFails, TestSendBlockReadFails assert a wrapped non-sentinel error, and for Withdraw never nil. The server-level TestBlockedReadFault swaps blocked_accounts for a view that errors on evaluation and asserts a 503 with nothing stored on all routes. A temporary mutation confirmed the withdraw and reply-to-missing rows reach the follow-up read.",
+    "mutation": {
+     "file": "internal/votes/votes.go",
+     "find": "return fmt.Errorf(\"votes: withdraw: is blocked: %w\", err)",
+     "replace": "return nil",
+     "test_command": "go test -count=1 -run ^TestBlockedReadFails$ ./internal/votes"
+    }
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "TestThreadCapFive now posts C-hidden-6-end before inserting the blocked_accounts row. The branch_test.go subtest is rewritten as 'a blocked account's comment is refused at any depth and stored nowhere': 403, no Location, comment count unchanged, at parents 0, chain[0] and chain[cap+2]. This is a test-only fix; the mutation removes the refusal from postSQL and the rewritten subtest then fails.",
+    "mutation": {
+     "file": "internal/comments/comments.go",
+     "find": "AND NOT EXISTS (SELECT 1 FROM blocked_accounts k WHERE k.github_id = ?)",
+     "replace": "AND ? > 0",
+     "test_command": "go test -count=1 -run ^TestReplyRedirectTable$ ./internal/server"
+    }
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "Blocked() returns ReportID, Slug, Title and Published per comment. GET /admin/blocked does one a.tree read per published report that has a reply on the page, then comments.Find and branchRoot for the parent, keeping 'comment-<parent>' in the href; a parent below the cap links to its branch page. A parent the thread does not draw (hidden, nothing visible below) is text 'in reply to a hidden comment' with no anchor. A report that is not published links to /admin/reports/<slug> with no parent anchor. Any read error is a 500. TestBlockedPage covers a parent below the cap, a hidden parent, an unpublished report and the 500s.",
+    "mutation": {
+     "file": "internal/server/admin.go",
+     "find": "if root := branchRoot(path); root != nil {",
+     "replace": "if root := branchRoot(path); root != nil && false {",
+     "test_command": "go test -count=1 -run ^TestBlockedPage$ ./internal/server"
+    }
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "The 'only internal/comments writes the blocked_accounts table' rule's because is rewritten as a single-quoted scalar with doubled apostrophes (six quotes in the scalar, checked by count). It names the three read shapes (NOT EXISTS in write statements, the follow-up EXISTS read, the inbox's blocked column) and says the owner refusal is bound into the book by comments.New. go test ./internal/fitnessrules passes. I have no engine Fitness op=check tool, so that run is still owed to the engine.",
+    "not_mutable": "A rule's because text in .taad/fitness.yaml describes code and changes nothing a Go test observes; the reviewer can read the scalar."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "internal/server.TestBlock",
+    "test_command": "go test -count=1 -run ^TestBlock$ ./internal/server"
+   },
+   {
+    "key": "C-001",
+    "test_name": "internal/server.TestBlockedRefusals",
+    "test_command": "go test -count=1 -run ^TestBlockedRefusals$ ./internal/server"
+   },
+   {
+    "key": "C-001",
+    "test_name": "internal/server.TestBlockedPage",
+    "test_command": "go test -count=1 -run ^TestBlockedPage$ ./internal/server"
+   },
+   {
+    "key": "C-001",
+    "test_name": "internal/server.TestUnblockRestores",
+    "test_command": "go test -count=1 -run ^TestUnblockRestores$ ./internal/server"
+   }
+  ],
+  "mandatory": [
+   {
+    "id": "C1",
+    "met": "yes",
+    "where": "comments.Block (internal/comments/block.go) and POST /admin/users/{u}/block (adminBlock); TestBlock, TestBlockStore"
+   },
+   {
+    "id": "C2",
+    "met": "yes",
+    "where": "postSQL NOT EXISTS plus ErrBlocked in comments.Post; 403 in postComment; TestBlockedRefusals, TestPostRefusesBlocked"
+   },
+   {
+    "id": "C3",
+    "met": "yes",
+    "where": "sendSQL NOT EXISTS plus feedback.ErrBlocked; 403 in postFeedback; TestBlockedRefusals, TestSendRefusesBlocked"
+   },
+   {
+    "id": "C4",
+    "met": "yes",
+    "where": "votes.Cast and Withdraw refuse in-statement, ErrBlocked, 403 in vote; the vote stays frozen: TestBlockedRefusals, TestBlockedVoterIsFrozen"
+   },
+   {
+    "id": "C5",
+    "met": "yes",
+    "where": "Public and OwnerTally untouched; TestBlockedRefusals asserts likes, dislikes and the public line are unchanged by the block and by the refused attempts"
+   },
+   {
+    "id": "C7",
+    "met": "yes",
+    "where": "GET /admin/blocked (adminBlocked, admin_blocked.html) with an admin.html link; TestBlockedPage, finish line 2"
+   },
+   {
+    "id": "C8",
+    "met": "yes",
+    "where": "adminUnblock, comments.Unblock; TestUnblockRestores (real forms) and TestUnblockKeepsRemoved: restores comments and counts, keeps removed ones hidden, the account takes part again"
+   },
+   {
+    "id": "C9",
+    "met": "yes",
+    "where": "Message.Blocked and the badge in admin_report.html; Block two-step on moderation items; TestBlockControls, finish line 2"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -p 4 ./...",
+    "outcome": "passed",
+    "note": "Final run after the last edit: every package ok (cmd/hband, auth, comments, config, feedback, fitnessrules, reports, server, store, headless, votes), including the Chrome-driven test. go vet ./... is clean."
+   },
+   {
+    "command": "python -I tests\\acceptance\\test_e006_2_blocking_and_unblocking.py (body read from the ledger with a mode=ro SELECT, run in a scratch copy of this working tree)",
+    "outcome": "passed",
+    "note": "Exit 0, Ran 1 test OK. It builds ./cmd/hband and runs the real binary behind its proxy headers and a stand-in GitHub, blocking, refusing, listing and unblocking."
+   },
+   {
+    "command": "python -I tests\\acceptance\\test_e006_1_removal_and_placeholders.py (same scratch copy)",
+    "outcome": "passed",
+    "note": "Exit 0, Ran 1 test OK. It now passes the block press that returned 404 before."
+   },
+   {
+    "command": "python -I tests\\acceptance\\check_e006_1_stops_at_block.py (scaffolding check, scratch copy)",
+    "outcome": "passed",
+    "note": "Exit 0: 'finish line 1 passes outright'."
+   },
+   {
+    "command": "go test -count=1 -v -run ^(TestBlock|TestBlockedRefusals|TestBlockedReadFault|TestBlockedPage|TestUnblockRestores|TestBlockControls)$ ./internal/server",
+    "outcome": "passed",
+    "note": "Every subtest ran and passed."
+   },
+   {
+    "command": "six mutations, one at a time, each restored afterwards (see the obligations): from=blocked case, ParentHidden wording, store owner refusal, withdraw read-error swallow, parent link branchRoot, postSQL NOT EXISTS",
+    "outcome": "passed",
+    "note": "All six turned their named test red. Extra mutations (swallowing the real read's error in votes; removing the NOT EXISTS from Cast) also turned TestBlockedReadFault and TestBlockedVoterIsFrozen red. The tree was restored after each; the final full run confirms it."
+   },
+   {
+    "command": "go test -count=1 ./internal/fitnessrules",
+    "outcome": "passed",
+    "note": "Passes. I have no Fitness op=check tool here, so the engine's own run on .taad/fitness.yaml is still owed."
+   },
+   {
+    "command": "real binary driven through the acceptance harness (a scratch script on the scratch copy): reader and bad-actor comment, vote and send feedback; the owner presses the Block form; then I read /admin/blocked, the admin report page and the public page",
+    "outcome": "passed",
+    "note": "The moderation list shows closed Block and Remove two-steps. After the block the owner lands on /admin/blocked#blocked-8102, which lists the comment with a /reports/alpha#comment-1 parent link, the feedback and an Unblock form. The feedback article carries the 'blocked' badge. The blocked account's new comment gets 403 'Your account cannot take part here.' A visitor sees no trace of the comment or the login, and the count reads '1 comment'."
+   }
+  ],
+  "deviations": [
+   "Block's owner refusal is in the store, not in the handler as design 229 said: comments.New takes the owner id, Block returns ErrOwnerBlock and fails closed when no owner is pinned (decided findings m2 and its critic note). The handler only maps ErrOwnerBlock to 400.",
+   "Each Book (comments, votes, feedback) has an unexported isBlocked seam so the follow-up-read failure can be tested (finding m3's critic note). The design had a plain read.",
+   "The Blocked users page builds parent links through a.tree, Find and branchRoot, one read per published report that has a reply on the page, and prints 'in reply to a hidden comment' as text when the parent is drawn nowhere (finding m5's critic note). The design used a fixed /reports/<slug>#comment-<parent>.",
+   "A blocked account's feedback is listed with a link to /admin/reports/<slug>#feedback-<id>, where the author reads and answers it, rather than the reader page. SenderMessage and BlockedComment also carry Published, which the design's types lacked, so an unpublished report links to its admin page.",
+   "Block and unblock take no field, and their handlers never read the body (lesson #973's 'decided choice to ignore the body'). They are classified 'no field' in TestPostRoutesAreClassified, and TestBlock sends every removeBodyRows shape to both.",
+   "from=blocked is checked first in adminCommentRemove, so it lands on /admin/blocked for drafts and unpublished reports too (M1's critic note). bodyRow's landing went from a bool to a string.",
+   "The comments-package tests are named TestBlockStore, TestPostRefusesBlocked and so on, not TestBlock, because TestBlock names the server route test in the design. No workaround for an outside defect was needed, so there is no setting or notice."
+  ],
+  "not_built": [
+   "No screens are declared. The Blocked users page and the admin report page sit behind GitHub sign-in, and config refuses to start without HBAND_* variables (lesson #961), so the engine cannot open them with a bare command. They were rendered and read through the real binary over HTTP instead, but not in a real browser (m9 was deferred by a person).",
+   "Not built, as decided: a Block entry point on feedback articles (m8), a size bound on the Blocked users page (m10), and a census of public write routes (m7). All three were deferred by decision."
+  ],
+  "follow_ups": [
+   "Architecture globs: C-009 should own internal/server/templates/admin_blocked.html and admin_report.html, and C-005 or C-009 the new server tests (block_test.go, unblock_test.go). I could not file this as a paths edit because the record edits are capped at three.",
+   "tests/acceptance/check_e006_1_stops_at_block.py is scaffolding that now reports 'passes outright'. Lesson #976 says it should go; its own docstring says it need not, so I left it.",
+   "A blocked reader is still shown the comment, vote and feedback forms (reader pages must stay byte-identical, #950) and gets a bare 403 text page when it presses one. Decide whether a friendlier notice is wanted.",
+   "A signed-in Chrome render of /admin/blocked and the moderation list (m9), and the owner-page size bound (m10): /admin/blocked also does one feedback query per account and one thread read per published report with replies.",
+   "Run the engine's Fitness op=check on .taad/fitness.yaml; I had no such tool and relied on go test ./internal/fitnessrules plus a manual single-quote count."
+  ],
+  "architecture": [
+   {
+    "block": "C-002",
+    "kind": "line",
+    "find": "read only by internal/comments, and no code outside tests writes it",
+    "replace": "written only by internal/comments (Block and Unblock; Block refuses the pinned owner's own id) and read there and, to refuse a blocked account's writes, by internal/votes and internal/feedback",
+    "why": "internal/comments/block.go Block/Unblock are the only non-test writers; votes.Cast/Withdraw and feedback.Send read it in a NOT EXISTS and a follow-up EXISTS, and feedback's inboxSQL reads it as a column; .taad/fitness.yaml rule 'only internal/comments writes the blocked_accounts table'."
+   },
+   {
+    "block": "C-007",
+    "kind": "line",
+    "find": "Feedback from blocked accounts is stored but not marked.",
+    "replace": "A blocked account's new feedback is refused inside Send's own statement (ErrBlocked, a 403) and stored nowhere; messages it sent earlier stay in the owner's inbox, marked 'blocked' on the admin page, and OwnerInboxBySender lists one account's messages for the Blocked users page.",
+    "why": "internal/feedback/feedback.go: sendSQL has NOT EXISTS on blocked_accounts, Message.Blocked comes from inboxSQL, OwnerInboxBySender; TestSendRefusesBlocked, TestInboxMarksBlocked, TestBlockControls."
+   },
+   {
+    "block": "C-009",
+    "kind": "line",
+    "find": "whose only accepted value is admin",
+    "replace": "whose only accepted values are admin and blocked (the Blocked users page's own remove forms, which land back on that page)",
+    "why": "internal/server/admin.go adminCommentRemove: toBlocked case for from=blocked; admin_blocked.html posts it; remove_body_corpus_test.go rows."
+   }
+  ]
+ }
+}

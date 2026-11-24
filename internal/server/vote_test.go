@@ -504,7 +504,7 @@ func (w *dislikeWorld) reader(id int64) string {
 func (w *dislikeWorld) observe(t *testing.T) observation {
 	t.Helper()
 	h, obs := w.h, observation{}
-	reads := []string{"/", "/reports/x", "/reports/y", "/reports", "/admin", "/admin/reports/x",
+	reads := []string{"/", "/reports/x", "/reports/y", "/reports", "/admin", "/admin/reports/x", "/admin/blocked",
 		// The branch page of the seeded comment: another reader page, drawn from the
 		// thread, which must never mention a dislike either.
 		"/reports/x/comments/" + strconv.FormatInt(w.first, 10)}
@@ -535,6 +535,12 @@ func (w *dislikeWorld) observe(t *testing.T) observation {
 		// And the owner's removal route, aimed at a comment that exists: refused with
 		// the same 403 for all three, and nothing is removed.
 		obs[who.name+" POST /admin/comments/<first>/remove"] = h.removeComment(who.sid, strconv.FormatInt(w.first, 10), "")
+		// And the owner's block and unblock routes, aimed at the upvoter (a reader who
+		// holds a vote and a comment) and at an account nobody has blocked: refused with
+		// the same 403 for all three, and nothing is blocked or unblocked.
+		obs[who.name+" POST /admin/users/8/block"] = h.blockRoute(who.sid, "8", "block", noBody())
+		obs[who.name+" POST /admin/users/8/unblock"] = h.blockRoute(who.sid, "8", "unblock", noBody())
+		obs[who.name+" POST /admin/users/20/block"] = h.blockRoute(who.sid, "20", "block", noBody())
 	}
 	for _, p := range []string{"/", "/reports/x", "/reports/y"} {
 		res := h.serve("GET", p, h.withSID(w.owner))

@@ -431,11 +431,15 @@ rules:
     files: '**/*.go'
     must_not_match:
     - (?i)\b(INTO|UPDATE(\s+OR\s+\w+)?|DELETE\s+FROM)\s+\S*blocked_accounts\b
-    because: Block and Unblock in internal/comments are where the pinned owner's own id is refused,
-      and they sit inside the no-transaction fence. A second writer in votes, feedback or server
+    because: 'Block and Unblock in internal/comments are the only writers, and they sit inside
+      the no-transaction fence. Block is where the pinned owner''s own id is refused: the book is
+      built with that id (comments.New), so no caller has to remember the refusal, and a book
+      built with no owner id refuses every block. A second writer in votes, feedback or server
       could block the author, hiding every Author comment on the site, or could write inside
-      a transaction. votes and feedback may only READ the table, inside their own write statements
-      (NOT EXISTS), and this pattern leaves those reads alone.
+      a transaction. votes and feedback only READ the table, in three shapes: a NOT EXISTS inside
+      their own write statements (Cast, Withdraw, Send), the follow-up EXISTS read that picks the
+      refusal after one of those wrote nothing, and the blocked column of the owner''s feedback
+      inbox. This pattern leaves those reads alone.'
     except_files:
     - internal/comments/**
     - '**/*_test.go'

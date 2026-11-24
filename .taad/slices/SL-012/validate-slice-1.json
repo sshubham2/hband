@@ -1,0 +1,276 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-012",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-24T14:25:24.926Z",
+ "head": "373d9cb6c63e39aa355786fb2b8af6ec63313c2e",
+ "run_id": 12052,
+ "summary": "SC-021/SC-022 is built and works through the real binary. That binary was built from this tree and run on loopback, with a stand-in GitHub, by the epic's own finish-line harness.\n\n**Suite and named tests**\n- The full suite passes: `go test -count=1 -p 4 ./...` exits 0.\n- Every named test passes: TestBlock, TestBlockStore, TestBlockedRefusals, TestBlockedPage, TestUnblockRestores, TestBlockControls, TestBlockedReadFault, TestAdminAccessMatrix, TestDislikesDoNotInterfere, TestFeedbackDoesNotInterfere and the O-009 test.\n- go vet is clean. All 24 changed .go files are gofmt-clean after LF normalisation.\n- Fitness op=check: all 31 rules hold.\n\n**Finish lines.** I read both E-006 bodies from the ledger (mode=ro) and ran them from a scratch copy of the tree. Both exit 0. That copy equals the integration branch: `git log HEAD..uat` is empty.\n\n**My own probe against the real binary: 47 of 49 checks matched my expectation**\n- **Block route refusals:** the owner's own id answers 400. The ids 07002, -7002, 0, 7002x and +7002 answer 404. Non-owner, anonymous and cross-site requests answer 403 and nothing changes.\n- **Block route successes:** a repeated block answers 303. An id that never signed in is listed as 'GitHub user 9999'.\n- **/admin/blocked:** HEAD and GET answer 200 for the owner, 303 for anonymous and 403 for a reader. /admin links to it.\n- **Refusals:** an existing session of the blocked account gets exactly 403, with nothing stored, on a top-level comment, a reply, feedback, vote down, vote none and vote up.\n- **Votes:** the like count does not change.\n- **Hiding:** a blocked top-level comment with a visible reply becomes a bare placeholder holding the reply. A blocked leaf is gone. A blocked reply at depth 6 is gone from the branch page. None of it shows on / or /reports. The visible count goes from 10 to 7.\n- **Feedback mark:** feedback is marked 'blocked' only for the blocked sender.\n- **Blocked users page:**\n  - It lists the account's comments and feedback in its own section.\n  - The page's own remove form (from=blocked) lands back on /admin/blocked and blanks the text.\n  - The real Unblock form brings the comments back, while the one removed during the block stays hidden. The count goes back to 9.\n  - After the unblock the account can comment, send feedback and withdraw its vote.\n\n**The two mismatches were my expectations, not the code**\n- I miscounted the starting comments as 9; 10 were posted.\n- I expected `/admin/users/%37002/block` to answer 404. It answered 200 and blocked 7002. That path is the same URI as /admin/users/7002/block under RFC 3986 §6.2.2.2: the mux decodes it before canonicalID sees it. The decimal spellings the design calls non-canonical are all 404.\n\n**What I did not reach:** a real browser render of the owner pages this slice added, real GitHub OAuth, and the VPS proxy. The engine's screenshots show only the reader page.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "SC-021/SC-022 is built and works through the real binary. That binary was built from this tree and run on loopback, with a stand-in GitHub, by the epic's own finish-line harness.\n\n**Suite and named tests**\n- The full suite passes: `go test -count=1 -p 4 ./...` exits 0.\n- Every named test passes: TestBlock, TestBlockStore, TestBlockedRefusals, TestBlockedPage, TestUnblockRestores, TestBlockControls, TestBlockedReadFault, TestAdminAccessMatrix, TestDislikesDoNotInterfere, TestFeedbackDoesNotInterfere and the O-009 test.\n- go vet is clean. All 24 changed .go files are gofmt-clean after LF normalisation.\n- Fitness op=check: all 31 rules hold.\n\n**Finish lines.** I read both E-006 bodies from the ledger (mode=ro) and ran them from a scratch copy of the tree. Both exit 0. That copy equals the integration branch: `git log HEAD..uat` is empty.\n\n**My own probe against the real binary: 47 of 49 checks matched my expectation**\n- **Block route refusals:** the owner's own id answers 400. The ids 07002, -7002, 0, 7002x and +7002 answer 404. Non-owner, anonymous and cross-site requests answer 403 and nothing changes.\n- **Block route successes:** a repeated block answers 303. An id that never signed in is listed as 'GitHub user 9999'.\n- **/admin/blocked:** HEAD and GET answer 200 for the owner, 303 for anonymous and 403 for a reader. /admin links to it.\n- **Refusals:** an existing session of the blocked account gets exactly 403, with nothing stored, on a top-level comment, a reply, feedback, vote down, vote none and vote up.\n- **Votes:** the like count does not change.\n- **Hiding:** a blocked top-level comment with a visible reply becomes a bare placeholder holding the reply. A blocked leaf is gone. A blocked reply at depth 6 is gone from the branch page. None of it shows on / or /reports. The visible count goes from 10 to 7.\n- **Feedback mark:** feedback is marked 'blocked' only for the blocked sender.\n- **Blocked users page:**\n  - It lists the account's comments and feedback in its own section.\n  - The page's own remove form (from=blocked) lands back on /admin/blocked and blanks the text.\n  - The real Unblock form brings the comments back, while the one removed during the block stays hidden. The count goes back to 9.\n  - After the unblock the account can comment, send feedback and withdraw its vote.\n\n**The two mismatches were my expectations, not the code**\n- I miscounted the starting comments as 9; 10 were posted.\n- I expected `/admin/users/%37002/block` to answer 404. It answered 200 and blocked 7002. That path is the same URI as /admin/users/7002/block under RFC 3986 §6.2.2.2: the mux decodes it before canonicalID sees it. The decimal spellings the design calls non-canonical are all 404.\n\n**What I did not reach:** a real browser render of the owner pages this slice added, real GitHub OAuth, and the VPS proxy. The engine's screenshots show only the reader page.",
+  "checks": [
+   {
+    "what": "Full Go suite",
+    "command": "go test -count=1 -p 4 ./...  (TAAD3_HOME set to an empty scratch folder)",
+    "outcome": "passed",
+    "evidence": "All 11 packages with tests report ok: cmd/hband, auth, comments, config, feedback, fitnessrules, reports, server, store, headless, votes. Exit 0 in 16.4 s."
+   },
+   {
+    "what": "The design's named tests and the tests from the discharged obligations",
+    "command": "go test -count=1 -v -run '^(TestBlock|TestBlockStore|TestBlockedRefusals|TestBlockedPage|TestUnblockRestores|TestBlockControls|TestAdminAccessMatrix|TestDislikesDoNotInterfere|TestFeedbackDoesNotInterfere|TestBlockedReadFault|TestBlockedPageUnpublishedReplyIsNotToAHiddenComment|TestThreadCapFive|TestCommentRemove)$' ./internal/...",
+    "outcome": "passed",
+    "evidence": "Every one passes, subtests included. TestBlockStore: block/repeat/unblock, the author refused by the store, no owner pinned fails closed, ids that are not accounts, never signed in. TestBlock: 7 subtests. TestCommentRemove: 8 subtests, landing among them. TestAdminAccessMatrix: anonymous, non-owner, owner."
+   },
+   {
+    "what": "E-006 finish line 1, against the real built binary",
+    "command": "python -I tests\\acceptance\\test_e006_1_removal_and_placeholders.py  (body read from engine.db epics id 44 with a mode=ro SELECT, written into a robocopy scratch copy of this tree, run from that root)",
+    "outcome": "passed",
+    "evidence": "Ran 1 test in 5.5 s, OK, exit 0."
+   },
+   {
+    "what": "E-006 finish line 2, against the real built binary",
+    "command": "python -I tests\\acceptance\\test_e006_2_blocking_and_unblocking.py  (same scratch copy)",
+    "outcome": "passed",
+    "evidence": "Ran 1 test in 4.4 s, OK, exit 0. It covers the block route, hiding on two reports and /, counts, refusals, votes unchanged, the Blocked page section and entries with report and parent links, the feedback 'blocked' mark only for blocked senders, Unblock, restore and taking part again."
+   },
+   {
+    "what": "Block route refusals on the real binary",
+    "command": "python -I probe.py <scratch tree>  (imports the e006_2 harness: real binary, stand-in GitHub, loopback)",
+    "outcome": "passed",
+    "evidence": "The owner's own id answers 400. '07002', '-7002', '0', '7002x' and '+7002' each answer 404. A non-owner gets 403, anonymous gets 403 and a forged cross-site request gets 403. After each refusal, 7002 is not on /admin/blocked."
+   },
+   {
+    "what": "Block route successes and /admin/blocked access on the real binary",
+    "command": "probe.py",
+    "outcome": "passed",
+    "evidence": "Owner block lands 200 at /admin/blocked#blocked-7002. A repeated block answers 303. Blocking 9999, an id that never signed in, lists it as 'GitHub user 9999'. /admin/blocked: owner HEAD 200 and GET 200, anonymous 303/303, reader 403/403. /admin contains href=\"/admin/blocked\"."
+   },
+   {
+    "what": "A blocked account's writes are refused with exactly 403 and nothing stored; its vote is frozen",
+    "command": "probe.py: the blocked account posts from a page it loaded before the block",
+    "outcome": "passed",
+    "evidence": "Each answered 403: top-level comment, reply, feedback, vote=down, vote=none, vote=up. The like count stayed 1. None of the three attempted texts appear on /admin/blocked."
+   },
+   {
+    "what": "Hiding at every depth, placeholder rule and public count",
+    "command": "probe.py",
+    "outcome": "passed",
+    "evidence": "b1 (blocked, with visible reply r2) is a bare placeholder holding r2, with no text and no login. b2 (blocked leaf) is gone. bd (blocked reply at depth 6, drawn only on /reports/probe-a/comments/9) is gone from that branch page for anonymous and for a reader. / and /reports show none of it. The visible count went 10 -> 7. The blocked account's own signed-in view also does not show b2."
+   },
+   {
+    "what": "Feedback 'blocked' mark and Block controls on the moderation list",
+    "command": "probe.py: /admin/reports/probe-a",
+    "outcome": "passed",
+    "evidence": "Only feedback-<n> holding the blocked account's message contains 'blocked'. The non-blocked reader's feedback is not marked. The page offers /admin/users/7001/block for the reader."
+   },
+   {
+    "what": "Blocked users page: remove control and Unblock control",
+    "command": "probe.py",
+    "outcome": "passed",
+    "evidence": "The bad-b section lists b1, b2, bd and its feedback. bd's entry links /reports/probe-a and /reports/probe-a#comment-9. There are 3 remove forms. Posting b2's form with hidden from=blocked lands 200 at /admin/blocked, and b2's text is gone from the listing. An Unblock form for /admin/users/7002/unblock is present."
+   },
+   {
+    "what": "Unblock restores, a comment removed while blocked stays hidden, and the account takes part again",
+    "command": "probe.py",
+    "outcome": "passed",
+    "evidence": "After the real Unblock, b1 and bd are visible again and b2 stays hidden. The visible count is 9 (10 minus the one removed). The account comments again, its feedback reaches /admin/reports, and its withdraw takes likes to 0. 7002 leaves /admin/blocked while 9999 stays. A repeated unblock answers 200 after the redirect."
+   },
+   {
+    "what": "Probe's starting visible-comment count",
+    "command": "probe.py, expected 9",
+    "outcome": "passed",
+    "evidence": "The probe printed FAIL with visible=10. My expectation was wrong: 10 comments were posted (r1, b1, r2, b2, d1 to d5, bd). The later counts, 7 after the block and 9 after the unblock, match 10 minus 3 and 10 minus 1."
+   },
+   {
+    "what": "Percent-encoded id in the block path",
+    "command": "probe.py: owner POST /admin/users/%37002/block",
+    "outcome": "passed",
+    "evidence": "The probe expected 404 and got 200: it blocked 7002. %37 is the unreserved character '7', so under RFC 3986 §6.2.2.2 this is the same URI as /admin/users/7002/block, and ServeMux decodes the segment before canonicalID. The non-canonical decimal spellings the design names (leading zero, sign, 0, trailing junk) all answered 404. The probe's assertion was wrong, not the code. It is owner-only and names the same account."
+   },
+   {
+    "what": "Architecture rules",
+    "command": "mcp__taad3__Fitness op=check",
+    "outcome": "passed",
+    "evidence": "31 rules checked against 84 parsed files: 'Every declared rule holds.' This is the engine Fitness run that O-008 said was still owed."
+   },
+   {
+    "what": "go vet",
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "evidence": "exit 0, no output"
+   },
+   {
+    "what": "gofmt on the slice's changed Go files",
+    "command": "gofmt -l on LF-normalised copies of the 24 .go files in git diff ef4ad37..HEAD",
+    "outcome": "passed",
+    "evidence": "No files listed, exit 0. A first attempt piped the content through PowerShell, which adds a trailing newline, and so flagged every file. It was discarded as a broken check."
+   },
+   {
+    "what": "Read the parts the code review did not see",
+    "command": "Read internal/server/admin.go:440-563 and internal/server/templates/admin_blocked.html",
+    "outcome": "passed",
+    "evidence": "adminBlocked returns a 500 on any read error, before rendering. The feedback Href is /admin/reports/<slug>#feedback-<id>. Template line 20 has the three-way parent label: link, 'in reply to a comment (the report has no reader page)', or 'in reply to a hidden comment'. A removed comment prints 'removed' with no body and no remove form. All values go through html/template."
+   },
+   {
+    "what": "The acceptance runs equal the integration branch",
+    "command": "git log --oneline HEAD..uat",
+    "outcome": "passed",
+    "evidence": "Empty: uat has no commit missing from the slice, so the scratch copy of this tree is what a merge would ship."
+   },
+   {
+    "what": "Cleanup",
+    "command": "Get-Process hband; Remove-Item scratch; git status --short",
+    "outcome": "passed",
+    "evidence": "No hband process is left. The scratch folder is removed. The worktree shows only the files that were already untracked or modified at the start."
+   },
+   {
+    "what": "Real-browser render of the owner's Blocked users page, Block and Unblock forms and the remove two-step",
+    "outcome": "not-run",
+    "evidence": "The engine's screens show only the signed-out reader page. Driving a signed-in owner session (a __Host- cookie over https at hband.test) in headless Chrome needs a proxy setup this run did not build. Listed in not_reached."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "1. Block and unblock: the pinned owner's id answers 400. A non-canonical id answers 404. A repeated block or unblock answers 303, is idempotent and keeps the first blocked_at. An id that never signed in is blocked and listed as 'GitHub user <u>'. Non-owners, anonymous and cross-site are refused with nothing changed. observe() and TestFeedbackDoesNotInterfere have rows for these routes and for GET /admin/blocked.",
+    "met": "yes",
+    "how": "Real binary probe: owner id 400; 07002, -7002, 0, 7002x and +7002 each 404; repeat block 303; repeat unblock OK; 9999 listed as 'GitHub user 9999'; non-owner, anonymous and cross-site each 403 with 7002 not listed afterwards. 'First blocked_at kept' rests on TestBlockStore and TestBlock ('a repeat changes nothing'), which pass; I did not read the timestamp myself. TestFeedbackDoesNotInterfere and TestAdminAccessMatrix pass."
+   },
+   {
+    "criterion": "2. A blocked account's top-level comment, reply, feedback, vote up, vote down and withdraw each answer 403 with nothing stored. Its existing vote stays counted, and Public and OwnerTally are unchanged. The tests that pinned a blocked post as stored are flipped to refused.",
+    "met": "yes",
+    "how": "Probe: exactly 403 on all six, from a session and page made before the block. Nothing stored. The like count is unchanged. finish line 2 also checks dislikes unchanged. Public and OwnerTally are asserted by TestBlockedRefusals, which passes. TestThreadCapFive and the rewritten branch_test subtest pass (O-006)."
+   },
+   {
+    "criterion": "3. Blocked comments at every depth on every report are hidden from every public page and every count. A blocked top-level comment with a visible reply is a placeholder; a blocked reply with none is gone.",
+    "met": "yes",
+    "how": "Probe: placeholder holding the visible reply, blocked leaf gone, depth-6 reply gone from the branch page, nothing on / or /reports, count 10 -> 7. finish line 2 covers two reports and /."
+   },
+   {
+    "criterion": "4. Blocked users page: one section per account and one li per comment, with the report link and, for a reply, a #comment-<parent> link. A removed comment is listed with no text. The account's feedback is listed in its section.",
+    "met": "yes",
+    "how": "Probe: the section lists all comments and the feedback. The bd entry links /reports/probe-a#comment-9. After removal from the page, b2's text is gone from the listing; the template prints 'removed'. finish line 2 checks disjoint sections and entries with report and parent links. TestBlockedPage passes, including the below-cap, hidden-parent and unpublished cases."
+   },
+   {
+    "criterion": "5. Feedback is marked 'blocked' on /admin/reports/<slug> only for blocked senders.",
+    "met": "yes",
+    "how": "Probe and finish line 2: only the blocked sender's feedback-<n> carries 'blocked'."
+   },
+   {
+    "criterion": "6. Unblock restores the comments and the counts, and the account can comment, send feedback and vote again. A comment removed while its writer was blocked stays hidden after unblock.",
+    "met": "yes",
+    "how": "Probe on the real binary used the Blocked page's own remove form and then the real Unblock form. b1 and bd came back and the removed b2 stayed hidden. The count went to 10 minus 1. Comment, feedback and withdraw worked again."
+   },
+   {
+    "criterion": "7. The owner's GET and HEAD of /admin/blocked answer 200, added to ownerRouteStatus.",
+    "met": "yes",
+    "how": "Probe: owner HEAD 200 and GET 200; anonymous 303; reader 403. TestAdminAccessMatrix passes."
+   },
+   {
+    "criterion": "Go tests TestBlock, TestBlockedRefusals, TestBlockedPage, TestUnblockRestores, TestAdminAccessMatrix, TestDislikesDoNotInterfere and TestFeedbackDoesNotInterfere pass.",
+    "met": "yes",
+    "how": "go test -v run: all PASS. The full suite exits 0."
+   },
+   {
+    "criterion": "python tests/acceptance/test_e006_1_removal_and_placeholders.py and test_e006_2_blocking_and_unblocking.py both exit 0 from the integration branch root.",
+    "met": "yes",
+    "how": "Both exit 0. They were run from a scratch copy of this tree, with bodies from ledger epic 44. `git log HEAD..uat` is empty, so this tree contains the whole integration branch."
+   }
+  ],
+  "planned": [
+   {
+    "ordinal": 1,
+    "met": "yes",
+    "evidence": "Every SC-021 component is present and exercised:\n- block store: internal/comments/block.go, with Block, Unblock and Blocked;\n- in-statement refusals: postSQL, Cast, the Withdraw DELETE and sendSQL each carry NOT EXISTS blocked_accounts;\n- feedback: the Blocked mark and OwnerInboxBySender;\n- routes: block and unblock;\n- admin pages: admin_blocked.html, the /admin link, and Block forms on the moderation list.\nAll seven test shapes pass in Go tests and in my real-binary probe. Both E-006 finish lines exit 0."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "verified": "yes",
+    "evidence": "The named tests, both finish lines and the probe all pass, as recorded in criteria 1-7."
+   },
+   {
+    "key": "O-002",
+    "verified": "yes",
+    "evidence": "Probe: the Blocked page has a remove form for each comment not yet removed, with hidden from=blocked. Posting it landed on /admin/blocked. The comment stayed hidden after the real Unblock."
+   },
+   {
+    "key": "O-003",
+    "verified": "yes",
+    "evidence": "TestBlockControls passes. It asserts that a reply under a blocked parent says 'hidden', not 'removed'."
+   },
+   {
+    "key": "O-004",
+    "verified": "yes",
+    "evidence": "block.go:30-36 refuses the owner id, and fails closed when ownerID <= 0, before any SQL. TestBlockStore passes. Probe: the owner's own id answers 400."
+   },
+   {
+    "key": "O-005",
+    "verified": "yes",
+    "evidence": "TestBlockedReadFault and the package-level read-fault tests pass. The code read shows a wrapped error on a failed follow-up read in Post, Cast, Withdraw and Send."
+   },
+   {
+    "key": "O-006",
+    "verified": "yes",
+    "evidence": "TestThreadCapFive passes. The full server package passes, including the rewritten branch_test subtest."
+   },
+   {
+    "key": "O-007",
+    "verified": "yes",
+    "evidence": "Code read at admin.go:477-497 confirms Find and branchRoot build the parent link. Probe: bd's parent link is /reports/probe-a#comment-9. TestBlockedPage covers below-cap, hidden-parent and unpublished, and passes."
+   },
+   {
+    "key": "O-008",
+    "verified": "yes",
+    "evidence": "Fitness op=check: all 31 rules hold, which is the engine run the builder said was still owed. go test ./internal/fitnessrules passes."
+   },
+   {
+    "key": "O-009",
+    "verified": "yes",
+    "evidence": "TestBlockedPageUnpublishedReplyIsNotToAHiddenComment passes. admin_blocked.html:20 has the three-way label."
+   }
+  ],
+  "screens": [
+   {
+    "screen": "s1-wide-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "report frame (middle of page)",
+      "what": "The report frame is an empty bordered box. This is a consequence of the frame-ancestors console error the engine already listed: the harness base URL is not the served origin."
+     },
+     {
+      "where": "whole screen",
+      "what": "It shows a signed-out reader page with 0 comments. The phone shot of the 'same' screen shows 9 comments, so the two shots are of different data and cannot be compared. Neither shows anything this slice built: no Blocked users page, no Block or Unblock control, no blocked-account placeholder."
+     }
+    ]
+   },
+   {
+    "screen": "s1-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "comment author avatars",
+      "what": "Each avatar is a broken-image icon, from the img-src CSP refusals the engine listed for avatars.example fixtures."
+     },
+     {
+      "where": "depth-4 comment header",
+      "what": "The 43-character unbroken login wraps across two lines and pushes the date onto its own line. It is readable but out of step with the one-line headers around it. This is pre-existing reader-page layout, not slice work."
+     }
+    ]
+   }
+  ],
+  "not_reached": [
+   "Nobody has seen the owner pages this slice added rendered in a real browser: /admin/blocked, the Block forms on /admin/reports/<slug>, the Unblock form, and the details.remove two-step. That includes phone width. The engine's screens show only the signed-out reader page. I read the HTML only.",
+   "Real GitHub OAuth and real accounts. Every sign-in went through the acceptance harness's stand-in GitHub on loopback.",
+   "The VPS reverse proxy and WireGuard path. The cross-site refusal of the block and unblock routes was measured with headers forged locally, not behind the real proxy (Q-024).",
+   "A production database with existing comments, votes and feedback: block and unblock were never run against real data or at real size. The Blocked page has no size limit, and its size at scale was not measured.",
+   "Timing races, for example an unblock landing between a refused write and its follow-up EXISTS read, were not reproduced. Only the code review reasoned about them.",
+   "Q-026 stays open, but there is new evidence: on the real binary, a comment removed through the Blocked page's own form while its writer was blocked stayed hidden after the real Unblock route."
+  ]
+ }
+}

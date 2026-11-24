@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "head" .}}
+</head>
+<body>
+<main data-hband-admin>
+<h1>Blocked users</h1>
+<p><a href="/admin">All reports</a></p>
+
+<p>A blocked account cannot comment, send feedback or vote, and its vote stays as it was. Its comments are hidden from every reader and from every count, and are kept here for you. Unblocking brings them back, except the ones you remove.</p>
+
+{{range .Blocked}}<section class="blocked-account" id="blocked-{{.GitHubID}}">
+<h2>{{if .AvatarURL}}<img class="avatar" src="{{.AvatarURL}}" alt="" width="24" height="24"> {{end}}{{if .Login}}<span class="login">{{.Login}}</span>{{else}}<span class="login">GitHub user {{.GitHubID}}</span>{{end}}</h2>
+<p>Blocked <time datetime="{{.BlockedAt.Format "2006-01-02T15:04:05Z"}}">{{.BlockedAt.Format "2006-01-02 15:04 UTC"}}</time></p>
+<form method="post" action="/admin/users/{{.GitHubID}}/unblock"><button type="submit">Unblock</button></form>
+
+<h3>What it posted</h3>
+{{if .Comments}}<ul class="blocked-comments">
+{{range .Comments}}<li>{{if .Removed}}<span class="removed">removed</span>{{else}}<span class="body">{{.Body}}</span>{{end}} on <a href="{{.ReportHref}}">{{.Title}}</a>{{if .ParentHref}}, answering <a href="{{.ParentHref}}">the one it answered</a>{{else if .ParentUnpublished}}, in reply to a comment (the report has no reader page){{else if .Reply}}, in reply to a hidden comment{{end}}
+<time datetime="{{.Posted.Format "2006-01-02T15:04:05Z"}}">{{.Posted.Format "2006-01-02 15:04 UTC"}}</time>
+{{if not .Removed}}<details class="remove">
+<summary>Remove</summary>
+<form method="post" action="/admin/comments/{{.ID}}/remove">
+<input type="hidden" name="from" value="blocked">
+<button type="submit">Remove for everyone</button>
+</form>
+</details>
+{{end}}</li>
+{{end}}</ul>
+{{else}}<p>No comments.</p>
+{{end}}
+<h3>What it sent you</h3>
+{{if .Feedback}}<ul class="blocked-feedback">
+{{range .Feedback}}<li><span class="body">{{.Body}}</span> on <a href="{{.Href}}">{{.Title}}</a>
+<time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></li>
+{{end}}</ul>
+{{else}}<p>No feedback.</p>
+{{end}}</section>
+{{else}}<p>Nobody is blocked.</p>
+{{end}}</main>
+</body>
+</html>

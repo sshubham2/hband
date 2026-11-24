@@ -21,6 +21,9 @@ var ctx = context.Background()
 // on it, so it need not move.
 func fixedNow() time.Time { return time.Unix(1_800_000_000, 0) }
 
+// testOwner is the pinned owner's id of every book here: no fixture account has it.
+const testOwner = 9000
+
 // fx is a real store on a temp file with a Book over its serving pool.
 type fx struct {
 	t    *testing.T
@@ -35,7 +38,7 @@ func newFx(t *testing.T) *fx {
 		t.Fatalf("store.Open: %v", err)
 	}
 	t.Cleanup(func() { st.Close() })
-	return &fx{t: t, st: st, book: New(st.DB(), fixedNow)}
+	return &fx{t: t, st: st, book: New(st.DB(), fixedNow, testOwner)}
 }
 
 func (f *fx) exec(q string, args ...any) {

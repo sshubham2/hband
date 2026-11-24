@@ -164,7 +164,7 @@ func TestRemove(t *testing.T) {
 
 		// A second removal, by a book whose clock has moved on, is a success that
 		// changes nothing: the first time is kept, the count does not drop again.
-		later := New(f.st.DB(), func() time.Time { return time.Unix(1_900_000_000, 0) })
+		later := New(f.st.DB(), func() time.Time { return time.Unix(1_900_000_000, 0) }, testOwner)
 		if err := later.Remove(ctx, c1); err != nil {
 			t.Fatalf("removing a removed comment: %v, want success", err)
 		}
