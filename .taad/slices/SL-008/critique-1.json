@@ -1,0 +1,214 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-008",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-24T06:58:58.715Z",
+ "head": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+ "run_id": 11924,
+ "summary": "The design fits the tree as surveyed. comments.Find, canonicalID, the single threadDepthCap, the recursive \"comment\" define, `.replies[hidden]` and the static-script fence all exist as described. With the new GET pattern, ServeMux answers POST /reports/x/comments/1 with 405 Allow: GET, HEAD. A single wildcard does not match a trailing slash, so the existing row POST /reports/x/comments/ → 404 still holds. The redirect formula gives the right branch roots (5, 9, 13), provided the branch page is built over the found node. Go's mime package on Windows ignores the registry's text/plain for .js (go.dev/src/mime/type_windows.go, golang/go#32350), so nosniff will not block thread.js on this machine. Nothing is a blocker.\n\nTwo findings are major:\n- Phone readability (a done criterion that lessons #954 and #955 call release-gating) has no check at all.\n- TestReplyRedirectTable computes its expected values from the same constant the code uses, so it cannot catch a wrong formula. Depths of 10 and more, which only that Go test reaches, are the m8 class this slice exists to close.\n\nSeven minors:\n- No test is named that can reach the redirect's re-read fallback: every known store-fault trick makes Post fail first.\n- readBranch has no stated answer for a PublishedBySlug store error, no named template for its 503, and no isolating test (CC-002).\n- readBranch rebuilds by hand what renderReader already composes (thread arguments, Cache-Control, Next, 503 state).\n- The \"[root]\" wording is ambiguous.\n- The scratch finish runner can still start Edge.\n- The design overstates what the finish test drives in a browser, compared with Q-019's answer.\n- Nothing stops a later `.toggle` display rule from showing dead buttons.\n\nAll of this rests on reading the design and the code; nothing was run. Running the scratch finish copy and a narrow-viewport probe would settle the phone and Q-019 points.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The design fits the tree as surveyed. comments.Find, canonicalID, the single threadDepthCap, the recursive \"comment\" define, `.replies[hidden]` and the static-script fence all exist as described. With the new GET pattern, ServeMux answers POST /reports/x/comments/1 with 405 Allow: GET, HEAD. A single wildcard does not match a trailing slash, so the existing row POST /reports/x/comments/ → 404 still holds. The redirect formula gives the right branch roots (5, 9, 13), provided the branch page is built over the found node. Go's mime package on Windows ignores the registry's text/plain for .js (go.dev/src/mime/type_windows.go, golang/go#32350), so nosniff will not block thread.js on this machine. Nothing is a blocker.\n\nTwo findings are major:\n- Phone readability (a done criterion that lessons #954 and #955 call release-gating) has no check at all.\n- TestReplyRedirectTable computes its expected values from the same constant the code uses, so it cannot catch a wrong formula. Depths of 10 and more, which only that Go test reaches, are the m8 class this slice exists to close.\n\nSeven minors:\n- No test is named that can reach the redirect's re-read fallback: every known store-fault trick makes Post fail first.\n- readBranch has no stated answer for a PublishedBySlug store error, no named template for its 503, and no isolating test (CC-002).\n- readBranch rebuilds by hand what renderReader already composes (thread arguments, Cache-Control, Next, 503 state).\n- The \"[root]\" wording is ambiguous.\n- The scratch finish runner can still start Edge.\n- The design overstates what the finish test drives in a browser, compared with Q-019's answer.\n- Nothing stops a later `.toggle` display rule from showing dead buttons.\n\nAll of this rests on reading the design and the code; nothing was run. Running the scratch finish copy and a narrow-viewport probe would settle the phone and Q-019 points.",
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "major",
+    "dimension": "test-coverage",
+    "nature": "required",
+    "claim": "The slice's done criterion 'Deep conversations stay readable on phones' has no test, check or measurement in the design. Lesson #955 requires any cap or indent change in SC-013 to be checked at 400 and 1000 px, not only against DOM depth. None of the named tests does that:\n- TestThreadCapFive counts articles.\n- TestStaticThreadScript checks a 200.\n- Finish line 2 (per Q-019's answer) drives Chrome only for the fold toggle.\n\nThe arithmetic does favour cap 5: 4 indents × (12+8+1) px = 84 px, plus 2×16 px of main padding, leaves about 244 px of comment width at 360 px. But that holds only by remembering. The indent lives in site.css and the cap in thread.go, and nothing fails when either changes. That is how validations#261 found the 1000 px overflow at cap 100.",
+    "evidence": "Design 'Tests that show it' lists TestThreadCapFive, TestBranchNotFoundIdentical, TestReplyRedirectTable, TestStaticThreadScript and finish line 2, none at a narrow viewport. Lessons #955 and #954 apply. Lesson #940: the headless CLI screenshot's minimum window is 492 CSS px and headless.go hard-codes --window-size=1024,1400, so the existing Shot channel cannot measure a phone width. The build-check left criterion 7 'missing'.",
+    "file": "internal/server/static/site.css",
+    "line": 21,
+    "quote": {
+     "path": "internal/server/static/site.css",
+     "line": 21,
+     "text": ".replies { margin-left: .75rem; padding-left: .5rem; border-left: 1px solid #8884; }"
+    },
+    "fix": "Add a Go test (e.g. TestThreadFitsPhoneWidth) that reads site.css's .replies margin-left, padding-left and border-left and main's padding. It asserts that (threadDepthCap−1)·indent + 2·padding leaves at least a stated minimum body width (e.g. 240 CSS px) at a 360 px viewport, so changing the cap or the indent fails. Name in the design a real-browser check at 400 and 1000 px of a depth-5 branch page for validate to run, as lesson #955 asks."
+   },
+   {
+    "id": "M2",
+    "severity": "major",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "TestReplyRedirectTable's expected values are 'computed from threadDepthCap', so the test restates the code's formula a = cap + (cap−1)·⌊(D−cap−1)/(cap−1)⌋ and agrees with itself. A wrong formula, or a later change to buildLevel's `depth >= limit` convention or to whether a branch page repeats its root, passes the table while replies land on a page that never draws them. That is the m8 defect lesson #954 says this slice must close. The finish test drives only levels 1-8 (D=6..8, all landing on the depth-5 branch page), so for D ≥ 10 the Go test is the only check. The formula is also a second, closed-form encoding of how buildThread cuts, an invariant held by remembering.",
+    "evidence": "Design SC-013 part 3: 'The redirect formula and TestReplyRedirectTable's expected values are both computed from threadDepthCap.' The cut rule it restates is thread.go:69-70.",
+    "file": "internal/server/thread.go",
+    "line": 69,
+    "quote": {
+     "path": "internal/server/thread.go",
+     "line": 69,
+     "text": "if depth >= limit {"
+    },
+    "fix": "Give TestReplyRedirectTable an oracle that does not depend on the formula. For every D from 1 to 3·threadDepthCap+2 it should:\n- post a reply at depth D through the real handler;\n- follow the 303's Location with a GET;\n- assert that the response draws article comment-<id> with its own body, and that the id is not inside a cut node.\n\nAlso add the nil-path row (a blocked poster's reply gets 303 #comment-<id>, as today, per lesson #959). Optionally, put the ancestor choice in one helper in thread.go next to buildLevel, so the cut rule and the redirect share one place."
+   },
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "required",
+    "claim": "The design specifies postComment's fallback ('If that read fails → /reports/<slug>#comments. A successful write is never answered with a 5xx') but names no test for it. The project's way of failing a thread read can't reach this branch: renaming the comments table, as TestCommentStoreFailure does, makes Post fail before the re-read runs, and closing the store makes Participant or PublishedBySlug fail first. So the branch is shadowed by an earlier failure, the class CC-002 records. As designed, it will ship untested.",
+    "class_of": "store-failure paths shadowed by an earlier failing lookup",
+    "threat": "accident",
+    "evidence": "Design SC-013 part 3. Accepted check CC-002. The existing isolation technique is in comment_test.go.",
+    "file": "internal/server/comment_test.go",
+    "line": 895,
+    "quote": {
+     "path": "internal/server/comment_test.go",
+     "line": 895,
+     "text": "h.exec(`ALTER TABLE comments RENAME TO comments_gone`)"
+    },
+    "fix": "Add a seam that fails only the re-read, for example an unexported tree func field on app that defaults to a.comments.Tree and that a test replaces. Name a test that posts successfully with the re-read failing and asserts: 303 to /reports/<slug>#comments, the row stored, no 5xx."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "required",
+    "claim": "The design leaves three things open for readBranch:\n- It says only that 'PublishedBySlug decides the 404'. It does not say what a non-ErrNotFound store error answers. A builder who maps every error to http.NotFound makes an outage look like absence, which lesson #944 forbids ('never confused with an empty library'). readReport answers 503 there.\n- 'Tree error → 503 page' names no template. branch.html as specified has no unavailable state, while report.html's has a different heading.\n- No test isolates either failure, which CC-002 asks for.",
+    "evidence": "Design SC-013 part 2: 'PublishedBySlug decides the 404 … Tree error → 503 page.' readReport's default branch is the pattern.",
+    "file": "internal/server/reader.go",
+    "line": 92,
+    "quote": {
+     "path": "internal/server/reader.go",
+     "line": 92,
+     "text": "a.renderReader(w, r, reportPage, reports.Report{}, stateUnavailable)"
+    },
+    "fix": "State that a PublishedBySlug error other than ErrNotFound answers 503 with the same unavailable page as readReport, and name the template that draws it. Add TestBranchStoreFailure with two cases:\n- the comments table renamed, so PublishedBySlug works and Tree fails: 503;\n- the reports lookup failing: 503, not 404."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "readBranch is a second, hand-composed reader path. It repeats what renderReader derives in one place:\n- ViewerFrom;\n- buildThread(…, signedIn, a.cfg.OwnerGitHubID, threadDepthCap);\n- Cache-Control 'private, no-cache';\n- Next from the stored slug;\n- the stateUnavailable 503.\n\nLesson #944 records that the reader pages go through one renderReader so that handlers cannot compose them differently. As designed, the owner ID, the cap and the personalised-page cache header are each remembered at two call sites, and at a third whenever a later reader page draws the thread.",
+    "evidence": "Design SC-013 part 2 lists these items again for readBranch. Lesson #944.",
+    "file": "internal/server/reader.go",
+    "line": 127,
+    "quote": {
+     "path": "internal/server/reader.go",
+     "line": 127,
+     "text": "d.Thread = buildThread(nodes, rep.Slug, signedIn, a.cfg.OwnerGitHubID, threadDepthCap)"
+    },
+    "fix": "Factor out one helper in reader.go that both pages call, for example a.thread(roots, rep, signedIn) returning []commentView. It supplies the owner ID and cap once and sets Cache-Control and the 503 state in one place. Alternatively, give renderReader a branch page kind."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "claim": "The branch page is specified as 'buildThread([root], slug, signedIn, ownerID, threadDepthCap)' while path := comments.Find(nodes, id) is a root-to-node path. 'root' reads most naturally as path[0], the top-level comment. Built that way, every continue link opens the top-level subtree to depth 5 again, never shows level 6, and the redirect's #comment-<id> lands on a page that does not draw it. The build-check had to reason out that the found node, path[len(path)-1], is the only reading that fits the formula and the finish test.",
+    "evidence": "Design SC-013 part 2, and the build-check design_why: \"It must mean the found node itself (path[len(path)-1]), not path[0].\"",
+    "file": "internal/server/thread.go",
+    "line": 47,
+    "quote": {
+     "path": "internal/server/thread.go",
+     "line": 47,
+     "text": "return buildLevel(nodes, slug, signedIn, ownerID, limit, 1)"
+    },
+    "fix": "Write it as buildThread([]*comments.Node{path[len(path)-1]}, …). Have TestThreadCapFive assert that the branch page for a depth-5 cut node draws that node at relative depth 1 and its depth-6 reply at relative depth 2."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The design's finish check is 'run from a scratch copy of the epics.finish body with ROOT pointed at the worktree … so it launches a browser'. It does not guard which browser. The build-check measured that test_e004_2 picks from a hard-coded list with msedge.exe as the second fallback, and never reads CHROME_BIN. On any run where the first Chrome path is missing, the design's own check command starts Edge, which lesson #946 and the machine's rule forbid. Lesson #947 says to read every check command for what it launches. This one was read and the hazard was recorded, but the design does not carry the guard.",
+    "evidence": "Build-check: 'test_e004_2 picks its browser from a hard-coded list that includes msedge.exe as the second fallback (body line 310), and it never reads CHROME_BIN.' Lesson #946.",
+    "fix": "In the design's finish-line recipe, require the scratch copy to have its browser list patched to the Chrome paths only, and to refuse to run (exit with a clear message) if none exists. The approved body in epics.finish stays untouched; report the defect in it to the person separately."
+   },
+   {
+    "id": "m6",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "nature": "required",
+    "claim": "The design says finish line 2 'drives levels 1-8, the branch page and the FOLD toggle in its own headless Chrome'. The recorded answer to Q-019 says Chrome drives only the fold toggle, signed out, on 3 comments, and that a signed-in browser check is owed. So, as designed:\n- No browser ever renders the depth-5 cut, the continue link or the branch page.\n- Nothing renders the signed-in tree, where details.reply and the toggle share each article.\n\nLesson #961 names SC-013 as a slice that will hit this wall unless a signed-in session is arranged for Chrome. The design plans none.",
+    "evidence": "Q-019 answer: 'Chrome drives only the fold toggle, signed out, 3 comments; signed-in browser check owed.' Lesson #961. The only in-tree Chrome test is anonymous.",
+    "file": "internal/server/browser_test.go",
+    "line": 208,
+    "quote": {
+     "path": "internal/server/browser_test.go",
+     "line": 208,
+     "text": "// Instrument blank 2: the real chrome around a found report, anonymous like"
+    },
+    "fix": "Correct the description of finish line 2 to what it drives. Name the owed browser check: a headless.Shot (Chrome default, never Edge) of a signed-in branch page through the harness, using a minted session cookie passed to Chrome via a test-only cookie route or a scratch profile. If nothing in the slice can arrange that, say so as a known limit for validate rather than implying coverage."
+   },
+   {
+    "id": "m7",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "extra",
+    "claim": "The no-JS safe default ('Without JavaScript the buttons stay hidden') relies on the UA rule [hidden]{display:none} not being overridden. For .replies the design guards the same thing with `.replies[hidden]{display:none}`, but it gives button.toggle no such guard. Any later `.toggle { display: inline-flex }` added for alignment would show every toggle to no-JS readers as a button that does nothing.",
+    "evidence": "site.css already guards the replies div this way. The toggle markup in the 'SC-013 part: collapse/expand toggle' component.",
+    "file": "internal/server/static/site.css",
+    "line": 22,
+    "quote": {
+     "path": "internal/server/static/site.css",
+     "line": 22,
+     "text": ".replies[hidden] { display: none; }"
+    },
+    "fix": "Add `.toggle[hidden] { display: none; }` next to the .replies rule."
+   },
+   {
+    "id": "m8",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "extra",
+    "claim": "TestStaticThreadScript asserts only that /static/thread.js answers 200. securityHeaders sends nosniff on every response, so a script served with a non-JavaScript Content-Type is blocked by the browser even though the 200 passes. Go ignores the Windows registry's text/plain for .js (go.dev/src/mime/type_windows.go, issue golang/go#32350), but any other registry or container mime-table value passes straight through. Only the finish test's browser run would notice, and that only on the machine it runs on.",
+    "evidence": "https://go.dev/src/mime/type_windows.go: 'the registry sometimes records that the \".js\" extension should be \"text/plain\" … we handle it here by ignoring that registry setting'. Only text/plain is special-cased.",
+    "file": "internal/server/router.go",
+    "line": 117,
+    "quote": {
+     "path": "internal/server/router.go",
+     "line": 117,
+     "text": "h.Set(\"X-Content-Type-Options\", \"nosniff\")"
+    },
+    "fix": "Have TestStaticThreadScript also assert that Content-Type's media type is text/javascript."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "Found m6: the design says finish line 2 drives levels 1-8 and the branch page in Chrome, but Q-019's answer says Chrome drives only the fold toggle, signed out. Checked and held:\n- Find's path length equals the drawn depth, because pruning keeps every ancestor of a kept node.\n- Branch roots at 5, 9, 13 follow from buildThread over the found node.\n- The redirect index a−1 is always below D.\n- A nil path (blocked poster) falls into D ≤ cap, which is safe."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "Checked the input shapes lesson #957 points at:\n- ids 0, -1, +1, 01, overflow and %20-prefixed are refused by canonicalID or ParseInt.\n- A trailing slash and an empty id: ServeMux single wildcards do not match a trailing slash, so 404 still holds.\n- An id from another report, a pruned id, and a placeholder cut node with kept replies (drawn already, so no oracle).\n- A reply to the depth-5 cut node from the main page (redirects to branch 5).\n- A hand-typed branch URL for a shallow node.\nNo new defect. The nil-path row is folded into M2."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "Found m7: no [hidden] guard on .toggle, unlike .replies. The redirect formula is a second encoding of buildLevel's cut rule (folded into M2's fix)."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "none: no new SQL, no new fitness rule (in line with lessons #939 and #957), and the script is tens of lines. A <details> element was the brief's alternative. The site script stays inside the existing static-script fence and keeps the safe no-JS default, so the choice is not excessive."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "Found m2 (readBranch's PublishedBySlug store error and its 503 template are unspecified) and m4 (\"buildThread([root], …)\" is ambiguous between path[0] and the found node)."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "Found m1: the redirect re-read fallback can't be reached by the project's store-fault techniques, because Post fails first, and no test or seam is named. The readBranch error paths are in m2."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "Weighed whether site JS on reader pages crosses open Q-012. Design 225 and the SL-006 fence (fitness.yaml:336-347) explicitly treat a DOM-only, network-free toggle as not settling Q-012, and the brief allows 'the site's own script'. Not filed and not re-asked. The design matches the epic design's SC-013 components."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "Found:\n- m3: readBranch repeats renderReader's composition (owner ID, cap, Cache-Control, Next, 503) by hand, against lesson #944's single-path rule.\n- m5: the scratch finish runner can still start Edge (build-check measured the msedge.exe fallback; lessons #946 and #947).\nHolding: reader.go's ViewerFrom exception covers readBranch; postComment keeps auth.SeeOther; the TestDislikesDoNotInterfere observe list gains the branch GET (lessons #948, #969); the continue link and toggle add no signal colours (#941)."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "Found:\n- M1: no check for the phone-readability criterion (lessons #955 and #940).\n- M2: TestReplyRedirectTable is self-agreeing.\n- m8: TestStaticThreadScript checks only the status, not the Content-Type under nosniff.\nThe existing TestCommentThreadCap 40-level subtest will also go red at cap 5. That is ordinary builder work, not filed."
+   },
+   {
+    "dimension": "security",
+    "result": "none: the continue href and the replies ids come from the stored slug and an int64 through html/template. Redirects go through auth.SeeOther and LocalPath. A pruned or hidden id gets the same 404 as an unknown one, and placeholders with replies are already public. thread.js is DOM-only under the fence with script-src 'self', no unsafe-inline or unsafe-eval. rawCSP's script-src 'none' is untouched and re-asserted."
+   }
+  ]
+ }
+}

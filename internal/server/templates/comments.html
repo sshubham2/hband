@@ -20,8 +20,9 @@
 <button type="submit">Post reply</button>
 </form>
 </details>
-{{end}}{{end}}{{if .Replies}}<div class="replies">
+{{end}}{{end}}{{if .Replies}}<button type="button" class="toggle" hidden aria-expanded="true" aria-controls="replies-{{.ID}}">Hide replies</button>
+<div class="replies" id="replies-{{.ID}}">
 {{range .Replies}}{{template "comment" .}}{{end}}</div>
-{{else if .Cut}}<p class="cut">Deeper replies are not shown on this page.</p>
+{{else if .Cut}}<p class="cut"><a class="continue" href="/reports/{{.Slug}}/comments/{{.ID}}">continue this thread &rarr;</a></p>
 {{end}}</article>
 {{end}}

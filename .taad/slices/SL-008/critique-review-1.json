@@ -1,0 +1,11 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-008",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-24T07:07:33.322Z",
+ "head": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+ "run_id": null,
+ "summary": "",
+ "payload": {}
+}

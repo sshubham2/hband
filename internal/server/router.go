@@ -43,7 +43,12 @@ type app struct {
 	comments *comments.Book
 	// feedback is the private messages readers send the author, on the same pool.
 	feedback *feedback.Book
-	pages    *template.Template
+	// tree reads a report's pruned comment forest. Every page and handler that
+	// needs the thread reads it here and nowhere else (renderReader, readBranch
+	// and the redirect after a comment), and it is a field only so that a test can
+	// make that one read fail while every other lookup works.
+	tree  func(ctx context.Context, reportID int64) ([]*comments.Node, error)
+	pages *template.Template
 }
 
 // New builds the whole handler. The chain from outside in: security headers,
@@ -52,6 +57,12 @@ type app struct {
 // from the request. lib is the opened report library (it has already swept
 // the data directory).
 func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() time.Time) http.Handler {
+	return newApp(cfg, st, lib, clock).handler()
+}
+
+// newApp builds the app New serves. It is split from handler so that a test can
+// keep the *app and change a seam (tree) before it serves a request.
+func newApp(cfg config.Config, st *store.Store, lib *reports.Library, clock func() time.Time) *app {
 	a := &app{
 		cfg:      cfg,
 		store:    st,
@@ -62,13 +73,23 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 		feedback: feedback.New(st.DB(), clock),
 		pages:    template.Must(template.ParseFS(templateFS, "templates/*.html")),
 	}
+	a.tree = a.comments.Tree
+	return a
+}
 
+// handler is the whole chain around the routes, as New describes it.
+func (a *app) handler() http.Handler {
+	cfg := a.cfg
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", a.home)
 	// The share URL, and the isolated path its iframe loads. Neither is under
 	// /admin. Identify still runs in front of /raw as on every route, but
 	// readRaw never reads the viewer it resolves.
 	mux.HandleFunc("GET /reports/{slug}", a.readReport)
+	// One branch of a deep thread on a page of its own: where a "continue this
+	// thread" link goes, and where a reply deeper than the report page draws is
+	// answered with a 303.
+	mux.HandleFunc("GET /reports/{slug}/comments/{id}", a.readBranch)
 	// The public write a reader uses to vote: a signed-in reader sets their
 	// vote. It is behind cross-origin protection and Identify like every route.
 	// The comment and feedback writes below and POST /auth/logout, registered by
@@ -86,6 +107,9 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 	if err != nil {
 		panic(err) // embedded above
 	}
+	// The site's own script (thread.js) is served from here under script-src
+	// 'self'; report bytes never are (they come from /raw with a policy that
+	// forbids every script).
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticSub)))
 	a.auth.Routes(mux)
 

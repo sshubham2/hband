@@ -21,9 +21,11 @@ main.reader { max-width: 72rem; }
 .replies { margin-left: .75rem; padding-left: .5rem; border-left: 1px solid #8884; }
 .replies[hidden] { display: none; }
 .byline { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-.login { font-weight: 600; }
+.login { font-weight: 600; overflow-wrap: anywhere; }
 .body { margin: .25rem 0; white-space: pre-wrap; overflow-wrap: anywhere; overflow: clip; }
 .badge { border: 1px solid currentColor; border-radius: .25rem; padding: 0 .3rem; font-size: .8em; }
 .removed, .cut { font-style: italic; margin: .25rem 0; }
+.continue { display: inline-block; padding: .5rem 0; }
+.toggle { margin: .25rem 0; }
 .reply summary { cursor: pointer; min-height: 2.5rem; display: flex; align-items: center; }
 .reply form { margin: .25rem 0 .5rem; }

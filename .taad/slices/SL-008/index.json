@@ -1,0 +1,113 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-008",
+ "title": "Deep threads stay readable: 'continue this thread →' pages beyond five levels, and a collapse/expand toggle on every comment",
+ "status": "active",
+ "branch": "slice/SL-008",
+ "opened_at": "2026-11-24T06:50:44.539Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "No page (/, /reports/<slug>, a branch page) nests a comment more than five levels deep: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "A depth-5 comment whose replies are cut shows a 'continue this thread →' link to /reports/<slug>/comments/<id>: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "GET /reports/{slug}/comments/{id} opens that branch on its own page, with a link back to the full report and reply forms for a signed-in reader; hidden or unknown report, bad id or pruned id → the same 404: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "A reply posted below the cap is answered 303 to the branch page that shows it (#comment-<id>), and to /reports/<slug>#comments if the re-read fails: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Every comment with shown replies has a collapse/expand toggle that, in a browser, hides and then shows everything beneath it, using /static/thread.js served from the site's own path: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Deep conversations stay readable on phones (the cut at five keeps a depth-5 comment body a usable width): missing"
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T06:58:58.146Z",
+     "head": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+     "summary": "Composed by the engine from E-004's design (design 225, made by SL-006 for the whole epic and attacked once, whole).",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T06:58:58.715Z",
+     "head": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+     "summary": "The design fits the tree as surveyed.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T07:07:33.322Z",
+     "head": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}

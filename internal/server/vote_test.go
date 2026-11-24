@@ -463,6 +463,9 @@ type observation map[string]result
 type dislikeWorld struct {
 	h                                 *harness
 	owner, nonvoter, upvoter, ownerID string
+	// first is the id of the seeded top-level comment on x, whose branch page is
+	// one of the pages observed.
+	first int64
 }
 
 func newDislikeWorld(t *testing.T) *dislikeWorld {
@@ -480,6 +483,7 @@ func newDislikeWorld(t *testing.T) *dislikeWorld {
 	// A thread on x: a comment, a reply and a comment by the owner. None of the
 	// text says "dislike", so the page-wide check below stays meaningful.
 	first := h.say(w.nonvoter, "x", "a comment from a reader", 0)
+	w.first = first
 	h.say(w.upvoter, "x", "a reply from another reader", first)
 	h.say(w.owner, "x", "a comment from the owner", 0)
 	if page := h.serve("GET", "/reports/x"); !strings.Contains(page.Body, "a reply from another reader") || !strings.Contains(page.Body, badgeMarkup) {
@@ -500,7 +504,10 @@ func (w *dislikeWorld) reader(id int64) string {
 func (w *dislikeWorld) observe(t *testing.T) observation {
 	t.Helper()
 	h, obs := w.h, observation{}
-	reads := []string{"/", "/reports/x", "/reports/y", "/reports", "/admin", "/admin/reports/x"}
+	reads := []string{"/", "/reports/x", "/reports/y", "/reports", "/admin", "/admin/reports/x",
+		// The branch page of the seeded comment: another reader page that is drawn
+		// from the thread and the likes, and must never mention a dislike either.
+		"/reports/x/comments/" + strconv.FormatInt(w.first, 10)}
 	// Each observer also sends a comment POST and a feedback POST that write
 	// nothing: a visitor's is answered with the 303 back to the report, and a
 	// signed-in reader's empty body with a 400.

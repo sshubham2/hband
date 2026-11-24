@@ -659,11 +659,31 @@ func TestReaderPathVariants(t *testing.T) {
 		{"HEAD", "/reports/x/comments", commentNotAllowed},
 		{"PUT", "/reports/x/comments", commentNotAllowed},
 		{"POST", "/reports/x/comments/", notFound},
-		{"POST", "/reports/x/comments/extra", notFound},
+		// One more segment is the branch page's path (GET /reports/{slug}/comments/{id}),
+		// so a POST to it is the mux's 405 naming GET and HEAD, whatever the segment is.
+		{"POST", "/reports/x/comments/extra", notAllowed},
+		{"POST", "/reports/x/comments/1", notAllowed},
+		{"PUT", "/reports/x/comments/1", notAllowed},
+		{"POST", "/reports/x/comments/1/", notFound},
+		{"POST", "/reports/x/comments/1/extra", notFound},
 		{"POST", "/reports/comments", notAllowed}, // a report whose slug is "comments": the page route, GET only
 		{"POST", "//reports/x/comments", redirect("/reports/x/comments")},
 		{"POST", "/reports/x/../y/comments", redirect("/reports/y/comments")},
 		{"POST", "/reports/x/comments", hiddenVote},
+		// The branch page: for a draft x and for an unknown x alike, every spelling of
+		// the id is the same http.NotFound the handler writes (there is no comment
+		// anywhere to find), and the odd spellings of the path are the mux's.
+		{"GET", "/reports/x/comments/1", hiddenVote},
+		{"HEAD", "/reports/x/comments/1", hiddenVote},
+		{"GET", "/reports/x/comments/abc", hiddenVote},
+		{"GET", "/reports/x/comments/01", hiddenVote},
+		{"GET", "/reports/x/comments/0", hiddenVote},
+		{"GET", "/reports/x/comments/-1", hiddenVote},
+		{"GET", "/reports/x/comments/%2B1", hiddenVote},
+		{"GET", "/reports/x/comments/1/", notFound},
+		{"GET", "/reports/x/comments/1/extra", notFound},
+		{"GET", "//reports/x/comments/1", redirect("/reports/x/comments/1")},
+		{"GET", "/reports/x/../y/comments/1", redirect("/reports/y/comments/1")},
 		// The feedback route is the comment route's twin again, with the same
 		// answers for the same spellings.
 		{"GET", "/reports/x/feedback", feedbackNotAllowed},
