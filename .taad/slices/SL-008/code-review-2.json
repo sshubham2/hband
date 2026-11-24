@@ -1,0 +1,240 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-008",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-24T08:40:06.226Z",
+ "head": "",
+ "run_id": 11930,
+ "summary": "The build matches the SC-013/SC-014 design. Five obligations were checked against code that ran, the other four against the code, and none of the findings is a blocker. threadDepthCap is 5. The cut comment draws the continue anchor. GET /reports/{slug}/comments/{id} is handled by readBranch: a missing report, a non-canonical id or an id not in the pruned forest each gets the same http.NotFound, and a failed report or thread lookup gets the 503 page drawn by renderReader. The branch page is built over the found node (path[len(path)-1:]). branchRoot matches the design formula: the root sits at depth 5 for D 6..9 and at depth 9 for D 10..13. landing falls back to #comments when the re-read fails. The toggle is a hidden button.toggle that thread.js turns on; the script only changes attributes and text. threadOf and writeReader set the owner id, the cap and Cache-Control in one place.\n\nRuns, all from this tree:\n- `go vet ./...` and `go test -count=1 ./...`: exit 0 (server 12.7 s).\n- Finish line 2 through the runner: exit 0. msedge processes were 5 before and 5 after, so the run started no Edge, and no hband processes were left behind.\n- The runner's signed-in look: PASS at 360, 400 and 1000 px, and the toggle folded and restored.\n- Fitness op=check: every rule holds.\n\nFindings, all minor:\n1. The phone verdict only covers a reader whose login is short. I re-ran the same look signed in as the seeded 39-character login, and both the branch page and the report page overflow: scrollWidth 482 at 360 px and 483 at 400 px. The cause is the header's 'Signed in as @login' span, which has no overflow-wrap.\n2. TestStoreFaultSteps says it covers every store-touching step, but it misses the home page's identify step. Its census is a hand-kept list, so it would not notice a step added to a handler.\n3. The runner falls back to Chrome install paths it writes into its own code, which the machine rule forbids. It does read CHROME_BIN first and never starts Edge.\n4. A comment in vote_test.go is wrong: it says the branch page draws the likes, and it does not.\n\nSecond round: Second round: nothing new. I went back over the changed code looking for inputs and failure paths that break it.\n\n**Parsers and matchers**\n- TestThreadFitsPhoneWidth's CSS reader fails the test, rather than letting it pass, on what it cannot read: !important, calc(), percentages, unknown or upper-case units, at-rules, and a .login rule that is spelt differently. CRLF line endings are trimmed or handled by the multi-line regex.\n- The cases where it would pass when it should fail all need a future CSS edit: a later rule that overrides .login, a `div` rule, or a more specific rule written earlier in the file. Lessons #939 and #957 say not to chase those spellings.\n- The runner's ROOT and browser-list patches exit 4 when they do not match, CRLF included. Its Edge refusal covers msedge, msedge_proxy and msedgewebview2.\n\n**Boundaries**\n- In branchRoot, root stays below depth, so path[root-1] is always in range. A cap under 2 fails at compile time.\n- Find returning nil, from readBranch or from landing, is handled.\n- The longest landing Location (an 80-character slug and two 19-digit ids, about 146 bytes) is well under LocalPath's 512.\n- canonicalID refuses 0, signs, leading zeros and ids too large for an int64.\n\n**Partial failures**\n- If the report is unpublished or deleted between Post and landing's re-read, the 303 points to a page that answers 404. Nothing breaks.\n- A render error after writeReader is a 500.\n- readBranch's lookup-then-read gap is the same as readReport's, which predates this slice.\n\n**Locks and concurrency**\n- No check in the production code is made, released and made again.\n- The test seam a.tree is written before h.serve, which calls ServeHTTP in the test's own goroutine, so there is no race.\n\nThe first round's four findings and its obligation answers stand.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The build matches the SC-013/SC-014 design. Five obligations were checked against code that ran, the other four against the code, and none of the findings is a blocker. threadDepthCap is 5. The cut comment draws the continue anchor. GET /reports/{slug}/comments/{id} is handled by readBranch: a missing report, a non-canonical id or an id not in the pruned forest each gets the same http.NotFound, and a failed report or thread lookup gets the 503 page drawn by renderReader. The branch page is built over the found node (path[len(path)-1:]). branchRoot matches the design formula: the root sits at depth 5 for D 6..9 and at depth 9 for D 10..13. landing falls back to #comments when the re-read fails. The toggle is a hidden button.toggle that thread.js turns on; the script only changes attributes and text. threadOf and writeReader set the owner id, the cap and Cache-Control in one place.\n\nRuns, all from this tree:\n- `go vet ./...` and `go test -count=1 ./...`: exit 0 (server 12.7 s).\n- Finish line 2 through the runner: exit 0. msedge processes were 5 before and 5 after, so the run started no Edge, and no hband processes were left behind.\n- The runner's signed-in look: PASS at 360, 400 and 1000 px, and the toggle folded and restored.\n- Fitness op=check: every rule holds.\n\nFindings, all minor:\n1. The phone verdict only covers a reader whose login is short. I re-ran the same look signed in as the seeded 39-character login, and both the branch page and the report page overflow: scrollWidth 482 at 360 px and 483 at 400 px. The cause is the header's 'Signed in as @login' span, which has no overflow-wrap.\n2. TestStoreFaultSteps says it covers every store-touching step, but it misses the home page's identify step. Its census is a hand-kept list, so it would not notice a step added to a handler.\n3. The runner falls back to Chrome install paths it writes into its own code, which the machine rule forbids. It does read CHROME_BIN first and never starts Edge.\n4. A comment in vote_test.go is wrong: it says the branch page draws the likes, and it does not.\n\nSecond round: Second round: nothing new. I went back over the changed code looking for inputs and failure paths that break it.\n\n**Parsers and matchers**\n- TestThreadFitsPhoneWidth's CSS reader fails the test, rather than letting it pass, on what it cannot read: !important, calc(), percentages, unknown or upper-case units, at-rules, and a .login rule that is spelt differently. CRLF line endings are trimmed or handled by the multi-line regex.\n- The cases where it would pass when it should fail all need a future CSS edit: a later rule that overrides .login, a `div` rule, or a more specific rule written earlier in the file. Lessons #939 and #957 say not to chase those spellings.\n- The runner's ROOT and browser-list patches exit 4 when they do not match, CRLF included. Its Edge refusal covers msedge, msedge_proxy and msedgewebview2.\n\n**Boundaries**\n- In branchRoot, root stays below depth, so path[root-1] is always in range. A cap under 2 fails at compile time.\n- Find returning nil, from readBranch or from landing, is handled.\n- The longest landing Location (an 80-character slug and two 19-digit ids, about 146 bytes) is well under LocalPath's 512.\n- canonicalID refuses 0, signs, leading zeros and ids too large for an int64.\n\n**Partial failures**\n- If the report is unpublished or deleted between Post and landing's re-read, the 303 points to a page that answers 404. Nothing breaks.\n- A render error after writeReader is a 500.\n- readBranch's lookup-then-read gap is the same as readReport's, which predates this slice.\n\n**Locks and concurrency**\n- No check in the production code is made, released and made again.\n- The test seam a.tree is written before h.serve, which calls ServeHTTP in the test's own goroutine, so there is no race.\n\nThe first round's four findings and its obligation answers stand.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "claim": "The look's PASS covers only a viewer whose login is short. The look puts the 39-character login on the page as a commenter, but browses as 'plain-reader'. A reader whose own login is long still overflows a phone on every reader page, the branch page included. The layout header draws <span class=\"who\">Signed in as @{{.Viewer.Login}}</span> as a flex item. site.css gives .who no overflow-wrap, so its minimum width is the whole '@' plus login. I re-ran the look with tab.b = who (the 39 'w' account), from a scratch copy of the runner: FAIL 360 on /reports/e004-look/comments/5 and on /reports/e004-look, scrollWidth 482 (wanted at most 360); FAIL 400, scrollWidth 483; PASS 1000. The same look as plain-reader passes at every width. The header itself predates this slice. What this slice adds is the done criterion 'Deep conversations stay readable on phones' and the check reported as proving it, and that check never feeds in this viewer.",
+    "evidence": "Runner .taad/slices/SL-008/run_finish_e004_2.py:212 browses as `reader`, while seed() signs in `who` = 'w'*39 at :108-110. The span is in internal/server/templates/layout.html:9. internal/server/static/site.css has a .login rule (line 24) but no .who rule. Measured: the copy with `tab.b = who` printed 'FAIL 360 /reports/e004-look/comments/5 [482, 482]' and 'FAIL 400 /reports/e004-look [483, 483]'.",
+    "file": ".taad/slices/SL-008/run_finish_e004_2.py",
+    "line": 212,
+    "quote": {
+     "path": ".taad/slices/SL-008/run_finish_e004_2.py",
+     "line": 212,
+     "text": "tab.b = reader  # the DevTools Fetch bridge forwards the page's requests with this visitor's cookies"
+    },
+    "fix": "In site.css add `.who { overflow-wrap: anywhere; }`, beside .login. Make the look also measure 360 and 400 px with tab.b = who, the viewer whose login is 39 characters."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "TestStoreFaultSteps is offered as the closed corpus for 'every store-touching step of the handlers that draw or answer a thread (the home page, ...)', and O-004 relies on it. It has an 'identify the viewer' row for readReport and for readBranch, but none for home. home also runs behind Identify, which reads the sessions table. The census omits that step as well, because the census is a hand-written map kept beside the rows. A step added to a handler later is invisible to it. So the docstring's 'a new step cannot be added without one' does not hold, and one member of the family the build reported closed is missing.",
+    "evidence": "internal/server/storefault_test.go:89-94. The census lists home as {\"look up the latest report\", \"read the votes\", \"read the comments\"}, while readReport and readBranch both list \"identify the viewer\". The rows at :76-80 have no drop(\"sessions\") row for get(\"/\"). The docstring at :24-26 claims the census enforces completeness.",
+    "file": "internal/server/storefault_test.go",
+    "line": 89,
+    "end_line": 94,
+    "quote": {
+     "path": "internal/server/storefault_test.go",
+     "line": 25,
+     "text": "The census at the end fails when a step has no row, so a new step"
+    },
+    "fix": "Add the row {\"home\", \"identify the viewer\", drop(\"sessions\"), []string{\"sessions\"}, []string{\"reports\", \"comments\", \"votes\"}, false, get(\"/\"), 200, \"\", \"Sign in with GitHub\", 0}. Add \"identify the viewer\" to the census entry for home. Change the docstring to say the census is kept by hand: it fails when a listed step has no row.",
+    "class_of": "store-failure paths shadowed by an earlier failing lookup",
+    "threat": "accident"
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The finish runner, which launches a browser, falls back to Chrome install paths written into its own code when CHROME_BIN is unset or missing. This machine's rule is that a browser-launching script takes its path from CHROME_BIN, and where that is unset it fails or skips saying so; it never writes a browser's install path into code. The script never starts Edge: it refuses any file name starting with msedge and exits 3. The accepted m5 disposition did say 'CHROME_BIN and the Chrome install paths only', so the decision and the machine rule disagree, and a person should settle which one holds.",
+    "evidence": ".taad/slices/SL-008/run_finish_e004_2.py:29-30 define CHROME_PATHS. chrome() at :41 iterates `(os.environ.get(\"CHROME_BIN\"), *CHROME_PATHS)`.",
+    "file": ".taad/slices/SL-008/run_finish_e004_2.py",
+    "line": 29,
+    "end_line": 51,
+    "quote": {
+     "path": ".taad/slices/SL-008/run_finish_e004_2.py",
+     "line": 29,
+     "text": "CHROME_PATHS = (r\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\","
+    },
+    "fix": "Have chrome() use only CHROME_BIN: keep the msedge refusal, exit 3 when it is unset or not a file, and delete CHROME_PATHS."
+   },
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "The comment added to observe() says the branch page is 'drawn from the thread and the likes'. readBranch never reads the votes, and branch.html draws no like count. The page comes from the thread alone.",
+    "evidence": "internal/server/vote_test.go:508-509. Against it: internal/server/reader.go:215-220, where readerData has no Votes, and internal/server/templates/branch.html, which has no .Votes.",
+    "file": "internal/server/vote_test.go",
+    "line": 509,
+    "quote": {
+     "path": "internal/server/vote_test.go",
+     "line": 509,
+     "text": "// from the thread and the likes, and must never mention a dislike either."
+    },
+    "fix": "Change it to: 'another reader page, drawn from the thread, which must never mention a dislike either.'"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/server/branch_test.go:99-246 TestThreadCapFive.\n- Chains of 12, 5, 5 (one with a pruned hidden reply) and a removed comment at the cap with a visible reply, through the real handlers.\n- Pages: /, /reports/x and five branch pages, anonymous and signed in.\n- Checks: depth ≤ cap, the continue link exactly on cut nodes, the toggle only where replies are drawn, the root at level 1, the back link, the script tag, no iframe, Cache-Control.\n- Production code: thread.go:20, comments.html:23-26, reader.go:188-222, router.go:92.\n- My suite run was green, and finish line 2 exits 0 through the runner."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "- phone_test.go:131-210, TestThreadFitsPhoneWidth: reads shorthands and refuses any other horizontal box space on html, body, main, article, section, .comment, .comments, .body, .reader and .branch. It requires 240 px or more at 360 px and pins .login overflow-wrap.\n- site.css:24 has `.login { ...; overflow-wrap: anywhere; }`.\n- I ran the runner's look: PASS at 360, 400 and 1000 px on the branch and report pages.\n- Caveat (m1): the look is blind to a viewer whose own login is long; that case overflows to 482 px."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "- branch_test.go:376-458 TestReplyRedirectTable posts depths 1..17 through postComment.\n- It requires the fragment to be exactly comment-<id>, the path to be /reports/x for D ≤ cap and otherwise /reports/x/comments/<ancestor>, and a GET of that path to draw the article with its own text, anonymous and signed in.\n- It covers branch roots that are removed comments, and the blocked poster's exact Location /reports/x#comment-<id>.\n- branchRoot (thread.go:68-78) agrees with cap + (cap-1)·⌊(D-cap-1)/(cap-1)⌋: root at depth 5 for D 6..9 and 9 for D 10..13."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "- router.go:50 and :76: the a.tree seam, with newApp and handler split. harness_test.go keeps h.app.\n- comment.go:111-122: landing returns /reports/<slug>#comments when the tree read fails.\n- branch_test.go:474-502: TestReplyRedirectRereadFails fails only the reads that follow a stored row, for a top-level, a shallow and a deep reply, and asserts the 303 Location, the stored row and that the double fired exactly 3 times.\n- The class corpus in storefault_test.go misses one member (m2)."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "- reader.go:194-197: a PublishedBySlug error other than ErrNotFound draws renderReader(stateUnavailable), the 503 'Reports cannot be shown right now'.\n- reader.go:207-210 does the same for a tree error.\n- branch_test.go:307-350 TestBranchStoreFailure covers a renamed comments table, a renamed reports table and a.tree failing. Each proves the other table still reads, then checks the 503 page, Cache-Control and that nothing of the thread is drawn."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "- reader.go:155-170 threadOf: a.tree, a.cfg.OwnerGitHubID and threadDepthCap, written once.\n- reader.go:176-179 writeReader: Cache-Control private, no-cache.\n- renderReader (:125, :145) and readBranch (:205, :221) both use them, and only Next differs."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "- reader.go:167: `nodes = path[len(path)-1:]`.\n- branch_test.go:163-197: the cut comment's branch page draws a[4]..a[8] at levels 1..5, with a[8] cut, and the second branch draws a[8]..a[11] at levels 1..4."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "- run_finish_e004_2.py:38-84: CHROME_BIN first, then the install paths. Any basename starting with msedge is refused, no Chrome exits 3, and the ROOT and browser-list patches must each match exactly once or it exits 4. It asserts no 'msedge' is left anywhere in the patched body.\n- I ran it: the finish line exited 0, with msedge processes at 5 before and 5 after.\n- The install-path fallback conflicts with the machine rule (m3)."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "- run_finish_e004_2.py:174-261 look(): seeds a signed-in 9-deep thread through the real handlers, sets viewports with Emulation.setDeviceMetricsOverride, opens the details.reply forms, clicks the toggle twice and asserts hidden, aria-expanded and the label, with a watchdog on every step.\n- I ran it: the toggle went [false,'true','Hide replies'] → [true,'false','Show replies',0] → [false,'true','Hide replies',true], and every width passed.\n- The docstring at :1-25 says what finish line 2 drives."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "The waiver's reason holds. site.css:29 `.toggle { margin: .25rem 0; }` and site.css:9 `button, .signin {...}` set no display, so the UA [hidden] rule keeps toggles hidden without JS. Not built, by a person's waiver (N-066)."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "Waived to N-067, and consistent with the code: TestStaticThreadScript (branch_test.go:507-544) asserts the 200, the script body, the CSP and the page tags, but not Content-Type. Nothing in this tree contradicts the waiver."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "TestThreadCapFive (branch_test.go:99) feeds the shapes the design names:\n- a 12-deep chain, with a branch below a branch;\n- a chain exactly at the cap;\n- a chain at the cap whose only reply is hidden, so it is pruned and has no link;\n- a removed comment at the cap with a visible reply, which becomes a placeholder with a link.\nIt reads / and /reports/x and five branch pages, anonymous and signed in.\n\nOther tests:\n- TestBranchNotFoundIdentical: a draft, an unpublished, a deleted and an unknown report, other-report and pruned ids, and 11 non-canonical id spellings.\n- TestReplyRedirectTable: D=1..17, with oracle GETs of each landing page.\n- TestStaticThreadScript: thread.js 200, and /raw/x CSP with script-src 'none'.\n- Finish line 2, which I ran: exit 0."
+   }
+  ],
+  "matches_design": true,
+  "drift": [],
+  "unreviewed": [
+   "internal/server/comment_test.go -- read only as this slice's diff hunks (say(), TestCommentLiteralHTML, TestCommentThreadCap, TestCommentPlaceholders case F), not the whole file",
+   "internal/server/reader_test.go -- read the diff hunk of TestReaderPathVariants and the check helpers at :50 and :595-627; not read whole",
+   "internal/server/vote_test.go -- read only the diff hunks (dislikeWorld.first, observe's reads list), not the whole of observe's comparison",
+   "internal/server/harness_test.go -- read only the diff hunks (h.app, newApp/handler in newHarness and rebuild)"
+  ],
+  "second_round": {
+   "run_id": 11931,
+   "filed": 0
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 12,
+    "changed": 16,
+    "listed": 4
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 16,
+   "read_whole": 12,
+   "deleted": [],
+   "runs": [
+    11928,
+    11930,
+    11931
+   ],
+   "range": {
+    "base": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+    "head": "78c9ccc47bf60dec9e50c06dc5fca11e1e134370",
+    "source": "commits",
+    "hunk_base": "a4328f2714f4dda1c645f9f8e7452ecb146305b7",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": "internal/server/comment_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-1194 of 1194",
+     "reason": "seen only as 54 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 1194,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/harness_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-353 of 353",
+     "reason": "seen only as 23 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 353,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-707 of 707",
+     "reason": "seen only as 34 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 707,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/vote_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-635 of 635",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 635,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

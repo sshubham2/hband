@@ -210,5 +210,161 @@
     "result": "none: the continue href and the replies ids come from the stored slug and an int64 through html/template. Redirects go through auth.SeeOther and LocalPath. A pruned or hidden id gets the same 404 as an unknown one, and placeholders with replies are already public. thread.js is DOM-only under the fence with script-src 'self', no unsafe-inline or unsafe-eval. rawCSP's script-src 'none' is untouched and re-asserted."
    }
   ]
+ },
+ "prescribed": {
+  "host": 697,
+  "at": "2026-11-24T07:07:33.747Z",
+  "runs": [
+   {
+    "run_id": 11926,
+    "resumed_from": "fe97fd83-8ecb-43e0-8dcc-7899f499951f",
+    "ending": "completed",
+    "cost_usd": 1.0598783999999999,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 2010,
+    "key": "M1",
+    "digest": "7fdbf11731432f5a"
+   },
+   {
+    "finding_id": 2011,
+    "key": "M2",
+    "digest": "5c02b88677a32be9"
+   },
+   {
+    "finding_id": 2012,
+    "key": "m1",
+    "digest": "6ed87dc4ea15de87"
+   },
+   {
+    "finding_id": 2013,
+    "key": "m2",
+    "digest": "d6903b0faa15025e"
+   },
+   {
+    "finding_id": 2014,
+    "key": "m3",
+    "digest": "d1a10982f5383d09"
+   },
+   {
+    "finding_id": 2015,
+    "key": "m4",
+    "digest": "91396b42058bbe50"
+   },
+   {
+    "finding_id": 2016,
+    "key": "m5",
+    "digest": "5fa3099902593a7f"
+   },
+   {
+    "finding_id": 2017,
+    "key": "m6",
+    "digest": "949a7721be9b3288"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 2010,
+    "key": "M1",
+    "digest": "7fdbf11731432f5a",
+    "verdict": "hole",
+    "severity": "major",
+    "checked": "Read site.css whole:\n- line 3: `main { … padding: 1rem; }`;\n- line 21: `.replies { margin-left: .75rem; padding-left: .5rem; border-left: 1px solid #8884; }`;\n- line 24: `.login { font-weight: 600; }`, with no overflow-wrap;\n- line 23: `.byline { display: flex; flex-wrap: wrap; … }`.\nAlso read comments.html:13, where the byline holds the avatar, login, badge and time, and headless.go:98 (`--window-size=1024,1400`). Lesson #940 sets the window floor at 492 px. SL-007's validate-slice-1.json:60 shows that its harness drives Chrome over `--remote-debugging-port=0`.",
+    "why": "The test checks (cap−1)·indent + 2·padding = 84 + 32 px, leaving 244 ≥ 240 at 360 px. That says nothing about what has to fit in the 244 px:\n- `.login` is a flex item with min-width:auto and no overflow-wrap, so its minimum width is the whole login. GitHub allows 39 characters, and 39 characters of 600-weight system-ui at 16 px is roughly 300–370 px, more than 244. The proxy passes while a depth-5 comment by a long-login reader overflows a phone.\n- The parser reads three named declarations. An indent spelled another way (a `margin: 0 0 0 .75rem` shorthand, `padding-inline-start`, or a new horizontal margin or padding on `.comment` or `article`) changes the real width and the test still passes. The cap and the indent are still kept in step by memory, which is what this finding was meant to end.\n- The real-browser look at 400 px names no viewport mechanism. In Chrome driven over CDP, `--window-size=400` is subject to the same ~492 px floor, so the look can quietly measure a cropped 492 px layout.",
+    "instead": "Make the Go test strict: fail if it finds any horizontal margin, padding or border on `.replies`, `.comment` or `main` other than the declarations it reads, shorthands included. Specify the validate look in full:\n- set the 360 px and 400 px viewports with CDP `Emulation.setDeviceMetricsOverride` (mobile:true), not `--window-size`;\n- seed a depth-5 branch page with a 39-character login, a long unbroken body, the Author badge and an open `details.reply`;\n- assert `document.documentElement.scrollWidth <= innerWidth`, and the same at 1000 px.\nIf that fails on the login, the fix is `overflow-wrap: anywhere` (or min-width: 0) on `.login`, decided in the build, not found after it."
+   },
+   {
+    "finding_id": 2011,
+    "key": "M2",
+    "digest": "5c02b88677a32be9",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Traced the oracle against comment.go:93 and the prescribed fallback, `/reports/<slug>#comments`. Per the survey, auth.SeeOther writes LocalPath(target), or '/' when the target is refused. Walked the formula for D = 6, 9 and 10: a = 5, 5 and 9. The branch page shows relative depths 1–5, so all three draw.",
+    "why": "The oracle follows Location, GETs it, and asserts that `comment-<id>` is drawn with its body. It never checks the fragment, which is the part that puts the reader on the comment. These would all pass:\n- a redirect to the right branch page with `#comment-<ancestor>`;\n- a handler that always takes the `#comments` fallback, for every D ≤ cap, because /reports/x draws those depths;\n- a target LocalPath refuses: it becomes '/', and when x is the newest report, '/' draws D ≤ cap.\n\n'Not inside a cut node' is true by construction, because a cut node renders no child articles. It adds no strength.",
+    "instead": "For each D, parse Location. Assert:\n- the fragment is exactly `comment-<id>`;\n- the path is /reports/x when D ≤ threadDepthCap, otherwise /reports/x/comments/<n>, where n is an id in the chain;\n- the GET of that path answers 200 and draws `comment-<id>` as a non-placeholder article whose own text holds the body.\nKeep the nil-path row (blocked poster → `/reports/x#comment-<id>`) with the same exact-Location assertion."
+   },
+   {
+    "finding_id": 2012,
+    "key": "m1",
+    "digest": "6ed87dc4ea15de87",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read router.go:54-111: `func New(...) http.Handler` builds `a := &app{…}` and returns the wrapped mux. Read harness_test.go:108, `h.handler = New(cfg, st, h.lib, h.clock.Now)`: the harness holds only an http.Handler. Read comment.go:80-94: the re-read would come after a successful Post.",
+    "why": "As written it can't be built. No test can reach 'an unexported tree-reader field on app' to replace it: the *app is captured inside New and never returned, and the harness stores only the http.Handler. A builder will make one of two choices:\n- a package-level hook variable: mutable global state shared by every test in the package, which races if a test runs in parallel or leaves it set;\n- an ad-hoc change to New's signature: it ripples into cmd/hband and every harness.\nThe prescription chooses neither.",
+    "instead": "Split New into an unexported `newApp(cfg, st, lib, clock) *app` and `(a *app) handler() http.Handler`, with New calling both. Give the harness a variant that keeps the *app, so a test can set `a.tree` before it serves any request. Have renderReader, readBranch and postComment all read through `a.tree`. The fault double fails only on the call that follows a successful Post, and the test asserts 303 to `/reports/x#comments`, the stored row, and no 5xx."
+   },
+   {
+    "finding_id": 2013,
+    "key": "m2",
+    "digest": "d6903b0faa15025e",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Read reader.go:83-94, where readReport's default branch renders stateUnavailable as a 503, and reader.go:138-140. Read comment_test.go:895, where the comments table is renamed while votes still read. Tried to find an earlier failure that would hide the PublishedBySlug fault: readBranch has no auth.Participant, and ViewerFrom treats a store outage as anonymous, so an anonymous GET with the store closed still reaches PublishedBySlug. Checked the order against a bad id: whichever check comes first, draft and unknown slugs still answer the same 404.",
+    "why": "Both cases can be reached and are isolated. Renaming the comments table leaves PublishedBySlug working and makes Tree fail. A closed or renamed reports table fails PublishedBySlug, and nothing before it shadows the fault. Using readReport's own unavailable page (report.html stateUnavailable) names the template and keeps an outage from looking like absence.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2014,
+    "key": "m3",
+    "digest": "d1a10982f5383d09",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Read reader.go:101-147 (renderReader) and thread.go:46-77. Grepped the buildThread callers: reader.go:127, comment_test.go:621 (which loops over limits 1, 5 and threadDepthCap) and comment_test.go:1112. Checked the helper against TestReaderPagesShareOneLayout's byte-identity rule for / and /reports/<newest>.",
+    "why": "With one helper supplying the owner ID, threadDepthCap, Cache-Control and the 503 state, each is written once for both reader pages. Next is the one thing that must differ, because the branch Next is /reports/<slug>/comments/<id>, and the prescription correctly leaves it out of the helper. One bypass remains: buildThread still takes ownerID and limit, so a third caller could pass a different cap. The tests at comment_test.go:621 need that parameter, though, so removing it would cost more than it guards. The helper adds nothing page-dependent, so the two pages stay byte-identical.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2015,
+    "key": "m4",
+    "digest": "91396b42058bbe50",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Traced buildThread([]*comments.Node{path[len(path)-1]}, …) through thread.go:52-77 for:\n- a depth-5 cut node, including one that is a placeholder: comments.html:23-25 puts the Cut branch outside the Placeholder branch;\n- a depth-1 node, where path[0] == path[len-1];\n- a hand-typed shallow node.\nThen ran the prescribed assertion against the wrong reading, path[0].",
+    "why": "Built with path[0], the depth-5 node would sit at relative depth 5 with Cut set, and its depth-6 reply would not be drawn. The assertion 'depth-6 reply at relative depth 2' fails, so the test catches the misreading. parseThread's token-stack depth is depth within the page, which is the relative depth the assertion needs. A placeholder branch root renders 'comment removed' with its kept replies, as on the main page, so this reveals nothing new.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2016,
+    "key": "m5",
+    "digest": "5fa3099902593a7f",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read the build-check's account: the approved body's browser list has msedge.exe as the second fallback (body line 310) and never reads CHROME_BIN. Compared it with headless.go:43-68, where the Go tests use HBAND_TEST_BROWSER plus a Chrome-only default and Fatalf on a bad path. SL-007's validate-slice-1.json:60 shows the scratch harnesses use CHROME_BIN.",
+    "why": "The guard depends on a text patch to a copy that is re-extracted at build, review and validate, and nothing checks the patch:\n- If the replacement doesn't match, for example because the body's list is spelled differently from what the patcher expects, the copy keeps the Edge fallback and nothing reports it.\n- An Edge launch outside the list (a which() or a second literal) survives a list-only patch.\n- CHROME_BIN can itself point at msedge.exe, and 'CHROME_BIN and the Chrome install paths only' does not refuse that.\n- 'Exits with a clear message' gives no exit code. A skip-style exit 0 when no browser is found reads as a passing finish line.",
+    "instead": "Make the patch one scripted step, used by all three stages, that:\n- asserts its replacement matched exactly once;\n- asserts 'msedge' (case-insensitive) no longer appears anywhere in the patched body;\n- refuses any browser path whose basename is msedge.exe, from CHROME_BIN or the list;\n- exits with a non-zero code distinct from a test failure (e.g. 3) when no Chrome is found.\nThe approved epics.finish body is not touched."
+   },
+   {
+    "finding_id": 2017,
+    "key": "m6",
+    "digest": "949a7721be9b3288",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Grepped the tree for the harness the triage names. 'real_browser.py' appears only in .taad/slices/SL-007/validate-slice-1.json:60, as 'python -I real_browser.py <worktree> <scratch> (built hband.exe, stand-in GitHub, CHROME_BIN --headless=new --remote-debugging-port=0, real Input.dispatchMouseEvent clicks …)', and in SL-007's reflect-1.json:211, which records that 1 of 7 runs timed out with no diagnostics. Q-021 is still open. The only committed Chrome test is the anonymous TestReportScriptsNeverRun (browser_test.go:150-208). internal/testutil/fakegithub exists in the tree.",
+    "why": "The prescription says validate will use 'SL-007's stand-in-GitHub harness', but that harness was a scratch script from SL-007's validation and is not in the repository. Lesson #936 records the same pattern of scratch harnesses being deleted. So validate rebuilds it, with nothing in the slice saying which pieces to reuse:\n- the in-tree fakegithub;\n- a built binary with HBAND_GITHUB_URL and HBAND_GITHUB_API_URL pointing at the stand-in.\nIts known flakiness (Q-021: a timeout with no diagnostics) is not accounted for, so one timeout can halt validation with nothing to go on. The harness also launches a browser from CHROME_BIN, and the never-Edge guard m5 prescribes is not applied to it.",
+    "instead": "Name the parts concretely:\n- fakegithub from internal/testutil;\n- a built binary with stand-in HBAND_* values;\n- Chrome over --remote-debugging-port=0;\n- sign-in through the stand-in OAuth flow.\nState what is asserted on the signed-in depth-5 branch page: the reply details opens; the toggle click sets hidden on `replies-<id>` and aria-expanded=false; a second click restores both. Apply m5's guard to this launcher as well (refuse msedge.exe, non-zero exit when no Chrome is found). Add a per-step timeout that records the last completed CDP step, so a Q-021-style timeout says where it stopped. If validate cannot rebuild the harness, record the signed-in render as not reached rather than implying it."
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:2010",
+   "finding:2011",
+   "finding:2012",
+   "finding:2016",
+   "finding:2017"
+  ],
+  "counts": {
+   "holds": 3,
+   "hole": 5,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "I checked all eight prescriptions against the tree. Three hold as written: m2, m3 and m4. The other five have holes; none blocks the build.\n\n- **M1 (major):** the width test does arithmetic on the indents only, so it passes whatever is inside the comment. A 39-character GitHub login in `.login`, which can't wrap, can be wider than the 244 px left at depth 5. The test also misses an indent written another way (a `margin` shorthand, `padding-inline-start`, or an indent on `.comment`). The real-browser look at 400 px names no way to get below Chrome's window floor of about 492 px, so it can quietly measure a cropped 492 px layout instead.\n- **M2 (minor):** the oracle never checks the `#comment-<id>` fragment. A redirect to the right page with the wrong anchor passes. So does a handler that always takes the `#comments` fallback, for every reply at depth 5 or less.\n- **m1 (minor):** it can't be built as written. `server.New` returns an `http.Handler`, and the harness keeps only that handler, so no test can reach a field on `app` to swap in a failing tree reader.\n- **m5 (minor):**\n  - The patch isn't checked: if the replacement doesn't match, Edge is still in the list and nothing says so.\n  - `CHROME_BIN` can itself point at `msedge.exe`.\n  - \"Exits with a clear message\" doesn't say the exit code must be non-zero, so a missing browser could read as a pass.\n- **m6 (minor):** the harness it calls \"SL-007's stand-in-GitHub harness\" is `real_browser.py`, a scratch script from SL-007's validation that is not in the tree. It timed out once in seven runs with no diagnostics (Q-021 is still open), and the never-Edge guard from m5 isn't extended to it.\n\nNothing was run. All of this comes from reading `router.go`, `harness_test.go`, `headless.go`, `site.css`, `comments.html`, `reader.go`, `thread.go`, `comment.go` and SL-007's validate and reflect records.",
+  "why": "",
+  "round": "landed"
  }
 }

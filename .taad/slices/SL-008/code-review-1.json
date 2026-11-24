@@ -1,0 +1,11 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-008",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-24T07:30:34.216Z",
+ "head": "78c9ccc47bf60dec9e50c06dc5fca11e1e134370",
+ "run_id": 11928,
+ "summary": "",
+ "payload": {}
+}

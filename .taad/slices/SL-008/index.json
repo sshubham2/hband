@@ -31,6 +31,122 @@
   {
    "stage": "build-check",
    "issue": "Deep conversations stay readable on phones (the cut at five keeps a depth-5 comment body a usable width): missing"
+  },
+  {
+   "stage": "build-slice",
+   "issue": "m7 (.toggle[hidden]{display:none}): waived to note N-066; .toggle sets no display, so the no-JS default holds."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "m8 (Content-Type media type assertion in TestStaticThreadScript): waived to note N-067; the test checks the 200, the script body, the page tags and the raw CSP only."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The phone-width real-browser check is a runner mode (`look`) for validate, not a Go test; the Go test models the CSS arithmetic only."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Report to the person that the approved epics.finish body for test_e004_2 falls back to msedge.exe and ignores CHROME_BIN. The scratch runner guards it; the ledger body is untouched."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "internal/server/harness_test.go was not gofmt-clean before this slice (struct field alignment); left as it was."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Q-012 (site JavaScript) stays open: thread.js is DOM-only and under the fitness fence, but it is now site JavaScript on the reader pages."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Validate should run `run_finish_e004_2.py look` itself and view the screenshots at 360 and 400 px; the unbroken-login control only shows if the viewer width is the one asked for."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: TestReaderPathVariants: the existing row POST /reports/x/comments/extra changed from 404 to 405 Allow: GET, HEAD. The new GET /reports/{slug}/comments/{id} pattern also matches any single extra segment, so the mux answers a POST with 405 before any handler. The critique only checked the trailing-slash row. Routing was not changed to suit the test."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The critic's look prescribed `scrollWidth <= innerWidth`. Measured under mobile emulation it is blind: an overflowing page widens innerWidth too (572 of 572 without the login fix). The look compares scrollWidth to the width asked for."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: A removed comment that has replies drawn below it also carries the toggle (the design says every comment with rendered replies), so TestCommentPlaceholders accepts 'comment removed Hide replies'. Case F of that test is rebuilt around the cap, because a depth-6 leaf is no longer on the report page. TestCommentLiteralHTML allows the one site script tag."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The first look seeded a 39-character login with a hyphen, which is a break point, so it was blind. It now uses 39 'w' characters."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: A serve mode was added to the runner so the engine can open the new screens, because config refuses to start the app without HBAND_* variables (lesson #961). It reuses the finish test's Product class with a one-line port patch applied only in serve mode."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Waived by a person, so not built: m7 (.toggle[hidden] guard, N-066) and m8 (Content-Type assertion, N-067). The toggle rule has no display property, so the no-JS default stays hidden. No setting or notice was added: nothing here works around a defect outside this project (the Edge guard is a rule for the tests, and the login wrap is a layout fix)."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-1194 of 1194) -- partly-opened: seen only as 54 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/harness_test.go (not seen: lines 1-353 of 353) -- partly-opened: seen only as 23 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/reader_test.go (not seen: lines 1-707 of 707) -- partly-opened: seen only as 34 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-635 of 635) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/comment_test.go -- read only as this slice's diff hunks (say(), TestCommentLiteralHTML, TestCommentThreadCap, TestCommentPlaceholders case F), not the whole file"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/reader_test.go -- read the diff hunk of TestReaderPathVariants and the check helpers at :50 and :595-627; not read whole"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/vote_test.go -- read only the diff hunks (dislikeWorld.first, observe's reads list), not the whole of observe's comparison"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/harness_test.go -- read only the diff hunks (h.app, newApp/handler in newHarness and rebuild)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/server/thread.go:47-49 -- buildThread's doc says a comment at depth limit has its replies left out 'with Cut set'. Cut is set only when that comment has replies. The code is right and the sentence is loose, so I left it."
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/server/thread.go:14-16 -- the doc cites a Chrome 158 measurement (nesting flattened at the 256th reply). I cannot check that from the code, so I left it."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: No real phone, Firefox or Safari: phone readability was measured only in desktop Chrome with Emulation.setDeviceMetricsOverride (mobile) at 360 and 400 px."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The phone width for a signed-in viewer whose own login is long (header 'Signed in as @login') was not re-measured. The code review measured an overflow of 482 at 360 px (waived N-069)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The production path (VPS reverse proxy over WireGuard, real GitHub OAuth, https base URL): every run used the finish test's stand-in GitHub, https://hband.test as base URL, and 127.0.0.1."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The branch page was exercised with a single nine-level chain. No real-sized thread (Q-020's 10,000 comments) was loaded to see the branch page's cost or behaviour."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A draft report's branch URL was checked only by TestBranchNotFoundIdentical, not by the live-binary probe (the serve seed has no draft)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The no-JavaScript reading (toggles stay hidden, replies open) was checked from the markup only, not rendered in a browser with scripts disabled."
   }
  ],
  "stages": [
@@ -106,6 +222,75 @@
      "caused_by": null,
      "changed": {},
      "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T07:11:26.541Z",
+     "head": "78c9ccc47bf60dec9e50c06dc5fca11e1e134370",
+     "summary": "Built SC-013 and SC-014 on the design.",
+     "caused_by": null,
+     "changed": {
+      "src": 16,
+      "config": 1,
+      "listed": 17,
+      "measured_by_git": 22
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T07:30:34.216Z",
+     "head": "78c9ccc47bf60dec9e50c06dc5fca11e1e134370",
+     "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 2:10pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "unrecorded",
+     "at": "2026-11-24T08:40:06.226Z",
+     "head": "",
+     "summary": "The build matches the SC-013/SC-014 design.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "failed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "failed",
+     "at": "2026-11-24T08:51:15.634Z",
+     "head": "50e3ab0450baac66d1aedac5b841951343105d59",
+     "summary": "Every acceptance criterion of SC-013 and SC-014 was checked on the built binary of this tree, and all of them hold.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
     }
    ]
   }

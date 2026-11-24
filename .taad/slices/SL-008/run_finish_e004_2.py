@@ -7,10 +7,11 @@ never edits the approved body in the ledger:
 
   1. reads the body read-only (file:<engine.db>?mode=ro, a SELECT, closed at once);
   2. points ROOT at the worktree (the replacement must match exactly once);
-  3. replaces the browser list with the one Chrome this script found (the replacement must match exactly once);
+  3. replaces the browser list with the one browser CHROME_BIN names (the replacement must match exactly once);
   4. asserts the patched text no longer mentions Edge anywhere (case-insensitive);
-  5. refuses a browser whose file name is Edge's, whether it came from CHROME_BIN or from the install paths;
-  6. exits 3 when there is no Chrome (never 0, never the test's own 1), 4 when the patch does not apply;
+  5. refuses a browser whose file name is Edge's: CHROME_BIN is the only source of the browser path;
+  6. exits 3 when CHROME_BIN is unset, empty, not a file, or names Edge (never 0, never the test's own 1), 4 when the
+     patch does not apply;
   7. runs the patched copy from a scratch folder with `python -I`, and exits with its exit code.
 
 Exit codes: 0 the test passed, 1 it failed (the test's own), 2 bad usage or no ledger, 3 no Chrome, 4 patch mismatch.
@@ -26,8 +27,6 @@ desktop override for 1000 px, not --window-size (which has a floor near 492 px).
 import importlib.util, json, os, re, shutil, sqlite3, subprocess, sys, tempfile, threading, time
 
 EPIC_ID = 42  # E-004
-CHROME_PATHS = (r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
 EDGE = "ms" + "edge"  # spelled in two pieces: this file is read by the same search that asserts the patched body has none
 
 
@@ -36,19 +35,19 @@ def arg(name, default=None):
 
 
 def chrome():
-    """The one browser this run may start: CHROME_BIN, else an installed Chrome. Never Edge. Exits 3 when there is none."""
-    found = []
-    for p in (os.environ.get("CHROME_BIN"), *CHROME_PATHS):
-        if not p or not os.path.isfile(p):
-            continue
-        if os.path.basename(p).lower().startswith(EDGE):
-            print(f"refusing {p}: that is Edge, which is never started on this machine", file=sys.stderr)
-            continue
-        found.append(p)
-    if not found:
-        print("no Chrome: CHROME_BIN is unset, missing or Edge, and no Chrome is installed at the usual paths", file=sys.stderr)
+    """The one browser this run may start: the file CHROME_BIN names, and only that. Never Edge, and no fallback to a
+    path written here. Exits 3 (stderr says why) when CHROME_BIN is unset, empty, not a file, or Edge's."""
+    p = os.environ.get("CHROME_BIN")
+    if not p:
+        print("no Chrome: CHROME_BIN is unset or empty", file=sys.stderr)
         sys.exit(3)
-    return found[0]
+    if os.path.basename(p).lower().startswith(EDGE):
+        print(f"refusing CHROME_BIN={p}: that is Edge, which is never started on this machine", file=sys.stderr)
+        sys.exit(3)
+    if not os.path.isfile(p):
+        print(f"no Chrome: CHROME_BIN={p} is not a file", file=sys.stderr)
+        sys.exit(3)
+    return p
 
 
 def patched_body(root, db, fixed_port=False):
