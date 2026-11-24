@@ -125,3 +125,25 @@ func TestFitnessYAMLCorpusCoversEveryCarrier(t *testing.T) {
 		}
 	}
 }
+
+// TestFitnessYAMLMisindentedKeyCensus plants each carrier key but name (which opens a
+// rule) at columns 1 to 8 beside a sibling at 4: the scan must refuse all but column 4.
+func TestFitnessYAMLMisindentedKeyCensus(t *testing.T) {
+	shape := map[string]string{"files": "files: a", "because": "because: b", "must_not_match": "must_not_match:\n%s- x",
+		"must_not_import": "must_not_import:\n%s- x", "except_files": "except_files:\n%s- x"}
+	for _, k := range loadYAMLCorpus(t).Carriers {
+		if k == "name" {
+			continue
+		} else if shape[k] == "" {
+			t.Errorf("carrier %q has no planted shape: add one", k)
+		}
+		for col := 1; col <= 8; col++ {
+			pad := strings.Repeat(" ", col)
+			src := "rules:\n  - name: r\n    files: s\n" + pad + strings.ReplaceAll(shape[k], "%s", pad) + "\n"
+			got := yamlScalarRefusals(src)
+			if (col == 4) != (len(got) == 0) || (col != 4 && firstLine(got) != 4) {
+				t.Errorf("%s at column %d: refused %v\n%s", k, col, got, src)
+			}
+		}
+	}
+}

@@ -474,6 +474,66 @@
    "expect": "accept",
    "yaml": "rules:\r\n  - name: r\r\n    files: '**/*.go'\r\n    because: Plain text, no colon-space.\r\n      Second line.",
    "why": "a clean snippet with CRLF line endings"
+  },
+  {
+   "id": "key-misindented-less",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 5,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - x\n   files: a/**",
+   "why": "a key at 3 where the rule's keys start at 4: YAML ends the mapping, the loader reads only 4 and drops the key"
+  },
+  {
+   "id": "key-misindented-two",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n  files: a/**",
+   "why": "a key at 2, level with the '- ' of the rule"
+  },
+  {
+   "id": "item-misindented-less",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n   - x",
+   "why": "a list item at 3 under a key at 4: YAML refuses it and the loader (items at exactly 4) drops it"
+  },
+  {
+   "id": "rule-item-misindented",
+   "carrier": "name",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: a\n    files: x\n   - name: b\n    files: y",
+   "why": "a second rule item at 3 where the first is at 2"
+  },
+  {
+   "id": "keys-all-at-four-ok",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    files: a/**\n    must_not_match:\n    - x\n    because: Plain text.\n    must_not_import:\n    - net/http\n    except_files:\n    - b/**",
+   "why": "the designed correct line: every key of the rule at the column of its first key"
+  },
+  {
+   "id": "two-rules-all-at-four-ok",
+   "carrier": "name",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: a\n    must_not_match:\n    - x\n  - name: b\n    files: y",
+   "why": "a new '- ' item after a list is a new rule, not a key at the wrong column"
+  },
+  {
+   "id": "key-shaped-text-in-block-scalar-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    because: >-\n      note: reads as a key\n      files: but is block text\n    files: a/**",
+   "why": "lines inside a block scalar are text whatever their words look like"
   }
  ]
 }
