@@ -1,0 +1,464 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-013",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-24T16:10:29.645Z",
+ "head": "08396c2f0055b7304dd73a6293a7a2cc0d80ab02",
+ "run_id": 12085,
+ "summary": "The product code matches the design and the accepted critique fixes. Checked:\n- Migration 0006 and internal/opens: one INSERT…SELECT…ON CONFLICT statement, an HMAC key held only in memory, IPv6 grouped by /64, UTC day.\n- clientResolver: walks X-Forwarded-For right to left; refuses a trusted peer with no client entry and an internal client (M1); has once-only warnings per app (m4).\n- countOpen sits at the end of renderReader's found branch: GET only, not the owner, not obvious bots, 2 s limit, and a failed write leaves the page unchanged.\n- showAll reads four tables through their owning packages and answers 503 on any failed read.\n- ListPublished, PublicLikes and VisibleCounts: VisibleCounts shares the commentRows constant with treeSQL (m5).\n- HBAND_TRUSTED_PROXIES validation.\n- The template is numbers first with 'view(s)' and the date last.\n- The five fitness rules and their corpus rows.\n\nWhat I ran myself:\n- `go vet ./...` is clean; `go test -count=1 -p 4 ./...` passes (server 18.9 s).\n- Fitness op=check passes: 35 rules, so the engine's strict loader accepts the amended YAML, which the builder could not check.\n- `run_finish.py --e002`: all four E-002 finish bodies exit 0 against this tree.\n- `run_finish.py --others`: 12 of 12 exit 0.\n- gofmt: only the old main_test.go import-order difference, which predates this slice.\n\nEach test in the case matrix really feeds its input shape in.\n\nTwo minor defects, both in the acceptance helper tests/acceptance/run_finish.py, each with a repro that fails on this code:\n- **Edge guard.** The guard meant to stop a body from falling back to Edge checks the file CHROME_BIN names, not the Chrome path the body itself looks for. It also hard-codes Chrome's install path as a fallback.\n- **Missing baseline.** `--others` reports 'every body that must pass exits 0' when a baseline body never ran.\n\nOne comment fix: clientaddr.go's type comment says an untrusted peer's forwarded request is not counted and never keyed on the proxy. The code counts it as the peer.\n\nI found no undeclared departure from the design.\n\nSecond reader, for inputs: I read this slice for unexpected inputs. I fed made-up inputs to the code in a scratch copy of the tree (since deleted), covering the client-address resolver, the HBAND_TRUSTED_PROXIES parser, the bot filter and the two forwarded-header fitness rules. I also read the show-all template and handler, the new migration, the opens package, VisibleCounts, ListPublished, PublicLikes, the e002row port and both acceptance scripts.\n\nThe product code handled every input shape I gave it:\n- **Resolver:** it walks X-Forwarded-For from the right. It handles ip:port and [v6]:port entries, zones, IPv4-mapped addresses, NBSP or tab padding, several header lines, and a link-local or IPv4-mapped peer. Comma-only and trailing-empty headers are not counted. The only one of those a real proxy could plausibly send is the trailing-empty one; I did not file it.\n- **Proxy-list parser:** it masks prefixes and turns an IPv4-mapped CIDR into its IPv4 form. It refuses /0 in all three spellings, a BOM, brackets, a space-separated list and a stray comma.\n- **Bot filter:** it keeps Cubot, the Facebook in-app browser, reduced Android UAs, Edge and Safari.\n- **Template:** dates are in UTC.\n\nDefects:\n1. **Fitness rule.** \"no Go file names a forwarded header other than X-Forwarded-For\" stays quiet on \"X-Forwarded\", \"Cf-Pseudo-IPv4\" and \"CF-Connecting-IPv6\", in either quote style. All three are client-identity headers that common real-IP libraries read, and the broad rule misses them too. This is a new member of the family O-020 closed.\n2. **tests/acceptance/run_finish.py.** It writes Chrome's install path into the script and uses it when CHROME_BIN is unset. Its \"would fall back to Edge\" guard also checks CHROME_BIN, which is not the browser the ledger body actually picks. With CHROME_BIN unset it ran a body that names msedge.\n\nEach defect has a repro. Both repros fail on this tree and pass with the minimal fix applied in a scratch copy. With that fix the existing fitness corpus and tree checks stay green.\n\nOne extra: with HBAND_TRUSTED_PROXIES unset (the shipped default) and a proxy that sends no X-Forwarded-For, every visitor is counted as the proxy and nothing is logged. The build report's follow-up tells the person's C11 check to read \"that log\" for exactly this shape.\n\ngo vet ./... is clean. Changed packages: `go test -count=1 -p 4` on opens, config, comments, votes, reports, store, fitnessrules, server and cmd/hband all report ok.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The product code matches the design and the accepted critique fixes. Checked:\n- Migration 0006 and internal/opens: one INSERT…SELECT…ON CONFLICT statement, an HMAC key held only in memory, IPv6 grouped by /64, UTC day.\n- clientResolver: walks X-Forwarded-For right to left; refuses a trusted peer with no client entry and an internal client (M1); has once-only warnings per app (m4).\n- countOpen sits at the end of renderReader's found branch: GET only, not the owner, not obvious bots, 2 s limit, and a failed write leaves the page unchanged.\n- showAll reads four tables through their owning packages and answers 503 on any failed read.\n- ListPublished, PublicLikes and VisibleCounts: VisibleCounts shares the commentRows constant with treeSQL (m5).\n- HBAND_TRUSTED_PROXIES validation.\n- The template is numbers first with 'view(s)' and the date last.\n- The five fitness rules and their corpus rows.\n\nWhat I ran myself:\n- `go vet ./...` is clean; `go test -count=1 -p 4 ./...` passes (server 18.9 s).\n- Fitness op=check passes: 35 rules, so the engine's strict loader accepts the amended YAML, which the builder could not check.\n- `run_finish.py --e002`: all four E-002 finish bodies exit 0 against this tree.\n- `run_finish.py --others`: 12 of 12 exit 0.\n- gofmt: only the old main_test.go import-order difference, which predates this slice.\n\nEach test in the case matrix really feeds its input shape in.\n\nTwo minor defects, both in the acceptance helper tests/acceptance/run_finish.py, each with a repro that fails on this code:\n- **Edge guard.** The guard meant to stop a body from falling back to Edge checks the file CHROME_BIN names, not the Chrome path the body itself looks for. It also hard-codes Chrome's install path as a fallback.\n- **Missing baseline.** `--others` reports 'every body that must pass exits 0' when a baseline body never ran.\n\nOne comment fix: clientaddr.go's type comment says an untrusted peer's forwarded request is not counted and never keyed on the proxy. The code counts it as the peer.\n\nI found no undeclared departure from the design.\n\nSecond reader, for inputs: I read this slice for unexpected inputs. I fed made-up inputs to the code in a scratch copy of the tree (since deleted), covering the client-address resolver, the HBAND_TRUSTED_PROXIES parser, the bot filter and the two forwarded-header fitness rules. I also read the show-all template and handler, the new migration, the opens package, VisibleCounts, ListPublished, PublicLikes, the e002row port and both acceptance scripts.\n\nThe product code handled every input shape I gave it:\n- **Resolver:** it walks X-Forwarded-For from the right. It handles ip:port and [v6]:port entries, zones, IPv4-mapped addresses, NBSP or tab padding, several header lines, and a link-local or IPv4-mapped peer. Comma-only and trailing-empty headers are not counted. The only one of those a real proxy could plausibly send is the trailing-empty one; I did not file it.\n- **Proxy-list parser:** it masks prefixes and turns an IPv4-mapped CIDR into its IPv4 form. It refuses /0 in all three spellings, a BOM, brackets, a space-separated list and a stray comma.\n- **Bot filter:** it keeps Cubot, the Facebook in-app browser, reduced Android UAs, Edge and Safari.\n- **Template:** dates are in UTC.\n\nDefects:\n1. **Fitness rule.** \"no Go file names a forwarded header other than X-Forwarded-For\" stays quiet on \"X-Forwarded\", \"Cf-Pseudo-IPv4\" and \"CF-Connecting-IPv6\", in either quote style. All three are client-identity headers that common real-IP libraries read, and the broad rule misses them too. This is a new member of the family O-020 closed.\n2. **tests/acceptance/run_finish.py.** It writes Chrome's install path into the script and uses it when CHROME_BIN is unset. Its \"would fall back to Edge\" guard also checks CHROME_BIN, which is not the browser the ledger body actually picks. With CHROME_BIN unset it ran a body that names msedge.\n\nEach defect has a repro. Both repros fail on this tree and pass with the minimal fix applied in a scratch copy. With that fix the existing fitness corpus and tree checks stay green.\n\nOne extra: with HBAND_TRUSTED_PROXIES unset (the shipped default) and a proxy that sends no X-Forwarded-For, every visitor is counted as the proxy and nothing is logged. The build report's follow-up tells the person's C11 check to read \"that log\" for exactly this shape.\n\ngo vet ./... is clean. Changed packages: `go test -count=1 -p 4` on opens, config, comments, votes, reports, store, fitnessrules, server and cmd/hband all report ok.",
+  "matches_design": true,
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "file": "tests/acceptance/run_finish.py",
+    "line": 110,
+    "end_line": 113,
+    "claim": "run_body is meant to never run a finish body that would start Edge, but its guard tests the wrong file. test_e004_2's body picks the first browser in its own list that exists: its own hard-coded Chrome path, then msedge. The guard only asks whether the file in CHROME_BIN exists, falling back to the hard-coded CHROME constant on line 67. So on a machine where CHROME_BIN names a Chrome anywhere other than the body's own path, the guard passes and the body starts msedge, which this machine forbids. The script also writes a browser install path into code (line 67) and falls back to it when CHROME_BIN is unset. The engine's standing rule names both as defects. On this PC CHROME_BIN equals the standard path, so today's runs started Chrome.",
+    "evidence": "run_finish.py:67 hard-codes CHROME; :112 checks os.path.isfile(os.environ.get(\"CHROME_BIN\") or CHROME). The ledger body of test_e004_2 (read in place, mode=ro) at lines 310-311 takes the first file that exists from (r\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\", r\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\", shutil.which(...)), and ignores CHROME_BIN.",
+    "fix": "Skip a body that names msedge unless the Chrome path that body itself looks for exists. Parse that path out of the body, and skip when none can be found. Drop the CHROME constant and the `or CHROME` fallback.",
+    "quote": {
+     "path": "tests/acceptance/run_finish.py",
+     "line": 112,
+     "text": "    if \"msedge\" in body and not os.path.isfile(os.environ.get(\"CHROME_BIN\") or CHROME):"
+    },
+    "repro": {
+     "path": "tests/acceptance/test_run_finish_edge_guard.py",
+     "body": "\"\"\"run_finish.py must never run a finish body that would start Edge.\n\ntest_e004_2's body opens the first browser of its own list that exists: its own\nChrome path, then msedge. Whether CHROME_BIN names a Chrome somewhere else says\nnothing about which of the two the body will take, so a body that names msedge\nmust not be run on the strength of CHROME_BIN alone.\n\"\"\"\nimport os\nimport sys\nimport tempfile\nimport unittest\nfrom unittest import mock\n\nsys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\nimport run_finish  # noqa: E402\n\nBODY = 'exe = [p for p in (OWN_CHROME, EDGE) if os.path.isfile(p)]  # falls back to msedge\\n'\n\n\nclass EdgeGuard(unittest.TestCase):\n    def test_body_that_would_fall_back_to_edge_is_not_run(self):\n        scratch = tempfile.mkdtemp(prefix=\"edge-guard-\")\n        elsewhere = os.path.join(scratch, \"portable-chrome.exe\")\n        with open(elsewhere, \"w\") as f:\n            f.write(\"\")\n        real_isfile = os.path.isfile\n\n        def only_elsewhere(p):\n            # The one browser on this pretend machine is the one CHROME_BIN names; the\n            # Chrome the body looks for is not there, so the body would start msedge.\n            return os.path.normcase(os.path.abspath(p)) == os.path.normcase(elsewhere) and real_isfile(p)\n\n        line = {\"path\": \"tests/acceptance/x.py\", \"body\": BODY, \"command\": \"python tests/acceptance/x.py\"}\n        with mock.patch.dict(os.environ, {\"CHROME_BIN\": elsewhere}), \\\n                mock.patch(\"os.path.isfile\", only_elsewhere), \\\n                mock.patch(\"subprocess.run\") as run:\n            code, _, _ = run_finish.run_body(os.path.join(scratch, \"tree\"), os.path.join(scratch, \"home\"), \"E-004\", line)\n        self.assertFalse(run.called, \"a body that would fall back to msedge was run\")\n        self.assertIsNone(code)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n",
+     "command": "python -I tests/acceptance/test_run_finish_edge_guard.py"
+    }
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "file": "tests/acceptance/run_finish.py",
+    "line": 178,
+    "claim": "`--others` is the case-14 checker: every body in BASELINE must still exit 0. It only counts a baseline body as failed if that body appears in the results. The `any(p == r[1] for r in results)` filter exists so `--only` works, but it also applies without `--only`. If the ledger stops returning a baseline body (renamed path, edited finish JSON), that body never runs and the script still prints 'every body that must pass exits 0' and exits 0. The one verdict the checker exists to give is then given for a run that did not check it.",
+    "evidence": "run_finish.py:177-183. Running main() with read_bodies returning 11 of the 12 BASELINE bodies, all passing, gives exit 0 and 'passing: 11 of 11 / every body that must pass exits 0'.",
+    "fix": "Apply the in-results filter only when --only is given. Otherwise treat every BASELINE path that is missing from the results as failed, or exit 2 with 'nothing to run'.",
+    "quote": {
+     "path": "tests/acceptance/run_finish.py",
+     "line": 178,
+     "text": "            failed = sorted(p for p in BASELINE if p not in passed and any(p == r[1] for r in results))"
+    },
+    "repro": {
+     "path": "tests/acceptance/test_run_finish_baseline.py",
+     "body": "\"\"\"run_finish.py --others must not report success when a baseline body never ran.\n\nBASELINE is the list of other-epic bodies that passed before SL-013 and must still\npass. A body that is in BASELINE and is not among the bodies read from the ledger\ndid not run, so 'every body that must pass exits 0' is not known to hold.\n\"\"\"\nimport os\nimport sys\nimport tempfile\nimport unittest\nfrom unittest import mock\n\nsys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\nimport run_finish  # noqa: E402\n\n\nclass BaselineMissing(unittest.TestCase):\n    def test_a_baseline_body_that_never_ran_is_not_a_pass(self):\n        ledger = os.path.join(tempfile.mkdtemp(prefix=\"baseline-\"), \"engine.db\")\n        with open(ledger, \"w\") as f:\n            f.write(\"\")\n        every = sorted(run_finish.BASELINE)\n        # The ledger hands back every baseline body but the first; each one that runs passes.\n        bodies = [(\"E-001\", {\"path\": p, \"body\": \"\", \"command\": \"python x.py\"}) for p in every[1:]]\n        with mock.patch.object(sys, \"argv\", [\"run_finish.py\", \"--others\", \"--ledger\", ledger]), \\\n                mock.patch.object(run_finish, \"read_bodies\", return_value=bodies), \\\n                mock.patch.object(run_finish, \"copy_tree\"), \\\n                mock.patch.object(run_finish, \"run_body\", return_value=(0, 0.0, \"\")):\n            code = run_finish.main()\n        self.assertNotEqual(code, 0, \"%s never ran, and the run still says every body that must pass exits 0\" % every[0])\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n",
+     "command": "python -I tests/acceptance/test_run_finish_baseline.py"
+    }
+   },
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "file": "internal/server/clientaddr.go",
+    "line": 26,
+    "end_line": 33,
+    "claim": "The clientResolver type comment says a request whose client cannot be told is 'not counted, never keyed on the proxy', and lists 'a header from a peer that is not trusted' as one such case. The code does the opposite for that case. An untrusted peer is returned as the client (lines 86-91, `return peer, true`), so with HBAND_TRUSTED_PROXIES missing or wrong, every visitor behind the proxy is counted and keyed on the proxy. The warning message on line 89 says this correctly ('visitors are counted as the proxy'). The comment also says 'once per process', but the Onces belong to each resolver, which means each app.",
+    "evidence": "clientaddr.go:26-33 against clientaddr.go:86-91; corpus rows np-001, np-005 and np-009 want the peer counted.",
+    "fix": "Reword lines 26-33. An untrusted peer is the client whatever its headers say, so a missing or wrong HBAND_TRUSTED_PROXIES keys every proxied visitor on the proxy, and that is logged once per resolver when such a peer sends X-Forwarded-For. A trusted peer that forwards no client entry, and a client that resolves to an internal address, are not counted, and each is logged once per resolver.",
+    "quote": {
+     "path": "internal/server/clientaddr.go",
+     "line": 26,
+     "text": "// A request whose client cannot be told is not counted, never keyed on the\n// proxy: keying every visitor on one address is the collapse this exists to\n// prevent. Each way that happens is logged once per process, without an address:\n// a header from a peer that is not trusted (a wrong or missing\n// HBAND_TRUSTED_PROXIES), a trusted peer that forwarded no client entry (a proxy"
+    }
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "security",
+    "nature": "defect",
+    "claim": "The rule 'no Go file names a forwarded header other than X-Forwarded-For' is quiet, in both quote styles, on three client-identity header names: \"X-Forwarded\", \"Cf-Pseudo-IPv4\" and \"CF-Connecting-IPv6\". The broad rule is quiet on them too. Common real-IP libraries read all three (request-ip reads X-Forwarded and Cf-Pseudo-IPv4; CF-Connecting-IPv6 is Cloudflare's), and they are the shapes this slice set out to fence:\n- Bare X-Forwarded goes through the hole that pattern 4 leaves for X-Forwarded-For: a lone-x prefix with no suffix matches no pattern, so `r.Header.Get(\"X-Forwarded\")` passes in reader.go and in clientaddr.go.\n- The two Cloudflare names end in -IPv4 or -IPv6. Pattern 3 requires the name to END in -ip or clientip.\n\nThe rule's name promises that no forwarded header other than X-Forwarded-For can be named, and \"X-Forwarded\" is one. A later feature (a per-address rate limit, say) that copies a library's header list would let a client pick its own identity, and nothing would fail.",
+    "class_of": "client-identity request header names outside the fenced set",
+    "threat": "accident",
+    "evidence": "Probe through the project's own rule loader (loadRules/fires): X-Forwarded, Cf-Pseudo-IPv4, CF-Connecting-IPv6 and X-Azure-SocketIP all give broad=false narrow=false in internal/server/reader.go and in clientaddr.go. With the fix below, TestRuleSpellingsCorpus and TestRulesHoldOnTheTree still pass.",
+    "file": ".taad/fitness.yaml",
+    "line": 456,
+    "end_line": 457,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 456,
+     "text": "    - (?i)[\"`](x-real-ip|forwarded)[\"`]\n    - (?i)[\"`][a-z0-9-]*(-ip|client-?ip)[\"`]"
+    },
+    "fix": "In the narrow rule:\n- Change line 456 to `(?i)[\"`](x-real-ip|x-forwarded|forwarded)[\"`]`.\n- Change line 457 to `(?i)[\"`][a-z0-9-]*(-ip|client-?ip)(v[46])?[\"`]`.\n\nAdd fire rows to rule_spellings.json for \"X-Forwarded\", `X-Forwarded` (backtick), \"Cf-Pseudo-IPv4\" and \"CF-Connecting-IPv6\", at path internal/server/clientaddr.go. Optionally add socket-?ip to pattern 3, for X-Azure-SocketIP.",
+    "repro": {
+     "path": "internal/fitnessrules/forwarded_fence_names_test.go",
+     "body": "package fitnessrules\n\nimport \"testing\"\n\n// TestForwardedFenceCatchesBareAndVersionedNames: X-Forwarded, Cf-Pseudo-IPv4 and\n// CF-Connecting-IPv6 are client-identity headers that real-IP libraries read\n// (request-ip, ipware). The rule that no Go file names a forwarded header other\n// than X-Forwarded-For must fire on each of them outside test files.\nfunc TestForwardedFenceCatchesBareAndVersionedNames(t *testing.T) {\n\trules := loadRules(t, repoRoot(t))\n\tnarrow, ok := rules[\"no Go file names a forwarded header other than X-Forwarded-For\"]\n\tif !ok {\n\t\tt.Fatal(\"fitness.yaml has no rule named 'no Go file names a forwarded header other than X-Forwarded-For'\")\n\t}\n\tfor _, name := range []string{\"X-Forwarded\", \"Cf-Pseudo-IPv4\", \"CF-Connecting-IPv6\"} {\n\t\tfor _, quoted := range []string{`\"` + name + `\"`, \"`\" + name + \"`\"} {\n\t\t\ttext := \"v := r.Header.Get(\" + quoted + \")\"\n\t\t\tif fired, _ := narrow.fires(\"internal/server/reader.go\", text); !fired {\n\t\t\t\tt.Errorf(\"%s names a client-identity header and the rule stays quiet\", text)\n\t\t\t}\n\t\t}\n\t}\n\tif fired, _ := narrow.fires(\"internal/server/clientaddr.go\", `lines := r.Header.Values(\"X-Forwarded-For\")`); fired {\n\t\tt.Error(\"X-Forwarded-For inside clientaddr.go must stay quiet\")\n\t}\n}\n",
+     "command": "go test -count=1 -run ^TestForwardedFenceCatchesBareAndVersionedNames$ ./internal/fitnessrules"
+    }
+   },
+   {
+    "id": "IN-m2",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "tests/acceptance/run_finish.py writes a browser install path into the script: CHROME = r\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\". When CHROME_BIN is unset it uses that path in its place (`os.environ.get(\"CHROME_BIN\") or CHROME`).\n\nThe guard that is meant to stop a finish body from falling back to Edge also checks the wrong thing. It asks whether CHROME_BIN's file exists. The e004_2 ledger body ignores CHROME_BIN (Q-028) and picks from its own candidate list, which names msedge. So when CHROME_BIN points at a Chrome that is not on the body's list, the guard passes and the body falls back to msedge. That starts Edge, which must never be started on this machine.\n\nMeasured: with CHROME_BIN unset, run_body ran a body that names msedge.",
+    "evidence": "run_finish.py:67 defines CHROME, and :112 is the guard. The repro below exits 1 on the tree. With line 112 changed to read only CHROME_BIN, it exits 0 (checked in a scratch copy).",
+    "file": "tests/acceptance/run_finish.py",
+    "line": 112,
+    "quote": {
+     "path": "tests/acceptance/run_finish.py",
+     "line": 112,
+     "text": "    if \"msedge\" in body and not os.path.isfile(os.environ.get(\"CHROME_BIN\") or CHROME):"
+    },
+    "fix": "Delete the CHROME constant and take the browser from CHROME_BIN only:\n`chrome = os.environ.get(\"CHROME_BIN\"); if \"msedge\" in body and not (chrome and os.path.isfile(chrome)): return None, 0.0, \"skipped: CHROME_BIN is unset ...\"`\n\nBetter still, skip any body that names msedge unless CHROME_BIN is the first browser on that body's own list.",
+    "repro": {
+     "path": "tests/acceptance/check_run_finish_needs_chrome_bin.py",
+     "body": "\"\"\"Repro: with CHROME_BIN unset, run_finish.py must not run a finish body that\nreaches for Edge. The browser comes from CHROME_BIN only; where it is unset the\nbody is skipped or the run fails, and no install path written into the script\nstands in for it.\"\"\"\nimport importlib.util\nimport os\nimport shutil\nimport sys\nimport tempfile\n\nHERE = os.path.dirname(os.path.abspath(__file__))\nspec = importlib.util.spec_from_file_location(\"run_finish\", os.path.join(HERE, \"run_finish.py\"))\nrf = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(rf)\n\nos.environ.pop(\"CHROME_BIN\", None)\nscratch = tempfile.mkdtemp(prefix=\"rf-chrome-bin-\")\ntry:\n    tree = os.path.join(scratch, \"tree\")\n    home = os.path.join(scratch, \"home\")\n    os.makedirs(tree)\n    os.makedirs(home)\n    line = {\n        \"path\": \"tests/acceptance/edge_body/body.txt\",\n        \"body\": \"browser := `C:\\\\Program Files (x86)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe`\\n\",\n        \"command\": \"python -c \\\"open('ran.txt','w').close()\\\"\",\n    }\n    try:\n        rf.run_body(tree, home, \"E-004\", line)\n    except BaseException:\n        pass\n    if os.path.exists(os.path.join(tree, \"ran.txt\")):\n        print(\"FAIL: CHROME_BIN is unset, yet run_finish.py ran a body that names msedge: it stood a browser path written into the script in for CHROME_BIN\")\n        sys.exit(1)\n    print(\"ok: the body was not run\")\nfinally:\n    shutil.rmtree(scratch, ignore_errors=True)\n",
+     "command": "python -I tests/acceptance/check_run_finish_needs_chrome_bin.py"
+    }
+   },
+   {
+    "id": "IN-m3",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "With HBAND_TRUSTED_PROXIES unset (the shipped default), clientResolver.addr returns any peer as the client. Behind the VPS proxy, a proxy that sends no X-Forwarded-For (a bare proxy_pass, the commonest misconfiguration in critique M1) therefore makes every visitor one visitor (the proxy's 10.x WireGuard or Docker-gateway address), and nothing is logged, because the untrusted-peer warning fires only when the header is present. M1's fix closed this shape only for a trusted peer.\n\nThe project constraint says hband is reachable only through the VPS proxy. So an untrusted peer in internal address space is almost certainly that proxy, unlisted.\n\nThis also affects the person's C11 check. The build tells them: 'If it is unset or wrong, views are counted as the proxy ... with one log warning; the person's C11 check should read that log.' In this case the log is empty.",
+    "evidence": "In clientaddr.go:86-92 the untrusted branch warns only when len(lines) > 0, and internalAddr is consulted only on the trusted path (clientaddr.go:107).",
+    "file": "internal/server/clientaddr.go",
+    "line": 86,
+    "end_line": 92,
+    "quote": {
+     "path": "internal/server/clientaddr.go",
+     "line": 86,
+     "text": "\tif !c.isTrusted(peer) {\n\t\t// Whatever the header says, a peer nobody listed may have written it.\n\t\tif len(lines) > 0 {"
+    },
+    "fix": "On the untrusted branch, when internalAddr(peer) is true and no X-Forwarded-For arrived, log a once-only warning without the address, such as 'requests arrive from an internal address that is not in HBAND_TRUSTED_PROXIES; if it is the reverse proxy, list it there or every visitor is counted as the proxy'. Add a row to the client-address corpus for this shape."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/reports/list_published_test.go TestListPublished sets up a draft, a report unpublished after publishing, a deleted report and two published in the same second (same fake clock). It asserts the order newest, same-b, same-a, oldest, that the first row equals Latest, and that a renamed table gives an error rather than an empty list. reports.go:334-350 uses the same ORDER BY as Latest. Passes in my suite run."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "internal/server/showall_test.go TestShowAll covers: the empty library ('No reports yet.', and a draft-only library is still empty); counts 1/1/1 with singular labels; 1000/5/1000 with no separator; the title 'Harbour Survey 2'. Every row goes through the e002row port's Counts and Dated, and the test asserts the date comes after the numbers. Template: all_reports.html:15-16."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "storefault_test.go:126-129 has four showAll rows, renaming reports, votes, comments and report_opens in turn. Each expects a 503 with the outage sentence. The census (line 155) lists the four steps. reader.go:256-272 returns at the first failing read."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "internal/votes/likes_test.go TestPublicLikes covers only dislikes, a like switched to a dislike, and a blocked account's like, each also checked against Public. votes.go:168-187 counts kind='up' only. vote_test.go:507-520 observe() fails as INVALID unless /reports lists x and y with number blocks, for both anonymous and owner."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "comments/visible_counts_test.go TestVisibleCounts runs fixtures A-D plus a draft, while the writer is blocked and after unblock. server/showall_test.go TestShowAllCommentCount checks that show-all row = printed count = Visible(Tree) = SQL = comments drawn across the report page and every branch page (110 for the chain), and asserts the report page alone draws threadDepthCap."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "opens/opens_test.go TestRecord sets time.Local to +5:30. It checks that 18:29:59 and 18:30:01 UTC are one day and that 23:59:59 and 00:00:01 UTC are two; two addresses in one /64 count once and different /64s twice; one address on two reports stores two different 16-byte values; the HMAC is pinned independently. opens.go:104 computes day = now().UTC().Unix()/86400."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "server/opens_test.go TestOpenCounting: / and /reports/y from one visitor give 1 open. Sixteen shapes that must write nothing: HEAD of the report and of /, /raw, the branch page, /reports, the admin preview, the draft and unknown 404s, POST 405, the owner on both pages, empty, Go and Googlebot UAs, no XFF, junk XFF, a private client. Plus a sensitivity visit, a 503 page, a failing recordOpen seam that leaves page bytes identical and logs no address, and the 2 s case. reader.go:171 and 192-205."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "opens_test.go TestObviousBot covers both branches: UAs without Mozilla/ (empty, Go, python, curl, wget, Java, okhttp, Opera) and tokens inside Mozilla UAs (Googlebot, bingbot, Slurp, spider, HeadlessChrome, Lighthouse and others), against Chrome, Firefox, Safari, Edge, iOS, Android, Samsung and Cubot browser UAs. opens.go:158-170."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "server/testdata/client_addr_corpus.json (67 rows), run by clientaddr_test.go TestClientAddr. Shapes: untrusted peer (np-001), spoofed leftmost (ok-002), several header lines (ok-010, m1-009), all trusted (m1-004/005/008), unparsable (un-001..009), ip:port (ok-005), [v6]:port (ok-006), mapped peer (m1-014, ok-015, np-004), X-Real-IP or Forwarded alone (m1-010/011, np-003). It also asserts the warning count per kind and that no warning carries an address."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "config.go:179-187 and 243-281 parseProxies. config_test.go TestTrustedProxies covers unset/empty giving nil, accepted lists with CIDRs and IPv6, 22 malformed values named without echoing the value, and a bad value reported alongside another variable's problem. main_test.go:402-429 covers exit 2 for five malformed values and the unset default serving /healthz and /reports."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "store/opens_migration_test.go TestMigrateFiveToSix: a populated v5 database moves to v6 with no rows lost and no backfill; STRICT and WITHOUT ROWID; key violations refused; deleting a report cascades its opens while unpublishing keeps them; a second start changes nothing. opens_test.go TestNoPlainAddressStored scans the db, WAL and shm, while open and after close, for text, UTF-16 and raw forms, with a sensitivity probe. The scan runs on a fresh database rather than the migrated one. E-002 finish body 4 (which I ran) scans the real binary's database."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "reader_test.go:681-688 pins GET and HEAD /reports to the show-all page, POST and PUT to 405 'GET, HEAD', //reports and /reports/../reports to 307, /REPORTS and /Reports to 404, and /reports/ (line 677) to 404. Lines 611-614 ask each variant of both the draft-x and unknown-x harnesses."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": ".taad/fitness.yaml:8-20 amends the broad rule in place (both quote styles, clientaddr.go excepted). Lines 451-511 hold the four new rules. rule_spellings.json:474-562 has fire and quiet rows for each, including fwn-q001 (X-Forwarded-For quiet in clientaddr.go) and fwn-f001 (X-Forwarded-Proto firing there). I ran the engine's Fitness op=check: 35 rules hold."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/run_finish.py --others. I ran it: 12 of 12 bodies exit 0 on this tree, including e004_2 with Chrome. It carries the explicit BASELINE list. It has one weakness in the verdict it gives (finding m2)."
+   },
+   {
+    "key": "O-015",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice, and only the deployment can show it (C11, a person's check). The code side is in place: config.go reads HBAND_TRUSTED_PROXIES and clientaddr.go:86-114 warns once when the peer is untrusted or sends no client entry."
+   },
+   {
+    "key": "O-016",
+    "discharged": "cannot-tell",
+    "evidence": "Owed to validate-slice. It is a property of when the acceptance bodies run relative to 00:00 UTC, not of the code. The day logic is pinned by TestRecord's fake clock."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "clientaddr.go:94-114. A trusted peer with no header, an empty header or every entry trusted reaches line 113: warn once, return false. An internal client returns false with a third warning (lines 107-110). Corpus rows m1-001..015 and m1-020..032 pin both shapes, and they pass."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/run_finish.py --e002 reads epic E-002's four bodies read-only and runs them against a copy of the tree. I ran it: e002_1 to e002_4 all pass (9, 5, 5, 5 s)."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": ".taad/fitness.yaml:11 is (?i)[\"`](x-forwarded-[a-z-]+|x-real-ip|forwarded)[\"`], with internal/server/clientaddr.go excepted at line 20. Rows fwd-f002 (backtick, outside clientaddr.go, fires) and fwd-q002 (backtick inside it, quiet). Fitness op=check passes."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": ".taad/fitness.yaml:457-458 holds the -ip/client-ip shape and the prefixed-forwarded shape. Rows fwn-f014..f025 fire (True-Client-IP, CF-Connecting-IP, X-Original-Forwarded-For, X-Azure-ClientIP and others). fwn-q012/q013 pin the known holes as quiet."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "opens.go:163 removes 'cubot' from the lower-cased UA before the token loop. TestObviousBot treats the Cubot P20 and X18 Plus as browsers and 'a bot that says Cubot' as a bot."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "clientaddr.go:34-44 keeps the Onces on the clientResolver value. router.go:86 builds one per newApp. clientaddr_test.go TestClientAddrWarnsOncePerResolver runs two passes and asserts two apps do not share a resolver. TestClientAddr builds a fresh resolver with its own logger for each row."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "comments/tree.go:44 defines the commentRows constant, used in treeSQL (line 60) and in visibleCountsSQL. TestVisibleCountsReadTheRowsTreeReads asserts both statements contain it once and use fmtVisible."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "reader.go:193 excludes the signed-in owner. All four E-002 bodies, which I ran, pass with this exclusion on, so no asserted count depends on an owner's open."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "opens_test.go:269-325 holds BEGIN IMMEDIATE on a second connection and asserts a 200 with the report, a wait between 1.5 and 3 s, the timeout logged and nothing stored. After release, 12 new visitors each raise the count by exactly 1 and /reports stays 200. It passes in my suite run. reader.go:200 uses context.WithTimeout(r.Context(), openWriteLimit)."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "internal/reports/list_published_test.go: a draft, a report unpublished after publish, a deleted report, and same-a/same-b saved in one fake-clock second. The asserted order shows the id tiebreak."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "showall_test.go: an empty harness and a draft-only harness give 'No reports yet.'; r-one has 1/1/1 (singular labels); r-old has 1000 likes and 1000 views seeded in bulk, under the title 'Harbour Survey 2'. Rows are read through e002row.Counts."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "storefault_test.go:126-129 renames reports, votes, comments and report_opens in turn before GET /reports, and expects 503 with the outage sentence."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "likes_test.go casts real Down votes, Up-then-Down for one account, and an Up followed by a blocked_accounts insert. vote_test.go observe() really fetches /reports and checks it lists x and y."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "visible_counts_test.go and showall_test.go build A (removed root with a reply; a blocked writer at depth with a visible child), B (a 110-deep chain), C (no comments) and D (all comments by a blocked writer). The comments drawn are summed across the report page and all its branch pages."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "opens_test.go TestRecord sets time.Local to IST and moves the clock across 18:30 UTC and 00:00 UTC; 2001:db8:1:2::1 and ::ffff…ffff are the same /64, 2001:db8:1:3::1 is a different one; one address is recorded on reports 1 and 2."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "opens_test.go TestOpenCounting issues each named shape as a real request through the harness, with a sensitivity visit. The admin preview can only be made as the owner, so owner exclusion and 'admin never counts' cannot be told apart. That is inherent, since admin is owner-only."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "TestObviousBot passes literal UA strings for every named bot and browser, including Googlebot and bingbot with Mozilla/, HeadlessChrome and Lighthouse."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "client_addr_corpus.json feeds each named shape as RemoteAddr plus header lines through httptest requests (rows cited under O-009)."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "config_test.go TestTrustedProxies covers the unset sentinel and an empty value, IPv4 and IPv6 lists with CIDRs, a hostname, a stray comma, bad prefixes, zones and /0. main_test.go runs the real binary with five malformed values and once with the variable unset."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "opens_migration_test.go migrates a seeded v5 database (reports, votes, comments, sessions) through embedded 0001-0005 to v6, deletes a report with opens and unpublishes another. The address scan is TestNoPlainAddressStored over a database written through Record. It is a different database from the migrated one, but the only path an address takes into storage."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "reader_test.go:611-688 asks /reports/, POST /reports, //reports and /REPORTS (plus HEAD, PUT and /Reports) of both the withDraft and unknown harnesses."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "rule_spellings.json rows fwd-*, fwn-*, raddr-*, optx-* and otbl-*, with fwn-q001 (X-Forwarded-For quiet) and fwn-f001 (X-Forwarded-Proto fires) at path internal/server/clientaddr.go. Engine Fitness op=check passes."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "I ran `python -I tests/acceptance/run_finish.py --others`: the ledger bodies of E-001 and E-003 to E-006 ran against a copy of this tree, which has /reports and the nav link, and all 12 pass."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12086,
+   "filed": 3,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 22,
+    "changed": 31,
+    "listed": 9
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 31,
+   "read_whole": 22,
+   "deleted": [],
+   "runs": [
+    12085,
+    12086
+   ],
+   "range": {
+    "base": "1251104e8b32040527cd01b12a8f3c33abe9b931",
+    "head": "08396c2f0055b7304dd73a6293a7a2cc0d80ab02",
+    "source": "commits",
+    "hunk_base": "1251104e8b32040527cd01b12a8f3c33abe9b931",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "partly-opened",
+     "section": "lines 31-429 of 511",
+     "reason": "a Read returned only part of it; seen only as 31 Grep lines; seen only through a shell command: $s, git diff; 2 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 511,
+     "hunks": []
+    },
+    {
+     "path": "cmd/hband/main_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-384, 435-581 of 581",
+     "reason": "a Read returned only part of it; seen only through a shell command: git diff",
+     "size_lines": 581,
+     "hunks": []
+    },
+    {
+     "path": "internal/config/config_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-169 of 345",
+     "reason": "a Read returned only part of it; seen only through a shell command: git diff; 1 returned line differ from the reviewed file (read before it changed)",
+     "size_lines": 345,
+     "hunks": []
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "partly-opened",
+     "section": "lines 1-14, 60-467 of 564",
+     "reason": "a Read returned only part of it; seen only as 3 Grep lines; seen only through a shell command: git diff, python; 1 returned line differ from the reviewed file (read before it changed)",
+     "size_lines": 564,
+     "hunks": []
+    },
+    {
+     "path": "internal/reports/reports.go",
+     "state": "partly-opened",
+     "section": "lines 1-279, 358-464 of 464",
+     "reason": "a Read returned only part of it; seen only as 14 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 464,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-589, 720-758 of 758",
+     "reason": "a Read returned only part of it; seen only through a shell command: git diff",
+     "size_lines": 758,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/storefault_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-54, 175-263 of 263",
+     "reason": "a Read returned only part of it; seen only through a shell command: git diff",
+     "size_lines": 263,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/vote_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-494, 575-662 of 662",
+     "reason": "a Read returned only part of it; seen only through a shell command: git diff",
+     "size_lines": 662,
+     "hunks": []
+    },
+    {
+     "path": "internal/votes/votes.go",
+     "state": "partly-opened",
+     "section": "lines 1-139, 195-206 of 206",
+     "reason": "a Read returned only part of it; seen only through a shell command: git diff",
+     "size_lines": 206,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

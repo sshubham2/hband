@@ -152,5 +152,175 @@
     "result": "The key is held only in memory, report_id goes into the HMAC, and the rightmost-untrusted walk stops leftmost spoofing. No plain address is logged. The remaining security holes are the rule gaps in m1 and m2. Nothing else found."
    }
   ]
+ },
+ "prescribed": {
+  "host": 718,
+  "at": "2026-11-24T15:32:19.886Z",
+  "runs": [
+   {
+    "run_id": 12080,
+    "resumed_from": "d16c5d95-c8ab-492c-aaa0-1547ced521f7",
+    "ending": "completed",
+    "cost_usd": 1.8957996000000006,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 2065,
+    "key": "M-add-1",
+    "digest": "9d348ec02c3e3770"
+   },
+   {
+    "finding_id": 2066,
+    "key": "M-add-2",
+    "digest": "8c93527af682e47f"
+   },
+   {
+    "finding_id": 2058,
+    "key": "M1",
+    "digest": "88484b11685f67d4"
+   },
+   {
+    "finding_id": 2059,
+    "key": "M2",
+    "digest": "1396f5146d68056b"
+   },
+   {
+    "finding_id": 2060,
+    "key": "m1",
+    "digest": "5b3d76107ac5d127"
+   },
+   {
+    "finding_id": 2061,
+    "key": "m2",
+    "digest": "5dbcbb7b6475d1d3"
+   },
+   {
+    "finding_id": 2062,
+    "key": "m3",
+    "digest": "b91db570f12dfe94"
+   },
+   {
+    "finding_id": 2063,
+    "key": "m4",
+    "digest": "bedc065814d1e4f6"
+   },
+   {
+    "finding_id": 2064,
+    "key": "m5",
+    "digest": "36cdece8acd6316c"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 2065,
+    "key": "M-add-1",
+    "digest": "9d348ec02c3e3770",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Read bodies_verbatim.txt from spike-200 under the taad3 home: the E-002 finish[1] test at lines 3725-3747, finish[2] at 4358-4388, finish[3] at 5000-5046, the browser constructor at 3286-3290, the via transport at 3270-3279, signIn at 3364-3389, form/upload/publish at 3393-3444, and numbers at 3686-3694. Grepped admin.go for auth.SeeOther targets.",
+    "why": "Every E-002 client is an http.Client with `CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }` (line 3289), so the bodies never follow a 303. The prescription's worry about http.Client following the product's redirects does not apply to these bodies. In finish[1..3] the owner's client (XFF 192.0.2.10) only GETs /auth/github/login and the callback, GETs /admin (form()), and POSTs /admin/reports. It never GETs /reports/<slug> or '/'. Every opens assertion is driven by separate non-owner browsers (198.51.100.5, 203.0.113.x, 198.51.100.23/.77), and the counts are read by GET /reports from 192.0.2.91/.99. Owner exclusion therefore cannot change any count the bodies assert. The admin.go:315 redirect to /reports/<slug>#comments exists, but nothing in E-002 follows it. M2's product run stays the gate, as the prescription says.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2066,
+    "key": "M-add-2",
+    "digest": "8c93527af682e47f",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read C:\\Users\\sshub\\go\\pkg\\mod\\modernc.org\\sqlite@v1.63.0\\busy.go, the version go.mod pins. Grepped store.go for pool limits and pragmas (servingPragmas at line 68: busy_timeout(5000); no SetMaxOpenConns). Read harness_test.go:75-82 (store.Open on t.TempDir()/hband.db) and the WebSearch result for cznic/sqlite issue #198.",
+    "why": "The prescription's premise ('from recall, the busy loop does not check the interrupt flag', so a ~5 s stall) is out of date for the pinned driver. modernc v1.63.0 replaces SQLite's default busy callback: 'busyHandler is sqliteDefaultBusyCallback with one addition: the sleep ends, and the handler gives up, once the context of the call in progress is done' (busy.go:48-49). It is installed on every call that carries a context while busy_timeout > 0. So the expected measurement is about 2 s, and both fallback branches (a dedicated connection with a busy_timeout under 2 s, or a restated contract) are probably moot. The test as written builds: the pool has no MaxOpenConns, so holding BEGIN IMMEDIATE on a st.DB().Conn() does not starve renderReader's reads, and WAL readers are not blocked. What it leaves unchecked is the state after the cancel. busyHandler sets c.canceled and the interrupted connection goes back to the pool. cznic/sqlite #198 reports exactly that: a later statement on such a connection fails with 'interrupted (9)'. If so, the next reader page answers 503 (votes.Public or Tree fail) or the next open is lost, and the test would pass while production breaks.",
+    "instead": "Keep the test, and after the 2 s case release the held transaction, then in the same test:\n- GET the report again from a new address with a browser UA a few times, enough to cycle the pool's idle connections. Assert 200 every time and that the count rises by exactly one.\n- Assert that GET /reports answers 200.\n\nExpect the elapsed time to be under about 2.5 s. Drop the 'dedicated connection with a lower busy_timeout' branch unless the measurement actually shows about 5 s."
+   },
+   {
+    "finding_id": 2058,
+    "key": "M1",
+    "digest": "88484b11685f67d4",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read the via transport in the E-002 bodies (bodies_verbatim.txt:3270-3279): every request sets X-Forwarded-For, X-Real-IP and X-Forwarded-Proto. Grepped every body's HBAND_TRUSTED_PROXIES value: always 127.0.0.1. Traced the prescribed walk through a two-proxy chain.",
+    "why": "The fix is safe for the finish line: every E-002 request carries XFF from 127.0.0.1, and the Python bodies always send XFF (spike), so 'trusted peer with no untrusted entry gives false' changes no asserted count. It covers 'no XFF' and 'every entry trusted'. It misses the same R-004 collapse in a chain with two proxies where only the inner one is listed: VPS proxy, then WireGuard, then an HTTP proxy or front container on the home server, then hband. With HBAND_TRUSTED_PROXIES set to only the inner hop, the walk meets the VPS's WireGuard address (for example 10.x), which is untrusted. It returns that address as the client for every visitor: one open per report per day. No warning fires, because the peer is trusted and an untrusted entry was found. The design's earlier claim that the warning 'also catches a wrong proxy address' is still untrue for this shape.",
+    "instead": "In the same resolver, when the peer is trusted and the selected client IsPrivate(), IsLoopback() or IsLinkLocalUnicast(), emit a third once-only warning without an address, for example 'X-Forwarded-For resolved to a private address; is a proxy missing from HBAND_TRUSTED_PROXIES?'. Treat that as not counted, as M1 already does for the other two collapse shapes. Every E-002 and Python body uses TEST-NET addresses (192.0.2.x, 198.51.100.x, 203.0.113.x), which none of those three predicates (private, loopback, link-local) match, so no body is affected. Add a 'trusted peer, XFF = 10.0.0.1' row to TestClientAddr."
+   },
+   {
+    "finding_id": 2059,
+    "key": "M2",
+    "digest": "1396f5146d68056b",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read the E-002 bodies' start() (bodies_verbatim.txt:96-118): it builds with `go build ./cmd/hband` from root = filepath.Join(\"..\", \"..\", \"..\"), and the product inherits os.Environ(). Read finish[1..3]'s test functions for which paths they GET.",
+    "why": "Three gaps.\n- **Ledger path:** a checker that finds engine.db through TAAD3_HOME finds nothing, because any run of project code here is made with TAAD3_HOME pointing at an empty scratch folder. It would exit non-zero, which reads as the bodies failing.\n- **Body placement:** the bodies are Go test files that build the product from three levels up. Each must be written to tests/acceptance/<dir>/<file>_test.go inside a full copy of this tree. A copy of the body file alone does not build.\n- **'/' counting:** the prescription's rationale says the run settles '/' counting as an open. No E-002 body GETs '/' after a publish (finish[1] opens only /reports/e002-harbour-report and reads counts through /reports). That choice still rests only on TestOpenCounting.\n\nAlso, the other-epics checker's 'every body that exits 0 at uat 1251104' needs a baseline that one command must either compute (build uat too) or carry as an explicit list.",
+    "instead": "Make each case one script, for example tests/acceptance/run_finish.py, run with python -I:\n- It takes the ledger path as an argument, defaulting to %APPDATA%\\taad3\\engine.db and never TAAD3_HOME.\n- It opens the ledger as file:...?mode=ro, SELECTs the finish rows of epic id=40 (and 39, 41-44), and closes it.\n- It copies the tree into scratch and writes each body to the path in its row.\n- It runs each body's own `command`, with HBAND_* cleared from the inherited environment, and exits 0 only if every E-002 body passes.\n\nFor the other epics, give the baseline as an explicit list of the bodies that exit 0 at 1251104, measured once, and record it in the case. Do not present the run as settling '/'."
+   },
+   {
+    "finding_id": 2060,
+    "key": "m1",
+    "digest": "5b3d76107ac5d127",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Grepped internal/fitnessrules for 'scheme, host or client' and X-Forwarded: 0 matches, so the rule has no corpus rows to flip. Grepped every .go file, tests included, for (?i)[\"`][a-z0-9-]*(-ip|forwarded[a-z-]*)[\"`]: no matches. Read fitness.yaml:11 and 448-452: the narrow SL-013 rule already uses the same unquoted YAML form with a backtick class.",
+    "why": "Widening to [\"`] fires on nothing in today's tree and flips no existing quiet row. Because clientaddr.go is excepted, the broad rule now catches a backtick `X-Forwarded-For` everywhere else, which closes the raw-string gap. Concatenation such as \"X-Forwarded-\" + \"For\" still passes, but the rule already lists concatenation as a known hole. The YAML form matches what the engine itself wrote at line 451, so the engine's strict loader accepts it.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2061,
+    "key": "m2",
+    "digest": "5dbcbb7b6475d1d3",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read fitness.yaml:448-458 (the narrow rule and its 'because'). Grepped every .go file for quoted names ending in -ip or containing forwarded: none.",
+    "why": "The enumerated list repeats the problem it fixes: it is still a closed list of names, and other common client-identity headers pass:\n- X-Original-Forwarded-For (ingress-nginx)\n- Fly-Client-IP\n- X-Appengine-User-Ip\n- X-Azure-ClientIP\n- X-Envoy-External-Address\n\nNone of them start with x-forwarded-, so neither the broad nor the narrow rule matches them. 'One fire row for the new names' also pins only one of the five added alternatives, so a typo in any of the other four (for example fastly-clientip) goes unnoticed by TestRuleSpellingsCorpus.",
+    "instead": "Instead of the five-name enumeration, add two patterns to the narrow rule:\n- (?i)[\"`][a-z0-9-]*(-ip|client-?ip)[\"`]\n- (?i)[\"`][a-z0-9-]+-forwarded(-[a-z-]+)?[\"`]\n\nBoth fire on nothing in today's tree. Add one fire row for each of True-Client-IP, CF-Connecting-IP, X-Original-Forwarded-For and X-Azure-ClientIP, and a quiet row for X-Forwarded-For in clientaddr.go. List X-Envoy-External-Address and concatenation as known holes, and stop there (lesson #974)."
+   },
+   {
+    "finding_id": 2062,
+    "key": "m3",
+    "digest": "b91db570f12dfe94",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Checked the design's ObviousBot shape (one package-level token slice, matched with strings.Contains after lower-casing) against both options. Checked the spike's bot UAs (Googlebot/2.1 and bingbot/2.0 in finish[2] at bodies_verbatim.txt:4374-4375) and the Cubot UAs quoted in isbot issue #29.",
+    "why": "Option 1, strings.ReplaceAll(lower, \"cubot\", \"\") before the token loop, fits the slice design. It still catches googlebot and bingbot, so finish[2] step 3 holds, and 'CUBOT_P20' and 'CUBOT X18' are both counted. Option 2 cannot be a single RE2 regexp, because Go's regexp has no lookbehind for 'not preceded by cu'. It would need a hand-written index loop. Both options are buildable, and the added Cubot test row pins the fix.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2063,
+    "key": "m4",
+    "digest": "bedc065814d1e4f6",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Read harness_test.go:75-82 (newHarness builds a fresh store on t.TempDir() and a fresh app) and :143-146 and :246 (reopen). Read router.go:65-78 (newApp, the a.tree seam pattern). Read the RemoteAddr fence at fitness.yaml:461-472.",
+    "why": "With the Onces on a resolver value that newApp builds, every newHarness gets its own Onces, so TestOpenCounting cannot use up TestClientAddr's warning. TestClientAddr can build a resolver directly with its own *slog.Logger and needs no slog.SetDefault. That also stays safe under t.Parallel and -count=2. Production builds one app per process, so 'once per process' is kept. The resolver method must stay in internal/server/clientaddr.go, because the RemoteAddr rule excepts only that file. The prescription keeps it there. The design's free-function signature becomes a method, which is a contract change inside this slice only.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2064,
+    "key": "m5",
+    "digest": "36cdece8acd6316c",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Read internal/comments/tree.go:44-57 (treeSQL is a var assembled by concatenation, with FROM/JOIN at line 54) and :121-128 (arrange keeps every shown row, and the parent of every kept row). Read 0004_comments.sql:36-43 (github_id REFERENCES users with NO ACTION, and a composite self-FK on parent).",
+    "why": "One const for 'FROM comments c JOIN users u ON u.github_id = c.github_id' can be concatenated into both the treeSQL var and VisibleCounts. The visibility predicate is already shared through fmtVisible(\"c\"). If someone renames the alias in the const, both statements fail loudly at once, so they cannot drift apart silently. Visible(Tree) equals the number of shown rows, because arrange keeps every shown row and its ancestors. The users foreign key means the inner join never drops a comment. The composite self-FK keeps arrange's error path unreachable from stored data, so a report cannot have a 503 page alongside a show-all number.",
+    "instead": ""
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:2066",
+   "finding:2058",
+   "finding:2059",
+   "finding:2061"
+  ],
+  "counts": {
+   "holds": 5,
+   "hole": 4,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "Four of the nine prescriptions hold as written: M-add-1, m1, m3 and m5. M-add-2, M1, M2 and m2 each have a minor hole. None is unworkable.\n\n**Holding:**\n- **M-add-1 (owner exclusion vs the bodies):** I read the four E-002 bodies in the spike's verbatim file under the taad3 home. Every client sets CheckRedirect to ErrUseLastResponse, so no 303 is ever followed. The owner's client only signs in, GETs /admin and POSTs /admin/reports, so excluding the owner cannot change any count those bodies assert.\n- **m1 (backtick widening):** no corpus rows exist for the amended rule, and no forwarded-header literal appears in any .go file in either quoting, so widening the pattern flips nothing.\n- **m3 (Cubot):** buildable with the existing strings.Contains token list. Prefer removing \"cubot\" before the token check, because Go's regexp has no lookbehind.\n- **m5 (shared FROM/JOIN const):** gives the shared row set by construction. comments.github_id has a NO ACTION foreign key to users, so the inner join never drops a row.\n\n**Holes:**\n- **M-add-2 (2 s write bound):** its premise is out of date for the pinned driver. modernc.org/sqlite v1.63.0 ships busy.go, whose busyHandler gives up once the context is done, so the 2 s bound should hold. What the test misses is the connection left behind after a cancelled write: it should also show that the next request still gets 200 and counts.\n- **M1 (missing X-Forwarded-For):** fixes the missing-header case. It misses a chain where only the inner of two proxies is listed: the outer proxy's private address then becomes every visitor's address, silently, with no warning.\n- **M2 (run the E-002 bodies):**\n  - The checker must take the ledger path explicitly. Project code runs with TAAD3_HOME pointing at an empty scratch folder, so the ledger cannot be found through it.\n  - The bodies must sit at tests/acceptance/<dir>/ in a full copy of the tree, because start() builds from ../../..\n  - No body requests '/' after a publish, so this run does not settle '/' counting as an open.\n- **m2 (other client-IP headers):** the enumerated list misses known names such as X-Original-Forwarded-For and Fly-Client-IP, and a single fire row pins only one of the five names.",
+  "why": "",
+  "round": "landed"
  }
 }

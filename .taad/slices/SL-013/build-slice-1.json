@@ -1,0 +1,537 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-013",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-24T15:38:17.089Z",
+ "head": "08396c2f0055b7304dd73a6293a7a2cc0d80ab02",
+ "run_id": 12081,
+ "summary": "Built the show-all page at GET /reports and open counting. The page lists every published report newest first, with likes, whole-thread visible comments and views, and each row links to its report. Counting is a new internal/opens package over a migration 0006 report_opens table. A per-app clientResolver reads X-Forwarded-For only from peers in the new HBAND_TRUSTED_PROXIES, and an obvious-bot filter runs in renderReader. The full suite and go vet pass. The four E-002 finish bodies pass against the built binary through tests/acceptance/run_finish.py, as do the other 12 bodies. I also ran the binary by hand with the variable set and unset. The engine's Fitness op=check was not available here; the Go fitness tests and the YAML scalar tests pass in its place. The one pre-modified file, .taad/fitness.yaml, held the engine-appended rules; I kept them and amended them (m1/m2).",
+ "payload": {
+  "status": "complete",
+  "summary": "Built the show-all page at GET /reports and open counting. The page lists every published report newest first, with likes, whole-thread visible comments and views, and each row links to its report. Counting is a new internal/opens package over a migration 0006 report_opens table. A per-app clientResolver reads X-Forwarded-For only from peers in the new HBAND_TRUSTED_PROXIES, and an obvious-bot filter runs in renderReader. The full suite and go vet pass. The four E-002 finish bodies pass against the built binary through tests/acceptance/run_finish.py, as do the other 12 bodies. I also ran the binary by hand with the variable set and unset. The engine's Fitness op=check was not available here; the Go fitness tests and the YAML scalar tests pass in its place. The one pre-modified file, .taad/fitness.yaml, held the engine-appended rules; I kept them and amended them (m1/m2).",
+  "files": [
+   {
+    "path": "internal/store/migrations/0006_opens.sql",
+    "change": "added",
+    "why": "report_opens table: report_id FK ON DELETE CASCADE, UTC day, 16-byte visitor, whole-row PRIMARY KEY, STRICT WITHOUT ROWID; no backfill"
+   },
+   {
+    "path": "internal/opens/opens.go",
+    "change": "added",
+    "why": "Book (New, newBook, Record, Counts) and ObviousBot; one-statement INSERT..SELECT..ON CONFLICT, in-memory HMAC key, IPv6 /64, no transaction, Cubot exclusion"
+   },
+   {
+    "path": "internal/opens/opens_test.go",
+    "change": "added",
+    "why": "TestRecord (UTC day under IST local, /64, two reports, draft, cascade), TestObviousBot (bots, browsers, Cubot), TestNoPlainAddressStored (db, WAL, text, UTF-16, raw bytes)"
+   },
+   {
+    "path": "internal/server/clientaddr.go",
+    "change": "added",
+    "why": "clientResolver: rightmost-untrusted X-Forwarded-For walk from trusted peers only; not counted for no client entry, junk or internal address; three once-only address-free warnings per resolver"
+   },
+   {
+    "path": "internal/server/clientaddr_test.go",
+    "change": "added",
+    "why": "TestClientAddr over the 67-row corpus; once-per-resolver test"
+   },
+   {
+    "path": "internal/server/testdata/client_addr_corpus.json",
+    "change": "added",
+    "why": "corpus of the 'trusted peer with no untrusted client entry' class and its neighbours (O-017)"
+   },
+   {
+    "path": "internal/server/reader.go",
+    "change": "modified",
+    "why": "countOpen at the end of renderReader's found case; showAll and showRows; writeReader takes any"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "modified",
+    "why": "GET /reports route; app.opens, app.recordOpen seam and app.client resolver built in newApp"
+   },
+   {
+    "path": "internal/server/templates/all_reports.html",
+    "change": "added",
+    "why": "show-all page: legend, empty and unavailable states, ol of rows with title link, 'N likes · N comments · N views', then the date"
+   },
+   {
+    "path": "internal/server/templates/layout.html",
+    "change": "modified",
+    "why": "All reports nav link in the shared header"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "list styles (stack on narrow widths, no pure signal colours)"
+   },
+   {
+    "path": "internal/config/config.go",
+    "change": "modified",
+    "why": "HBAND_TRUSTED_PROXIES parsed into Config.TrustedProxies; refuses empty item, hostname, bad prefix, zone, /0; message never echoes the value; package doc rewritten"
+   },
+   {
+    "path": "internal/config/config_test.go",
+    "change": "modified",
+    "why": "TestTrustedProxies (unset, lists, 22 malformed values); TestLoadIgnoresUnknownVariables asserts the parsed value"
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "change": "modified",
+    "why": "Library.ListPublished"
+   },
+   {
+    "path": "internal/reports/list_published_test.go",
+    "change": "added",
+    "why": "TestListPublished: draft, unpublished, deleted, same-second tie, error is not an empty list"
+   },
+   {
+    "path": "internal/votes/votes.go",
+    "change": "modified",
+    "why": "Book.PublicLikes"
+   },
+   {
+    "path": "internal/votes/likes_test.go",
+    "change": "added",
+    "why": "TestPublicLikes"
+   },
+   {
+    "path": "internal/comments/tree.go",
+    "change": "modified",
+    "why": "commentRows const shared by treeSQL and VisibleCounts (m5); Book.VisibleCounts"
+   },
+   {
+    "path": "internal/comments/visible_counts_test.go",
+    "change": "added",
+    "why": "TestVisibleCounts over spike fixtures A-D, and the shared-fragment test"
+   },
+   {
+    "path": "internal/store/opens_migration_test.go",
+    "change": "added",
+    "why": "TestMigrateFiveToSix: populated v5 to v6, keys, cascade on delete, unpublish keeps opens"
+   },
+   {
+    "path": "internal/server/showall_test.go",
+    "change": "added",
+    "why": "TestShowAll (E-002 row reader port, singular and 1000, digit title, same-second order) and TestShowAllCommentCount (drawn across branch pages)"
+   },
+   {
+    "path": "internal/server/opens_test.go",
+    "change": "added",
+    "why": "TestOpenCounting: shapes that count and that write nothing, failed write, 2 s bound, pool whole afterwards"
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "change": "modified",
+    "why": "TestReaderPathVariants: /reports is the show-all page; /reports/, POST, //reports, /REPORTS pinned as observed"
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "change": "modified",
+    "why": "observe() fails as INVALID unless /reports lists x and y with number blocks (lesson #948)"
+   },
+   {
+    "path": "internal/server/storefault_test.go",
+    "change": "modified",
+    "why": "show-all rows (reports, votes, comments, report_opens renamed) and fail-open rows for the open write"
+   },
+   {
+    "path": "cmd/hband/main_test.go",
+    "change": "modified",
+    "why": "TestBinary: malformed HBAND_TRUSTED_PROXIES exits 2 without the value; unset serves /healthz and /reports"
+   },
+   {
+    "path": "internal/testutil/e002row/e002row.go",
+    "change": "added",
+    "why": "port of the E-002 finish line's row reader so tests can check a rendered row reads apart"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "amended broad forwarded-header rule (both quote styles, clientaddr.go excepted); narrow rule gains client-identity patterns; four engine-appended rules kept"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "change": "modified",
+    "why": "89 fire/quiet rows for the five rules, rules_under_test and bounded_by entries"
+   },
+   {
+    "path": "tests/acceptance/run_finish.py",
+    "change": "added",
+    "why": "checker that reads finish bodies from the ledger read-only and runs them against a copy of the tree: --e002, --others with an explicit baseline"
+   },
+   {
+    "path": "tests/acceptance/serve_show_all.py",
+    "change": "added",
+    "why": "launcher that starts the built program on a port with a seeded scratch database so the engine can open the show-all page"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "TestListPublished (internal/reports/list_published_test.go) feeds published reports, a draft, a report unpublished after publishing, a deleted one and two published in the same second. It asserts order newest, same-b, same-a, oldest, first row equal to Latest, and an error rather than an empty list when the table is gone. Passes."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "TestShowAll covers the empty library, then rows with counts 0, 1 and 1000, singular labels and a title ending in a digit. Every row goes through internal/testutil/e002row, a port of the E-002 reader; Counts and Dated read each row apart. Passes."
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "TestStoreFaultSteps gained showAll rows (reports, votes, comments and report_opens renamed in turn, each 503 with the outage sentence and no rows), plus 'write the open' rows for readReport and home that stay 200. The census map was extended. Passes."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "TestPublicLikes (only dislikes, like switched to dislike, blocked account's like, equality with Public). TestDislikesDoNotInterfere's observe() now fails INVALID unless /reports lists x and y with number blocks. Both pass."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "TestVisibleCounts (comments) and TestShowAllCommentCount (server) cover fixtures A-D. They require show-all row = printed count = Visible(Tree) = SQL = comments drawn across the report page and all its branch pages (110 for the chain; the report page alone draws 5). Checked while the writer is blocked and after unblock. Pass."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "TestRecord: same address twice per UTC day, UTC day under time.Local +5:30 (18:30 UTC local midnight does not split, 00:00 UTC does), /64 collapse and split, mapped and zoned addresses, one address on two reports with different stored values, HMAC pinned independently, draft and unknown id write nothing, cascade. Passes."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "TestOpenCounting: / and /reports/<newest> share one key; 16 shapes write nothing (HEAD, /raw, branch page, /reports, admin preview, draft and unknown 404, POST 405, owner on both pages, empty, Go and Googlebot UAs, no XFF, junk XFF, private client); 503 counts nothing; a failing recordOpen leaves identical page bytes and logs no address. Passes."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "TestObviousBot: 23 bot UAs (empty, Go-http-client, python, curl, Googlebot and bingbot with Mozilla/, HeadlessChrome, Lighthouse, others) against 11 browser UAs (Chrome, Firefox, Safari, Edge, iOS, Android, Samsung, Cubot). Passes."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "TestClientAddr runs the 67-row corpus covering an untrusted peer, spoofed leftmost, several header lines, all trusted, unparsable, ip:port, [v6]:port, IPv4-mapped peer, X-Real-IP and Forwarded alone. It asserts the single once-only warning and that no warning carries an address. Passes, including under -count=2."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "TestTrustedProxies (unset and empty trust nobody, lists with CIDRs and IPv6, 22 malformed values refused by name without echoing the value, reported with other problems) and TestBinary (malformed values exit 2; unset serves /healthz and /reports). Pass."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "TestMigrateFiveToSix migrates a populated v5 database to v6 with nothing lost and no backfill. It checks key violations, STRICT and WITHOUT ROWID, delete cascading opens while unpublish keeps them, and a second start. TestNoPlainAddressStored scans the database, WAL and shm while open and after close for text, UTF-16 and raw forms, with a sensitivity check. Pass."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "TestReaderPathVariants now pins GET and HEAD /reports as the show-all page, POST and PUT as 405 with Allow GET, HEAD, //reports and /reports/../reports as 307, /REPORTS and /Reports as 404, and /reports/ stays 404, all identical for the draft-x and unknown-x harnesses. Passes."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "fitness.yaml amended and rule_spellings.json gained 89 rows (fire and quiet for the amended broad rule and the four new ones, including X-Forwarded-For quiet and X-Forwarded-Proto firing in clientaddr.go). TestRuleSpellingsCorpus and TestRulesHoldOnTheTree pass. The engine's Fitness op=check was not available here."
+   },
+   {
+    "key": "O-014",
+    "done": true,
+    "how": "tests/acceptance/run_finish.py --others reads E-001 and E-003..E-006 from the ledger read-only and runs the 12 bodies against a copy of this tree. All 12 exit 0, and the same 12 exit 0 on a git archive of 1251104. That baseline is an explicit list in the script. Exits 0."
+   },
+   {
+    "key": "O-017",
+    "done": true,
+    "corpus": "internal/server/testdata/client_addr_corpus.json",
+    "how": "A trusted peer with no untrusted client entry is now not counted and warns once without an address. Covered: no header, empty, blank, every entry trusted (also mapped, port, CIDR, several lines), only X-Real-IP or Forwarded. The critic's inner-hop-only chain is covered too: a private, loopback, link-local, CGNAT, unspecified or ULA client is not counted and gives a third warning. With the first fix backed out, 15 corpus rows fail; with the internal-address check backed out, 13 fail.",
+    "mutation": {
+     "file": "internal/server/clientaddr.go",
+     "find": "c.warn(&c.noEntry, \"a peer in HBAND_TRUSTED_PROXIES sent no X-Forwarded-For client entry; opens are not being counted until the proxy forwards the visitor's address\")",
+     "replace": "return peer, true",
+     "test_command": "go test -count=1 ./internal/server -run ^TestClientAddr$"
+    }
+   },
+   {
+    "key": "O-018",
+    "done": true,
+    "how": "tests/acceptance/run_finish.py --e002 reads epic E-002's four finish bodies from the ledger (mode=ro, default %APPDATA%\\taad3\\engine.db, never TAAD3_HOME), writes them into a copy of the tree and runs each command. All four exit 0 against the product built from this tree. The label and date placement are now run, not hand-traced. The '/' choice rests only on TestOpenCounting, as the critic said. The other-epics case is one script run too.",
+    "mutation": {
+     "file": "internal/server/templates/all_reports.html",
+     "find": "{{if eq .Views 1}}view{{else}}views{{end}}",
+     "replace": "{{if eq .Views 1}}time opened{{else}}times opened{{end}}",
+     "test_command": "python -I tests/acceptance/run_finish.py --e002 --only e002_2"
+    }
+   },
+   {
+    "key": "O-019",
+    "done": true,
+    "corpus": "internal/fitnessrules/testdata/rule_spellings.json",
+    "how": "The broad rule's pattern is now (?i)[\"`](x-forwarded-[a-z-]+|x-real-ip|forwarded)[\"`] with clientaddr.go excepted. Rows fwd-f001..f008 and fwd-q001..q006 fire and stay quiet, including a backtick X-Forwarded-For outside clientaddr.go (fires) and inside it (quiet). Under the rules as the tree had them, 16 of the 53 forwarded-header rows fail; under the new ones 0 fail.",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "(?i)[\"`](x-forwarded-[a-z-]+|x-real-ip|forwarded)[\"`]",
+     "replace": "(?i)\"(x-forwarded-[a-z-]+|x-real-ip|forwarded)\"",
+     "test_command": "go test -count=1 ./internal/fitnessrules -run ^TestRuleSpellingsCorpus$"
+    }
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "corpus": "internal/fitnessrules/testdata/rule_spellings.json",
+    "how": "The narrow rule gained the critic's shape patterns instead of a five-name list, and 25 fire rows fwn-f001..f025 pin them. The critic's second pattern fires on X-Forwarded-For (fwn-q001..q005) and misses Forwarded-For, so I corrected it: forwarded with an optional prefix other than a lone x. X-Envoy-External-Address and concatenation are pinned quiet as known holes in fwn-q012 and fwn-q013, in bounded_by.",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "(?i)[\"`][a-z0-9-]*(-ip|client-?ip)[\"`]",
+     "replace": "(?i)[\"`]zzz-never-matches[\"`]",
+     "test_command": "go test -count=1 ./internal/fitnessrules -run ^TestRuleSpellingsCorpus$"
+    }
+   },
+   {
+    "key": "O-021",
+    "done": true,
+    "how": "ObviousBot removes 'cubot' from the lower-cased UA before the token match. TestObviousBot's browser side holds a Cubot P20 and a Cubot X18 Plus UA, and a bot UA that merely says cubot is still dropped.",
+    "mutation": {
+     "file": "internal/opens/opens.go",
+     "find": "strings.ReplaceAll(strings.ToLower(ua), \"cubot\", \"\")",
+     "replace": "strings.ToLower(ua)",
+     "test_command": "go test -count=1 ./internal/opens -run ^TestObviousBot$"
+    }
+   },
+   {
+    "key": "O-022",
+    "done": true,
+    "how": "The once-only warnings and the trusted list live on a clientResolver value that newApp builds, one per app. TestClientAddr builds a fresh resolver with its own logger per row. TestClientAddrWarnsOncePerResolver runs two passes in one process, each expecting exactly one of each warning after 25 requests, and asserts two apps do not share a resolver. TestClientAddr, TestOpenCounting and TestShowAll also pass under -count=2."
+   },
+   {
+    "key": "O-023",
+    "done": true,
+    "how": "The FROM/JOIN is one const, commentRows, concatenated into treeSQL and visibleCountsSQL. TestVisibleCountsReadTheRowsTreeReads asserts both statements contain it, name FROM comments and JOIN users exactly once, and use fmtVisible. TestVisibleCounts checks VisibleCounts equals Visible(Tree) on fixtures A-D."
+   },
+   {
+    "key": "O-024",
+    "done": true,
+    "how": "Read finish[0..3] of epic 40 in place (mode=ro). In all four the owner client only signs in and publishes (a.signIn, own.publish); no owner request reads /reports/<slug> or /. Every opens assertion is made by separate non-owner browsers. The product run of all four with owner exclusion on exits 0, so owner exclusion stays."
+   },
+   {
+    "key": "O-025",
+    "done": true,
+    "how": "TestOpenCounting holds BEGIN IMMEDIATE on a second connection, then GETs a report with a browser UA. Measured: 200 with unchanged page, nothing stored, waited 2.01 s, logged. After release, 12 visits from new addresses each answered 200, raised the count by exactly one, and GET /reports stayed 200. No 'interrupted' connection and no need for a lower busy_timeout."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "github.com/sshubham2/hband/internal/reports.TestListPublished",
+    "test_command": "go test -count=1 ./internal/reports -run ^TestListPublished$"
+   },
+   {
+    "key": "C-002",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestShowAll",
+    "test_command": "go test -count=1 ./internal/server -run ^TestShowAll$"
+   },
+   {
+    "key": "C-003",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestStoreFaultSteps",
+    "test_command": "go test -count=1 ./internal/server -run ^TestStoreFaultSteps$"
+   },
+   {
+    "key": "C-004",
+    "test_name": "github.com/sshubham2/hband/internal/votes.TestPublicLikes and internal/server.TestDislikesDoNotInterfere",
+    "test_command": "go test -count=1 ./internal/votes ./internal/server -run ^(TestPublicLikes|TestDislikesDoNotInterfere)$"
+   },
+   {
+    "key": "C-005",
+    "test_name": "github.com/sshubham2/hband/internal/comments.TestVisibleCounts and internal/server.TestShowAllCommentCount",
+    "test_command": "go test -count=1 ./internal/comments ./internal/server -run ^(TestVisibleCounts|TestShowAllCommentCount)$"
+   },
+   {
+    "key": "C-006",
+    "test_name": "github.com/sshubham2/hband/internal/opens.TestRecord",
+    "test_command": "go test -count=1 ./internal/opens -run ^TestRecord$"
+   },
+   {
+    "key": "C-007",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestOpenCounting",
+    "test_command": "go test -count=1 ./internal/server -run ^TestOpenCounting$"
+   },
+   {
+    "key": "C-008",
+    "test_name": "github.com/sshubham2/hband/internal/opens.TestObviousBot",
+    "test_command": "go test -count=1 ./internal/opens -run ^TestObviousBot$"
+   },
+   {
+    "key": "C-009",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestClientAddr",
+    "test_command": "go test -count=1 ./internal/server -run ^TestClientAddr$"
+   },
+   {
+    "key": "C-010",
+    "test_name": "github.com/sshubham2/hband/internal/config.TestTrustedProxies and cmd/hband.TestBinary",
+    "test_command": "go test -count=1 ./internal/config ./cmd/hband -run ^(TestTrustedProxies|TestBinary)$"
+   },
+   {
+    "key": "C-011",
+    "test_name": "github.com/sshubham2/hband/internal/store.TestMigrateFiveToSix and internal/opens.TestNoPlainAddressStored",
+    "test_command": "go test -count=1 ./internal/store ./internal/opens -run ^(TestMigrateFiveToSix|TestNoPlainAddressStored)$"
+   },
+   {
+    "key": "C-012",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReaderPathVariants",
+    "test_command": "go test -count=1 ./internal/server -run ^TestReaderPathVariants$"
+   },
+   {
+    "key": "C-013",
+    "test_name": "github.com/sshubham2/hband/internal/fitnessrules.TestRuleSpellingsCorpus and TestRulesHoldOnTheTree",
+    "test_command": "go test -count=1 ./internal/fitnessrules -run ^(TestRuleSpellingsCorpus|TestRulesHoldOnTheTree)$"
+   },
+   {
+    "key": "C-014",
+    "test_name": "tests/acceptance/run_finish.py --others (E-001 and E-003..E-006 bodies against a build of this tree, baseline list measured at 1251104)",
+    "test_command": "python -I tests/acceptance/run_finish.py --others"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go build ./... && go vet ./...",
+    "outcome": "passed",
+    "note": "both exit 0"
+   },
+   {
+    "command": "go test -count=1 -p 4 ./...",
+    "outcome": "passed",
+    "note": "every package ok; internal/server 18 s"
+   },
+   {
+    "command": "go test -count=2 ./internal/server -run \"TestClientAddr|TestOpenCounting|TestShowAll\"",
+    "outcome": "passed",
+    "note": "the once-only warnings do not depend on test order or on repetition"
+   },
+   {
+    "command": "go test -coverpkg=./internal/... -coverprofile ./internal/server ./internal/opens ./internal/config ./internal/comments ./internal/votes ./internal/reports",
+    "outcome": "passed",
+    "note": "countOpen, showAll, showRows, parseProxies, clientResolver.addr, parseForwarded, internalAddr, Record and ObviousBot at 100%; Counts, VisibleCounts and PublicLikes at 86%"
+   },
+   {
+    "command": "python -I tests/acceptance/run_finish.py --e002",
+    "outcome": "passed",
+    "note": "all four E-002 bodies exit 0 against the built binary (8, 4, 4, 4 s)"
+   },
+   {
+    "command": "python -I tests/acceptance/run_finish.py --others --rev 1251104e8b32040527cd01b12a8f3c33abe9b931 --report-only",
+    "outcome": "passed",
+    "note": "baseline: all 12 other-epic bodies pass on the tree before SL-013, recorded as the explicit BASELINE list; e004_2 uses Chrome, which is first in its own list"
+   },
+   {
+    "command": "python -I tests/acceptance/run_finish.py --others",
+    "outcome": "passed",
+    "note": "the same 12 bodies pass on this tree"
+   },
+   {
+    "command": "mutation: clientaddr.go no-client-entry fallthrough -> return peer, true; go test ./internal/server -run ^TestClientAddr$",
+    "outcome": "failed",
+    "note": "expected failure with the fix out: 15 corpus rows fail (m1-001..m1-015); file restored and test passes"
+   },
+   {
+    "command": "mutation: clientaddr.go internal-address check disabled; go test ./internal/server -run ^TestClientAddr$",
+    "outcome": "failed",
+    "note": "expected failure with the check out: 13 rows fail; restored"
+   },
+   {
+    "command": "mutation: all_reports.html opens label 'view(s)' -> 'time(s) opened'; run_finish.py --e002 --only e002_2",
+    "outcome": "failed",
+    "note": "expected failure with the label changed: E-002's reader says the row 'cannot be read apart'; restored and it passes"
+   },
+   {
+    "command": "python rule check of the forwarded-header rows against the old rules, the critic's narrow patterns and the new ones",
+    "outcome": "passed",
+    "note": "old rules fail 16 of 53 rows; the critic's second pattern fails 6 (it fires on X-Forwarded-For); the committed rules fail 0"
+   },
+   {
+    "command": "built hband.exe and ran it with HBAND_TRUSTED_PROXIES=127.0.0.1 on a scratch data dir (reports seeded straight into the migrated v6 database)",
+    "outcome": "passed",
+    "note": "harbour 2 views from 3 visits (203.0.113.5 twice, .6), lantern 1 via /, curl bot, no-XFF and 10.0.0.9 visits not counted, draft 404 with no row; the two address-free warnings were logged; /reports Cache-Control private, no-cache; no visitor address in db, WAL or shm; visitor values 16 bytes; user_version 6"
+   },
+   {
+    "command": "same binary with HBAND_TRUSTED_PROXIES unset",
+    "outcome": "passed",
+    "note": "three different X-Forwarded-For visitors collapse to 1 view (the peer) and one 'not in HBAND_TRUSTED_PROXIES' warning is logged: the shipped default trusts nobody"
+   },
+   {
+    "command": "python -I tests/acceptance/serve_show_all.py 18955, then GET /reports, then stop the launcher",
+    "outcome": "passed",
+    "note": "rows 12 likes/3 comments/120 views, 1/1/1, 0/0/0 with a long title, 1000/25/1000; the program stopped with the launcher (job object)"
+   },
+   {
+    "command": "Fitness op=check (the engine's strict YAML loader)",
+    "outcome": "not-run",
+    "note": "no such tool is exposed here; the Go corpus and YAML scalar tests pass, and the added YAML uses the same quoting forms (single-quoted because: with doubled apostrophes, no line starting 'key:')"
+   }
+  ],
+  "deviations": [
+   "The critic's second narrow-rule pattern, (?i)[\"`][a-z0-9-]+-forwarded(-[a-z-]+)?[\"`], matches \"X-Forwarded-For\" itself (prefix x, then -forwarded, then -for), so it would fire inside clientaddr.go. It also misses \"Forwarded-For\". I replaced it with (?i)[\"`](?:(?:[a-wyz0-9-][a-z0-9-]*|x[a-z0-9-]+)-)?forwarded(?:-[a-z-]+)?[\"`], which leaves a lone-x prefix alone. 53 rows pin it, and the critic's version fails 6 of them.",
+   "clientAddr is a method, clientResolver.addr, on a value newApp builds, not the free function in the design's contract. This follows the accepted m4 fix, so each app and each test has its own once-only warnings.",
+   "M1 as accepted: a trusted peer with no untrusted client entry returns false and warns. A third warning covers a client that resolves to an internal address. The internal predicate adds CGNAT (100.64.0.0/10) and unspecified to the critic's private, loopback and link-local, because overlay networks such as Tailscale use that space.",
+   "An unparsable X-Forwarded-For entry that is reached stays silent (not counted, no warning), as the design says. It is deliberately not routed to the no-entry warning, so a client cannot use up that warning with junk.",
+   "Added internal/testutil/e002row, a port of the E-002 reader (dom, listed, rowText, counts, dated) returning errors instead of calling t.Fatalf. The design says TestShowAll 'feeds the rendered row to a copy of that reader' but names no home for the copy.",
+   "Added tests/acceptance/run_finish.py (O-014, O-018) and tests/acceptance/serve_show_all.py. The second is a launcher: the program needs HBAND_* settings a bare command line cannot carry, so the engine could not open the new page without it.",
+   "No outside defect is worked around, so no per-bug setting or notice was added. The bot filter and the trusted-proxy rule are product rules. HBAND_TRUSTED_PROXIES is a configuration variable, and a misconfiguration is told to the operator in the log by the three once-only warnings."
+  ],
+  "not_built": [
+   "C11, the real VPS proxy over WireGuard (O-015, and O-016 for the UTC-midnight window of the acceptance repeats): a person's check on the deployment, already on the backlog. I did not build or judge it.",
+   "No real-browser pixel or phone-width check of the new page was run by me. The engine measures the screens declared below. I verified the markup, the CSS rules, the E-002 row reader and the live HTML only."
+  ],
+  "follow_ups": [
+   "internal/testutil/e002row is a hand port of ledger-only finish bodies. If a finish body's reader changes, the port drifts, and run_finish.py --e002 stays the real check.",
+   "Production must list the address the VPS proxy's connection arrives from (the WireGuard peer, or the Docker bridge gateway if the container NATs it) in HBAND_TRUSTED_PROXIES. If it is unset or wrong, views are counted as the proxy (one per report per day) with one log warning; the person's C11 check should read that log.",
+   "cmd/hband/main_test.go has had an import-order gofmt difference since 1251104 (mime/multipart); not touched here.",
+   "E-004 finish line 2 (Q-028) passed at the baseline and on this tree with Chrome selected from its own candidate list, which answers part of Q-028 and is worth recording there."
+  ],
+  "architecture": [
+   {
+    "block": "C-006",
+    "kind": "paths",
+    "add": [
+     "internal/opens/**",
+     "internal/store/migrations/0006_opens.sql",
+     "internal/store/opens_migration_test.go"
+    ],
+    "why": "internal/opens/opens.go (Book, Record, Counts, ObviousBot) is the only code naming report_opens (fitness rule 'only internal/opens names the report_opens table in SQL'); 0006_opens.sql creates it"
+   },
+   {
+    "block": "C-001",
+    "kind": "line",
+    "find": "and trusted forwarded-header handling, so scheme, host and real client IP are correct.",
+    "replace": "and the client address behind the proxy: internal/server/clientaddr.go reads X-Forwarded-For only from peers listed in HBAND_TRUSTED_PROXIES (rightmost untrusted entry wins) and no other header, while scheme and host come only from HBAND_BASE_URL.",
+    "why": "config.go parseProxies fills Config.TrustedProxies; clientaddr.go clientResolver.addr is the only reader of RemoteAddr and of X-Forwarded-For (fitness rules, fire/quiet rows fwd-*, fwn-*, raddr-*); no code derives scheme or host from a header"
+   },
+   {
+    "block": "C-008",
+    "kind": "paths",
+    "add": [
+     "internal/server/templates/all_reports.html",
+     "internal/server/showall_test.go",
+     "internal/testutil/e002row/**",
+     "tests/acceptance/run_finish.py",
+     "tests/acceptance/serve_show_all.py"
+    ],
+    "why": "reader.go showAll renders all_reports.html (GET /reports); showall_test.go and the e002row row reader test it; run_finish.py runs the finish lines against a build; serve_show_all.py starts the program to look at the page"
+   }
+  ],
+  "screens": [
+   {
+    "name": "All reports",
+    "open": "/reports",
+    "steps": []
+   },
+   {
+    "name": "A report page (header with the All reports link)",
+    "open": "/reports/harbour-survey",
+    "steps": []
+   }
+  ],
+  "app": {
+   "command": "python -I tests/acceptance/serve_show_all.py {port}",
+   "url": "http://127.0.0.1:{port}/"
+  },
+  "mandatory": []
+ }
+}

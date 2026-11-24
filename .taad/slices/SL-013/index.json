@@ -87,6 +87,94 @@
   {
    "stage": "design-slice",
    "issue": "How misconfiguration is reported. Practice warns once at runtime; crossdomain logs at startup when the list is empty. I chose the runtime warning, which also catches a wrong proxy address."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "C11, the real VPS proxy over WireGuard (O-015, and O-016 for the UTC-midnight window of the acceptance repeats): a person's check on the deployment, already on the backlog. I did not build or judge it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No real-browser pixel or phone-width check of the new page was run by me. The engine measures the screens declared below. I verified the markup, the CSS rules, the E-002 row reader and the live HTML only."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "internal/testutil/e002row is a hand port of ledger-only finish bodies. If a finish body's reader changes, the port drifts, and run_finish.py --e002 stays the real check."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Production must list the address the VPS proxy's connection arrives from (the WireGuard peer, or the Docker bridge gateway if the container NATs it) in HBAND_TRUSTED_PROXIES. If it is unset or wrong, views are counted as the proxy (one per report per day) with one log warning; the person's C11 check should read that log."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "cmd/hband/main_test.go has had an import-order gofmt difference since 1251104 (mime/multipart); not touched here."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "E-004 finish line 2 (Q-028) passed at the baseline and on this tree with Chrome selected from its own candidate list, which answers part of Q-028 and is worth recording there."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The critic's second narrow-rule pattern, (?i)[\"`][a-z0-9-]+-forwarded(-[a-z-]+)?[\"`], matches \"X-Forwarded-For\" itself (prefix x, then -forwarded, then -for), so it would fire inside clientaddr.go. It also misses \"Forwarded-For\". I replaced it with (?i)[\"`](?:(?:[a-wyz0-9-][a-z0-9-]*|x[a-z0-9-]+)-)?forwarded(?:-[a-z-]+)?[\"`], which leaves a lone-x prefix alone. 53 rows pin it, and the critic's version fails 6 of them."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: clientAddr is a method, clientResolver.addr, on a value newApp builds, not the free function in the design's contract. This follows the accepted m4 fix, so each app and each test has its own once-only warnings."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: M1 as accepted: a trusted peer with no untrusted client entry returns false and warns. A third warning covers a client that resolves to an internal address. The internal predicate adds CGNAT (100.64.0.0/10) and unspecified to the critic's private, loopback and link-local, because overlay networks such as Tailscale use that space."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: An unparsable X-Forwarded-For entry that is reached stays silent (not counted, no warning), as the design says. It is deliberately not routed to the no-entry warning, so a client cannot use up that warning with junk."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Added internal/testutil/e002row, a port of the E-002 reader (dom, listed, rowText, counts, dated) returning errors instead of calling t.Fatalf. The design says TestShowAll 'feeds the rendered row to a copy of that reader' but names no home for the copy."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Added tests/acceptance/run_finish.py (O-014, O-018) and tests/acceptance/serve_show_all.py. The second is a launcher: the program needs HBAND_* settings a bare command line cannot carry, so the engine could not open the new page without it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: No outside defect is worked around, so no per-bug setting or notice was added. The bot filter and the trusted-proxy rule are product rules. HBAND_TRUSTED_PROXIES is a configuration variable, and a misconfiguration is told to the operator in the log by the three once-only warnings."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 31-429 of 511) -- partly-opened: a Read returned only part of it; seen only as 31 Grep lines; seen only through a shell command: $s, git diff; 2 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): cmd/hband/main_test.go (not seen: lines 1-384, 435-581 of 581) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/config/config_test.go (not seen: lines 1-169 of 345) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff; 1 returned line differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json (not seen: lines 1-14, 60-467 of 564) -- partly-opened: a Read returned only part of it; seen only as 3 Grep lines; seen only through a shell command: git diff, python; 1 returned line differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/reports/reports.go (not seen: lines 1-279, 358-464 of 464) -- partly-opened: a Read returned only part of it; seen only as 14 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/reader_test.go (not seen: lines 1-589, 720-758 of 758) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/storefault_test.go (not seen: lines 1-54, 175-263 of 263) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-494, 575-662 of 662) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/votes/votes.go (not seen: lines 1-139, 195-206 of 206) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
   }
  ],
  "stages": [
@@ -162,6 +250,48 @@
      "caused_by": null,
      "changed": {},
      "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T15:38:17.089Z",
+     "head": "08396c2f0055b7304dd73a6293a7a2cc0d80ab02",
+     "summary": "Built the show-all page at GET /reports and open counting.",
+     "caused_by": null,
+     "changed": {
+      "src": 25,
+      "tests": 5,
+      "config": 1,
+      "listed": 31,
+      "measured_by_git": 35
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T16:10:29.645Z",
+     "head": "08396c2f0055b7304dd73a6293a7a2cc0d80ab02",
+     "summary": "The product code matches the design and the accepted critique fixes.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
     }
    ]
   }

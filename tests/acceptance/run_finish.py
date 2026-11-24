@@ -64,8 +64,10 @@ BASELINE = {
     "tests/acceptance/test_e006_2_blocking_and_unblocking.py",
 }
 
-CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 TIMEOUT = 14 * 60
+
+# A browser executable a body names as a literal path, in the order the body names it.
+BROWSER_PATH = re.compile(r"(?i)[A-Za-z]:[\\/](?:[^\"'`\r\n]*[\\/])?(?:chrome|chromium|msedge)\.exe")
 
 
 def ledger_path(arg):
@@ -100,17 +102,37 @@ def copy_tree(rev, dest):
         shutil.copytree(ROOT, dest, ignore=shutil.ignore_patterns(".git", ".taad", "data", "__pycache__"))
 
 
+def edge_risk(body):
+    """Why a body must not be run because it could start Edge, or "" if it cannot.
+
+    A body that names msedge opens the first browser of ITS OWN list that exists, and
+    it ignores CHROME_BIN, so CHROME_BIN says nothing about which browser it takes.
+    The body is run only when the first browser path it names that exists on this
+    machine is not Edge. A body whose list cannot be read, or whose first existing
+    path is Edge, is skipped. No browser path is written in this script."""
+    if "msedge" not in body.lower():
+        return ""
+    for m in BROWSER_PATH.finditer(body):
+        found = re.sub(r"\\{2,}", r"\\", m.group(0))
+        if os.path.isfile(found):
+            if "msedge" in os.path.basename(found.replace("\\", "/")).lower():
+                return "skipped: the first browser it finds here is Edge, which is never started on this machine"
+            return ""
+    return "skipped: it names msedge and none of the browser paths it names is a Chrome that exists here"
+
+
 def run_body(tree, home, key, line):
     path = line["path"]
     body = line["body"]
+    # Edge is never started on this machine: a body that could reach for it is
+    # skipped, not run -- and not even written.
+    why = edge_risk(body)
+    if why:
+        return None, 0.0, why
     target = os.path.join(tree, *path.split("/"))
     os.makedirs(os.path.dirname(target), exist_ok=True)
     with open(target, "w", encoding="utf-8", newline="\n") as f:
         f.write(body)
-    # Edge is never started on this machine: a body that would reach for it when
-    # Chrome is missing is skipped, not run.
-    if "msedge" in body and not os.path.isfile(os.environ.get("CHROME_BIN") or CHROME):
-        return None, 0.0, "skipped: it would fall back to Edge, and Chrome is not here"
     cmd = shlex.split(line["command"])
     if cmd[0] == "python":
         cmd[0] = sys.executable
