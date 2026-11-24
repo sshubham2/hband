@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/sshubham2/hband/internal/auth"
 	"github.com/sshubham2/hband/internal/comments"
 	"github.com/sshubham2/hband/internal/feedback"
+	"github.com/sshubham2/hband/internal/opens"
 	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/votes"
 )
@@ -164,11 +166,119 @@ func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPa
 		if page == reportPage {
 			d.Next = "/reports/" + rep.Slug
 		}
+		// Every read the page is made of has answered, so this is a 200 for a found
+		// report: the one place an open is counted.
+		a.countOpen(r, rep.ID, v, signedIn)
 	case stateUnavailable:
 		d.Unavailable = true
 		status = http.StatusServiceUnavailable
 	}
 	a.writeReader(w, status, "report.html", d)
+}
+
+// countOpen counts one open of the report for the visitor who asked for the page
+// renderReader is about to answer 200. Only that answer counts: / (the newest
+// report, drawn in full) and /reports/<slug>. HEAD, /raw/<slug> (the frame's own
+// request), the branch page, the show-all page, admin pages, 404s and 503s never
+// reach it or return before the write. Nothing is counted for:
+//   - a request that is not a GET;
+//   - the signed-in owner, whose own visits would be most of a small site's count;
+//   - an obvious bot (opens.ObviousBot);
+//   - a request whose client cannot be told (clientResolver.addr).
+//
+// The write is bounded at 2 s, and the count is a side effect of reading, not the
+// reason for it: a write that fails is logged (without the address) and the page
+// goes out as it would have.
+func (a *app) countOpen(r *http.Request, reportID int64, v auth.Viewer, signedIn bool) {
+	if r.Method != http.MethodGet || (signedIn && v.IsOwner) || opens.ObviousBot(r.UserAgent()) {
+		return
+	}
+	addr, ok := a.client.addr(r)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), openWriteLimit)
+	defer cancel()
+	if err := a.recordOpen(ctx, reportID, addr); err != nil {
+		slog.Warn("reader: count an open", "error", err)
+	}
+}
+
+// openWriteLimit bounds the write that counts an open.
+const openWriteLimit = 2 * time.Second
+
+// showRow is one report on the show-all page.
+type showRow struct {
+	Slug        string
+	Title       string
+	PublishedAt time.Time
+	// HasDate is false only for a published report whose publish date is unset.
+	HasDate bool
+	Likes   int
+	// Comments is the whole-thread visible count, the number the report page prints.
+	Comments int
+	Views    int
+}
+
+// showData feeds all_reports.html.
+type showData struct {
+	pageData
+	Rows        []showRow
+	Unavailable bool
+}
+
+// showAll is the public list of every published report, newest first, each with
+// its likes, its visible comments and its times opened (views). Anyone may read
+// it, and the rows are the same for an anonymous visitor, a reader and the owner:
+// no dislike count is read, and no open is counted for the page itself. The
+// numbers come from four whole-table reads, each in the package that owns its
+// table. They are four snapshots, not one. If any of the four fails the page says
+// it cannot be shown, with no rows and a 503: a count that could not be read is
+// never drawn as a zero.
+func (a *app) showAll(w http.ResponseWriter, r *http.Request) {
+	v, signedIn := auth.ViewerFrom(r.Context())
+	d := showData{pageData: pageData{Title: "All reports - hband", SignedIn: signedIn, Viewer: v, Next: "/reports"}}
+	status := http.StatusOK
+	rows, err := a.showRows(r.Context())
+	if err != nil {
+		slog.Error("reader: read the show-all page", "error", err)
+		d.Unavailable = true
+		status = http.StatusServiceUnavailable
+	} else {
+		d.Rows = rows
+	}
+	a.writeReader(w, status, "all_reports.html", d)
+}
+
+// showRows reads the four tables the show-all page is made of. A report missing
+// from a count's map has none of that count, which is a true zero: the read
+// itself answered.
+func (a *app) showRows(ctx context.Context) ([]showRow, error) {
+	list, err := a.reports.ListPublished(ctx)
+	if err != nil {
+		return nil, err
+	}
+	likes, err := a.votes.PublicLikes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	visible, err := a.comments.VisibleCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	views, err := a.opens.Counts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]showRow, 0, len(list))
+	for _, rep := range list {
+		rows = append(rows, showRow{
+			Slug: rep.Slug, Title: rep.Title,
+			PublishedAt: rep.PublishedAt, HasDate: rep.HasPublishDate(),
+			Likes: likes[rep.ID], Comments: visible[rep.ID], Views: views[rep.ID],
+		})
+	}
+	return rows, nil
 }
 
 // threadOf is the only place a reader page's thread is read and shaped: the
@@ -204,7 +314,7 @@ func (a *app) threadOf(ctx context.Context, rep reports.Report, tv threadViewer,
 // signed in, the owner's Admin link, a reply form) and changes whenever the
 // author publishes or a reader writes: a shared cache may not keep it, and a
 // private one must revalidate.
-func (a *app) writeReader(w http.ResponseWriter, status int, page string, d readerData) {
+func (a *app) writeReader(w http.ResponseWriter, status int, page string, d any) {
 	w.Header().Set("Cache-Control", "private, no-cache")
 	a.render(w, status, page, d)
 }

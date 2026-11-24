@@ -1,0 +1,156 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-013",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-24T15:19:39.352Z",
+ "head": "1251104e8b32040527cd01b12a8f3c33abe9b931",
+ "run_id": 12076,
+ "summary": "The core holds up when checked against the tree. 0006 is the next gapless migration (0001-0005 present). The dedupe table copies 0003_votes.sql's FK/cascade/STRICT shape, and modernc v1.63.0 is far past SQLite 3.37. The hook placement matches renderReader's real branches (reader.go:114-172). treeSQL really joins users and computes shown with fmtVisible(\"c\"), and vote_test.go:507 already lists \"/reports\". Every existing write transaction (upload create/replace, Delete, sign-in) starts with a write, so a write on every public GET adds lock waits but not BUSY_SNAPSHOT failures.\n\nTwo majors:\n- **M1, proxy without XFF.** The resolver treats \"trusted peer, no X-Forwarded-For\" as \"the peer is the client\". That is the R-004 collapse, and it is silent. The one warning fires only for XFF arriving from an untrusted peer. A bare nginx proxy_pass sends no XFF, and nginx's own example config sets only X-Real-IP, which this design never reads. So the design's own claim that \"the runtime warning makes the first case visible\" does not cover the commonest misconfiguration.\n- **M2, finish bodies not in the plan.** No case runs the four E-002 finish bodies against the product. Yet the row label ('view(s)'), the date placement and the counting semantics rest on a hand trace of E-002's Go reader and on a stub run.\n\nMinors:\n- The amended forwarded-header rule still sees only double-quoted literals, so a backtick `X-Forwarded-For` anywhere passes both rules (CC-001).\n- Other client-identity header names are fenced by neither rule.\n- The bare 'bot' token drops real Cubot Android phones. isbot issue #29 is the cited source, and it contradicts the design's own \"real browsers must never be dropped\".\n- A package-level sync.Once makes TestClientAddr's once-only assertion depend on test order.\n- \"VisibleCounts == Visible(Tree) by construction\" actually holds only while two SQL strings are kept in step by hand.\n\nNot checked: the hand trace of E-002's row reader. I could not read the ledger (no shell in this review), so it is still unverified.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The core holds up when checked against the tree. 0006 is the next gapless migration (0001-0005 present). The dedupe table copies 0003_votes.sql's FK/cascade/STRICT shape, and modernc v1.63.0 is far past SQLite 3.37. The hook placement matches renderReader's real branches (reader.go:114-172). treeSQL really joins users and computes shown with fmtVisible(\"c\"), and vote_test.go:507 already lists \"/reports\". Every existing write transaction (upload create/replace, Delete, sign-in) starts with a write, so a write on every public GET adds lock waits but not BUSY_SNAPSHOT failures.\n\nTwo majors:\n- **M1, proxy without XFF.** The resolver treats \"trusted peer, no X-Forwarded-For\" as \"the peer is the client\". That is the R-004 collapse, and it is silent. The one warning fires only for XFF arriving from an untrusted peer. A bare nginx proxy_pass sends no XFF, and nginx's own example config sets only X-Real-IP, which this design never reads. So the design's own claim that \"the runtime warning makes the first case visible\" does not cover the commonest misconfiguration.\n- **M2, finish bodies not in the plan.** No case runs the four E-002 finish bodies against the product. Yet the row label ('view(s)'), the date placement and the counting semantics rest on a hand trace of E-002's Go reader and on a stub run.\n\nMinors:\n- The amended forwarded-header rule still sees only double-quoted literals, so a backtick `X-Forwarded-For` anywhere passes both rules (CC-001).\n- Other client-identity header names are fenced by neither rule.\n- The bare 'bot' token drops real Cubot Android phones. isbot issue #29 is the cited source, and it contradicts the design's own \"real browsers must never be dropped\".\n- A package-level sync.Once makes TestClientAddr's once-only assertion depend on test order.\n- \"VisibleCounts == Visible(Tree) by construction\" actually holds only while two SQL strings are kept in step by hand.\n\nNot checked: the hand trace of E-002's row reader. I could not read the ledger (no shell in this review), so it is still unverified.",
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "major",
+    "dimension": "error-paths",
+    "nature": "defect",
+    "claim": "clientAddr resolves 'trusted peer, no X-Forwarded-For header' to the peer itself ('With no header, the peer is the client'). It resolves 'every entry trusted' to the leftmost trusted entry. Behind the VPS, the peer IS the proxy. A proxy that forwards no XFF entry therefore keys every visitor as the proxy: one open per report per day, which is exactly R-004. Nothing is logged, because the sync.Once warning fires only when XFF arrives from an UNTRUSTED peer. This is the ordinary failure, not an exotic one. With a bare proxy_pass, nginx forwards no client address at all. The example config in nginx's own ngx_http_proxy_module docs sets only `proxy_set_header X-Real-IP $remote_addr;`, and the design deliberately never reads X-Real-IP. The design's outside_claims if_wrong ('The runtime warning makes the first case visible in the log') and the HBAND_TRUSTED_PROXIES contract both overstate the protection. So the unproven precondition 'the VPS proxy appends or sets X-Forwarded-For' fails silently in exactly the setup most likely to occur. It would surface only if the person's C11 check happens to look at per-visitor counts. The other precondition (a UTC day boundary inside an acceptance repeat) only costs a roughly 3-second-a-day flake, and the fake-clock TestRecord covers the logic.",
+    "class_of": "trusted peer that forwards no untrusted X-Forwarded-For client entry",
+    "threat": "accident",
+    "evidence": "Design component 'Client address resolver (clientAddr)': 'With no header, the peer is the client. If every entry is trusted, the leftmost is the client.' The warning: 'The first time an X-Forwarded-For header arrives from an untrusted peer, one sync.Once slog.Warn'. https://zeroexp.dev/library/nginx-reverse-proxy-headers: 'With no proxy_set_header, the backend saw Host: backend:3000 (the upstream name) and only the proxy's own address; nothing in the request said who the client was'. https://nginx.org/en/docs/http/ngx_http_proxy_module.html example: 'proxy_set_header X-Real-IP $remote_addr;'.",
+    "fix": "When the peer is trusted and the right-to-left walk finds no untrusted entry (no header, or every entry trusted), return false, so the request is not counted. Also emit a second once-only warning without an address, along the lines of 'HBAND_TRUSTED_PROXIES peer sent no X-Forwarded-For client entry; opens are not being counted'. Add both shapes to TestClientAddr. Every E-002 body sends XFF from 127.0.0.1 (spike), and TestBinary asserts nothing about opens, so neither is affected."
+   },
+   {
+    "id": "M2",
+    "severity": "major",
+    "dimension": "test-coverage",
+    "nature": "required",
+    "claim": "No case runs the four E-002 finish bodies (epic 40) against a build of this tree. Yet the design calls them 'the finish line' (whats_reused). It rests three expensive-to-notice choices on them, each checked only by hand-reading or on a stub: the 'N view(s)' label in place of the slice's 'times opened', the date placed after the numbers, and '/' counting as an open while finish[1] requires the newest report to read 0. The spike recorded these bodies against the real product as 'not measurable' (N-155: 'finish[1..3] bodies run against the built ./cmd/hband with view counting implemented'), and its headline says 'on a stub, not product'. The design does add a case running the OTHER epics' finish bodies. But that case's check is a prose procedure rather than one command exiting 0, which lesson #972 says a design check must be.",
+    "evidence": "Design cases list: no case names epic 40 / E-002 finish[0..3]. Last case check: 'Read each finish body of epics E-001 and E-003..E-006 in place from engine.db ... and run it with python -I'. Spike detail: 'not measurable on any machine here: ... the finish[1..3] bodies run against the built ./cmd/hband with view counting implemented [N-155]'. Design rationale: 'I traced the reader by hand on the row ...'.",
+    "fix": "Add a material case: read finish[0..3] of epics id=40 in place (mode=ro, SELECT only), put them in a scratch copy, and run them with go test against ./cmd/hband built from this tree. All four must exit 0. Give it, and the existing other-epics case, one checker-script command each that exits 0 (lesson #972)."
+   },
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The design says clientaddr.go is 'the only non-test file allowed to ... name X-Forwarded-For'. The rules do not enforce that for raw string literals. The amended broad rule keeps its pattern, which matches only double-quoted literals. The new narrow rule matches backticks but deliberately excludes 'For'. So r.Header.Get(`X-Forwarded-For`) in any other file, for example a later rate limiter that takes the spoofable leftmost entry, passes both rules. This is CC-001's raw-string member.",
+    "class_of": "forwarded-header literal spellings the fence misses",
+    "threat": "accident",
+    "evidence": "Design architecture_rules[0] keeps must_not_match `(?i)\"(x-forwarded-[a-z-]+|x-real-ip|forwarded)\"` and only adds an except for clientaddr.go. architecture_rules[1] excludes X-Forwarded-For on purpose.",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 11,
+     "text": "- (?i)\"(x-forwarded-[a-z-]+|x-real-ip|forwarded)\""
+    },
+    "file": ".taad/fitness.yaml",
+    "line": 11,
+    "fix": "While amending the rule in place, change the pattern to (?i)[\"`](x-forwarded-[a-z-]+|x-real-ip|forwarded)[\"`]. Add a fire row with a backtick `X-Forwarded-For` at a path outside clientaddr.go, and a quiet row for the same text at internal/server/clientaddr.go."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The rule names promise that no request header supplies client identity, and that every reader of the client address goes through clientAddr. Only X-Forwarded-*, X-Real-IP and Forwarded are fenced. A later per-visitor feature reading True-Client-IP, X-Client-IP, CF-Connecting-IP, Fastly-Client-IP or X-Cluster-Client-IP passes all three new or amended rules and lets a client choose its own identity. The design lists concatenation and ranging over r.Header as known holes, but not these equivalent headers (CC-001: equivalent protocol mechanisms).",
+    "class_of": "client-identity request header names outside the fenced set",
+    "threat": "accident",
+    "evidence": "Design architecture_rules[1] second pattern covers only x-real-ip and forwarded. Its 'because' lists only concatenation and r.Header ranging as holes.",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 452,
+     "text": "- (?i)[\"`](x-real-ip|forwarded)[\"`]"
+    },
+    "file": ".taad/fitness.yaml",
+    "line": 452,
+    "fix": "Extend that pattern to (?i)[\"`](x-real-ip|forwarded|true-client-ip|x-client-ip|cf-connecting-ip|fastly-client-ip|x-cluster-client-ip)[\"`], with one fire row for the new names and a quiet row showing X-Forwarded-For in clientaddr.go."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "claim": "ObviousBot drops any UA that contains 'bot' anywhere. Real Android browsers on Cubot phones send UAs like 'Mozilla/5.0 (Linux; Android 8.0.0; CUBOT_P20) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Mobile Safari/537.36', so they would never be counted. That contradicts the design's own case ('Real browsers must never be dropped'). The best-known UA bot list hit exactly this and narrowed its 'bot' match.",
+    "evidence": "https://github.com/omrilotan/isbot/issues/29 ('Wrong detect Cubot devices', with the UAs quoted). isbot CHANGELOG 4.1.1: 'Adjust \"bot\" pattern to recognise bot as a standalone word or word suffix (excluding \"Cubot\")'. Design ObviousBot token list: 'bot, crawl, spider, ...'.",
+    "fix": "Before the token match, ignore 'cubot' (or match 'bot' only as a whole word or a suffix not preceded by 'cu'). Add a Cubot UA to TestObviousBot's browser side."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "clientAddr is a free function, and its once-only warning is a package-level sync.Once on the global slog logger. In internal/server, any earlier test that sends X-Forwarded-For with no trusted list uses up the Once before TestClientAddr can assert it: TestOpenCounting does, and harness requests come from httptest.NewRequest's fixed RemoteAddr 192.0.2.1. The case's 'the warning must appear once ... and appear only for an untrusted peer' then passes or fails by test order, and cannot hold under -count=2.",
+    "evidence": "Design: 'one sync.Once slog.Warn names HBAND_TRUSTED_PROXIES'; the TestClientAddr case 'why'.",
+    "quote": {
+     "path": "internal/server/harness_test.go",
+     "line": 177,
+     "text": "req := httptest.NewRequest(method, target, nil)"
+    },
+    "file": "internal/server/harness_test.go",
+    "line": 177,
+    "fix": "Keep the Once, and the warning sink, on a small resolver value built in newApp (for example a.clientAddr with the trusted list and a *sync.Once). Each test then builds a fresh one and captures its own logger, and countOpen calls the method."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "defect",
+    "claim": "The design claims VisibleCounts == Visible(Tree) 'holds by construction'. In fact it holds by remembering. treeSQL and the new VisibleCounts statement would each carry their own copy of 'FROM comments c JOIN users u ON u.github_id = c.github_id'. A later change to one copy, such as a LEFT JOIN when accounts can be deleted, or an extra WHERE in treeSQL, silently splits the show-all number from the report page's printed count. Only the fixtures in TestVisibleCounts would notice.",
+    "evidence": "Design selection_rationale: 'Practice's version keeps treeSQL's JOIN users, so its row set is exactly the one Tree reads, and the invariant VisibleCounts == Visible(Tree) holds by construction.'",
+    "quote": {
+     "path": "internal/comments/tree.go",
+     "line": 54,
+     "text": "FROM comments c JOIN users u ON u.github_id = c.github_id"
+    },
+    "file": "internal/comments/tree.go",
+    "line": 54,
+    "fix": "Make the FROM/JOIN fragment one unexported const in internal/comments, used by both treeSQL and VisibleCounts, so that both read the same row set by construction."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "Precondition 1 (the VPS peer is listed and sends XFF) is unproven. If it fails: an unlisted peer collapses every visitor into one, but is logged once. A proxy that sends no XFF, or only X-Real-IP, collapses everyone SILENTLY (M1). Nginx sends no XFF by default (zeroexp.dev, nginx.org example). Precondition 2 (no UTC boundary inside an acceptance repeat) costs only a roughly 3-second-a-day flake, and the fake-clock TestRecord pins the logic. Recalled claims checked: a GET pattern serving HEAD is standard ServeMux behaviour. STRICT plus WITHOUT ROWID needs SQLite 3.37+, and go.mod pins modernc.org/sqlite v1.63.0. RE2 (?i) folding of class ranges is pinned by the corpus rows. httptest.NewRequest sets no UA, and harness_test.go:177 adds none."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "m3: the bare 'bot' token drops Cubot phone browsers (isbot #29). Checked and not a finding: a published report always has published_at (upload.go:330-332 sets it; publish uses COALESCE). The /reports/ 404 and HEAD branches are pinned by the case list. An unparsable XFF entry to the left of the client is never reached."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "m5: the VisibleCounts/treeSQL row set is shared by copy, not by construction. Every other rule the design states sits in its seam: Record behind clientAddr and the RemoteAddr fence, the published-only INSERT inside Record, owner, bot and method checks in one countOpen."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "none: the complex 'not For' regex is needed because RE2 has no lookahead. The /64 grouping, the 2 s bound and the separate fenced package are each one small piece with a stated reason. There is no rollup, pruning or redaction machinery."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "The HBAND_TRUSTED_PROXIES contract says nothing about what a trusted peer with no XFF means (folded into M1). 'N views' in place of the slice's 'times opened' is a declared taste choice with a legend. I left it to the person and did not file it."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "M1: a trusted peer with no XFF entry is a silent failure. The other paths are consistent: the open write fails open with a 2 s bound, show-all reads fail closed with a 503 and never zeros, and the config error exits 2 without echoing the value. Existing write transactions (upload.go:323/363, reports.go:427, signin.go:34) all start with a write, so a write on every GET adds lock waits but not BUSY_SNAPSHOT failures."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "none against the tree: router.go has no GET /reports route; reader.go renderReader is the single path, and readBranch draws its success page through writeReader; vote_test.go:507 already lists /reports; reader_test.go:672 pins /reports as a 404; tree.go:54 joins users; config.go:4-7 says TRUSTED_PROXIES is ignored. fitness.yaml already carries the four new rules under '# settled by SL-013', and the builder still has to amend the broad rule at line 8."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "m1: the amended forwarded rule misses backtick literals, so X-Forwarded-For can be read anywhere (CC-001). m2: other client-identity header names are not fenced. CC-002 does not apply: show-all does no auth.Participant lookup, and each of its four reads gets its own store-fault row."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "M2: no case runs the E-002 finish bodies against the product, and the other-epics case is a prose procedure (lesson #972). m4: a package-level Once makes the once-only warning assertion order-dependent. Settling M2 means running epic 40's finish[0..3] with go test against a build of this tree."
+   },
+   {
+    "dimension": "security",
+    "result": "The key is held only in memory, report_id goes into the HMAC, and the rightmost-untrusted walk stops leftmost spoofing. No plain address is logged. The remaining security holes are the rule gaps in m1 and m2. Nothing else found."
+   }
+  ]
+ }
+}

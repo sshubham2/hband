@@ -619,6 +619,12 @@ func TestReaderPathVariants(t *testing.T) {
 		}
 		return ""
 	}
+	showAll := func(r result) string {
+		if r.Status != 200 || !strings.Contains(r.Body, "<h1>All reports</h1>") || !strings.Contains(r.Body, "No reports yet.") {
+			return "want the show-all page, with nothing listed"
+		}
+		return ""
+	}
 	redirect := func(to string) func(result) string {
 		return func(r result) string {
 			if r.Status != http.StatusTemporaryRedirect || r.Location() != to {
@@ -669,7 +675,17 @@ func TestReaderPathVariants(t *testing.T) {
 		{"GET", "//reports/x", redirect("/reports/x")},
 		{"GET", "/reports/x/", notFound},
 		{"GET", "/reports/", notFound},
-		{"GET", "/reports", notFound},
+		// The show-all page is the one exact path /reports (SL-013): a draft x and an
+		// unknown x give the same page, because neither is listed. Every other spelling
+		// keeps the answer it had.
+		{"GET", "/reports", showAll},
+		{"HEAD", "/reports", showAll},
+		{"POST", "/reports", notAllowed},
+		{"PUT", "/reports", notAllowed},
+		{"GET", "//reports", redirect("/reports")},
+		{"GET", "/reports/../reports", redirect("/reports")},
+		{"GET", "/REPORTS", notFound},
+		{"GET", "/Reports", notFound},
 		{"GET", "/REPORTS/x", notFound},
 		{"GET", "/reports/x/../y", redirect("/reports/y")},
 		{"GET", "//raw/x", redirect("/raw/x")},

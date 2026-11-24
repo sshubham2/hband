@@ -1,0 +1,756 @@
+{
+ "purpose": "clientResolver.addr over every shape a proxy or a client can send. want is the address counted (empty: the request is not counted). warn is the one once-only warning the request raises on a fresh resolver ('untrusted': a header from a peer not in HBAND_TRUSTED_PROXIES; 'no-entry': a trusted peer forwarded no client entry; 'internal': the client resolved to an internal address). trusted defaults to [127.0.0.1]. The class is bounded by who produces its members: the operator's proxy configuration and the client's own headers. Not bounded: a proxy that rewrites an address into something that parses as another visitor's.",
+ "rows": [
+  {
+   "id": "m1-001",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "want": "",
+   "warn": "no-entry",
+   "why": "a bare proxy_pass: the trusted peer forwards nothing at all"
+  },
+  {
+   "id": "m1-002",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    ""
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "the header is present and empty"
+  },
+  {
+   "id": "m1-003",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "   "
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "the header is only blanks"
+  },
+  {
+   "id": "m1-004",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "127.0.0.1"
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "every entry is the trusted proxy itself"
+  },
+  {
+   "id": "m1-005",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "127.0.0.1, 127.0.0.1"
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "the same proxy twice"
+  },
+  {
+   "id": "m1-006",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "::ffff:127.0.0.1"
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "the trusted proxy written as an IPv4-mapped address"
+  },
+  {
+   "id": "m1-007",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "127.0.0.1:8080"
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "the trusted proxy with a port"
+  },
+  {
+   "id": "m1-008",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "trusted": [
+    "127.0.0.1",
+    "10.1.0.0/16"
+   ],
+   "xff": [
+    "10.1.2.3, 10.1.0.9"
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "every hop inside a trusted CIDR"
+  },
+  {
+   "id": "m1-009",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "127.0.0.1",
+    "127.0.0.1"
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "several header lines, every entry trusted"
+  },
+  {
+   "id": "m1-010",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "other": {
+    "X-Real-IP": "203.0.113.5"
+   },
+   "want": "",
+   "warn": "no-entry",
+   "why": "nginx's documented example sets only X-Real-IP, which is never read"
+  },
+  {
+   "id": "m1-011",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "other": {
+    "Forwarded": "for=203.0.113.5"
+   },
+   "want": "",
+   "warn": "no-entry",
+   "why": "RFC 7239 Forwarded alone is never read"
+  },
+  {
+   "id": "m1-012",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "other": {
+    "X-Real-IP": "203.0.113.5",
+    "Forwarded": "for=203.0.113.6",
+    "X-Client-IP": "203.0.113.7"
+   },
+   "want": "",
+   "warn": "no-entry",
+   "why": "every other client-identity header at once"
+  },
+  {
+   "id": "m1-013",
+   "class": "no-client-entry",
+   "peer": "[::1]:5555",
+   "trusted": [
+    "::1"
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "an IPv6 trusted peer with no header"
+  },
+  {
+   "id": "m1-014",
+   "class": "no-client-entry",
+   "peer": "[::ffff:127.0.0.1]:5555",
+   "want": "",
+   "warn": "no-entry",
+   "why": "a trusted peer that connects as an IPv4-mapped address"
+  },
+  {
+   "id": "m1-015",
+   "class": "no-client-entry",
+   "peer": "127.0.0.1:5555",
+   "trusted": [
+    "127.0.0.1",
+    "2001:db8::/32"
+   ],
+   "xff": [
+    "2001:db8::1"
+   ],
+   "want": "",
+   "warn": "no-entry",
+   "why": "every entry inside a trusted IPv6 prefix"
+  },
+  {
+   "id": "m1-020",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "10.0.0.1"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "the VPS's WireGuard address met first: private"
+  },
+  {
+   "id": "m1-021",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "192.168.1.5"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "private, 192.168/16"
+  },
+  {
+   "id": "m1-022",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "172.16.0.9"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "private, 172.16/12"
+  },
+  {
+   "id": "m1-023",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "100.64.0.3"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "shared (CGNAT) space an overlay network uses"
+  },
+  {
+   "id": "m1-024",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "169.254.1.1"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "link-local"
+  },
+  {
+   "id": "m1-025",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "127.0.0.2"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "loopback that is not the listed proxy"
+  },
+  {
+   "id": "m1-026",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "fd00::1"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "IPv6 unique-local"
+  },
+  {
+   "id": "m1-027",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "fe80::1"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "IPv6 link-local"
+  },
+  {
+   "id": "m1-028",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "::1"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "IPv6 loopback"
+  },
+  {
+   "id": "m1-029",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "0.0.0.0"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "the unspecified address"
+  },
+  {
+   "id": "m1-030",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "::ffff:10.0.0.1"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "a private address written IPv4-mapped"
+  },
+  {
+   "id": "m1-031",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "203.0.113.9, 10.0.0.1"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "a real client behind an unlisted outer proxy: the rightmost hop is what a header can say"
+  },
+  {
+   "id": "m1-032",
+   "class": "internal-client",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "10.0.0.1:51820"
+   ],
+   "want": "",
+   "warn": "internal",
+   "why": "private with a port"
+  },
+  {
+   "id": "ok-001",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "203.0.113.9"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "the plain case"
+  },
+  {
+   "id": "ok-002",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "1.2.3.4, 203.0.113.9"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "a spoofed leftmost entry is never read: the rightmost untrusted wins"
+  },
+  {
+   "id": "ok-003",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "203.0.113.9, 127.0.0.1"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "a trusted hop to the right is stepped over"
+  },
+  {
+   "id": "ok-004",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "trusted": [
+    "127.0.0.1",
+    "10.0.0.1"
+   ],
+   "xff": [
+    "203.0.113.9, 10.0.0.1"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "two listed proxies in the chain"
+  },
+  {
+   "id": "ok-005",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "203.0.113.9:4444"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "ip:port"
+  },
+  {
+   "id": "ok-006",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "[2001:db8::5]:4444"
+   ],
+   "want": "2001:db8::5",
+   "warn": "",
+   "why": "[v6]:port"
+  },
+  {
+   "id": "ok-007",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "2001:db8::5"
+   ],
+   "want": "2001:db8::5",
+   "warn": "",
+   "why": "a bare IPv6 address"
+  },
+  {
+   "id": "ok-008",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "::ffff:203.0.113.9"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "an IPv4-mapped client is the IPv4 address"
+  },
+  {
+   "id": "ok-009",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "2001:db8::5%eth0"
+   ],
+   "want": "2001:db8::5",
+   "warn": "",
+   "why": "a zone is dropped"
+  },
+  {
+   "id": "ok-010",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "1.1.1.1",
+    "203.0.113.9"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "several lines: the last line is the nearest proxy's"
+  },
+  {
+   "id": "ok-011",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "trusted": [
+    "127.0.0.1",
+    "10.0.0.1"
+   ],
+   "xff": [
+    "203.0.113.9",
+    "10.0.0.1"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "several lines, a trusted hop on the last"
+  },
+  {
+   "id": "ok-012",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "unknown, 203.0.113.9"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "junk to the left of the client is never read"
+  },
+  {
+   "id": "ok-013",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "  203.0.113.9  "
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "blanks around an entry"
+  },
+  {
+   "id": "ok-014",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "198.51.100.1,203.0.113.9"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "no space after the comma"
+  },
+  {
+   "id": "ok-015",
+   "class": "resolved",
+   "peer": "[::ffff:127.0.0.1]:5555",
+   "xff": [
+    "203.0.113.9"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "a mapped trusted peer is trusted"
+  },
+  {
+   "id": "ok-016",
+   "class": "resolved",
+   "peer": "10.9.9.9:1",
+   "trusted": [
+    "10.0.0.0/8"
+   ],
+   "xff": [
+    "203.0.113.9"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "a trusted CIDR peer"
+  },
+  {
+   "id": "ok-017",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "203.0.113.9"
+   ],
+   "other": {
+    "X-Real-IP": "198.51.100.1",
+    "Forwarded": "for=198.51.100.2"
+   },
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "X-Real-IP and Forwarded are ignored when X-Forwarded-For says"
+  },
+  {
+   "id": "ok-018",
+   "class": "resolved",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "8.8.8.8, 203.0.113.9, 127.0.0.1, 127.0.0.1"
+   ],
+   "want": "203.0.113.9",
+   "warn": "",
+   "why": "several trusted hops to the right"
+  },
+  {
+   "id": "un-001",
+   "class": "unparsable",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "unknown"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "an obfuscated or unknown token"
+  },
+  {
+   "id": "un-002",
+   "class": "unparsable",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "203.0.113.9, unknown"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "the rightmost entry is junk: the client to its left is not believed"
+  },
+  {
+   "id": "un-003",
+   "class": "unparsable",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "not-an-address"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "a name"
+  },
+  {
+   "id": "un-004",
+   "class": "unparsable",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "[203.0.113.9]"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "a bare bracket with no port"
+  },
+  {
+   "id": "un-005",
+   "class": "unparsable",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "203.0.113.9:port"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "a port that is not a number"
+  },
+  {
+   "id": "un-006",
+   "class": "unparsable",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "203.0.113.9/24"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "a prefix, not an address"
+  },
+  {
+   "id": "un-007",
+   "class": "unparsable",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    ",,"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "only commas"
+  },
+  {
+   "id": "un-008",
+   "class": "unparsable",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "203.0.113.9,"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "a trailing comma leaves an empty rightmost entry"
+  },
+  {
+   "id": "un-009",
+   "class": "unparsable",
+   "peer": "127.0.0.1:5555",
+   "xff": [
+    "300.1.1.1"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "an out-of-range octet"
+  },
+  {
+   "id": "np-001",
+   "class": "untrusted-peer",
+   "peer": "192.0.2.1:5555",
+   "xff": [
+    "203.0.113.9"
+   ],
+   "want": "192.0.2.1",
+   "warn": "untrusted",
+   "why": "the header is ignored and said so once"
+  },
+  {
+   "id": "np-002",
+   "class": "untrusted-peer",
+   "peer": "192.0.2.1:5555",
+   "want": "192.0.2.1",
+   "warn": "",
+   "why": "no header, no warning"
+  },
+  {
+   "id": "np-003",
+   "class": "untrusted-peer",
+   "peer": "192.0.2.1:5555",
+   "other": {
+    "X-Real-IP": "203.0.113.9"
+   },
+   "want": "192.0.2.1",
+   "warn": "",
+   "why": "X-Real-IP is not X-Forwarded-For: no warning"
+  },
+  {
+   "id": "np-004",
+   "class": "untrusted-peer",
+   "peer": "[::ffff:192.0.2.1]:5555",
+   "want": "192.0.2.1",
+   "warn": "",
+   "why": "an IPv4-mapped peer is the IPv4 address"
+  },
+  {
+   "id": "np-005",
+   "class": "untrusted-peer",
+   "peer": "192.0.2.1:5555",
+   "xff": [
+    "127.0.0.1"
+   ],
+   "want": "192.0.2.1",
+   "warn": "untrusted",
+   "why": "claiming to be the proxy does not make a peer one"
+  },
+  {
+   "id": "np-006",
+   "class": "untrusted-peer",
+   "peer": "10.1.1.1:5555",
+   "want": "10.1.1.1",
+   "warn": "",
+   "why": "a private peer that nobody lists is a visitor on that network, not a collapse"
+  },
+  {
+   "id": "np-007",
+   "class": "untrusted-peer",
+   "peer": "192.0.2.1:5555",
+   "trusted": [],
+   "xff": [
+    "1.2.3.4"
+   ],
+   "want": "192.0.2.1",
+   "warn": "untrusted",
+   "why": "an empty list trusts nobody"
+  },
+  {
+   "id": "np-008",
+   "class": "untrusted-peer",
+   "peer": "[2001:db8::7]:5555",
+   "xff": [
+    "203.0.113.9"
+   ],
+   "want": "2001:db8::7",
+   "warn": "untrusted",
+   "why": "an IPv6 peer that is not listed"
+  },
+  {
+   "id": "np-009",
+   "class": "untrusted-peer",
+   "peer": "192.0.2.1:5555",
+   "trusted": [
+    "192.0.2.2"
+   ],
+   "xff": [
+    "203.0.113.9"
+   ],
+   "want": "192.0.2.1",
+   "warn": "untrusted",
+   "why": "a list that names another peer"
+  },
+  {
+   "id": "pe-001",
+   "class": "peer",
+   "peer": "garbage",
+   "xff": [
+    "203.0.113.9"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "RemoteAddr that does not parse"
+  },
+  {
+   "id": "pe-002",
+   "class": "peer",
+   "peer": "",
+   "xff": [
+    "203.0.113.9"
+   ],
+   "want": "",
+   "warn": "",
+   "why": "RemoteAddr empty"
+  },
+  {
+   "id": "pe-003",
+   "class": "peer",
+   "peer": "192.0.2.1",
+   "want": "",
+   "warn": "",
+   "why": "no port: net/http always writes one, so this is not a connection"
+  }
+ ]
+}

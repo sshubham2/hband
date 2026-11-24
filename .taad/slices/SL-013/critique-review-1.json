@@ -1,0 +1,70 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-013",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-24T15:26:49.189Z",
+ "head": "1251104e8b32040527cd01b12a8f3c33abe9b931",
+ "run_id": 12078,
+ "summary": "All seven first-review findings hold at the severities filed. M1 (a trusted proxy that sends no X-Forwarded-For silently collapses every visitor into one) and M2 (the E-002 finish bodies are never run against the product) are real majors. m1–m5 are real minors, and m1/m2 apply CC-001 correctly. Two gaps were missed, both minor. First, the design says the spike showed that no acceptance body opens a report as the owner. The spike's stub had no owner check and recorded no session state, so that exclusion has never been tested against the bodies. Second, the 2-second limit on the open write has never been tested against the serving pool, whose busy_timeout is 5000 ms. The approach itself is sound. The acceptance bodies are plain HTTP GETs that run no JavaScript, so counting has to happen on the server from User-Agent and address, and a beacon-based design would fail E-002.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "All seven first-review findings hold at the severities filed. M1 (a trusted proxy that sends no X-Forwarded-For silently collapses every visitor into one) and M2 (the E-002 finish bodies are never run against the product) are real majors. m1–m5 are real minors, and m1/m2 apply CC-001 correctly. Two gaps were missed, both minor. First, the design says the spike showed that no acceptance body opens a report as the owner. The spike's stub had no owner check and recorded no session state, so that exclusion has never been tested against the bodies. Second, the 2-second limit on the open write has never been tested against the serving pool, whose busy_timeout is 5000 ms. The approach itself is sound. The acceptance bodies are plain HTTP GETs that run no JavaScript, so counting has to happen on the server from User-Agent and address, and a beacon-based design would fail E-002.",
+  "assessments": [
+   {
+    "finding": "M1",
+    "classification": "valid",
+    "note": "Right, and major is the right level. This is the R-004 collapse in its most likely production form. The design's if_wrong claim ('The runtime warning makes the first case visible') is false for it, because the sync.Once warning fires only when X-Forwarded-For arrives from an untrusted peer. The fix (return false when the walk finds no untrusted entry, plus a second address-free once-only warning) touches no E-002 body: the spike says all of them send XFF from 127.0.0.1. Note the limit of the fix. It covers only the trusted-peer variant. With HBAND_TRUSTED_PROXIES unset in production (the shipped default) and a proxy that sends no XFF, the proxy is an untrusted peer and becomes 'the client'. That fails silently even after M1's fix. Only crossdomain's startup notice for an empty list would show it, and the design dropped that notice. It does not exclude the runtime warning; taking both is one line. The reviewer's reading of the second unproven precondition (a ~3 s/day flake, with the logic covered by the fake-clock TestRecord) is also correct."
+   },
+   {
+    "finding": "M2",
+    "classification": "valid",
+    "note": "Right at major. The design's own last case runs the other epics' bodies and leaves out epic 40, whose bodies the design calls 'the finish line'. The spike's go verdict says 'on a stub, not product'. It also understates the reviewer's own point about '/'. The spike's 'no opens-asserting body requests / once a report exists' comes from request logs of a stub that had different routes ('the stub has no unpublish route'). Go's http.Client follows redirects, so the product's own post-publish or post-unpublish redirects can add GETs of '/' or of a report page that the stub never received. finish[0] has never passed anywhere. Owner exclusion is also untested by the stub (see the missed finding). Lesson #972's point that a check must be a single command is correctly applied to the existing other-epics case too."
+   },
+   {
+    "finding": "m1",
+    "classification": "valid",
+    "note": "CC-001's backtick member, applied correctly. architecture_rules[0] keeps the double-quote-only pattern, and architecture_rules[1] deliberately leaves X-Forwarded-For out, so `X-Forwarded-For` in backticks passes both rules outside clientaddr.go. The survey's rg found no non-test Go that reads request headers, so widening the pattern will not break TestRulesHoldOnTheTree on today's tree. Minor is right."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "Equivalent client-identity headers (True-Client-IP, CF-Connecting-IP and the others) are fenced by neither rule, and the design's own 'Known holes' list leaves them out. This is CC-001's 'equivalent protocol mechanisms', the same kind of gap. Minor is right, because nothing reads them today."
+   },
+   {
+    "finding": "m3",
+    "classification": "valid",
+    "note": "Specific and sourced: isbot issue #29 and its 4.1.1 changelog. It contradicts the design's own TestObviousBot rationale, 'Real browsers must never be dropped'. The effect is an undercount for one device brand, so minor."
+   },
+   {
+    "finding": "m4",
+    "classification": "valid",
+    "note": "Right. httptest.NewRequest fixes RemoteAddr at 192.0.2.1:1234 and the trusted list is empty in most harnesses. Any earlier test in internal/server that sends XFF to a found report with a browser UA uses up the package-level Once, so whether the 'exactly once' assertion passes depends on test order and fails under -count=2. Capturing output from the global slog logger also races under t.Parallel. Moving the Once onto a resolver value built in newApp fixes both. Minor is right."
+   },
+   {
+    "finding": "m5",
+    "classification": "valid",
+    "note": "The predicate is shared through fmtVisible, but the FROM/JOIN users fragment would exist as two copies, so 'by construction' really means 'by keeping two strings in step'. One shared const is cheap. Only TestVisibleCounts' fixtures would catch a drift, which is why this is minor."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "unfounded-assumptions",
+    "severity": "minor",
+    "claim": "The design says the spike showed that no acceptance body opens a report as the owner. The spike never tested or recorded this, so the owner-exclusion rule has never been run against the bodies it could break.",
+    "evidence": "In key_decisions ('An open is a GET...'), the rationale says: 'No acceptance body pins / after a publish, and none opens a report as the owner (spike).' The spike's stub implemented only rule (a), the UA filter, and rule (b), the HMAC address key ('It implements rule (a) ... and rule (b)'). It had no owner check. Its tabulation records the UA and XFF of each request, never the cookie or session state. finish[3] mentions 'a new cookie jar', so the bodies do manage jars. Redirects make this more likely, not less. The product's post-publish redirect is unknown to the stub, and if the owner's client follows it to /reports/<slug>, the design's owner exclusion and the stub's behaviour give different counts.",
+    "fix": "Before build, read finish[0..3] of epic id=40 in place (mode=ro, SELECT only). For every request that comes before an opens assertion, record whether its client holds the owner session, including requests that http.Client makes by following the product's 303s. Or make M2's product run of those bodies the gate. If any body expects an open from the owner's client, drop owner exclusion. It is a taste choice with cheap reversibility."
+   },
+   {
+    "dimension": "unfounded-assumptions",
+    "severity": "minor",
+    "claim": "The 2-second limit on the open write is a stated contract, but nothing tests it. Its wait for the write lock happens inside SQLite's busy handler under the pool's 5000 ms busy_timeout. A cancelled context may not cut that wait short, so a page view during a long write transaction could stall for up to 5 s instead of 2 s.",
+    "evidence": "The design says: 'The open write is bounded by a 2 s context, as healthz bounds its read' and 'synchronous before the page is written, bounded at 2 s, and fails open'. code_claims: servingPragmas sets busy_timeout 5000. outside_claims has no claim that modernc's context cancellation (sqlite3_interrupt) ends SQLite's busy-handler sleep. From recall, the BeginTrans busy loop does not check the interrupt flag. The only fail-open case is 'a Record that fails' through the recordOpen seam, so the timeout never runs against the real pool. The healthz comparison does not apply, because healthz does a read and WAL readers never wait on the write lock.",
+    "fix": "Add a case to TestOpenCounting. Hold BEGIN IMMEDIATE on a second connection to the same database file, then GET /reports/x with a browser UA and a new address. Assert a 200 with unchanged bytes, nothing recorded, and an elapsed time under about 2.5 s. If the measured stall is about 5 s, either restate the contract as limited by busy_timeout or give Record a dedicated connection with a busy_timeout below 2 s."
+   }
+  ],
+  "frame_challenged": false,
+  "notes": "The first reviewer was well calibrated on this slice. Every finding cites the exact design text it attacks, the majors are the two places where the design's claims go beyond its evidence, and CC-001 was applied to both fence rules. Nothing was overstated. Its blind spot was the design's appeals to authority: it checked what the design built, but not whether the 'spike' and 'bounded at 2 s' citations actually support what the design says they support. Both missed findings come from that gap.\n\nFrame. Counting on the server, keyed by User-Agent plus address, is forced: the E-002 bodies are plain HTTP GETs that run no JavaScript. The stored visitor hashes can only be matched again within one process lifetime and one UTC day, because the key changes at every restart. An in-memory seen-set plus a per-report counter would count exactly the same way. Still, a single INSERT…ON CONFLICT that both dedupes and counts cannot drift, and that is a fair reason to prefer the table. The frame holds."
+ }
+}

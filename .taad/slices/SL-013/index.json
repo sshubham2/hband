@@ -1,0 +1,169 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-013",
+ "title": "Show-all page lists every published report with likes, visible comments and times opened, counting opens once per visitor per day and ignoring bots",
+ "status": "active",
+ "branch": "slice/SL-013",
+ "opened_at": "2026-11-24T14:37:56.849Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C1: A public show-all page lists every published report and no draft, unpublished or deleted one: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C2: The list is newest first: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C3: Each row shows the title and published-on date: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4: Each row shows the number of likes (public likes only, never dislikes): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C5: Each row shows the number of comments currently visible to the public: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C6: Each row shows times opened: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C7: Each row opens the report: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C8: Opening a report adds to its count, with repeat opens by one visitor in a day counted once (opens before release are not counted): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C9: Obvious bots are not counted: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C10: The visitor identity is the real client address, resolved through a configured trusted proxy and stored only as a hash: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C11: Through the real VPS proxy over WireGuard, counts are keyed by each visitor's own address, not the proxy's: unknown"
+  },
+  {
+   "stage": "risk-spike",
+   "issue": "visible-comment-count-four-way-agreement: B (110-chain): SQL=Tree=printed=110 but page draws 5 (cap here is 5, not 100); A, C, D agree"
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Where opens live. Practice puts them in internal/votes (opens.go) to inherit the no-transaction fence. Crossdomain uses a new internal/opens package with its own fences. I chose internal/opens to match the one-fenced-package-per-table model."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "The visitor key. Practice uses a random in-memory key, and a restart re-counts that day. Crossdomain derives the key from HBAND_GITHUB_CLIENT_SECRET, so it is stable across restarts, and redacts it at day close. I chose in-memory; the derived key without redaction would leave stored rows reversible."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Row wording and side. Practice uses labels first: 'Likes N', 'Comments N', 'Times opened N'. Crossdomain uses numbers first: 'N likes', 'N comments', 'N views'. I chose numbers first because 'N comments' is the measured format. The column therefore reads 'views', not the slice's 'times opened'. A person may prefer the slice's words, which means going back to labels first."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Whether the signed-in owner's opens count. Practice excludes them and crossdomain counts them. I excluded them."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Practice's Sec-Purpose/Purpose prefetch skip. I dropped it."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "IPv6 grouping by /64. Practice has it and crossdomain does not. I kept it."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "How an unparsable X-Forwarded-For entry resolves. Practice does not count it; crossdomain falls back to the nearest valid hop. I chose not counting."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "How misconfiguration is reported. Practice warns once at runtime; crossdomain logs at startup when the list is empty. I chose the runtime warning, which also catches a wrong proxy address."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T14:54:53.607Z",
+     "head": "1251104e8b32040527cd01b12a8f3c33abe9b931",
+     "summary": "The practice proposal is the core and crossdomain supplies parts.",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T15:19:39.352Z",
+     "head": "1251104e8b32040527cd01b12a8f3c33abe9b931",
+     "summary": "The core holds up when checked against the tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T15:26:49.189Z",
+     "head": "1251104e8b32040527cd01b12a8f3c33abe9b931",
+     "summary": "All seven first-review findings hold at the severities filed.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}

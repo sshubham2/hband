@@ -37,6 +37,12 @@ type row struct {
 	body      string
 }
 
+// commentRows is the row set every read of a report's comments starts from: a
+// comment and its writer's account. Tree's statement and VisibleCounts' both
+// take it from here, so the two cannot come to read different rows (a change to
+// the join changes both, or breaks both at once).
+const commentRows = `FROM comments c JOIN users u ON u.github_id = c.github_id`
+
 // treeSQL reads one report's whole thread, oldest first. The text of a hidden
 // comment is replaced inside the statement, by the same predicate Post uses, so
 // a removed comment's text and a blocked writer's login and avatar are never
@@ -51,7 +57,7 @@ FROM (
     SELECT c.id AS id, COALESCE(c.parent_id, 0) AS parent_id, c.created_at AS created_at,
            ` + fmtVisible("c") + ` AS shown,
            c.github_id AS github_id, u.login AS login, u.avatar_url AS avatar_url, c.body AS body
-    FROM comments c JOIN users u ON u.github_id = c.github_id
+    ` + commentRows + `
     WHERE c.report_id = ?
 )
 ORDER BY id`
@@ -83,6 +89,41 @@ func (b *Book) Tree(ctx context.Context, reportID int64) ([]*Node, error) {
 		return nil, fmt.Errorf("comments: read: %w", err)
 	}
 	return nodes, nil
+}
+
+// visibleCountsSQL counts, per report, the comments a reader sees. It starts from
+// the same rows as treeSQL (commentRows) and filters with the same predicate
+// (fmtVisible), so for every report its count is Visible(Tree(report)).
+var visibleCountsSQL = `
+SELECT c.report_id, COUNT(*)
+` + commentRows + `
+WHERE ` + fmtVisible("c") + `
+GROUP BY c.report_id`
+
+// VisibleCounts is the public comment count of every report that has one, in one
+// read: for each report it equals Visible(Tree(report)), the whole-thread count
+// the report page prints. A report with no visible comment is absent from the
+// map, which reads as 0. It reads counts and never text. An error is returned for
+// a query or scan failure and never a partial map.
+func (b *Book) VisibleCounts(ctx context.Context) (map[int64]int, error) {
+	rows, err := b.db.QueryContext(ctx, visibleCountsSQL)
+	if err != nil {
+		return nil, fmt.Errorf("comments: count: %w", err)
+	}
+	defer rows.Close()
+	out := map[int64]int{}
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("comments: count: %w", err)
+		}
+		out[id] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("comments: count: %w", err)
+	}
+	return out, nil
 }
 
 // arrange prunes and links rows, which must be in ascending id order, into the

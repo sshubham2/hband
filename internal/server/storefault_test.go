@@ -70,6 +70,14 @@ func TestStoreFaultSteps(t *testing.T) {
 			return h.serve("GET", strings.ReplaceAll(path, "{top}", w.top), h.withSID(w.reader))
 		}
 	}
+	// counted is a signed-in reader's visit that the open counter would count: a
+	// browser's User-Agent, from a visitor address a trusted proxy forwards.
+	counted := func(path string) func(*harness, world) result {
+		return func(h *harness, w world) result {
+			h.trustPeer()
+			return h.visit(path, "198.51.100.5", h.withSID(w.reader))
+		}
+	}
 	post := func(h *harness, w world) result {
 		return h.postComment(w.reader, "x", commentForm("written while one step of the request fails", 0))
 	}
@@ -109,6 +117,16 @@ func TestStoreFaultSteps(t *testing.T) {
 		{"home", "read the votes", rename("votes"), []string{"votes"}, []string{"sessions", "reports", "comments"}, false, get("/"), 503, "", outage, 0, false},
 		{"home", "read the comments", rename("comments"), []string{"comments"}, []string{"sessions", "reports", "votes"}, false, get("/"), 503, "", outage, 0, false},
 		{"home", "read the comments", treeFails, nil, []string{"sessions", "reports", "votes", "comments"}, true, get("/"), 503, "", outage, 0, false},
+		// The open is counted at the end of a found report's page, after every read the
+		// page is made of. A failure of that write alone must leave the page as it was.
+		{"readReport", "write the open", rename("report_opens"), []string{"report_opens"}, []string{"sessions", "reports", "votes", "comments"}, false, counted("/reports/x"), 200, "", "Report X", 0, false},
+		{"home", "write the open", rename("report_opens"), []string{"report_opens"}, []string{"sessions", "reports", "votes", "comments"}, false, counted("/"), 200, "", "Report X", 0, false},
+		// GET /reports, the show-all page: four whole-table reads, each of which, failing
+		// alone, makes the whole page an outage with no row and no zero in its place.
+		{"showAll", "look up the reports", rename("reports"), []string{"reports"}, []string{"sessions", "votes", "comments", "report_opens"}, false, get("/reports"), 503, "", outage, 0, false},
+		{"showAll", "read the likes", rename("votes"), []string{"votes"}, []string{"sessions", "reports", "comments", "report_opens"}, false, get("/reports"), 503, "", outage, 0, false},
+		{"showAll", "read the visible comments", rename("comments"), []string{"comments"}, []string{"sessions", "reports", "votes", "report_opens"}, false, get("/reports"), 503, "", outage, 0, false},
+		{"showAll", "read the opens", rename("report_opens"), []string{"report_opens"}, []string{"sessions", "reports", "votes", "comments"}, false, get("/reports"), 503, "", outage, 0, false},
 		// GET /reports/{slug}/comments/{id}
 		{"readBranch", "identify the viewer", drop("sessions"), []string{"sessions"}, []string{"reports", "comments"}, false, get("/reports/x/comments/{top}"), 200, "", "Sign in with GitHub", 0, false},
 		{"readBranch", "look up the report", rename("reports"), []string{"reports"}, []string{"sessions", "comments"}, false, get("/reports/x/comments/{top}"), 503, "", outage, 0, false},
@@ -132,8 +150,9 @@ func TestStoreFaultSteps(t *testing.T) {
 	// The census: every step a handler takes against the store has a row.
 	steps := map[string][]string{
 		"postComment":        {"identify the writer", "look up the report", "write the comment", "read the thread after the write"},
-		"readReport":         {"identify the viewer", "look up the report", "read the votes", "read the comments"},
-		"home":               {"look up the latest report", "read the votes", "read the comments"},
+		"readReport":         {"identify the viewer", "look up the report", "read the votes", "read the comments", "write the open"},
+		"home":               {"look up the latest report", "read the votes", "read the comments", "write the open"},
+		"showAll":            {"look up the reports", "read the likes", "read the visible comments", "read the opens"},
 		"readBranch":         {"identify the viewer", "look up the report", "read the comments"},
 		"adminCommentRemove": {"identify the owner", "look up the comment", "remove the comment"},
 		"adminReport":        {"identify the owner", "look up the report", "read the votes", "read the feedback", "read the feedback replies", "read the comments"},

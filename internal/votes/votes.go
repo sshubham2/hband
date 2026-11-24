@@ -160,6 +160,32 @@ FROM votes WHERE report_id = ?`, viewerID, reportID).Scan(&v.Likes, &v.Mine)
 	return v, nil
 }
 
+// PublicLikes returns the like count of every report that has one, in one read:
+// the thumbs up only, so the map has no slot a dislike could be in. For every
+// report it equals Public(ctx, id, 0).Likes, and a blocked account's like keeps
+// counting. A report with no like is absent from the map, which reads as 0. An
+// error is returned for a query or scan failure and never a partial map.
+func (b *Book) PublicLikes(ctx context.Context) (map[int64]int, error) {
+	rows, err := b.db.QueryContext(ctx, `SELECT report_id, COUNT(*) FROM votes WHERE kind = 'up' GROUP BY report_id`)
+	if err != nil {
+		return nil, fmt.Errorf("votes: likes: %w", err)
+	}
+	defer rows.Close()
+	out := map[int64]int{}
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("votes: likes: %w", err)
+		}
+		out[id] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("votes: likes: %w", err)
+	}
+	return out, nil
+}
+
 // Tally is a report's votes as its author sees them.
 type Tally struct {
 	Likes, Dislikes int

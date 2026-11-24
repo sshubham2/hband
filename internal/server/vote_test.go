@@ -504,6 +504,20 @@ func (w *dislikeWorld) reader(id int64) string {
 func (w *dislikeWorld) observe(t *testing.T) observation {
 	t.Helper()
 	h, obs := w.h, observation{}
+	// "/reports" is observed below, and must really be the show-all page listing both
+	// reports with their likes (lesson #948): two identical 404s, or an empty list,
+	// would let the comparison pass while showing nothing a dislike could leak into.
+	for who, opts := range map[string][]func(*http.Request){"anonymous": nil, "the owner": {h.withSID(w.owner)}} {
+		page := h.serve("GET", "/reports", opts...)
+		for _, want := range []string{`href="/reports/x"`, `href="/reports/y"`, "Report X", "Report Y"} {
+			if page.Status != 200 || !strings.Contains(page.Body, want) {
+				t.Fatalf("INVALID: GET /reports for %s does not list %q (%d), so the comparison would observe nothing:\n%s", who, want, page.Status, page.Body)
+			}
+		}
+		if n := strings.Count(page.Body, `class="numbers"`); n != 2 || !strings.Contains(page.Body, ` like`) {
+			t.Fatalf("INVALID: GET /reports for %s shows %d number blocks, want one per report:\n%s", who, n, page.Body)
+		}
+	}
 	reads := []string{"/", "/reports/x", "/reports/y", "/reports", "/admin", "/admin/reports/x", "/admin/blocked",
 		// The branch page of the seeded comment: another reader page, drawn from the
 		// thread, which must never mention a dislike either.

@@ -6,6 +6,7 @@
 {{define "header"}}<header class="site-header">
 <a class="brand" href="/">hband</a>
 <nav>
+<a href="/reports">All reports</a>
 {{if .SignedIn}}{{if .Viewer.AvatarURL}}<img class="avatar" src="{{.Viewer.AvatarURL}}" alt="" width="24" height="24"> {{end}}<span class="who">Signed in as @{{.Viewer.Login}}</span>
 {{if .Viewer.IsOwner}}<a href="/admin">Admin</a>{{end}}
 <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>

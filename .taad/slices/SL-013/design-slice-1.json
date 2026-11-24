@@ -1,0 +1,727 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-013",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-24T14:54:53.607Z",
+ "head": "1251104e8b32040527cd01b12a8f3c33abe9b931",
+ "run_id": 12075,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "selection_rationale": "The practice proposal is the core and crossdomain supplies parts. I judged each contested piece against the tree as it stands at 1251104.\n\nSchema. Practice's report_opens table makes the whole row the primary key and takes the count as COUNT(*). It copies the FK and cascade shape of 0003_votes.sql, which is already proven, and leaves no fork untested. Crossdomain's day-close redaction to NULL rests on NULLs staying distinct under UNIQUE on modernc. Nobody spiked that (lesson #958), it adds a second write statement once a day, and it is only needed because crossdomain keeps a stable key. I dropped it.\n\nKey. Practice's key is random and held only in memory. Nothing about it can be reversed from the database plus any configured secret. The cost is that a restart part-way through a day counts a returning visitor again. That cost is bounded and stated. Crossdomain derives its key from HBAND_GITHUB_CLIENT_SECRET. Without redaction, anyone holding both the database and that secret could brute-force every IPv4 address ever stored. Selection is not composition, so I could not take crossdomain's derived key without its redaction.\n\nHandler placement. Crossdomain put the show-all handler in all_reports.go. That file would need auth.ViewerFrom to draw the header, and fitness.yaml forbids ViewerFrom in internal/server everywhere except reader.go and admin.go. So the handler lives in reader.go, as practice placed it.\n\nVisibleCounts. Practice's version keeps treeSQL's JOIN users, so its row set is exactly the one Tree reads, and the invariant VisibleCounts == Visible(Tree) holds by construction. Crossdomain's version had no join.\n\nRow layout. I took crossdomain's: numbers to the left of their labels, \"N likes · N comments · N views\". Lesson #979 measured 'N comments' passing every finish reader, the Python ones included (2064 checks). Practice's labels-first layout ('Likes 0') I could only check by reading E-002's Go counts(), and the Python row parsers of the other epics are unread. 'N times opened' cannot be written for one ('1 time opened' fails the Go reader), so the opens label is 'view(s)'. The Go reader's label set includes that word. To meet lesson #979 the publish date goes after the numbers, so no count ever follows the date. I traced the reader by hand on the row 'Harbour Survey 0 likes · 0 comments · 1 view Published 24 November 2026'. Its same-side pass returns exactly (0,0,1).\n\nPackage. Opens go in a new internal/opens package with its own table fence and no-transaction fence (crossdomain). The project already fences each table inside one package (votes, comments, feedback). The votes package doc defines it as the only reader and writer of the votes table and nothing else.\n\nOther choices:\n- Bot filter: practice's list with crossdomain's java/, okhttp and scrapy added.\n- An unparsable X-Forwarded-For entry means 'not counted' (practice). Crossdomain's 'nearest valid hop to its right' falls back to a trusted proxy's address, which is the R-004 collapse.\n- IPv6 addresses are taken by their /64 (practice): one line, and it closes one host rotating addresses to add opens.\n- The signed-in owner is not counted (practice), so the author's own daily checks do not swamp a small site's numbers.\n- The once-only runtime warning about X-Forwarded-For from an untrusted peer (practice) also catches a wrong proxy address, which crossdomain's startup log cannot.\n- The open write is bounded by a 2 s context, as healthz bounds its read.\n- Practice's Sec-Purpose prefetch skip is dropped. The site declares no speculation rules, and a prerender followed by a visit dedupes anyway.\n\nLessons applied: #949 (single-statement writes), #944 (the hook sits in renderReader, and the path variants are pinned by hand), #948 and #969 (observe() must really list /reports), #930 (0006 is the next gapless file), #929 (each shipped default is tested with its variable unset), #971 (fitness quoting), #979 (count format and date placement), and #970/#952 (retier).",
+  "components": [
+   {
+    "name": "Migration 0006_opens.sql",
+    "lives_at": "internal/store/migrations/0006_opens.sql",
+    "responsibility": "Creates only: CREATE TABLE report_opens (report_id INTEGER NOT NULL REFERENCES reports (id) ON DELETE CASCADE, day INTEGER NOT NULL CHECK (day >= 0), visitor BLOB NOT NULL CHECK (length(visitor) = 16), PRIMARY KEY (report_id, day, visitor)) STRICT, WITHOUT ROWID. day is UTC days since 1970-01-01. There is no backfill, so opens made before release are not counted. The header comment records that the cascade matches votes, and that unpublish, republish and replace keep a report's opens.",
+    "key_interactions": "Applied by loadMigrations/applyMigration (migrate.go, the hot file; lesson #930) as version 6, unchanged code. Library.Delete cascades through it on the serving pool, which has foreign_keys(1). The primary key is the conflict target for Record and the covering index for Counts' GROUP BY report_id."
+   },
+   {
+    "name": "internal/opens package (Book, Record, Counts, ObviousBot)",
+    "lives_at": "internal/opens/opens.go",
+    "responsibility": "Book{db, now, key}.\n- New(db, now) draws a 32-byte key from crypto/rand and keeps it only in memory. The unexported newBook(db, now, key) is the test seam.\n- Record(ctx, reportID, addr) unmaps addr, computes day = now().UTC().Unix()/86400, and sets visitor = HMAC-SHA256(key, reportID BE8 | day BE8 | family byte 4 or 6 | the 4 IPv4 bytes or the first 8 IPv6 bytes) cut to 16 bytes. It then runs one statement: INSERT INTO report_opens (report_id, day, visitor) SELECT id, ?, ? FROM reports WHERE id = ? AND status = 'published' ON CONFLICT (report_id, day, visitor) DO NOTHING. Zero rows written is not an error. Errors are wrapped 'opens: record: %w'.\n- Counts(ctx) runs SELECT report_id, COUNT(*) FROM report_opens GROUP BY report_id into map[int64]int, wrapped 'opens: count: %w'. It never returns a partial map with a nil error.\n- ObviousBot(ua) is pure. It is true when the trimmed UA is empty, lacks 'Mozilla/', or contains, case-insensitively, any of: bot, crawl, spider, slurp, preview, headless, lighthouse, facebookexternalhit, curl, wget, python, go-http, java/, okhttp, scrapy. The tokens are one package-level slice.\n- The package never logs or returns an address and opens no transaction. Its comments must avoid the word that the no-transaction fence matches case-insensitively.",
+    "key_interactions": "Record is called only through app.recordOpen from countOpen. Counts is called only by showAll. The package reads reports only inside its INSERT…SELECT, as votes.Cast does."
+   },
+   {
+    "name": "Client address resolver (clientAddr)",
+    "lives_at": "internal/server/clientaddr.go",
+    "responsibility": "clientAddr(r, trusted []netip.Prefix) (netip.Addr, bool).\n- The peer is netip.ParseAddrPort(r.RemoteAddr), unmapped with the zone dropped. If it does not parse, the result is false and the open is not counted.\n- If the peer is not in trusted, the result is the peer and every header is ignored. The first time an X-Forwarded-For header arrives from an untrusted peer, one sync.Once slog.Warn names HBAND_TRUSTED_PROXIES and carries no address.\n- If the peer is trusted, all r.Header.Values(\"X-Forwarded-For\") lines are joined in order, split on ',' and walked right to left. Each entry is trimmed and parsed as a bare IP, ip:port or [v6]:port, then unmapped with the zone dropped. Trusted entries are stepped over. The first untrusted entry is the client. An entry that does not parse, once reached, gives false. With no header, the peer is the client. If every entry is trusted, the leftmost is the client.\n- X-Real-IP and Forwarded are never read. Scheme and host are never derived here.",
+    "key_interactions": "This is the only non-test file allowed to read RemoteAddr or name X-Forwarded-For (architecture rules). Its only caller is countOpen."
+   },
+   {
+    "name": "HBAND_TRUSTED_PROXIES in config",
+    "lives_at": "internal/config/config.go",
+    "responsibility": "Adds Config.TrustedProxies []netip.Prefix.\n- Unset or empty gives nil, so no peer is trusted.\n- Otherwise the value is comma-separated. Each trimmed item is a CIDR, which is masked, or a bare IP, which becomes /32 or /128 after unmapping.\n- An empty item (stray comma), a hostname, an unparsable item, a zone or a /0 prefix is a problem appended through bad(). The message names the variable and never echoes its value, and the result is exit 2 through the existing Error path.\n- The package doc at lines 3-7 is rewritten to list the variable as read.",
+    "key_interactions": "realMain loads it once through config.Load. countOpen passes a.cfg.TrustedProxies to clientAddr."
+   },
+   {
+    "name": "Open hook (countOpen) in renderReader",
+    "lives_at": "internal/server/reader.go",
+    "responsibility": "Runs at the end of renderReader, only while state is still stateFound after the votes, thread and own-feedback reads, and before writeReader.\n- It returns without writing when: r.Method is not GET (HEAD does not count); the viewer is signed in and is the owner; opens.ObviousBot(r.UserAgent()) is true; or clientAddr returns false.\n- Otherwise it calls a.recordOpen(ctx, rep.ID, addr), with ctx = context.WithTimeout(r.Context(), 2*time.Second).\n- An error goes to slog.Warn without the address. The page's status and bytes are unchanged (the write fails open).\n- Because it sits in renderReader, GET / counts an open of the newest report it draws, and GET /reports/{slug} counts too. Both share one key per visitor and day.\n- readBranch's success path, /raw/{slug}, the show-all page, admin pages, 404s and 503s never reach it.",
+    "key_interactions": "newApp sets a.opens = opens.New(st.DB(), clock) and a.recordOpen = a.opens.Record. This follows the a.tree func-field seam, so a test can make the write fail."
+   },
+   {
+    "name": "Show-all handler (showAll) and route",
+    "lives_at": "internal/server/reader.go",
+    "responsibility": "mux.HandleFunc(\"GET /reports\", a.showAll) is registered in router.go handler(). It is an exact path, HEAD is served by the GET pattern, and GET /reports/ stays the mux's 404.\n- showAll calls ViewerFrom for the header only, then reads reports.ListPublished, votes.PublicLikes, comments.VisibleCounts and opens.Counts.\n- If any read fails, it logs the error and renders the page Unavailable with a 503 and no rows. It never shows zeros.\n- Otherwise it builds rows {Slug, Title, PublishedAt, Likes, Comments, Views}, reading a report missing from a map as 0. It renders 200 with Title 'All reports - hband' and Next '/reports'.\n- It records no open, and rows are identical for an anonymous visitor, a reader and the owner.\n- writeReader's data parameter widens from readerData to any, so the page keeps Cache-Control: private, no-cache.",
+    "key_interactions": "It must live in reader.go, because the ViewerFrom fence allows only reader.go and admin.go. It draws all_reports.html."
+   },
+   {
+    "name": "Show-all template, nav link and styles",
+    "lives_at": "internal/server/templates/all_reports.html",
+    "responsibility": "A full document built from {{template \"head\"}} and {{template \"header\"}}.\n- h1 'All reports'.\n- Outside the list, a legend: 'A view is one visitor opening a report on one day (UTC). Obvious bots are not counted.'\n- An unavailable state with the outage sentence, an empty state 'No reports yet.', or <ol class=\"report-list\"> with one <li class=\"report-row\"> per report.\n- Each row, in order:\n  - <h2><a href=\"/reports/{{.Slug}}\">{{.Title}}</a></h2>\n  - <p class=\"numbers\">N like|likes &middot; N comment|comments &middot; N view|views</p>, each number left of its label, singular at 1, no thousands separator\n  - last, <p class=\"published\">Published <time datetime=\"YYYY-MM-DD\">2 January 2006</time></p> in UTC\n- No title or aria-label attributes inside a row, because E-002's text() reads them.\n- layout.html's nav gains <a href=\"/reports\">All reports</a>, which is not a /reports/<slug> link, so the row reader ignores it.\n- site.css gets list styles that stack at narrow widths and use no pure #00ff00 or #ff0000 (lesson #941).",
+    "key_interactions": "E-002's listed() takes each li as the row. counts() resolves the three numbers in its same-side pass. dated() finds the date in the text and in the datetime attribute."
+   },
+   {
+    "name": "reports.Library.ListPublished",
+    "lives_at": "internal/reports/reports.go",
+    "responsibility": "SELECT columns FROM reports WHERE status = 'published' ORDER BY published_at DESC, id DESC, through scanReport. Query, scan and rows.Err errors are returned as they are, as ListAll returns them. Drafts and unpublished reports never appear. The name avoids the fenced .ListAll and .BySlug tokens.",
+    "key_interactions": "Its only caller is showAll. The reports_status_published index serves it."
+   },
+   {
+    "name": "votes.Book.PublicLikes",
+    "lives_at": "internal/votes/votes.go",
+    "responsibility": "SELECT report_id, COUNT(*) FROM votes WHERE kind = 'up' GROUP BY report_id into map[int64]int, wrapped 'votes: likes: %w'. The return type has no slot for dislikes. For every report it equals Public(ctx, id, 0).Likes, and blocked accounts' likes keep counting.",
+    "key_interactions": "It stays in internal/votes, as the votes-table fence requires. Its only caller is showAll."
+   },
+   {
+    "name": "comments.Book.VisibleCounts",
+    "lives_at": "internal/comments/tree.go",
+    "responsibility": "SELECT c.report_id, COUNT(*) FROM comments c JOIN users u ON u.github_id = c.github_id WHERE <fmtVisible(\"c\")> GROUP BY c.report_id into map[int64]int, wrapped 'comments: count: %w'. Its documented contract is that, for every report, it equals Visible(Tree(id)), which is the whole-thread count the report page prints. It reads counts, never text.",
+    "key_interactions": "It stays in internal/comments, as the comments-table fence requires. Its only caller is showAll."
+   },
+   {
+    "name": "Fitness rules and corpus",
+    "lives_at": ".taad/fitness.yaml",
+    "responsibility": "- The builder edits the existing rule 'no request header ever supplies scheme, host or client identity' in place. Its name is kept so the engine does not re-append it. It gains except_files internal/server/clientaddr.go, and its because is rewritten single-quoted with apostrophes doubled (lesson #971).\n- Four rules are added from architecture_rules.\n- Each new or amended rule gets one fire row and one quiet row in internal/fitnessrules/testdata/rule_spellings.json and is listed in rules_under_test. The amended rule's quiet row has path internal/server/clientaddr.go.\n- Engine Fitness op=check must pass before the build is finished.",
+    "key_interactions": "TestRuleSpellingsCorpus fails any listed rule lacking a fire or a quiet row. TestRulesHoldOnTheTree runs every RE2-compatible rule over the tree, and every new pattern is RE2-compatible."
+   },
+   {
+    "name": "Changed existing tests",
+    "lives_at": "internal/server/reader_test.go",
+    "responsibility": "- TestReaderPathVariants: {\"GET\", \"/reports\", notFound} becomes a show-all check (200, same body for the draft-x and unknown-x harnesses). /reports/ stays 404. POST /reports, //reports and /REPORTS are pinned to the observed responses (lesson #934).\n- vote_test.go observe(): gains a guard that /reports lists x and y, so the dislike observation is not two identical 404s (lesson #948). Review reads the file whole (lesson #969).\n- storefault_test.go TestStoreFaultSteps: gains show-all rows, one per failing read, including a renamed report_opens. Each gives a 503.\n- config_test.go TestLoadIgnoresUnknownVariables: now asserts TrustedProxies is 127.0.0.1/32 and keeps HBAND_SOMETHING_ELSE as the ignored name.\n- cmd/hband/main_test.go TestBinary: adds a run with a malformed HBAND_TRUSTED_PROXIES that exits 2 and a run with it unset that serves /healthz (lesson #929).",
+    "key_interactions": "The harness's httptest requests carry no User-Agent, so they are bots under ObviousBot and no existing before/after comparison sees opens change."
+   }
+  ],
+  "contracts": [
+   {
+    "name": "GET /reports (show-all page)",
+    "kind": "ui",
+    "auth_model": "Public with no sign-in. Identify runs as on every route, and ViewerFrom only shapes the header: a store outage shows an anonymous header, then the reads fail and the page is a 503. Rows are identical for an anonymous visitor, a reader and the owner. OwnerTally is never read.",
+    "error_cases": "- Any of ListPublished, PublicLikes, VisibleCounts or Counts fails: 503 with the outage sentence and no rows, never zeros.\n- Nothing is published: 200 'No reports yet.'\n- HEAD: the GET headers, and nothing is counted.\n- POST /reports: the mux's 405 with Allow: GET, HEAD.\n- GET /reports/: the mux's 404.\n- //reports: the mux's cleaned-path redirect, pinned as observed.",
+    "notes": "Rows are newest publish date first, then id DESC. Each li links /reports/<slug> and reads 'Title' then 'N likes · N comments · N views' then 'Published 2 January 2006' (UTC). Cache-Control: private, no-cache. The comment number is the whole-thread visible count, equal to the report page's printed CommentCount. On a chain deeper than threadDepthCap (5 as shipped) the report page draws fewer entries than that number, and the rest are on its branch pages (spike no-go, accepted as a condition). Any check of drawn entries sums the report page and its branch pages."
+   },
+   {
+    "name": "What counts as an open",
+    "kind": "event",
+    "auth_model": "Any visitor except the signed-in owner.",
+    "error_cases": "- A write failure or the 2 s timeout is logged without the address, and the page's status and bytes are unchanged.\n- Nothing is recorded when: RemoteAddr does not parse; a reached X-Forwarded-For entry does not parse; the report was unpublished or deleted between lookup and write (0 rows); or the UA is an obvious bot.",
+    "notes": "Only a GET that renderReader answers 200 for a found report counts: / for the newest report, and /reports/{slug}. HEAD, /raw/{slug}, /reports/{slug}/comments/{id}, /reports, /admin/**, 404s and 503s never count. Each (report, UTC day, visitor) counts at most once while the process runs. A restart part-way through a day draws a new key, so a returning visitor counts once more that day (accepted). Opens before release are not counted."
+   },
+   {
+    "name": "HBAND_TRUSTED_PROXIES",
+    "kind": "cli",
+    "auth_model": "Set by the operator in the environment only.",
+    "error_cases": "An empty item, a hostname, an unparsable item, a zone or a /0 prefix gives config.Error naming the variable without its value, and exit 2.",
+    "notes": "Comma-separated IPv4 or IPv6 addresses and CIDRs. Unset means no peer is trusted and X-Forwarded-For is ignored, with one runtime warning the first time the header arrives from an untrusted peer. Production must list the address the VPS proxy's connection arrives from (the WireGuard peer, or a Docker bridge gateway if the container NATs it). The person's check C11 confirms it and is already on the backlog. The acceptance stand-in and all four E-002 bodies set 127.0.0.1."
+   },
+   {
+    "name": "opens.Book.Record(ctx, reportID int64, visitor netip.Addr) error",
+    "kind": "function",
+    "error_cases": "A database error is wrapped 'opens: record: %w'. A repeat the same UTC day, a draft, an unpublished report and an unknown id each write nothing and return nil.",
+    "notes": "One INSERT…SELECT…ON CONFLICT DO NOTHING with no transaction. The stored visitor is HMAC-SHA256(in-memory key, report_id | UTC day | family | IPv4 address or IPv6 /64) cut to 16 bytes. No plain address reaches the database, its WAL or a log."
+   },
+   {
+    "name": "opens.Book.Counts(ctx) (map[int64]int, error) and opens.ObviousBot(ua string) bool",
+    "kind": "function",
+    "error_cases": "Counts wraps 'opens: count: %w' and never returns a partial map with a nil error. ObviousBot is pure.",
+    "notes": "A report absent from the map has 0 opens. ObviousBot is true for an empty UA, a UA without 'Mozilla/', or a UA containing a listed token. Googlebot and bingbot carry 'Mozilla/' and are caught by 'bot'."
+   },
+   {
+    "name": "clientAddr(r *http.Request, trusted []netip.Prefix) (netip.Addr, bool)",
+    "kind": "function",
+    "error_cases": "false when RemoteAddr does not parse, or when the right-to-left walk reaches an X-Forwarded-For entry that does not parse.",
+    "notes": "X-Forwarded-For is read only from a trusted peer, and the rightmost untrusted entry wins, never the leftmost, which a client controls. X-Real-IP and Forwarded are never read. Addresses are unmapped with the zone dropped. One warning is logged, without an address, the first time X-Forwarded-For arrives from an untrusted peer."
+   },
+   {
+    "name": "reports.Library.ListPublished(ctx) ([]Report, error)",
+    "kind": "function",
+    "error_cases": "Query, scan and rows.Err errors are returned as they are.",
+    "notes": "Published only, ORDER BY published_at DESC, id DESC."
+   },
+   {
+    "name": "votes.Book.PublicLikes(ctx) (map[int64]int, error)",
+    "kind": "function",
+    "error_cases": "Wrapped 'votes: likes: %w'.",
+    "notes": "Counts kind='up' only and has no dislike slot. For every report it equals Public(ctx, id, 0).Likes."
+   },
+   {
+    "name": "comments.Book.VisibleCounts(ctx) (map[int64]int, error)",
+    "kind": "function",
+    "error_cases": "Wrapped 'comments: count: %w'.",
+    "notes": "One statement over treeSQL's join and fmtVisible(\"c\"). For every report it equals Visible(Tree(id))."
+   }
+  ],
+  "key_decisions": [
+   {
+    "decision": "Opens are one dedupe table, report_opens(report_id FK ON DELETE CASCADE, day INTEGER UTC, visitor BLOB(16)). The whole row is the PRIMARY KEY, and the table is STRICT and WITHOUT ROWID. Times opened is COUNT(*) per report. There is no counter column, no rollup, no redaction and no pruning.",
+    "reversibility": "expensive",
+    "rationale": "One INSERT…SELECT…ON CONFLICT DO NOTHING is both the dedupe and the increment, so a count cannot drift from its keys and no transaction is needed (lesson #949). The FK and cascade shape is 0003_votes.sql's, already proven, so this new table opens no fork the first spike left untested (lesson #958). Crossdomain's NULL-redaction would rely on NULLs staying distinct under UNIQUE, which nobody has measured. Growth is one row per visitor, report and day. Changing the shape after release needs a table-rebuild migration."
+   },
+   {
+    "decision": "The visitor key is HMAC-SHA256 under a 32-byte key drawn from crypto/rand at process start and held only in memory. Its input is report_id, the UTC day, the address family and the address bytes (IPv4 whole, IPv6 by its /64), and the output is cut to 16 bytes.",
+    "reversibility": "cheap",
+    "rationale": "Nothing on disk, and no configured secret, can reverse a stored value, so the database and its backups hold no recoverable address even for an operator who has every setting. A plain or salted SHA-256 of an IPv4 address falls to trying all 2^32 addresses. Putting report_id in the input stops one visitor being linked across reports, and the /64 stops one IPv6 host rotating addresses to add opens. The known cost is that a restart part-way through a day counts a returning visitor once more that day. This is a bounded overcount, it is stated in the contract and it is not a defect. I rejected crossdomain's key derived from the client secret because without redaction it would make every past row reversible to anyone holding the database and that secret."
+   },
+   {
+    "decision": "Proxy trust is HBAND_TRUSTED_PROXIES, a list of IPs or CIDRs. Unset means no peer is trusted. The client is the rightmost untrusted X-Forwarded-For entry, read only when the peer is trusted. X-Real-IP and Forwarded are never read, and an unparsable entry that is reached means 'not counted'. This settles C-006's deliberate proxy-trust decision. The forwarded-header fitness rule is opened for exactly internal/server/clientaddr.go.",
+    "reversibility": "expensive",
+    "rationale": "Taking the rightmost untrusted entry holds whether the VPS appends to or overwrites the header, and leaving the variable unset defaults to safe. The spike held this key against every E-002 body, with negative controls failing. The variable's format becomes a contract with the operator's deployment. I rejected crossdomain's fallback to the nearest valid hop, because that hop is a trusted proxy, which is the R-004 collapse."
+   },
+   {
+    "decision": "An open is a GET that renderReader answers 200 for a found report: at / (the newest report) or at /reports/{slug}. HEAD, /raw, the branch page, show-all, admin pages and error pages never count, and neither does the signed-in owner.",
+    "reversibility": "cheap",
+    "rationale": "/ draws the newest report in full through the same renderReader. Leaving it out would undercount the most-read report, and the shared key makes / followed by /reports/<newest> one open. /raw is the iframe's subresource and the branch page is navigation inside a report already opened. The owner's own visits would make up much of a small site's numbers. No acceptance body pins / after a publish, and none opens a report as the owner (spike)."
+   },
+   {
+    "decision": "The bot filter uses the User-Agent only. An empty UA, a UA without 'Mozilla/', or a UA containing one of bot, crawl, spider, slurp, preview, headless, lighthouse, facebookexternalhit, curl, wget, python, go-http, java/, okhttp or scrapy is not counted.",
+    "reversibility": "cheap",
+    "rationale": "This is the brief's 'obvious bots'. The spike ran this rule's core against all 14 ledger bodies and they passed; without the filter, finish line 3 fails. A UA-parser dependency is forbidden (only x/oauth2 and modernc.org/sqlite are allowed). Bots that spoof a browser are bounded at one open per address per day."
+   },
+   {
+    "decision": "The open write is synchronous before the page is written, bounded at 2 s, and fails open. The show-all reads fail closed with a 503 and never show zeros.",
+    "reversibility": "cheap",
+    "rationale": "The finish-line tests read GET /reports straight after opening, which rules out an asynchronous buffer. The report is the product and the count is a side effect, so an analytics hiccup must not take reading down. A number that is shown must be true, as renderReader's existing 'a count that cannot be read is never replaced by a zero' requires."
+   },
+   {
+    "decision": "The show-all numbers come from four whole-table reads, each in the package that owns its table, merged by report id in Go. The handler lives in reader.go.",
+    "reversibility": "cheap",
+    "rationale": "The votes-table and comments-table fences forbid a JOIN outside their packages, and the ViewerFrom fence allows the header's viewer read only in reader.go and admin.go. Making one call per report would read every comment body of every report through Tree only to count them (lesson #960). The four reads are separate snapshots, which is accepted."
+   },
+   {
+    "decision": "The route is GET /reports. Each row is an li: the title link, then 'N likes · N comments · N views' with every number left of its label, then 'Published 2 January 2006' last, with a legend saying what a view is outside the rows.",
+    "reversibility": "expensive",
+    "rationale": "All four acceptance bodies GET /reports, and reader_test.go:672 flips from 404 to 200. The URL is public and pinned, while the markup is cheap. 'N likes' and 'N comments' are the report page's own strings, and lesson #979 measured 'N comments' passing every finish reader. Labels first ('Likes 0') was checked only by reading the Go reader. 'Times opened' cannot be written with the number first at count 1, so the opens label is 'view(s)', which the E-002 reader accepts. Putting the date last means no count follows the date (lesson #979)."
+   },
+   {
+    "decision": "Opens live in a new internal/opens package. It has its own table fence (only it names report_opens in SQL) and its own no-transaction fence. The client-address seam is fenced by two rules: only clientaddr.go reads RemoteAddr, and no Go file names a forwarded header other than X-Forwarded-For.",
+    "reversibility": "cheap",
+    "rationale": "This matches the project's existing ownership model: one fenced package per table (votes, comments, feedback). The HMAC must live in one place, because a second writer could store a raw 16-byte IPv6 address and still pass the CHECK. Keeping the forwarded rule's name stops the engine re-appending the old rule over the new code. The second rule keeps the original scheme-and-host protection inside the one file that is excepted."
+   },
+   {
+    "decision": "The show-all comment number is the whole-thread visible count, equal to the report page's printed CommentCount and computed with fmtVisible in one statement. It is not the number of entries the report page draws.",
+    "reversibility": "cheap",
+    "rationale": "The spike's no-go measured printed=110 against drawn=5 for a chain deeper than threadDepthCap. The branch pages draw the rest, so no comment is lost. The slice's test sums the report page and its branch pages to the show-all number, rather than claiming the report page draws N."
+   }
+  ],
+  "proposals": [
+   {
+    "designer": "practice",
+    "selected": "core",
+    "note": "Taken:\n- the report_opens schema\n- the in-memory HMAC key with report_id in its input and IPv6 /64\n- the rightmost-untrusted resolver, which does not count an unparsable entry and warns once at runtime\n- owner exclusion\n- VisibleCounts with treeSQL's users join\n- the handler in reader.go, as the ViewerFrom fence requires\n- the open hook in renderReader\n- the fitness approach\nDropped: the Sec-Purpose prefetch skip, and the labels-first dl layout."
+   },
+   {
+    "designer": "crossdomain",
+    "selected": "partial",
+    "note": "Taken:\n- the numbers-first row layout with 'view(s)', with the date moved after the numbers (lesson #979)\n- the bounded 2 s write context\n- a separate internal/opens package with its own fences\n- refusing zones and /0 prefixes in HBAND_TRUSTED_PROXIES\n- java/, okhttp and scrapy added to the bot tokens\nDropped:\n- day-close NULL redaction (rests on NULL-distinct UNIQUE behaviour nobody measured)\n- the key derived from the client secret (with no redaction it would make stored rows reversible)\n- the all_reports.go handler file, which would break the ViewerFrom fence\n- the startup-only misconfiguration log"
+   }
+  ],
+  "coherence_check": "Two proposals were composed. I checked these seams for contradictory invariants:\n\n(1) Key versus retention. Crossdomain's derived key is safe only together with its day-close redaction. Practice's random in-memory key is safe with no redaction. Taking the derived key and dropping redaction would have left every past row reversible to anyone holding the database plus HBAND_GITHUB_CLIENT_SECRET. I resolved it by keeping practice's in-memory key with practice's schema. The cost is crossdomain's 'same visitor, same day, across restarts' invariant, which now fails, is accepted and is stated in the open contract.\n\n(2) Handler placement versus the fitness fences. Crossdomain's all_reports.go would call ViewerFrom outside reader.go and admin.go, which the existing rule forbids. It moved into reader.go.\n\n(3) Row layout versus the E-002 reader and lesson #979. Crossdomain's numbers block put a count straight after the date. I moved the date after the numbers, and traced counts() and dated() by hand on the composed row: one reading, (0,0,1).\n\n(4) VisibleCounts versus Tree. The crossdomain query lacked treeSQL's users join, so I took practice's form, which reads the identical row set.\n\n(5) Write semantics. Synchronous, fail-open and bounded at 2 s. This is consistent with fail-closed reads, because the write precedes writeReader and never changes state.\n\n(6) Package placement versus the fences. Moving opens out of internal/votes means it no longer inherits the votes no-transaction fence, so an equivalent fence is added for internal/opens.\n\n(7) Existing tests. Harness requests carry no User-Agent, so they are bots under the filter. No before/after comparison in TestDislikesDoNotInterfere or TestStoreFaultSteps sees opens move. Both gain show-all observations.\n\nNo empirically decidable disagreement survives that would force a re-synthesis:\n- The NULL-distinct question disappeared with redaction.\n- Whether the VPS appends or overwrites X-Forwarded-For does not change the rightmost-untrusted algorithm. That is C11, which is already filed for a person.\n- Whether the other epics' Python row parsers accept the row layout changes the template only. The build settles it through the last case.\n\nArchitecture rules: five, written so each fails on the defect. Two of them, the opens no-transaction fence and the report_opens table fence, apply to files the build creates. The forwarded-header-name rule and the RemoteAddr rule are live on today's tree.",
+  "architecture_rules": [
+   {
+    "name": "no request header ever supplies scheme, host or client identity",
+    "files": "**/*.go",
+    "must_not_match": [
+     "(?i)\"(x-forwarded-[a-z-]+|x-real-ip|forwarded)\""
+    ],
+    "except_files": [
+     "**/*_test.go",
+     "internal/server/clientaddr.go"
+    ],
+    "because": "This is the existing rule, amended in place under the same name. Scheme and host come only from HBAND_BASE_URL. A trusted forwarded header elsewhere lets any client spoof the callback URL, the Secure decision or the trusted origin. SL-013 settled C-006: the client address for open counting is resolved in clientaddr.go alone, from X-Forwarded-For sent by a peer listed in HBAND_TRUSTED_PROXIES."
+   },
+   {
+    "name": "no Go file names a forwarded header other than X-Forwarded-For",
+    "files": "**/*.go",
+    "must_not_match": [
+     "(?i)[\"`]x-forwarded-(?:[a-eg-z-][a-z-]*|f|f[a-np-z-][a-z-]*|fo|fo[a-qs-z-][a-z-]*|for[a-z-]+)[\"`]",
+     "(?i)[\"`](x-real-ip|forwarded)[\"`]"
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "clientaddr.go is excepted from the broad forwarded-header rule only so that it can read X-Forwarded-For. If it also named X-Forwarded-Proto or X-Forwarded-Host, a client could steer scheme or host again. If it named X-Real-IP or Forwarded, it would trust a header the rightmost-untrusted walk does not cover, and a client could choose its own identity. Known holes: a header name built by concatenation or held in a constant defined elsewhere, and ranging over r.Header."
+   },
+   {
+    "name": "only clientaddr.go reads the connecting address",
+    "files": "**/*.go",
+    "must_not_match": [
+     "\\.RemoteAddr\\b"
+    ],
+    "except_files": [
+     "internal/server/clientaddr.go",
+     "**/*_test.go",
+     "internal/testutil/**"
+    ],
+    "because": "Behind the VPS proxy, RemoteAddr is the proxy for every visitor. Any other code keying on it, such as a later per-address rate limit or another counter, collapses every visitor into one, which is R-004. Each such reader must go through clientAddr and its trusted-proxy walk."
+   },
+   {
+    "name": "open writes never open a transaction",
+    "files": "internal/opens/**/*.go",
+    "must_not_match": [
+     "\\.Begin(Tx)?\\(",
+     "(?i)\\b(BEGIN|SAVEPOINT)\\b",
+     "\\bsql\\.Tx\\b"
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "Spike concurrent-vote-upserts-no-busy (lesson #949) measured read-then-write transactions on this pool failing 215-253 times per run with SQLITE_BUSY or BUSY_SNAPSHOT, returned at once without waiting on busy_timeout. Single statements failed 0 times. Record runs on every public report GET, so a transaction there loses opens under load. Known hole: a transaction opened outside the package and handed in through an interface."
+   },
+   {
+    "name": "only internal/opens names the report_opens table in SQL",
+    "files": "**/*.go",
+    "must_not_match": [
+     "\\b(FROM|INTO|UPDATE|JOIN)\\s+report_opens\\b",
+     "\\bUPDATE\\s+OR\\s+[A-Z]+\\s+report_opens\\b",
+     "\\bFROM\\b[^\"`;]*,\\s*report_opens\\b"
+    ],
+    "except_files": [
+     "internal/opens/**",
+     "**/*_test.go"
+    ],
+    "because": "The keyed hash and the published-only insert live only in Record. A second writer could store a raw 16-byte IPv6 address, which passes the length CHECK, and put a plain visitor address in the database. It could also count opens of drafts. Known holes, as for the votes and comments rules: lower-case SQL, a table name built by concatenation, quoted or schema-qualified names, and views or triggers created in a .sql migration."
+   }
+  ],
+  "cases": [
+   {
+    "behaviour": "browse the show-all page",
+    "shape": "the library holds published reports, a draft, a report unpublished after publishing and a deleted one, with two published in the same second",
+    "why": "ListPublished must filter on status and order by published_at DESC then id DESC. A draft or an unpublished title on a public page breaks the identical-404 guarantee, and the same-second tie is where ordering on published_at alone becomes unstable.",
+    "check": "go test -count=1 ./internal/reports -run \"^TestListPublished$\"",
+    "material": true
+   },
+   {
+    "behaviour": "browse the show-all page",
+    "shape": "nothing is published yet, and separately rows whose counts are 1 (singular labels) and 1000, with a title ending in a digit",
+    "why": "The template branches on an empty list ('No reports yet.') and on singular versus plural. A count of 1 written with the wrong label, or a count that sits next to the title's number or the date, makes E-002's counts() fail with 'cannot be read apart'. The test feeds the rendered row to a copy of that reader.",
+    "check": "go test -count=1 ./internal/server -run \"^TestShowAll$\"",
+    "material": true
+   },
+   {
+    "behaviour": "browse the show-all page",
+    "shape": "one of the four reads fails: reports, votes, comments or report_opens renamed in turn",
+    "why": "Each read error must give a 503 with no rows. A count shown as 0 because its read failed is the false number renderReader's rule forbids.",
+    "check": "go test -count=1 ./internal/server -run \"^TestStoreFaultSteps$\"",
+    "material": true
+   },
+   {
+    "behaviour": "see a report's likes on the show-all page",
+    "shape": "a report holding only dislikes, a like switched to a dislike, and a blocked account's like",
+    "why": "PublicLikes must count kind='up' only, keep a blocked account's like, and leak no dislike. TestDislikesDoNotInterfere must really observe /reports listing x and y, or it compares two identical pages that show nothing (lesson #948).",
+    "check": "go test -count=1 ./internal/votes ./internal/server -run \"^(TestPublicLikes|TestDislikesDoNotInterfere)$\"",
+    "material": true
+   },
+   {
+    "behaviour": "see a report's visible comment count on the show-all page",
+    "shape": "spike fixtures A-D: a removed root with a visible reply, a blocked writer at depth with a visible child, a 110-deep chain, no comments, and all comments by a blocked writer",
+    "why": "VisibleCounts must equal Visible(Tree) and the report page's printed count for each fixture. For the deep chain, the report page plus its branch pages must draw the same 110 entries. The spike measured the report page alone drawing 5, so a test that compared against that page alone would be wrong.",
+    "check": "go test -count=1 ./internal/comments ./internal/server -run \"^(TestVisibleCounts|TestShowAllCommentCount)$\"",
+    "material": true
+   },
+   {
+    "behaviour": "count an open once per visitor per day",
+    "shape": "the same address twice in one UTC day, the next UTC day (fake clock across 00:00 UTC with time.Local at +5:30), two IPv6 addresses in one /64 and in different /64s, and one address on two reports",
+    "why": "The day must be UTC, not local. A same-/64 pair must collapse to one open and different /64s must not. The same address on two reports must store two different 16-byte values, or one visitor can be linked across reports.",
+    "check": "go test -count=1 ./internal/opens -run \"^TestRecord$\"",
+    "material": true
+   },
+   {
+    "behaviour": "open a report",
+    "shape": "GET / and GET /reports/<newest> from one visitor, plus HEAD, /raw/<slug>, the branch page, /reports itself, an admin preview, a draft's 404, a 503, the signed-in owner, and a Record that fails",
+    "why": "Only a GET that renderReader answers 200 for a found report may count. / and /reports/<newest> must share one key. Each other shape is a branch that must write nothing. A failed write must leave a 200 page with the same bytes.",
+    "check": "go test -count=1 ./internal/server -run \"^TestOpenCounting$\"",
+    "material": true
+   },
+   {
+    "behaviour": "ignore obvious bots",
+    "shape": "an empty UA, Go-http-client, python-requests, curl, Googlebot and bingbot (which carry Mozilla/), HeadlessChrome and Lighthouse, against Chrome, Firefox, Safari, Edge and mobile browser UAs",
+    "why": "There are two branches: the missing 'Mozilla/' prefix, and a token found inside a Mozilla-style UA. Real browsers must never be dropped.",
+    "check": "go test -count=1 ./internal/opens -run \"^TestObviousBot$\"",
+    "material": true
+   },
+   {
+    "behaviour": "tell visitors apart behind the proxy",
+    "shape": "X-Forwarded-For from an untrusted peer, a trusted peer with a spoofed leftmost entry, several header lines, all entries trusted, an unparsable entry, ip:port and [v6]:port entries, an IPv4-mapped peer, and X-Real-IP or Forwarded alone",
+    "why": "The right-to-left walk branches on trust, on parse failure and on an empty chain. Taking the leftmost entry lets a client mint visitors, and ignoring the header collapses everyone (R-004). The warning must appear once, carry no address, and appear only for an untrusted peer.",
+    "check": "go test -count=1 ./internal/server -run \"^TestClientAddr$\"",
+    "material": true
+   },
+   {
+    "behaviour": "configure the trusted proxy",
+    "shape": "the variable unset, an IPv4 and IPv6 list with CIDRs, and malformed values (a hostname, a stray comma, a bad prefix, a zone, /0)",
+    "why": "Unset must trust nobody (lesson #929: every shipped default is tested with its variable unset). A malformed value must stop startup with exit 2 and never echo the value.",
+    "check": "go test -count=1 ./internal/config ./cmd/hband -run \"^(TestTrustedProxies|TestBinary)$\"",
+    "material": true
+   },
+   {
+    "behaviour": "upgrade a populated database and keep no plain address",
+    "shape": "a v5 database holding reports, votes and comments is migrated to v6; a report with opens is deleted, another unpublished; then every SQLite file and WAL is scanned for the addresses used",
+    "why": "0006 goes through the hot migrate.go (lesson #930) and must leave existing rows intact. The cascade must remove a deleted report's opens while unpublishing keeps them. No plain or UTF-16 address may reach the database file or the WAL.",
+    "check": "go test -count=1 ./internal/store ./internal/opens -run \"^(TestMigrateFiveToSix|TestNoPlainAddressStored)$\"",
+    "material": true
+   },
+   {
+    "behaviour": "reach the show-all page by its path variants",
+    "shape": "/reports/, POST /reports, //reports and /REPORTS, against both the draft-x and unknown-x harnesses",
+    "why": "Reader routes do not join the access matrix automatically (lesson #944), and reader_test.go:672 pins /reports as a 404 today. Each variant must be pinned to its observed response.",
+    "check": "go test -count=1 ./internal/server -run \"^TestReaderPathVariants$\"",
+    "material": true
+   },
+   {
+    "behaviour": "keep the fitness rules true",
+    "shape": "the amended forwarded-header rule and the four new rules, each with a fire row and a quiet row, including X-Forwarded-For quiet and X-Forwarded-Proto firing inside clientaddr.go",
+    "why": "The Go loader accepts YAML the engine rejects (lesson #971). A rule without both kinds of row is not pinned, and RE2 case-folding of the 'not For' character classes must be shown to work.",
+    "check": "go test -count=1 ./internal/fitnessrules -run \"^(TestRuleSpellingsCorpus|TestRulesHoldOnTheTree)$\"",
+    "material": true
+   },
+   {
+    "behaviour": "other epics' finish lines with a show-all page now present",
+    "shape": "the E-001 and E-003..E-006 finish bodies, whose Python row parsers carry a LABELS dict (spike), run against a build of this tree that has a /reports page and an 'All reports' nav link",
+    "why": "Before this slice /reports was a 404. A body that reads show-all rows, or that is upset by the new nav link, could start failing without any E-002 test noticing.",
+    "check": "Read each finish body of epics E-001 and E-003..E-006 in place from engine.db (file:...?mode=ro, SELECT only, as lesson #963 did) and run it with python -I against a build of this tree. Every body that exits 0 at uat 1251104 must still exit 0.",
+    "material": true
+   }
+  ],
+  "code_claims": [
+   {
+    "path": "internal/server/router.go",
+    "symbol": "readReport",
+    "claim": "handler() registers GET /reports/{slug} to a.readReport and registers no GET /reports route."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "newApp",
+    "claim": "newApp builds the votes, comments and feedback books on st.DB() with the injected clock and sets a.tree = a.comments.Tree, a func-field seam a test can make fail."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "renderReader",
+    "claim": "renderReader is the one path for / and /reports/<slug>. While stateFound it reads votes.Public, then threadOf, then (for a signed-in non-owner) SenderThreads, and any error turns the page into stateUnavailable with a 503."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "home",
+    "claim": "home looks up reports.Latest and renders that newest report in full through renderReader with homePage and stateFound."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "readBranch",
+    "claim": "readBranch writes branch.html through writeReader on success and calls renderReader only for its 503."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "writeReader",
+    "claim": "writeReader sets Cache-Control: private, no-cache and takes a readerData value."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "threadOf",
+    "claim": "threadOf computes visible = comments.Visible over the whole forest before a branch narrows it."
+   },
+   {
+    "path": "internal/config/config.go",
+    "symbol": "HBAND_TRUSTED_PROXIES",
+    "claim": "The package doc says Load ignores HBAND_TRUSTED_PROXIES, which is left for a later block."
+   },
+   {
+    "path": "internal/config/config.go",
+    "symbol": "Error",
+    "claim": "Error lists every bad variable and never carries a variable's value."
+   },
+   {
+    "path": "internal/config/config_test.go",
+    "symbol": "TestLoadIgnoresUnknownVariables",
+    "claim": "TestLoadIgnoresUnknownVariables passes HBAND_TRUSTED_PROXIES=127.0.0.1 and requires Load to succeed."
+   },
+   {
+    "path": "internal/votes/votes.go",
+    "symbol": "Public",
+    "claim": "Public returns one report's like count and the viewer's own vote in one SELECT, and PublicView has no dislike field."
+   },
+   {
+    "path": "internal/votes/votes.go",
+    "symbol": "Cast",
+    "claim": "Cast is one INSERT…SELECT…FROM reports WHERE id = ? AND status = 'published' … ON CONFLICT DO UPDATE statement with no transaction."
+   },
+   {
+    "path": "internal/comments/comments.go",
+    "symbol": "fmtVisible",
+    "claim": "fmtVisible formats the visibleSQL predicate (removed_at IS NULL and the writer not in blocked_accounts) for a given table alias."
+   },
+   {
+    "path": "internal/comments/tree.go",
+    "symbol": "treeSQL",
+    "claim": "treeSQL reads FROM comments c JOIN users u ON u.github_id = c.github_id and computes shown with fmtVisible(\"c\")."
+   },
+   {
+    "path": "internal/comments/tree.go",
+    "symbol": "Visible",
+    "claim": "Visible counts the non-placeholder nodes of a forest, and its doc says this equals the number of the report's comments that pass visibleSQL."
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "symbol": "Latest",
+    "claim": "Latest selects WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT 1."
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "symbol": "ListAll",
+    "claim": "ListAll returns every report including drafts ordered by id DESC, returning query, scan and rows.Err errors as they are."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "x-real-ip",
+    "claim": "The rule 'no request header ever supplies scheme, host or client identity' forbids forwarded-header string literals in non-test Go, and its because says C-006 decides proxy trust deliberately."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "ViewerFrom",
+    "claim": "ViewerFrom is forbidden in internal/server except reader.go and admin.go, so the show-all handler must live in reader.go."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "vote writes never open a transaction",
+    "claim": "The no-transaction fence covers internal/votes/**/*.go only, with the patterns .Begin(Tx)?(, BEGIN or SAVEPOINT, and sql.Tx."
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "symbol": "observe",
+    "claim": "dislikeWorld.observe's reads list already includes \"/reports\" alongside /, /reports/x, /reports/y and the admin pages."
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "symbol": "notFound",
+    "claim": "TestReaderPathVariants currently expects {\"GET\", \"/reports\", notFound}."
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "symbol": "serve",
+    "claim": "serve builds requests with httptest.NewRequest and sets no User-Agent unless an option adds one."
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "symbol": "fakeClock",
+    "claim": "The harness builds the app with newApp(cfg, st, h.lib, h.clock.Now) on a fakeClock, so a test can move the app's clock across a UTC day."
+   },
+   {
+    "path": "internal/store/migrations/0003_votes.sql",
+    "symbol": "ON DELETE CASCADE",
+    "claim": "votes.report_id references reports (id) ON DELETE CASCADE in a STRICT table, the shape report_opens copies."
+   },
+   {
+    "path": "internal/store/store.go",
+    "symbol": "servingPragmas",
+    "claim": "The serving pool opens with journal_mode WAL, busy_timeout 5000 and foreign_keys on."
+   },
+   {
+    "path": "internal/server/templates/layout.html",
+    "symbol": "site-header",
+    "claim": "The shared header template holds the brand link to / and the sign-in or Admin and sign-out controls, with no link to a show-all page."
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "symbol": "comment-count",
+    "claim": "The report page prints 'N likes'/'1 like', 'N comments'/'1 comment' in p.comment-count, and the publish date as 'Published 2 January 2006'."
+   },
+   {
+    "path": "internal/server/storefault_test.go",
+    "symbol": "TestStoreFaultSteps",
+    "claim": "TestStoreFaultSteps makes one read fail by renaming its table (reports, votes, comments) and expects GET /reports/x to answer 503."
+   },
+   {
+    "path": "cmd/hband/main_test.go",
+    "symbol": "TestBinary",
+    "claim": "TestBinary runs the built binary with HBAND_TRUSTED_PROXIES=127.0.0.1 in its environment."
+   }
+  ],
+  "outside_claims": [
+   {
+    "claim": "Go's ServeMux pattern 'GET /reports' matches exactly /reports, does not redirect it to /reports/, and GET /reports/ does not match 'GET /reports/{slug}' (a wildcard needs a non-empty segment).",
+    "evidence": "measured",
+    "source": "survey: the running binary answered 404 to GET /reports and /reports/ with GET /reports/{slug} registered; reader_test.go:672 pins both",
+    "if_wrong": "The path variants would differ; TestReaderPathVariants quotes what is observed."
+   },
+   {
+    "claim": "A 'GET' pattern on the Go 1.22+ ServeMux also serves HEAD requests.",
+    "evidence": "recalled",
+    "source": "memory (net/http ServeMux docs)",
+    "if_wrong": "HEAD /reports would answer 405. Opens are unaffected, because the hook counts GET only."
+   },
+   {
+    "claim": "SQLite accepts INSERT…SELECT…WHERE…ON CONFLICT (cols) DO NOTHING as one statement. The WHERE on the SELECT avoids the upsert parse ambiguity, and the statement waits on busy_timeout rather than failing BUSY.",
+    "evidence": "measured",
+    "source": "lesson #949: votes.Cast's INSERT…SELECT…ON CONFLICT on this pool had 0 BUSY under load",
+    "if_wrong": "Record would need another single-statement form. The data model is unchanged."
+   },
+   {
+    "claim": "SQLite accepts the table options 'STRICT, WITHOUT ROWID' together, with a composite primary key and an FK cascade, on the modernc.org/sqlite version in go.mod.",
+    "evidence": "recalled",
+    "source": "memory (SQLite CREATE TABLE docs, STRICT since 3.37)",
+    "if_wrong": "The migration test fails at once. Dropping WITHOUT ROWID keeps the same schema contract."
+   },
+   {
+    "claim": "Mainstream browser UAs (Chrome, Firefox, Safari, Edge, mobile) begin with 'Mozilla/5.0'. Googlebot and bingbot also carry 'Mozilla/' and contain 'bot'.",
+    "evidence": "measured",
+    "source": "spike acceptance-view-count-vs-ua-filter-and-address-key: the bodies' Chrome, Firefox, Googlebot and bingbot strings; the broader browser claim is from memory",
+    "if_wrong": "Some real browser would be dropped as a bot and undercounted."
+   },
+   {
+    "claim": "netip.ParseAddrPort parses 'ip:port' and '[v6]:port'. netip.ParseAddr accepts a zone, which WithZone(\"\") drops. Addr.Unmap turns ::ffff:a.b.c.d into IPv4, and Prefix.Masked/Contains behave as documented.",
+    "evidence": "recalled",
+    "source": "memory (net/netip docs)",
+    "if_wrong": "clientAddr or config parsing would mis-key or reject valid entries. TestClientAddr would show it."
+   },
+   {
+    "claim": "In Go regexp (RE2), the (?i) flag case-folds character-class ranges, so [a-eg-z] excludes both 'f' and 'F'.",
+    "evidence": "recalled",
+    "source": "memory (regexp/syntax)",
+    "if_wrong": "The rule that names no forwarded header other than X-Forwarded-For would fire on X-Forwarded-For or miss an uppercase spelling. Its corpus rows would show it."
+   },
+   {
+    "claim": "The VPS reverse proxy forwards the visitor's address in X-Forwarded-For (appended or set) from a peer address that can be listed in HBAND_TRUSTED_PROXIES.",
+    "evidence": "recalled",
+    "source": "memory; C11 is the person's check already on the backlog",
+    "if_wrong": "Every visitor collapses into one per report per day (R-004), or a client can mint visitors. The runtime warning makes the first case visible in the log."
+   },
+   {
+    "claim": "An unkeyed or salted-but-stored SHA-256 of an IPv4 address can be reversed by trying all 2^32 addresses, so the key must not live with the data.",
+    "evidence": "recalled",
+    "source": "memory (Plausible data policy rationale)",
+    "if_wrong": "The in-memory key would be stronger than needed. Nothing breaks."
+   },
+   {
+    "claim": "httptest.NewRequest sets no User-Agent header.",
+    "evidence": "recalled",
+    "source": "memory (net/http/httptest)",
+    "if_wrong": "If it set a Go default UA, harness requests would still be bots under the 'go-http' token. No existing test changes either way."
+   }
+  ],
+  "prior_art": [
+   {
+    "pattern": "A newest-first list of every item in which each row opens the item's full view: the shape of the show-all page.",
+    "where": "https://github.com/BeamLabEU/phoenix_kit_web_analytics/blob/v0.9.0/lib/phoenix_kit_web_analytics/web/sessions_live.ex",
+    "authority": "oss",
+    "basis": "cited",
+    "source_date": "v0.9.0"
+   },
+   {
+    "pattern": "Cookieless unique-visitor counting: a keyed hash of the address with a day bucket, the key kept away from the data, so a visitor counts once a day and the address is never stored.",
+    "where": "Plausible Analytics data policy (daily rotating salt); Fathom Analytics",
+    "authority": "community",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Real client IP behind a proxy: trust X-Forwarded-For only from configured proxy addresses and take the rightmost untrusted hop, never the leftmost.",
+    "where": "Adam Pritchard, 'The perils of the \"real\" client IP' (2022); nginx ngx_http_realip_module with set_real_ip_from and real_ip_recursive on",
+    "authority": "community",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "A framework-level trusted-proxy list ('trust proxy', trusted_proxies), which guards against every visitor looking like the proxy and against client spoofing.",
+    "where": "Express 'trust proxy'; Rails ActionDispatch::RemoteIp; Caddy trusted_proxies",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "INSERT…SELECT…ON CONFLICT DO NOTHING needs a WHERE on the SELECT to avoid a parsing ambiguity, and it makes the dedupe and the increment one statement.",
+    "where": "SQLite UPSERT documentation (lang_upsert)",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Report statistics exclude accounts that are not real readers, such as a system user. Here that becomes not counting the owner's own opens.",
+    "where": "https://meta.discourse.org/t/admin-dashboard-report-reference-guide/240233",
+    "authority": "oss",
+    "basis": "cited",
+    "source_date": "2022-09-27"
+   },
+   {
+    "pattern": "Idempotent receiver: when the dedupe record is the effect, one atomic insert both dedupes and applies, with no separate dedupe store to keep consistent.",
+    "where": "Amazon SQS FIFO MessageDeduplicationId; Kafka idempotent producer",
+    "authority": "official",
+    "basis": "recalled"
+   }
+  ],
+  "cross_domain_transfer": {
+   "source_domain": "Privacy-first web analytics (Plausible, Fathom) and reverse-proxy real-IP handling (nginx realip). The idempotent-receiver framing from message queues gives the same one-statement shape.",
+   "pattern": "A keyed hash of (report, UTC day, visitor address) is the unique key, with the key never stored beside the data. The address is the rightmost untrusted X-Forwarded-For hop behind an explicit list of trusted peers. Inserting the key is the count.",
+   "transfer_found": true,
+   "rationale": "The finish line asks for what those systems solved: once per visitor per day, no plain IP in the database, and the right address behind a proxy. The pattern avoids three failures they hit: an IPv4 hash anyone can enumerate, a forged leftmost X-Forwarded-For, and every visitor collapsed into the proxy (R-004). Their heavy parts (event pipeline, rollups, salt tables, schedulers) are not imported. I rejected crossdomain's day-close redaction; the in-memory key gives the privacy instead.",
+   "invariants": [
+    {
+     "precondition": "The hashing key is never stored where the database is.",
+     "status": "holds",
+     "evidence": "opens.New draws it from crypto/rand and keeps it only in the Book. e002_4 scans every SQLite file and WAL under HBAND_DATA_DIR for the plain and UTF-16 address, and TestNoPlainAddressStored repeats that in-process."
+    },
+    {
+     "precondition": "An open made immediately before a GET /reports is visible on that GET.",
+     "status": "holds",
+     "evidence": "Record is one synchronous statement before writeReader. There is no asynchronous buffer, and the e002_3 steps read straight after opening."
+    },
+    {
+     "precondition": "Every acceptance request expected to count carries a browser UA and an address not yet seen that day, and every one expected not to count is a same-day repeat or a bot UA.",
+     "status": "holds",
+     "evidence": "Spike acceptance-view-count-vs-ua-filter-and-address-key: finish[1..3] exited 0 on a stub implementing this rule, and the negative controls failed."
+    },
+    {
+     "precondition": "The peer connecting to hband in production is listed in HBAND_TRUSTED_PROXIES, and the VPS proxy appends or sets X-Forwarded-For with the visitor's address.",
+     "status": "must-verify",
+     "evidence": "Only the deployment can show this. It is C11, already a person's check. Docker NAT may present the bridge gateway rather than the WireGuard peer."
+    },
+    {
+     "precondition": "The same visitor on the same day yields the same key across a process restart.",
+     "status": "fails",
+     "evidence": "The key is drawn at each start, so a restart part-way through a day counts a returning visitor once more that day. This is accepted and stated in the open contract, and it is the price of a key that nothing on disk or in config can recover."
+    },
+    {
+     "precondition": "The UTC day boundary does not fall inside an acceptance same-day repeat.",
+     "status": "must-verify",
+     "evidence": "The spike measured repeats within about 3 s, so the window is about 3 s a day. This is a known limit, not something to design around."
+    }
+   ]
+  },
+  "channeled_experts": [
+   "Adam Pritchard on real client IP / rightmost-untrusted X-Forwarded-For",
+   "Plausible Analytics privacy design (daily keyed visitor hash)",
+   "SQLite UPSERT documentation",
+   "message-queue exactly-once delivery (idempotent receiver, dedup windows)"
+  ],
+  "decidable_disagreements": [],
+  "taste_disagreements": [
+   "Where opens live. Practice puts them in internal/votes (opens.go) to inherit the no-transaction fence. Crossdomain uses a new internal/opens package with its own fences. I chose internal/opens to match the one-fenced-package-per-table model.",
+   "The visitor key. Practice uses a random in-memory key, and a restart re-counts that day. Crossdomain derives the key from HBAND_GITHUB_CLIENT_SECRET, so it is stable across restarts, and redacts it at day close. I chose in-memory; the derived key without redaction would leave stored rows reversible.",
+   "Row wording and side. Practice uses labels first: 'Likes N', 'Comments N', 'Times opened N'. Crossdomain uses numbers first: 'N likes', 'N comments', 'N views'. I chose numbers first because 'N comments' is the measured format. The column therefore reads 'views', not the slice's 'times opened'. A person may prefer the slice's words, which means going back to labels first.",
+   "Whether the signed-in owner's opens count. Practice excludes them and crossdomain counts them. I excluded them.",
+   "Practice's Sec-Purpose/Purpose prefetch skip. I dropped it.",
+   "IPv6 grouping by /64. Practice has it and crossdomain does not. I kept it.",
+   "How an unparsable X-Forwarded-For entry resolves. Practice does not count it; crossdomain falls back to the nearest valid hop. I chose not counting.",
+   "How misconfiguration is reported. Practice warns once at runtime; crossdomain logs at startup when the list is empty. I chose the runtime warning, which also catches a wrong proxy address."
+  ],
+  "retier": {
+   "tier": "high",
+   "why": "The design adds a forward-only migration (0006) through the security-adjacent migrate.go. It opens a public page under the privacy constraint, amends the security fence that keeps request headers from supplying identity, and settles a new operator contract (HBAND_TRUSTED_PROXIES) that every later per-visitor feature will rely on. Lessons #970 and #952 measured a new table plus a public endpoint plus a privacy constraint as a large, high-review slice on this project."
+  },
+  "whats_new": [
+   "internal/store/migrations/0006_opens.sql: the report_opens table (user_version 5 to 6)",
+   "internal/opens/opens.go: Book (New, newBook seam, Record, Counts) and ObviousBot",
+   "internal/server/clientaddr.go: clientAddr, the rightmost-untrusted X-Forwarded-For resolver with a one-time misconfiguration warning",
+   "config: HBAND_TRUSTED_PROXIES parsed into Config.TrustedProxies with exit-2 validation, and the package doc rewritten",
+   "reader.go: showAll on GET /reports, plus countOpen at the end of renderReader with an app.recordOpen seam; writeReader's data parameter widened to any",
+   "router.go: the GET /reports registration, plus a.opens and a.recordOpen built in newApp",
+   "internal/server/templates/all_reports.html, an 'All reports' nav link in layout.html, and list styles in site.css",
+   "reports.Library.ListPublished, votes.Book.PublicLikes, comments.Book.VisibleCounts",
+   "fitness.yaml: the forwarded-header rule excepts clientaddr.go, plus four new rules, with fire and quiet rows in rule_spellings.json",
+   "Tests:\n- internal/opens: TestRecord, TestObviousBot, TestNoPlainAddressStored\n- internal/server: TestClientAddr, TestOpenCounting, TestShowAll, TestShowAllCommentCount\n- other packages: TestListPublished, TestPublicLikes, TestVisibleCounts, TestTrustedProxies, TestMigrateFiveToSix\n- show-all rows in TestStoreFaultSteps, path variants in TestReaderPathVariants, the /reports guard in observe(), and TestBinary runs with HBAND_TRUSTED_PROXIES unset and malformed"
+  ],
+  "whats_reused": [
+   "renderReader's found/empty/unavailable states and its rule that an unreadable count is never shown as zero",
+   "reports.Library.Latest's ordering (published_at DESC, id DESC), the reports_status_published index and scanReport",
+   "comments.fmtVisible (visibleSQL) and treeSQL's users join, as the one definition of a visible comment",
+   "votes.Cast's single-statement INSERT…SELECT…ON CONFLICT gated on status = 'published' (lesson #949)",
+   "0003_votes.sql's ON DELETE CASCADE shape, and the migration runner (loadMigrations/applyMigration) unchanged",
+   "app.render and writeReader's Cache-Control: private, no-cache",
+   "The a.tree func-field seam pattern, for recordOpen",
+   "The three-pattern no-transaction fence of internal/votes, copied for internal/opens",
+   "layout.html's head and header templates, and report.html's 'N likes', 'N comments' and '2 January 2006' formats",
+   "TestDislikesDoNotInterfere's observe list (already names /reports), TestReaderPathVariants, TestStoreFaultSteps and TestBinary as the places the new route and variable are pinned",
+   "The harness's fakeClock for the UTC day-rollover test",
+   "The four E-002 acceptance bodies, unchanged, as the finish line"
+  ],
+  "open_questions": [],
+  "filed_for_later": [],
+  "stack_chosen": [],
+  "reason": "Two proposals were composed into one design for the whole of E-002 (SC-007 is its only part). Practice is the core. Crossdomain supplies the row layout, the separate fenced opens package, the bounded write context and stricter proxy-list validation. The seams were redesigned where the pieces conflicted: key versus retention, handler placement versus the ViewerFrom fence, and date placement versus the E-002 row reader. Retiered to high for the migration, the privacy constraint and the amended security fence."
+ }
+}
