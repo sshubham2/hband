@@ -1,0 +1,424 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-007",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-24T06:13:26.055Z",
+ "head": "c256f2134e677884424c0960de17e042985eac3b",
+ "run_id": 11891,
+ "summary": "I read every changed source, template, CSS and test file in full, plus the diffs of vote_test.go, reader_test.go, fitness.yaml and the corpus. I parsed rule_spellings.json's feedback rows by id. The code matches the design. The only departures are the five the build declared (m1, m3, m4, M-add-1 and the scratch finish check).\n\n**What the code does**\n- postFeedback follows postComment's order: Participant (503 on an identity failure), then PublishedBySlug (404 or 503), then a signed-out 303 to #feedback with nothing parsed, then MaxBytesReader and exactly one PostForm body, then Send.\n- Send maps ErrBadBody to 400, ErrNoTarget to 404 and any other error to 503. Success is a 303 to the stored slug plus the fixed fragment #feedback-sent, so the handler never holds a row id.\n- Send is a single INSERT…SELECT with the published check inside the statement.\n- OwnerInbox joins users, orders newest first and converts times through unixUTC.\n- adminReport answers 500 when the inbox cannot be read.\n- The 0005 migration matches the design's columns and FK clauses.\n- The reader box reads only SignedIn, Viewer.IsOwner and Report.Slug.\n- The sent note is `hidden` by default and shown only by `#feedback-sent:target`, so if the CSS rule is lost the reader sees no note rather than a false 'Sent'.\n- Every caller and callee pairing checks out: Send and OwnerInbox each have one caller, the template ranges over a nil slice safely, and Participant returns only the two sentinels or nil.\n\n**What I ran**\n- `go vet ./...` is clean.\n- `go test -count=1 ./...`: all packages pass.\n- `TestReportScriptsNeverRun -v`: Chrome from CHROME_BIN really ran (blank-found green=0 red=0) and it did not skip.\n- Fitness op=check: all 29 rules hold.\n- The planted E-005 finish test, read in place from the ledger (mode=ro) and run from a scratch copy with ROOT pointed at the worktree: `FAILED (failures=1)`. The one failure is 'the admin view offers no reply to the feedback', and the admin page it printed shows feedback-2 and feedback-1 articles with logins, avatars and UTC times beside '2 dislikes'.\n- An -overlay probe (worktree left clean) shows the report-lookup 503 branch behaves correctly, but no committed test reaches it. That is the one finding, and it is extra.\n\n**What I found**\n- No undeclared drift.\n- No half-wired code, duplicate implementation or one-ended configuration.\n- The index shows a single build attempt, so the slice is not looping.\n\nSecond reader, for inputs: I read for unexpected inputs and found no defect in what the slice wrote. Every file I judged was read whole: feedback.go (package and handler), 0005_feedback.sql, feedback.html, admin_report.html, site.css, report.html, router.go, admin.go, feedback_test.go (both), feedback_migration_test.go, and the diffs of fitness.yaml, vote_test.go and reader_test.go. I read the feedback rows of the rule corpus by parsing the JSON.\n\n**Runs (TAAD3_HOME set to a new scratch folder each time):**\n- `go vet ./...`: exit 0.\n- The feedback, store, fitnessrules and comments packages, plus the design's filtered server run: all ok.\n- The full `go test -count=1 ./...`: exit 0. The server package took 11.1 s, and Chrome came from CHROME_BIN.\n\n**Overlay probe (`go test -overlay`, worktree left unchanged):**\n- Seven bodies the tests do not send, all with a live session: zero-width space only, BOM only, word joiner only, Hangul filler only, braille blank only, right-to-left override plus text, and U+2028 only.\n- `Origin: null` answered 403. `Sec-Fetch-Site: none` was accepted, which is standard-library behaviour.\n- An anonymous POST while the reports table is unreadable answered 503. That branch (feedback.go:41-44) is correct, though no committed test reaches it.\n- U+2028 alone is trimmed and refused with 400.\n\n**Checked by reading:**\n- The handler mirrors postComment exactly.\n- Query-string bodies, repeated fields, multipart, JSON and text/plain bodies, forms over 64 KiB and malformed percent-encoding all reach 400. Signed-out requests are not parsed.\n- The only check that is released and taken again (published at lookup, then at write) is re-made inside the single INSERT…SELECT, so a request arriving in the gap gets nothing past it. The trigger test drives that race.\n- No browser-allowed textarea input exceeds the 64 KiB cap. With maxlength 5000 in UTF-16 code units, the worst case is 5000 three-byte characters percent-encoded, about 45 KB.\n- The `hidden` sent note cannot be revealed by any other rule in site.css.\n- Bodies, logins and avatar URLs are escaped by html/template, and avatars are already restricted to https.\n- The four fences fire on the raw-string (backtick) and multi-line spellings in the corpus.\n\n**The one shape that gets through:** a message made only of invisible characters is stored and listed. In the probe, five such bodies each got the success 303 and each became an apparently empty article in the owner's inbox. This comes from the shared comments.Normalize, which the design chose, so I filed it as backlog-only (`extra`), not as a defect of this slice.\n\nReading pass: I have now read the three remaining ranges of rule_spellings.json:\n- 12-26: the bounded_by entries and the start of rules_under_test;\n- 38-52: rules_under_test and retired_rules;\n- 399-465: every fbk-* row.\n\nThe changes are what the diff showed. Four bounded_by entries and four rules_under_test names were added, and 59 fire/quiet rows. The only deletions are trailing commas becoming non-final lines; no existing row was removed or flipped. The rows match the four rules in .taad/fitness.yaml, each designed correct line is pinned quiet (fbk-sql-q010, fbk-own-q001, fbk-thr-q001), and the known holes are pinned quiet with \"flip to fire\" notes.\n\nOne new item, text only: the bounded_by for the owner-only fence (line 19) says TestFeedbackDoesNotInterfere \"observes every reader page\". The design's own invariant marks that coverage as failing (lesson #948).\n\nNothing else in these ranges changes the review. The code matches the design. The only departures are the five the build declared (m1, m3, m4, M-add-1 and the scratch finish check).\n\nWhat I ran:\n- `go vet ./...` is clean.\n- `go test -count=1 ./...`: every package passes.\n- TestReportScriptsNeverRun really ran Chrome from CHROME_BIN.\n- Fitness op=check: all 29 rules hold.\n- The planted E-005 finish test, read in place from the ledger and run from a scratch copy, ends `FAILED (failures=1)`. The one failure is 'the admin view offers no reply to the feedback'.\n- An overlay probe shows the report-lookup 503 branch behaves correctly, but no committed test reaches it (x1, extra).",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "I read every changed source, template, CSS and test file in full, plus the diffs of vote_test.go, reader_test.go, fitness.yaml and the corpus. I parsed rule_spellings.json's feedback rows by id. The code matches the design. The only departures are the five the build declared (m1, m3, m4, M-add-1 and the scratch finish check).\n\n**What the code does**\n- postFeedback follows postComment's order: Participant (503 on an identity failure), then PublishedBySlug (404 or 503), then a signed-out 303 to #feedback with nothing parsed, then MaxBytesReader and exactly one PostForm body, then Send.\n- Send maps ErrBadBody to 400, ErrNoTarget to 404 and any other error to 503. Success is a 303 to the stored slug plus the fixed fragment #feedback-sent, so the handler never holds a row id.\n- Send is a single INSERT…SELECT with the published check inside the statement.\n- OwnerInbox joins users, orders newest first and converts times through unixUTC.\n- adminReport answers 500 when the inbox cannot be read.\n- The 0005 migration matches the design's columns and FK clauses.\n- The reader box reads only SignedIn, Viewer.IsOwner and Report.Slug.\n- The sent note is `hidden` by default and shown only by `#feedback-sent:target`, so if the CSS rule is lost the reader sees no note rather than a false 'Sent'.\n- Every caller and callee pairing checks out: Send and OwnerInbox each have one caller, the template ranges over a nil slice safely, and Participant returns only the two sentinels or nil.\n\n**What I ran**\n- `go vet ./...` is clean.\n- `go test -count=1 ./...`: all packages pass.\n- `TestReportScriptsNeverRun -v`: Chrome from CHROME_BIN really ran (blank-found green=0 red=0) and it did not skip.\n- Fitness op=check: all 29 rules hold.\n- The planted E-005 finish test, read in place from the ledger (mode=ro) and run from a scratch copy with ROOT pointed at the worktree: `FAILED (failures=1)`. The one failure is 'the admin view offers no reply to the feedback', and the admin page it printed shows feedback-2 and feedback-1 articles with logins, avatars and UTC times beside '2 dislikes'.\n- An -overlay probe (worktree left clean) shows the report-lookup 503 branch behaves correctly, but no committed test reaches it. That is the one finding, and it is extra.\n\n**What I found**\n- No undeclared drift.\n- No half-wired code, duplicate implementation or one-ended configuration.\n- The index shows a single build attempt, so the slice is not looping.\n\nSecond reader, for inputs: I read for unexpected inputs and found no defect in what the slice wrote. Every file I judged was read whole: feedback.go (package and handler), 0005_feedback.sql, feedback.html, admin_report.html, site.css, report.html, router.go, admin.go, feedback_test.go (both), feedback_migration_test.go, and the diffs of fitness.yaml, vote_test.go and reader_test.go. I read the feedback rows of the rule corpus by parsing the JSON.\n\n**Runs (TAAD3_HOME set to a new scratch folder each time):**\n- `go vet ./...`: exit 0.\n- The feedback, store, fitnessrules and comments packages, plus the design's filtered server run: all ok.\n- The full `go test -count=1 ./...`: exit 0. The server package took 11.1 s, and Chrome came from CHROME_BIN.\n\n**Overlay probe (`go test -overlay`, worktree left unchanged):**\n- Seven bodies the tests do not send, all with a live session: zero-width space only, BOM only, word joiner only, Hangul filler only, braille blank only, right-to-left override plus text, and U+2028 only.\n- `Origin: null` answered 403. `Sec-Fetch-Site: none` was accepted, which is standard-library behaviour.\n- An anonymous POST while the reports table is unreadable answered 503. That branch (feedback.go:41-44) is correct, though no committed test reaches it.\n- U+2028 alone is trimmed and refused with 400.\n\n**Checked by reading:**\n- The handler mirrors postComment exactly.\n- Query-string bodies, repeated fields, multipart, JSON and text/plain bodies, forms over 64 KiB and malformed percent-encoding all reach 400. Signed-out requests are not parsed.\n- The only check that is released and taken again (published at lookup, then at write) is re-made inside the single INSERT…SELECT, so a request arriving in the gap gets nothing past it. The trigger test drives that race.\n- No browser-allowed textarea input exceeds the 64 KiB cap. With maxlength 5000 in UTF-16 code units, the worst case is 5000 three-byte characters percent-encoded, about 45 KB.\n- The `hidden` sent note cannot be revealed by any other rule in site.css.\n- Bodies, logins and avatar URLs are escaped by html/template, and avatars are already restricted to https.\n- The four fences fire on the raw-string (backtick) and multi-line spellings in the corpus.\n\n**The one shape that gets through:** a message made only of invisible characters is stored and listed. In the probe, five such bodies each got the success 303 and each became an apparently empty article in the owner's inbox. This comes from the shared comments.Normalize, which the design chose, so I filed it as backlog-only (`extra`), not as a defect of this slice.\n\nReading pass: I have now read the three remaining ranges of rule_spellings.json:\n- 12-26: the bounded_by entries and the start of rules_under_test;\n- 38-52: rules_under_test and retired_rules;\n- 399-465: every fbk-* row.\n\nThe changes are what the diff showed. Four bounded_by entries and four rules_under_test names were added, and 59 fire/quiet rows. The only deletions are trailing commas becoming non-final lines; no existing row was removed or flipped. The rows match the four rules in .taad/fitness.yaml, each designed correct line is pinned quiet (fbk-sql-q010, fbk-own-q001, fbk-thr-q001), and the known holes are pinned quiet with \"flip to fire\" notes.\n\nOne new item, text only: the bounded_by for the owner-only fence (line 19) says TestFeedbackDoesNotInterfere \"observes every reader page\". The design's own invariant marks that coverage as failing (lesson #948).\n\nNothing else in these ranges changes the review. The code matches the design. The only departures are the five the build declared (m1, m3, m4, M-add-1 and the scratch finish check).\n\nWhat I ran:\n- `go vet ./...` is clean.\n- `go test -count=1 ./...`: every package passes.\n- TestReportScriptsNeverRun really ran Chrome from CHROME_BIN.\n- Fitness op=check: all 29 rules hold.\n- The planted E-005 finish test, read in place from the ledger and run from a scratch copy, ends `FAILED (failures=1)`. The one failure is 'the admin view offers no reply to the feedback'.\n- An overlay probe shows the report-lookup 503 branch behaves correctly, but no committed test reaches it (x1, extra).",
+  "findings": [
+   {
+    "id": "x1",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "extra",
+    "claim": "postFeedback's report-lookup failure branch (a valid session, but PublishedBySlug returns a non-ErrNotFound error, answered 503) is not reached by any committed test. TestFeedbackStoreFailure's 'the store is closed' subtest fails at the session lookup first, so it exercises the identity 503 instead. A later edit that mapped every lookup error to 404 would make a store outage look like a missing report, and nothing would go red. I ran an overlay probe: renaming the reports table with a live session gives 503 with Cache-Control no-store and logs 'feedback: look up the report', so today's code is correct.",
+    "file": "internal/server/feedback.go",
+    "line": 41,
+    "end_line": 44,
+    "quote": {
+     "path": "internal/server/feedback.go",
+     "line": 41,
+     "text": "\tcase err != nil:\n\t\tslog.Error(\"feedback: look up the report\", \"error\", err)\n\t\thttp.Error(w, \"Service unavailable\", http.StatusServiceUnavailable)"
+    },
+    "evidence": "The design's POST /reports/{slug}/feedback contract lists 'Report lookup error: 503.' TestFeedbackStoreFailure (internal/server/feedback_test.go:346-418) covers DROP TABLE sessions, a renamed feedback table, an unreadable inbox and a closed store, but none of these makes PublishedBySlug fail behind a working session. Probe output: 'report lookup outage: 503 \"\" cc=\"no-store\"'.",
+    "fix": "Add a subtest to TestFeedbackStoreFailure: commentWorld, then h.exec(`ALTER TABLE reports RENAME TO reports_gone`), then postFeedback(reader, \"x\", feedbackForm(\"hello\")). Assert 503, no Location, Cache-Control no-store and 0 feedback rows."
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "A feedback body made only of invisible characters is accepted. The probe covered U+200B (zero-width space), U+FEFF (BOM), U+2060 (word joiner), U+3164 (Hangul filler) and U+2800 (braille blank): each got 303 to /reports/x#feedback-sent and was stored (hex E2808B, EFBBBF, E281A0, E385A4, E2A080). Each then shows in the owner's inbox as an article whose body looks empty. The reason is that Normalize's blank check is strings.TrimSpace, which strips only Unicode White_Space, and none of these is White_Space. So the 'empty / whitespace only' refusal the design relies on misses visually blank text. The same rule gates comments, so this is a family in the shared rule rather than in the new handler.",
+    "class_of": "visually blank bodies that pass Normalize's whitespace-only check",
+    "threat": "accident",
+    "file": "internal/comments/comments.go",
+    "line": 137,
+    "evidence": "Overlay probe TestZZProbeFeedbackInputs against internal/server: six invisible-only or override bodies answered 303, five of them invisible-only, and the admin page listed 6 articles. Normalize trims with strings.TrimSpace and then refuses only s == \"\".",
+    "quote": {
+     "path": "internal/comments/comments.go",
+     "line": 137,
+     "text": "s = strings.TrimSpace(s)"
+    },
+    "fix": "In comments.Normalize, after TrimSpace, also refuse a body in which every rune is White_Space or in Unicode category Cf, or is one of the filler code points U+115F, U+1160, U+3164, U+FFA0 or U+2800. Add those five bodies to the refused rows of TestFeedbackBodies, which has the same row shape as the comment body test."
+   },
+   {
+    "id": "RD-x1",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "extra",
+    "claim": "No committed test reaches postFeedback's report-lookup failure branch. That branch is a valid session where PublishedBySlug returns an error other than ErrNotFound, answered 503. TestFeedbackStoreFailure's 'the store is closed' subtest fails at the session lookup first, so it exercises the identity 503 instead. A later edit that mapped every lookup error to 404 would show a store outage as a missing report, and nothing would go red. An overlay probe shows today's code is correct: with a live session and the reports table renamed, the POST answers 503 with Cache-Control no-store and logs 'feedback: look up the report'.",
+    "file": "internal/server/feedback.go",
+    "line": 41,
+    "end_line": 44,
+    "quote": {
+     "path": "internal/server/feedback.go",
+     "line": 41,
+     "text": "\tcase err != nil:\n\t\tslog.Error(\"feedback: look up the report\", \"error\", err)\n\t\thttp.Error(w, \"Service unavailable\", http.StatusServiceUnavailable)"
+    },
+    "evidence": "The design's POST /reports/{slug}/feedback contract lists 'Report lookup error: 503.' TestFeedbackStoreFailure (internal/server/feedback_test.go:346-418) covers DROP TABLE sessions, a renamed feedback table, an unreadable inbox and a closed store. None of these makes PublishedBySlug fail behind a working session. Probe output: 'report lookup outage: 503 \"\" cc=\"no-store\"'.",
+    "fix": "Add a subtest to TestFeedbackStoreFailure: commentWorld, then h.exec(`ALTER TABLE reports RENAME TO reports_gone`), then postFeedback(reader, \"x\", feedbackForm(\"hello\")). Assert 503, no Location, Cache-Control no-store and 0 feedback rows."
+   },
+   {
+    "id": "RD-t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "The bounded_by entry for the owner-only feedback fence says TestFeedbackDoesNotInterfere 'observes every reader page and fails on a leak the pattern does not see'. That is not true. observe() is a hand-written list of /, /reports/x, /reports/y, /reports, /admin and /admin/reports/x plus three POSTs. It does not cover /raw, /healthz, /static or /auth/*. The design's own invariant 'The observation set covers every route a non-owner can reach' is marked 'fails' (lesson #948). A later reader trusting this line would think a leak through an unlisted route is caught.",
+    "file": "internal/fitnessrules/testdata/rule_spellings.json",
+    "line": 19,
+    "quote": {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "line": 19,
+     "text": "TestFeedbackDoesNotInterfere observes every reader page and fails on a leak the pattern does not see."
+    },
+    "evidence": "internal/server/vote_test.go:503 lists exactly six reads. The design's cross_domain_transfer invariants record observation coverage as 'fails', mitigated by the name fences.",
+    "fix": "Reword to: 'TestFeedbackDoesNotInterfere observes the listed reader pages and POSTs (observe() in vote_test.go) and fails on a leak there that the pattern does not see; routes outside that list are covered only by the name fences.'"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "The counter is not shared: feedback is its own table with `id INTEGER PRIMARY KEY AUTOINCREMENT` (internal/store/migrations/0005_feedback.sql:34-35). The sender's Location is built only from rep.Slug plus a fixed fragment (internal/server/feedback.go:52 and :81), and Send returns no id (internal/feedback/feedback.go:72). This is pinned by the two-world subtest 'feedback does not shift the ids of public comments' (internal/server/feedback_test.go:504-528) and by TestFeedbackSend's byte-identical second 303 (:102-106). All of these passed in my run."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "0005_feedback.sql:36 has `report_id … REFERENCES reports (id) ON DELETE CASCADE` and :46 has `feedback_id … REFERENCES feedback (id) ON DELETE CASCADE`. TestFeedbackFollowsReportLifecycle (internal/server/feedback_test.go:540-607) raw-inserts replies, calls h.lib.Delete, and asserts nil, 1 feedback row and 1 reply row left, and an empty pragma_foreign_key_check. TestFeedbackMigrationFromPopulatedV4 (internal/store/feedback_migration_test.go:122-137) pins the same cascade on a migrated v4 database. Both passed."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "TestFeedbackSend (internal/server/feedback_test.go:79-150) asserts a 303 to /reports/x#feedback-sent with an empty body, no-store, the stored (report_id, github_id, body), 0 comments, a byte-identical second answer, and admin articles 3/2/1 carrying login and text. Reader pages show neither the text nor any feedback-\\d id."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "TestFeedbackRefusedSenders (internal/server/feedback_test.go:152-212) covers four signed-out session states × five body shapes, including 70 KiB: each gets a 303 to #feedback and nothing is stored. Cross-site Sec-Fetch-Site, same-site and a foreign Origin each get 403. The same-origin controls are taken. The ghost text is absent from the admin inbox."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "TestFeedbackBodies (internal/server/feedback_test.go:214-296) feeds every refused shape on the matrix, including no field, a repeated field, query-string only, over 64 KiB and non-form content types: each gets 400 with no row. It feeds every accepted shape (5000 runes, CRLF, lone CR, multi-line, <script>) and checks the stored text by id. The admin page shows &lt;script&gt; and no live <script."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "TestFeedbackHiddenReports (internal/server/feedback_test.go:298-344): draft, unpublished, deleted, unknown, upper-case and 81-character slugs give sameResponse to the unknown-slug baseline for anonymous, reader and owner. The race is driven with the fb_skip RAISE(IGNORE) trigger: 404 notFoundTxt, equal to unknown-slug for the same session, 0 rows. TestSendNeedsPublishedReport (internal/feedback/feedback_test.go:104-127) covers the package side."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "TestFeedbackStoreFailure (internal/server/feedback_test.go:346-418): with sessions dropped, a live cookie and an unknown 43-character cookie each get 503 with no Location. A renamed feedback table gives 503 on the write. An unreadable inbox gives 500 on /admin/reports/x with no admin marker, no feedback- markup and no empty-list text, matching admin.go:132-137."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "observe() now records each observer's POST /reports/x/feedback (internal/server/vote_test.go:523). TestFeedbackDoesNotInterfere 'other readers' feedback' (internal/server/feedback_test.go:421-468) compares the before and after observations byte for byte. Its sensitivity checks assert 3 articles on x and 2 on y, each with exactly its own login, and no secret- text or feedback id in any observation. TestDislikesDoNotInterfere passes with the extended observe()."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "Subtest 'the sender's own pages are unchanged by a send' (internal/server/feedback_test.go:470-502): reader 20's / and /reports/x, both drawn with the form, give sameResponse before and after its own send and do not show the text. The owner's admin page does show it."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "TestFeedbackFollowsReportLifecycle (internal/server/feedback_test.go:531-618) runs:\n- replace: id and counts kept;\n- unpublish: POST answers 404 while the admin page still lists the messages;\n- re-sign-in through store.SignIn (mintUser, harness_test.go:201-215): new login shown, count unchanged;\n- Library.Delete: nil, 0 rows for the report, foreign_key_check empty;\n- ids not reused, and a successor report starts empty."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "internal/store/feedback_migration_test.go:\n- TestFeedbackMigrationFromPopulatedV4 (users, sessions, reports, a comment and a vote at v4): user_version == newestVersion, row counts intact, foreign_key_check empty, keys enforced, two-hop cascade, AUTOINCREMENT, and a newer-schema database refused.\n- TestFeedbackMigrationFromFreshVersions (1 to 4): tables and indexes present, fk_check empty."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "internal/server/reader_test.go TestReaderPathVariants adds nine /feedback rows:\n- GET, HEAD and PUT: 405 with Allow: POST;\n- trailing / and /extra: 404;\n- POST /reports/feedback: notAllowed;\n- // and /../ spellings: 307 redirects;\n- an anonymous POST to draft x: hiddenVote.\nEach is compared between the draft and unknown worlds by the existing loop."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "TestFeedbackBox (internal/server/feedback_test.go:620-695) covers:\n- anonymous: hint, no textarea, form or note;\n- non-owner: form, textarea and the hidden note, with order votes < feedback < comments and nothing inside a comment article;\n- owner: link and no form;\n- the site.css reveal rule and neutral colours.\nThe reader_test.go additions seed a message and require the form. I ran TestReportScriptsNeverRun -v: Chrome from CHROME_BIN ran, blank-found green=0 red=0, PASS."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "TestFeedbackOwnerList (internal/server/feedback_test.go:697-807) checks:\n- the empty-state line;\n- newest-first articles 4/2/1, each with only its own login and an img only for the sender with an avatar;\n- the time asserted against h.clock.Now().UTC() with time.Local at +5:30;\n- y's message and the draft's message absent from x, and the unpublished (draft) report still listing its own;\n- two dislikes giving exactly '0 likes' and '2 dislikes' as labelled numbers;\n- order tally < inbox < Preview;\n- the sender and anonymous refused."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "I ran it myself: SELECT finish FROM epics WHERE id=43 on engine.db with mode=ro, the body written to a scratch tests/acceptance with ROOT pointed at this worktree, then `python -I …`. Result: 'FAILED (failures=1)', and the only failure is \"'/admin/feedback/1/reply' not found … : the admin view offers no reply to the feedback\". The admin HTML it printed has feedback-2 and feedback-1 articles with logins and avatars beside '2 dislikes'."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "`func (b *Book) Send(ctx context.Context, reportID, githubID int64, body string) error` (internal/feedback/feedback.go:72). The single INSERT…SELECT and the RowsAffected 0 → ErrNoTarget mapping are kept (:58-62, :85-87). postFeedback holds no id (internal/server/feedback.go:69-82). TestSendReturnsNoID's `var err error = w.book.Send(...)` pins the signature at compile time."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "internal/server/feedback_test.go:330-343 creates the fb_skip BEFORE INSERT RAISE(IGNORE) trigger and asserts 404 notFoundTxt with no Location, sameResponse with the same session's unknown-slug answer, and zero rows added. It then drops the trigger and runs a control send. The handler tests feedback.ErrNoTarget, not comments' sentinel (internal/server/feedback.go:73)."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "`func unixUTC(s int64) time.Time { return time.Unix(s, 0).UTC() }` (internal/feedback/feedback.go:109) is the only conversion, used at :132. admin_report.html:28 uses datetime layout \"2006-01-02T15:04:05Z\". TestInboxTimesAreUTC (internal/feedback/feedback_test.go:198-223) and TestFeedbackOwnerList force time.Local to +5:30 and compare against the clock's UTC instant, with no literal timestamps."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "Message (internal/feedback/feedback.go:93-104) has ID, GitHubID, Login, AvatarURL, Body and When, with no Replies field and no Reply type. The package compiles and its tests pass. The reply cascade is pinned with SQL counts on raw rows."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "- Success: `auth.SeeOther(w, \"/reports/\"+rep.Slug+\"#feedback-sent\")` (internal/server/feedback.go:81). Signed out stays #feedback (:52).\n- feedback.html:10 draws `<p id=\"feedback-sent\" class=\"feedback-sent\" hidden>Sent to the author.</p>` only in the signed-in non-owner branch.\n- site.css:19 has `#feedback-sent:target { display: block; }`.\n- TestFeedbackBox asserts the hidden note and the served CSS rule (feedback_test.go:633, 653, 684).\n- The sender subtest stays byte-identical because the note is in the page before and after a send."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "TestFeedbackSend (internal/server/feedback_test.go:79-150): a signed-in non-owner (github 7) posts a valid body to published x. It checks the exact Location, the DB row, zero comments and the admin article."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "TestFeedbackRefusedSenders: no session, expired, unknown 43-character and malformed cookies with normal, garbage, empty, no-form and 70 KiB bodies; cross-site Sec-Fetch-Site and an evil Origin with a live session (mint 9)."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "TestFeedbackBodies sends each refused shape as a raw urlencoded body: query-string only through h.serve with an empty form body, and 64 KiB and 1 MiB bodies. Each accepted shape is checked by its stored row id (i+1), and the <script> body is checked escaped on the admin page."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "TestFeedbackHiddenReports: drafty (draft), taken-down (unpublished), deleted and unknown slugs for three viewers. The race is created for real with the RAISE(IGNORE) trigger, so PublishedBySlug succeeds and Send sees 0 rows. TestSendNeedsPublishedReport covers the in-statement status check."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "TestFeedbackStoreFailure: DROP TABLE sessions with reader's live sid and strings.Repeat(\"A\",43); ALTER TABLE feedback RENAME TO feedback_gone before a send; the same rename after a send, then GET /admin/reports/x expecting 500."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "TestFeedbackDoesNotInterfere/other readers' feedback: readers 20 and 21 send on x and y between two observe() calls. observe now includes each observer's feedback POST (vote_test.go:523): anonymous gets 303, nonvoter and upvoter send body= and get 400. The owner's reader GETs are included."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "Subtest 'the sender's own pages are unchanged by a send': reader 20's / (newest y) and /reports/x, each confirmed drawn with its form, are compared before and after reader 20 sends on x."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "TestFeedbackFollowsReportLifecycle:\n- raw feedback_replies rows on ids 1-3;\n- mustUpload replace;\n- mustAct unpublish, then POST answers 404;\n- mintUser(7, 'reader-renamed') through store.SignIn's upsert;\n- h.lib.Delete, then counts and fk_check."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "TestFeedbackMigrationFromPopulatedV4 builds v4 with openWith(oldMigrations(4)): 2 users, 2 reports, a comment and a vote. Open then migrates it. TestFeedbackMigrationFromFreshVersions loops from 1 to 4."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "reader_test.go TestReaderPathVariants feedback rows: GET, HEAD and PUT /reports/x/feedback; /feedback/ and /feedback/extra; POST /reports/feedback; //reports/x/feedback; /reports/x/../y/feedback; an anonymous POST to draft x compared with unknown x."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "TestFeedbackBox serves / and /reports/newest to anonymous, a non-owner (7) and the owner. TestReaderPagesShareOneLayout seeds a message and compares / with /reports/newest per signed-in viewer. TestReportScriptsNeverRun ran Chrome in my run (blank-found green=0 red=0)."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "TestFeedbackOwnerList:\n- empty x;\n- two senders, 7 with an avatar and 8 without, 3 messages on x;\n- one on y;\n- one on drafty, then unpublished (status draft);\n- 2 dislikes from voters 30 and 31, with the labelled-number regex."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "I ran it against this tree from the ledger body (read-only), with ROOT patched: exit 1 and FAILED (failures=1). The only failure is 'the admin view offers no reply to the feedback'."
+   },
+   {
+    "key": "C-014",
+    "exercised": "cannot-tell",
+    "evidence": "The design marks this not material, and there is no committed test. The builder's scratch browser_look.py is not in the repo, so I could not re-run it. The server HTML it would render is covered by TestFeedbackBox and TestFeedbackOwnerList, and the anonymous Chrome assay ran in my suite."
+   }
+  ],
+  "matches_design": true,
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 11892,
+   "filed": 1,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 11893,
+   "session": "d98eeb39-90c7-4316-86f8-bf9b87c133a7",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       17,
+       21
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      12,
+      26
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       43,
+       47
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      38,
+      52
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       404,
+       463
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      399,
+      465
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 3,
+   "named": [],
+   "before": {
+    "read_whole": 12,
+    "changed": 16,
+    "listed": 4
+   },
+   "filed": 2,
+   "read_after": 3,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 16,
+   "read_whole": 12,
+   "deleted": [],
+   "runs": [
+    11891,
+    11892,
+    11893
+   ],
+   "range": {
+    "base": "ebacc8d1f9debb5192b83db6bb0f8f03c56c4572",
+    "head": "c256f2134e677884424c0960de17e042985eac3b",
+    "source": "commits",
+    "hunk_base": "ebacc8d1f9debb5192b83db6bb0f8f03c56c4572",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "partly-opened",
+     "section": "lines 1-405 of 405",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 405,
+     "hunks": []
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "partly-opened",
+     "section": "lines 1-11, 53-398 of 465",
+     "reason": "a Read returned only part of it; seen only through a shell command: $py, git diff, python",
+     "size_lines": 465,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-686 of 686",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 686,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/vote_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-439 of 628",
+     "reason": "a Read returned only part of it; seen only through a shell command: git diff; 1 returned line differ from the reviewed file (read before it changed)",
+     "size_lines": 628,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

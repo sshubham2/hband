@@ -130,5 +130,113 @@
     "result": "No finding.\n- **Cross-site POST:** refused by CrossOriginProtection, whose trusted origin is cfg.Origin (router.go:96-103).\n- **The sender's identity:** taken from the session through Participant.\n- **Admin page:** no-store through RequireOwner. Bodies and logins are escaped by html/template. Avatars are https-only through safeAvatar and allowed by siteCSP img-src. Referrer-Policy same-origin keeps the admin URL from GitHub's avatar CDN.\n- **Other routes:** /raw, /healthz, /static and /auth/* never touch feedback, and the name fences keep it that way.\n- **Drafts and unknown slugs:** they answer identical 404s, so the route is no oracle."
    }
   ]
+ },
+ "prescribed": {
+  "host": 694,
+  "at": "2026-11-24T05:54:43.773Z",
+  "runs": [
+   {
+    "run_id": 11885,
+    "resumed_from": "1c8d7980-cb26-4ef0-b3cb-6367ca88da1f",
+    "ending": "completed",
+    "cost_usd": 1.1124621999999995,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 2005,
+    "key": "M-add-1",
+    "digest": "70fc4d64222e266a"
+   },
+   {
+    "finding_id": 2000,
+    "key": "m1",
+    "digest": "050d7d30292f2bab"
+   },
+   {
+    "finding_id": 2001,
+    "key": "m2",
+    "digest": "a877db52a53c4334"
+   },
+   {
+    "finding_id": 2002,
+    "key": "m3",
+    "digest": "b74a7141079f05ff"
+   },
+   {
+    "finding_id": 2003,
+    "key": "m4",
+    "digest": "347006804df8bcb6"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 2005,
+    "key": "M-add-1",
+    "digest": "70fc4d64222e266a",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "- auth/next.go:27-57: LocalPath accepts '/reports/x#feedback-sent' (printable ASCII, no host or scheme), and SeeOther writes it verbatim.\n- router.go:31-33: siteCSP style-src 'self', so the rule must live in site.css and cannot be an inline style.\n- site.css: 26 lines. The page already uses the `.replies[hidden] { display: none; }` pattern.\n- reader_test.go:210-264, TestReaderPagesShareOneLayout: the element has no data, so / and /reports/newest stay identical. The anonymous branch has no textarea.\n- vote_test.go:500-532, observe(): signed-in observers send body= and get a 400 with no Location, and the anonymous observer is still sent to #feedback.\n- The sender subtest stays byte-identical, because the fragment never reaches the server.\n- Lesson #941: the rule adds no colour.",
+    "why": "As prescribed, the note is visible by default and hidden only by `#feedback-sent:not(:target) { display: none; }`.\n\nNothing in the planned cases pins that rule. An httptest check can only see that the element is present, and it is present on every signed-in page by design. If the rule is left out, misspelled (for example `#feedback_sent`), or the stylesheet fails to load, every signed-in non-owner sees 'Sent to the author.' on every visit, including before they have sent anything. Every test stays green. The same false text is the default in any client that ignores CSS: reader mode, a text browser, or the finish test's own HTML-to-text parser.\n\nThe check and the failure point the wrong way round: a broken rule should fall back to no confirmation, not to a false one. What is built otherwise holds: Location, fragment, byte-identity and placement.",
+    "instead": "Make the safe state the default.\n- Draw `<p id=\"feedback-sent\" class=\"feedback-sent\" hidden>Sent to the author.</p>` in the signed-in non-owner branch only.\n- Reveal it with `#feedback-sent:target { display: block; }` in site.css. Author CSS overrides the browser's built-in [hidden] rule, so the note shows only on the success fragment.\n- A lost or broken rule then degrades to the design's original 'no confirmation', never to a false 'Sent'.\n- In TestFeedbackBox, assert that the non-owner page carries `id=\"feedback-sent\"` together with `hidden`.\n- Also assert that GET /static/site.css contains `#feedback-sent:target`, so the reveal rule cannot vanish silently.\n- Keep the success Location `#feedback-sent` and the signed-out Location `#feedback` as prescribed."
+   },
+   {
+    "finding_id": 2000,
+    "key": "m1",
+    "digest": "050d7d30292f2bab",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "- comment.go:93 is the copy source whose success line puts the id into the Location; with Send returning only error, there is no id to print.\n- comment_test.go:44-58: h.say parses the id from the Location. A feedback copy of it would no longer compile, so tests are pushed to SQL or OwnerInbox, as prescribed.\n- harness_test.go:223-234: h.count and countAt give row counts through SQL.\n- The tests that need ids still have a source: the noninterference sensitivity check (one feedback-<n> per message) can SELECT the ids, and the lifecycle test raw-inserts reply rows by feedback_id from SQL.\n- SC-017's reply redirect takes n from the path, not from a return value.",
+    "why": "Send keeps one INSERT…SELECT, and RowsAffected 0 still returns ErrNoTarget, so the published-at-write-time check is untouched.\n\nI looked for a second way an id could reach the sender:\n- The Location is built only from rep.Slug plus a fixed fragment, including M-add-1's #feedback-sent.\n- The reader-side types (Sent, Reply) have no ID field.\n- The handler holds no other row-derived value.\n\nThe only remaining id-returning write is SC-017's OwnerReply, which runs only on the owner side. No test or template needs Send's return value. With nothing to leak, the leak cannot be written.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2001,
+    "key": "m2",
+    "digest": "a877db52a53c4334",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "- comment.go:84 tests `comments.ErrNoTarget`, so a copied handler would test the wrong sentinel: the defect is real.\n- comment_test.go:60-65: h.exec runs on h.store.DB(), the same pool the handler uses, so a trigger made there is seen by the write.\n- fitness.yaml:350-364: the table fence matches only FROM, INTO, UPDATE and JOIN before the table name, so `BEFORE INSERT ON feedback` does not trip it; test files are exempt anyway.\n- fitness.yaml:393-405: the no-transaction rule's `BEGIN` pattern is confined to non-test files in internal/feedback, and the trigger lives in an internal/server test file.\n- Recalled SQLite behaviour: RAISE(IGNORE) in a BEFORE INSERT trigger skips the row without an error, so the INSERT…SELECT reports 0 changes.",
+    "why": "The trigger gets PublishedBySlug to succeed while Send sees RowsAffected 0, which is exactly the race branch.\n\nWhat a wrong handler would do:\n- One that tests comments.ErrNoTarget falls through to `err != nil` and answers 503, so the 404 assertion fails.\n- One that maps every error to 404 fails TestFeedbackStoreFailure's 503 on a write error.\n- One that ignores the error answers 303, which also fails.\n\nSo the contract line is pinned whichever sentinel the code spells. If RowsAffected were not 0 under RAISE(IGNORE), the handler would answer 303 and the test would go red: visible, not silent. Two details for the builder:\n- Compare the 404 with the same route's unknown-slug answer for the same session (sameResponse), because postFeedback sets Cache-Control: no-store first.\n- Use a fresh harness, or DROP TRIGGER afterwards, so the trigger does not silently 404 later sends in the same test.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2002,
+    "key": "m3",
+    "digest": "b74a7141079f05ff",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "- harness_test.go:103,108: the clock is fakeClock{t: time.Unix(1_800_000_000, 0)}. time.Unix returns a time in time.Local, and New receives h.clock.Now.\n- comments/tree.go:138 and reports.go:297-300: each scan converts with .UTC() by hand, one call site at a time.\n- comments.html:13: datetime layout \"2006-01-02T15:04:05Z\".\n- vote_test.go:474 and reader_test.go:214: tests advance the clock with h.clock.Advance(time.Hour) after seeding.",
+    "why": "**The check can be blind.** The prescribed assertion compares the drawn text with the clock's instant formatted as UTC. On a machine whose local zone is UTC (a container, a CI runner, or a validate run with TZ unset), time.Unix(created_at, 0) without .UTC() formats the same digits. The test passes with the bug in place. It catches the defect only where local time is not UTC, which is a fact about the machine, not the code.\n\n**The rule is per call site.** It is written for OwnerInbox only. SC-017, built from this design with no lap of its own, adds Reply.When and Sent.When through two more SELECTs, where nobody is told to remember .UTC().\n\n**A brittle spelling.** \"From the harness's fixed clock (1_800_000_000)\" invites a hard-coded '2027-01-15 08:00 UTC', which breaks once a test advances the clock. That failure is visible, not silent.",
+    "instead": "Make UTC a property of the package, not of each call site.\n- Add one unexported helper in internal/feedback, `func unixUTC(s int64) time.Time { return time.Unix(s, 0).UTC() }`.\n- Every scanned created_at goes through it: Message.When now, and Reply.When and Sent.When in SC-017.\n- In internal/feedback's tests, assert `m.When.Location() == time.UTC` and `m.When.Equal(sentAt)`. This holds whatever the machine's zone is.\n- In TestFeedbackOwnerList, compute the expected text as `h.clock.Now().UTC().Format(\"2006-01-02 15:04 UTC\")` at send time, plus the datetime attribute in layout \"2006-01-02T15:04:05Z\", rather than a literal."
+   },
+   {
+    "finding_id": 2003,
+    "key": "m4",
+    "digest": "347006804df8bcb6",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "I looked for anything in SC-016's scope that reads Message.Replies:\n- the admin inbox markup (byline, body; replies only in SC-017);\n- TestFeedbackFollowsReportLifecycle, which raw-inserts feedback_replies rows and counts them by SQL through h.count (harness_test.go:223-234);\n- TestFeedbackOwnerList;\n- the noninterference sensitivity check.\nNone reads the field. html/template would only fail at execution if the template named .Replies, and SC-016's template does not. The feedback_replies table still ships in 0005, so the schema decision is unchanged.",
+    "why": "Without the field, SC-016's Message compiles as listed (ID, GitHubID, Login, AvatarURL, Body, When). SC-017 already owns OwnerInbox's second SELECT over feedback_replies, so adding the Reply type, Message.Replies and that SELECT in one change keeps the grouping code next to the field it fills. Nothing in this slice reads replies through Go, and the cascade it must pin is checked with SQL counts. No forward reach and no guess remain.",
+    "instead": ""
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:2005",
+   "finding:2002"
+  ],
+  "counts": {
+   "holds": 3,
+   "hole": 2,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "Three of the five prescriptions hold: m1, m2 and m4. The other two have minor holes, and both can be built as written.\n\n- **M-add-1 (hole):** the \"Sent to the author.\" element is always in the page and visible by default. Nothing checks the CSS rule that hides it. If that rule is lost or misspelled, every signed-in reader is told on every visit that they sent something, and no test fails.\n- **m3 (hole):** the planned time check cannot see the bug on a machine whose local zone is UTC. The UTC rule is also written for OwnerInbox only. SC-017 adds two more times (on replies and on the sender's own messages) with no design lap of its own.\n\nm1, m2 and m4 hold after I tried to break them.",
+  "why": "",
+  "round": "landed"
  }
 }

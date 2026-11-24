@@ -1,0 +1,216 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-007",
+ "stage": "reflect",
+ "attempt": 1,
+ "at": "2026-11-24T06:32:40.275Z",
+ "head": "1a2927fbe7f29689d4a1c19a01c7c0ec0bb082f9",
+ "run_id": 11897,
+ "summary": "SL-007 built SC-016 (the merged SC-019 was a no-op). It added migration 0005 with feedback and feedback_replies, the internal/feedback package, POST /reports/{slug}/feedback on auth.Participant, the reader box, the owner's inbox beside the dislike count, four name fences with 59 corpus rows, and tests across four packages. It took one build attempt. Validation passed in real Chrome with real clicks, a v4 to v5 upgrade and a two-hop cascade check. The E-005 finish test fails on exactly one assertion, the SC-017 reply route, as predicted. Every finding was minor, and the one defect found by probing (invisible-only bodies) sits in the shared comments.Normalize from SL-006.",
+ "payload": {
+  "status": "complete",
+  "reason": "Slice record read in full. The build (c256f213) and validation are both on the record, so nothing blocks the reflection.",
+  "summary": "SL-007 built SC-016 (the merged SC-019 was a no-op). It added migration 0005 with feedback and feedback_replies, the internal/feedback package, POST /reports/{slug}/feedback on auth.Participant, the reader box, the owner's inbox beside the dislike count, four name fences with 59 corpus rows, and tests across four packages. It took one build attempt. Validation passed in real Chrome with real clicks, a v4 to v5 upgrade and a two-hop cascade check. The E-005 finish test fails on exactly one assertion, the SC-017 reply route, as predicted. Every finding was minor, and the one defect found by probing (invisible-only bodies) sits in the shared comments.Normalize from SL-006.",
+  "estimate_error": "Risk tier was right: high, because of a forward-only migration and a new privacy boundary. Nothing at that tier went wrong, because the design addressed it. Size was low: opened medium, but the design re-tiered itself to high at critique, citing lesson #952. The code review counted 16 changed files and the build recorded 20. The slice carried about 12 new server and package tests, 59 corpus rows, a migration, a handler, two templates and CSS. The build was not where the size showed. It showed in validation, which ran 14 design cases, a real-browser click, a v4 to v5 upgrade and a two-hop cascade. The next slice that adds a table plus a public endpoint should open as large.",
+  "learned": [
+   {
+    "kind": "process",
+    "lesson": "E-005's finish test cannot go green before SC-017, so SC-017 is the first slice where the scratch finish runner must exit 0 instead of 'exactly one failure'. Do not spend another interface spike on it: spike e005-finish-feedback-interface already measured the no-go. Reuse the recipe: SELECT finish FROM epics WHERE id=43 on file:<engine.db>?mode=ro, write finish[0].body with ROOT patched to the worktree, run python -I. The pins the test makes: elements whose id fully matches feedback-\\d+ hold the message and the sender's login; exactly one number sits beside a dislike label; the admin page contains the text /admin/feedback/<n>/reply; the reader page contains /reports/<slug>/feedback before the sender's own message and the reply; every comment count reads 0 and no comment-<n> element holds feedback; the reply POST sends one 'body' field.",
+    "evidence": "Build C-013, code review and validation each rebuilt the same scratch runner and each ended FAILED (failures=1) on 'the admin view offers no reply to the feedback'. The runner (check_finish_one_failure.py) lives only in scratch, not in the repo."
+   },
+   {
+    "kind": "process",
+    "lesson": "On this slice 'ran 2 times' for risk-spike, design, critique, critique-review and code-review means halt-then-disposition, not a stage redoing bad work. The real rework was small: three prescribed fixes (m1, m3, m4) changed the design's own SC-016 surface before build, and critique-review's M-add-1 reversed design choice 5. Do not read the rework counts as a thin brief when sizing the next slice.",
+    "evidence": "One build attempt (c256f213) plus one comment-fix commit (1a2927fbe). The index shows a single build and a halted-then-passed status for each repeated stage."
+   },
+   {
+    "kind": "design",
+    "lesson": "SC-017 is to be built from SL-007's design with no design, critique or spike of its own, but that design's SC-017 text predates five accepted changes: Send returns only error (m1); Reply and Message.Replies arrive together in SC-017 (m4); the success fragment is #feedback-sent with a hidden 'Sent to the author.' note in feedback.html's non-owner branch (M-add-1); every created_at goes through unixUTC (m3); and the 'sender's own pages unchanged' subtest in TestFeedbackDoesNotInterfere is the one to replace. SC-017 also brings the first reader page that renders private text (SenderThreads) and an owner-only write. The SL-007 critique read both only as forward reach. Open SC-017 at high risk with its own critique rather than as a direct build, and have its builder read feedback.go and feedback.html as built, not the design's component text.",
+    "evidence": "Design epic_parts SC-017: 'Built from this design with no design of its own'. Obligations O-016, O-018, O-019 and O-020 list the four deviations. The design's re-tier text says SC-017's seams get no review of their own."
+   },
+   {
+    "kind": "design",
+    "lesson": "Deferred finding m5 (unbounded owner inbox) was deferred on the premise that 'SC-016 cannot be released without SC-017'. That premise ends when SC-017 lands, because SC-017 then adds a textarea and button to every article in the inbox, which sits above Preview, Publish, Replace and Delete. Decide the bound (cap or relocation) in SC-017's design, not after E-005 is releasable. Keep the dislike count the only number beside a dislike label.",
+    "evidence": "m5 decision text; admin_report.html draws one article per message with no limit (OwnerInbox has no LIMIT). Q-020 measured the comments page at 5.8 MB for 10,000 comments on loopback, which is the order of size one account can reach at 5000 runes per message."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "internal/feedback's unexported unixUTC is the only created_at conversion. SC-017's Reply.When and Sent.When must go through it. Copy the UTC tests' technique of forcing time.Local to +5:30 and asserting When.Location()==time.UTC, because a comparison against the clock's own zone passes with the bug on a UTC machine.",
+    "evidence": "O-018; the critic's check on m3's prescribed fix filed a 'hole' for exactly the UTC-machine blindness; TestInboxTimesAreUTC and TestFeedbackOwnerList went red when .UTC() was removed in the mutation run."
+   },
+   {
+    "kind": "design",
+    "lesson": "The critic's check of each prescribed fix did the real work in the design stage. It found holes in 2 of 5 fixes before build: m3's assertion was blind on a UTC machine, and M-add-1's note was visible by default. Both were built corrected. The first-pass critique found only minors. Keep that per-fix check. For any client-visible state the default must be the safe one: with script-src 'self' and Q-012 (site JS) open, :target plus `hidden` is the only post-submit state mechanism this project has. Make a lost CSS rule degrade to 'no note', never to a false 'Sent'.",
+    "evidence": "critic_on_this_fix 'hole (minor)' on m3 and on M-add-1; TestFeedbackBox pins id plus hidden and the site.css :target rule; the mutation run without the rule went red."
+   },
+   {
+    "kind": "risk",
+    "lesson": "The privacy proof for feedback is observe() in internal/server/vote_test.go, a hand-written route list. Every SC-017 route and page must be added to it. Whoever writes a rule's bounded_by must not claim coverage the design marks 'fails'. SL-007 wrote 'observes every reader page' at rule_spellings.json:19 against the design's own invariant (lesson #948 had said so). The code review read vote_test.go only as a diff, leaving 439 of 628 lines unseen, although the privacy claim rests on that file. Require a whole-file numbered read of vote_test.go for SC-017's review.",
+    "evidence": "Code-review 'not read (measured)': vote_test.go lines 1-439 of 628 unseen; reader_test.go 0 of 686 seen; fitness.yaml 0 of 405 seen directly. The engine sent the reviewer back for 3 unread hunks, and the second pass filed RD-t1."
+   },
+   {
+    "kind": "estimate",
+    "lesson": "A new table plus a public endpoint plus an owner view under a privacy constraint is a large slice for this project even when the build is one attempt. The weight lands on design and validation, not the build. Open such slices as large, and budget validation for real-browser clicks, a populated old-version upgrade and a cascade check on a database the binary made.",
+    "evidence": "Opened medium; the design re-tiered to high citing lesson #952. Code review counted 16 changed files (build recorded 20). Validation ran 14 design cases, 6 passing real-Chrome runs, an ebacc8d-to-new-binary upgrade and a two-hop cascade check."
+   }
+  ],
+  "lessons_judged": [
+   {
+    "id": 950,
+    "verdict": "used",
+    "why": "postFeedback answers a fixed same-target 303 through auth.SeeOther (#feedback-sent on success, #feedback signed out), and TestReaderPagesShareOneLayout still requires / and /reports/newest to be identical."
+   },
+   {
+    "id": 944,
+    "verdict": "used",
+    "why": "Nine /feedback rows were added by hand to TestReaderPathVariants, since reader routes do not join the access matrix."
+   },
+   {
+    "id": 959,
+    "verdict": "used",
+    "why": "The handler uses auth.Participant, rows were added by hand to TestReaderPathVariants and observe(), and the blocked-poster question was left to SC-021 (Send stores them)."
+   },
+   {
+    "id": 948,
+    "verdict": "used",
+    "why": "observe() gained a feedback POST per observer. The lesson was applied to the test but not to the fixture wording: rule_spellings.json:19 still overclaimed coverage until code review filed RD-t1."
+   },
+   {
+    "id": 949,
+    "verdict": "used",
+    "why": "Send is one INSERT...SELECT with the published check inside it, Participant turns an outage into 503, and a no-transaction fence was added for internal/feedback."
+   },
+   {
+    "id": 958,
+    "verdict": "used",
+    "why": "The feedback FK, replace, upsert and delete forks went into the first spike, so the design was written once. The feedback_replies to feedback hop stayed 'recalled' but was pinned by TestFeedbackFollowsReportLifecycle and measured in validation, and it held. No extra lap was paid."
+   },
+   {
+    "id": 930,
+    "verdict": "used",
+    "why": "migrate.go was not touched. The file is named 0005_feedback.sql, and populated-v4 and fresh-version migration tests were added."
+   },
+   {
+    "id": 941,
+    "verdict": "used",
+    "why": "The new CSS uses neutral colours only, and TestReportScriptsNeverRun ran Chrome green at build, review and validation."
+   },
+   {
+    "id": 951,
+    "verdict": "used",
+    "why": "The spike read the finish body from the ledger in place and found the reply route and the ignored HBAND_TRUSTED_PROXIES before the design. Build, review and validation then reran it with ROOT patched."
+   },
+   {
+    "id": 961,
+    "verdict": "used",
+    "why": "The wall recurred: the app cannot start bare, and the build again declared no screens or app. The spike's measured stand-in-GitHub recipe let validation render and click the signed-in UI by hand-built harness, which lesson #961 said had never been done."
+   },
+   {
+    "id": 957,
+    "verdict": "used",
+    "why": "The code review's input-driven second reader found the one real defect (IN-m1). All 10 findings were again minor. The input table in the critique still lacked invisible-character bodies."
+   },
+   {
+    "id": 946,
+    "verdict": "used",
+    "why": "The spike called headless.Browser and confirmed Chrome 158 with no Edge, and later stages used CHROME_BIN."
+   },
+   {
+    "id": 947,
+    "verdict": "used",
+    "why": "The design's check commands use a -run filter to keep TestReportScriptsNeverRun out of intermediate runs, and the reviewer confirmed Chrome came from CHROME_BIN."
+   },
+   {
+    "id": 962,
+    "verdict": "used",
+    "why": "The reviewer read site.css and feedback.html whole and checked that no other rule reveals the hidden note. The unread-file gap moved to test and fixture files: 4 of 16 files were not read whole."
+   },
+   {
+    "id": 846,
+    "verdict": "used",
+    "why": "The design stipulated fire and quiet rows for each fence, and the corpus pins the designed correct lines quiet (fbk-sql-q010, fbk-own-q001, fbk-thr-q001). No spelling-class finding was filed."
+   },
+   {
+    "id": 939,
+    "verdict": "used",
+    "why": "Each fence has a bounded_by, the known holes are pinned quiet with 'flip to fire' notes, and no spelling-variant laps were spent."
+   },
+   {
+    "id": 931,
+    "verdict": "used",
+    "why": "The fences forbid method-name tokens (Owner(Inbox|Reply), SenderThreads). The names were chosen so each fence matches only its own method, instead of a list of spellings."
+   },
+   {
+    "id": 486,
+    "verdict": "not relevant",
+    "why": "It describes another project's rules harness (167 rows, a C# Enum assertion). Here the equivalent was TestRulesHoldOnTheTree plus Fitness op=check."
+   },
+   {
+    "id": 866,
+    "verdict": "not relevant",
+    "why": "Its remedy is about another project's SC-611 to SC-613 SQL-regex class. The one SQL regex fence here is bounded_by-limited, and no SQL spelling finding arose."
+   }
+  ],
+  "what_went_wrong": [
+   "The repeated-stage counts (risk-spike 2, design 2, critique 2, critique-review 2, code-review 2) are mostly halt-then-disposition cycles, not failed output being redone. That hides where the cost went. The real rework was small: m1, m3 and m4 changed the design's own SC-016 surface before build, and critique-review's M-add-1 reversed design choice 5.",
+   "The design's SC-016 surface did not compile as written (m4: Message.Replies []Reply, with Reply defined only in SC-017). Send also returned a row id into the public handler (m1) in a design whose rule was that no id reaches a non-owner. Both were found as minors by critique, but the synthesis did not check its own component list against epic_parts.",
+   "The risk spike returned no-go on a fact that follows from the epic split: E-005's one finish test also POSTs /admin/feedback/{n}/reply, which is SC-017. A spike lap and a halt were spent confirming it, and build, code review and validation each rebuilt the same scratch finish runner. The runner exists only in scratch.",
+   "Code review closed with 4 of 16 changed files not read whole: fitness.yaml (0 of 405 lines seen directly), rule_spellings.json (lines 53-398 unseen), reader_test.go (0 of 686) and vote_test.go (439 of 628 unseen). The engine had to send it back for 3 unread hunks, and the second pass filed RD-t1. vote_test.go holds observe(), the privacy proof. This is the whole-file gap that lessons #962 and #935 recorded on the previous slice.",
+   "x1 and RD-x1 are the same finding (postFeedback's report-lookup 503 branch at internal/server/feedback.go:41-44 is untested), filed twice under different ids, once after each pass. Both were waived to N-061, so the branch is still untested. The code is correct per the overlay probe.",
+   "RD-t1 (rule_spellings.json:19 claims TestFeedbackDoesNotInterfere 'observes every reader page') was waived on the premise that the comment fixer would correct it. The fixer's commit 1a2927fbe lists only feedback_test.go and reader_test.go, and the claim is in a JSON fixture field, so it may still be there. The fixer also left feedback.go:17-20, which says the report is looked up 'before anything is said about the visitor' although the ErrIdentityUnavailable check at line 30 runs first. The wording was copied from comment.go, so the same inaccuracy sits in two files.",
+   "In validation, 1 of 7 real-Chrome runs timed out waiting for the #feedback-sent URL and recorded no diagnostics. The 6 other runs passed, 3 of them run the same way. The cause was not found, and the harness that would capture it exists only in scratch."
+  ],
+  "missed": [
+   {
+    "gate": "critique",
+    "dimension": "missing-edge-cases",
+    "severity": "minor",
+    "what": "The design's body-shape case lists 'whitespace only' as refused and reuses comments.Normalize unchanged. The critique did not ask what Normalize's TrimSpace-based blank check admits. A probe found five bodies accepted with a success 303, stored, and shown as apparently empty articles in the owner's inbox: U+200B, U+FEFF, U+2060, U+3164 and U+2800 (hex E2808B, EFBBBF, E281A0, E385A4, E2A080). Lesson #957 had already said to point the critic at input shapes.",
+    "caught_by": "code-review second reader, overlay probe (filed as IN-m1, deferred)",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique",
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "what": "The design's contract lists 'Report lookup error: 503', but the store-failure case names only three breaks: sessions, the feedback write and the inbox read. The PublishedBySlug failure branch in postFeedback (internal/server/feedback.go:41-44) had no test. TestFeedbackStoreFailure's closed-store subtest fails at Participant first, so a later edit mapping every lookup error to 404 would pass the suite. Critique-review did not add it either.",
+    "caught_by": "code-review (x1, filed again as RD-x1); waived to N-061",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique",
+    "dimension": "under-engineering",
+    "severity": "minor",
+    "what": "The design shipped SC-016 with no sign to the sender that a send worked, justified by 'not releasable alone anyway', which nothing in the loop enforces. A reader would see an unchanged form and could resend, filling the inbox with duplicates. The first critique accepted the premise; critique-review's premortem (M-add-1) reversed design choice 5 before build.",
+    "caught_by": "critique-review (M-add-1), before build",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "code-review",
+    "dimension": "drift-from-design",
+    "severity": "minor",
+    "what": "The build wrote the owner-only fence's bounded_by at rule_spellings.json:19 as 'TestFeedbackDoesNotInterfere observes every reader page', against the design's own invariant 'observation set covers every route a non-owner can reach' marked 'fails' (lesson #948). The review's first pass missed it because the fixture was only partly opened.",
+    "caught_by": "code-review's sent-back reading pass (RD-t1); waived to N-062",
+    "prescribed_fix": ""
+   }
+  ],
+  "unknowns": [
+   "Why did 1 of 7 real-Chrome validation runs time out waiting for the #feedback-sent URL with no diagnostics, when 6 later runs (3 run the same way) passed? Is the real-browser POST, 303 and fragment path flaky, or was it the harness's wait?",
+   "Does rule_spellings.json:19 still say 'observes every reader page'? Commit 1a2927fbe lists only feedback_test.go and reader_test.go, and RD-t1 was waived on the premise that the comment fixer would correct it.",
+   "After SC-017 adds a textarea and button to every article, how large does the owner's /admin/reports/<slug> page get at the message counts one signed-in account can post (5000 runes each, no limit until SC-021 or E-006)? This should be measured before SC-017's design settles whether to bound the inbox."
+  ],
+  "candidates": [
+   {
+    "title": "Refuse invisible-only bodies in comments.Normalize, for comments, feedback and SC-017's replies",
+    "urgency": "soon",
+    "why": "The code review's overlay probe (go test -overlay, live session) sent five bodies and each got a 303 and was stored: U+200B, U+FEFF, U+2060, U+3164 and U+2800. Each shows as an apparently empty article in the owner's inbox. U+2028 alone was correctly refused with 400. The cause is the TrimSpace-only blank check in internal/comments/comments.go (about line 137 at review; the tree has moved since), so public comments from SL-006 have the same gap. Deferred as IN-m1 with the plan: refuse a body made only of White_Space, Cf or the filler code points U+115F, U+1160, U+3164, U+FFA0 and U+2800. When it lands, add the five bodies to three refused-body tables: the comment test, TestFeedbackBodies (internal/server/feedback_test.go), and SC-017's reply table (design case d copies TestFeedbackBodies). Otherwise the reply table will copy the gap."
+   },
+   {
+    "title": "Commit a signed-in headless-Chrome harness with a stand-in GitHub, with diagnostics on timeout",
+    "urgency": "soon",
+    "why": "This slice rebuilt the same signed-in Chrome recipe in three stages, all scratch and none committed: the spike's chrome --dump-dom runs through /auth/github/login?next=, the build's browser_look.py, and validation's real_browser.py and real_browser_nosleep.py (real Input.dispatchMouseEvent clicks over --remote-debugging-port=0). The only committed Chrome test, TestReportScriptsNeverRun in internal/server, is anonymous. 1 of 7 validation runs timed out with no diagnostics (6 passed). SC-017 adds a signed-in owner reply form that nothing but httptest will exercise, and vote and comment submits were never clicked in a real browser. The spike measured the constraints: http://localhost HBAND_BASE_URL, non-Secure cookies, auto-approving stand-in GitHub, each run under 1 s. Production https with __Host- cookies is not covered. A natural home is internal/testutil/headless, next to headless.Browser (Chrome, never Edge)."
+   }
+  ],
+  "filed": []
+ }
+}

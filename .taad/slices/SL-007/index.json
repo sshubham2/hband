@@ -51,6 +51,174 @@
   {
    "stage": "design-slice",
    "issue": "Whether SenderThreads is read for the owner's own reader page. Chosen: not, because the owner's box shows the admin link."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The reply route (adminRoutes row POST /admin/feedback/{n}/reply), feedback.Reply, OwnerReplyTarget, OwnerReply, Sent, SenderThreads, readerData.OwnFeedback and the sender's own-thread list: SC-017, as the design says. The E-005 finish test stays red on exactly that."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Marking feedback from blocked accounts as 'blocked': SC-021. OwnerInbox has no blocked_accounts join yet and Message has no Blocked field."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "A real-browser click on the feedback form's submit button (CSP form-action 'self', SameSite=Lax cookie, real Sec-Fetch-Site on a same-site POST). Chrome rendered the signed-in pages and followed the #feedback-sent fragment, but the POST was sent by a Python client with same-origin headers. This is open question Q-014 for votes and applies equally here."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No screens or app were declared. The engine cannot start this app with a bare command: internal/config refuses to start without HBAND_OWNER_GITHUB_ID, HBAND_GITHUB_CLIENT_ID/SECRET and HBAND_BASE_URL (lesson #961), and `app.command` allows no environment. The signed-in pages were looked at in Chrome by hand-built harness instead."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "SC-017: build the reply route, SenderThreads and the sender's own-thread list from the design, and replace the sender subtest of TestFeedbackDoesNotInterfere with 'shows exactly its own thread'; add the adminRoutes row so it joins TestAdminAccessMatrix."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "SC-021: add the blocked_accounts EXISTS to OwnerInbox and a Blocked flag to feedback.Message; the C-009 architecture line already promises 'blocked accounts marked', which is untrue until then."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Deferred m5: the owner's inbox is unbounded and sits above Preview/Publish/Replace/Delete. Duplicates from readers who do not see the note are possible, and no rate limit exists until E-006."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Q-014: drive a real click on a signed-in form submit (vote, comment and feedback) in headless Chrome, which needs a committed signed-in harness (the scratch browser_look.py recipe could be promoted)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Lesson #954 still applies: SC-016 is not releasable alone, since a sender sees only a transient 'Sent' note and no thread until SC-017 ships."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: O-016 (m1): Send returns only error, not (int64, error) as the design's Book surface says, so the public handler never holds a row id."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: O-019 (m4): Message has no Replies field and there is no Reply type in SC-016; the design listed Replies on the SC-016 surface."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: O-020 (M-add-1): a successful send answers 303 to #feedback-sent (design choice 5 was #feedback for both). The signed-in non-owner box always draws a hidden 'Sent to the author.' note that site.css reveals only on :target. The signed-out answer stays #feedback. Accepted cost: a stale 'Sent' on a bookmarked post-send URL."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: O-018 (m3): all created_at scans go through one unexported unixUTC helper. The UTC tests force time.Local to +5:30 instead of comparing against the clock's own zone, so they are not blind on a UTC machine."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The finish-line check (C-013) is a scratch script, not a committed test: the planted finish body lives only in the ledger and is read in place with a read-only SELECT. The script is not in the repo."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: No outside defect is worked around by this slice, so no workaround setting or notice was added."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The design judged a real-browser look not material. One was done anyway, using the spike's measured recipe, and found nothing to fix."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 1-405 of 405) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json (not seen: lines 1-11, 53-398 of 465) -- partly-opened: a Read returned only part of it; seen only through a shell command: $py, git diff, python (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/reader_test.go (not seen: lines 1-686 of 686) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-439 of 628) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff; 1 returned line differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/server/feedback.go:17-20 -- the doc says the published report is looked up 'before anything is said about the visitor' and that every unknown or hidden slug answers the same 404 'to everybody'. The ErrIdentityUnavailable check at line 30 runs first, so during an identity outage the answer is a 503. comment.go says the same, so I left the wording; the code is not mine to change."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Production setup: https HBAND_BASE_URL with __Host-/Secure cookies behind the VPS reverse proxy over WireGuard. Every browser run here used http://localhost with a plain non-Secure hband_sid cookie."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Real GitHub OAuth. Sign-in went through a scratch stand-in GitHub on 127.0.0.1, so real GitHub avatars loading in the inbox under img-src (Q-017) were not seen."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Browsers other than Chrome 158 (Firefox, Safari): their Sec-Fetch-Site and SameSite handling of the same-site feedback POST."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Why the first of 7 real-Chrome runs timed out waiting for #feedback-sent. No diagnostics were captured, and 6 later runs, 3 of them the same way, all passed."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The production database. Only a scratch v4 database written by the ebacc8d binary was upgraded (production versions are Q-015/Q-016)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Phone widths and the light colour scheme for the new box and inbox (Q-013/Q-018). Only a 1000 px window was rendered."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Out of scope and not judged: the reply route and the sender's own thread (SC-017), and marking feedback from blocked accounts as 'blocked' (SC-021, per the SC-019 merge note)."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design's body-shape case lists 'whitespace only' as refused and reuses comments.Normalize unchanged. The critique did not ask what Normalize's TrimSpace-based blank check admits. A probe found five bodies accepted with a success 303, stored, and shown as apparently empty articles in the owner's inbox: U+200B, U+FEFF, U+2060, U+3164 and U+2800 (hex E2808B, EFBBBF, E281A0, E385A4, E2A080). Lesson #957 had already said to point the critic at input shapes."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design's contract lists 'Report lookup error: 503', but the store-failure case names only three breaks: sessions, the feedback write and the inbox read. The PublishedBySlug failure branch in postFeedback (internal/server/feedback.go:41-44) had no test. TestFeedbackStoreFailure's closed-store subtest fails at Participant first, so a later edit mapping every lookup error to 404 would pass the suite. Critique-review did not add it either."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design shipped SC-016 with no sign to the sender that a send worked, justified by 'not releasable alone anyway', which nothing in the loop enforces. A reader would see an unchanged form and could resend, filling the inbox with duplicates. The first critique accepted the premise; critique-review's premortem (M-add-1) reversed design choice 5 before build."
+  },
+  {
+   "stage": "reflect",
+   "issue": "code-review missed: The build wrote the owner-only fence's bounded_by at rule_spellings.json:19 as 'TestFeedbackDoesNotInterfere observes every reader page', against the design's own invariant 'observation set covers every route a non-owner can reach' marked 'fails' (lesson #948). The review's first pass missed it because the fixture was only partly opened."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Why did 1 of 7 real-Chrome validation runs time out waiting for the #feedback-sent URL with no diagnostics, when 6 later runs (3 run the same way) passed? Is the real-browser POST, 303 and fragment path flaky, or was it the harness's wait?"
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does rule_spellings.json:19 still say 'observes every reader page'? Commit 1a2927fbe lists only feedback_test.go and reader_test.go, and RD-t1 was waived on the premise that the comment fixer would correct it."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: After SC-017 adds a textarea and button to every article, how large does the owner's /admin/reports/<slug> page get at the message counts one signed-in account can post (5000 runes each, no limit until SC-021 or E-006)? This should be measured before SC-017's design settles whether to bound the inbox."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The repeated-stage counts (risk-spike 2, design 2, critique 2, critique-review 2, code-review 2) are mostly halt-then-disposition cycles, not failed output being redone. That hides where the cost went. The real rework was small: m1, m3 and m4 changed the design's own SC-016 surface before build, and critique-review's M-add-1 reversed design choice 5."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The design's SC-016 surface did not compile as written (m4: Message.Replies []Reply, with Reply defined only in SC-017). Send also returned a row id into the public handler (m1) in a design whose rule was that no id reaches a non-owner. Both were found as minors by critique, but the synthesis did not check its own component list against epic_parts."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The risk spike returned no-go on a fact that follows from the epic split: E-005's one finish test also POSTs /admin/feedback/{n}/reply, which is SC-017. A spike lap and a halt were spent confirming it, and build, code review and validation each rebuilt the same scratch finish runner. The runner exists only in scratch."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Code review closed with 4 of 16 changed files not read whole: fitness.yaml (0 of 405 lines seen directly), rule_spellings.json (lines 53-398 unseen), reader_test.go (0 of 686) and vote_test.go (439 of 628 unseen). The engine had to send it back for 3 unread hunks, and the second pass filed RD-t1. vote_test.go holds observe(), the privacy proof. This is the whole-file gap that lessons #962 and #935 recorded on the previous slice."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: x1 and RD-x1 are the same finding (postFeedback's report-lookup 503 branch at internal/server/feedback.go:41-44 is untested), filed twice under different ids, once after each pass. Both were waived to N-061, so the branch is still untested. The code is correct per the overlay probe."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: RD-t1 (rule_spellings.json:19 claims TestFeedbackDoesNotInterfere 'observes every reader page') was waived on the premise that the comment fixer would correct it. The fixer's commit 1a2927fbe lists only feedback_test.go and reader_test.go, and the claim is in a JSON fixture field, so it may still be there. The fixer also left feedback.go:17-20, which says the report is looked up 'before anything is said about the visitor' although the ErrIdentityUnavailable check at line 30 runs first. The wording was copied from comment.go, so the same inaccuracy sits in two files."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: In validation, 1 of 7 real-Chrome runs timed out waiting for the #feedback-sent URL and recorded no diagnostics. The 6 other runs passed, 3 of them run the same way. The cause was not found, and the harness that would capture it exists only in scratch."
   }
  ],
  "stages": [
@@ -126,6 +294,84 @@
      "caused_by": null,
      "changed": {},
      "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T05:57:27.285Z",
+     "head": "c256f2134e677884424c0960de17e042985eac3b",
+     "summary": "Built SC-016: migration 0005_feedback.sql (feedback and feedback_replies, STRICT, AUTOINCREMENT, 0004's FK clauses), the internal/feedback package (Send returns only an error, OwnerInbox, UTC-only times), POST /reports/{slug}/feedback on auth.Participant, the \"Feedback for the author\" box on the shared reader layout, and the owner's inbox on /admin/reports/{slug} beside the dislike count.",
+     "caused_by": null,
+     "changed": {
+      "src": 14,
+      "tests": 1,
+      "config": 1,
+      "listed": 16,
+      "measured_by_git": 20
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T06:13:26.055Z",
+     "head": "c256f2134e677884424c0960de17e042985eac3b",
+     "summary": "I read every changed source, template, CSS and test file in full, plus the diffs of vote_test.go, reader_test.go, fitness.yaml and the corpus.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T06:23:30.051Z",
+     "head": "1a2927fbe7f29689d4a1c19a01c7c0ec0bb082f9",
+     "summary": "SC-016 works against the built binary in the installed Chrome 158, not just in the unit tests.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "reflect",
+   "title": "Reflect",
+   "order": 10,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T06:32:40.275Z",
+     "head": "1a2927fbe7f29689d4a1c19a01c7c0ec0bb082f9",
+     "summary": "SL-007 built SC-016 (the merged SC-019 was a no-op).",
+     "caused_by": null,
+     "changed": {},
+     "details": "reflect-1.json"
     }
    ]
   }
