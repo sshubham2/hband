@@ -1,0 +1,638 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-004",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-23T22:56:19.301Z",
+ "head": "38e2b223b677051e148f8be4f1c6d20dfcdc20ef",
+ "run_id": 11758,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "selection_rationale": "Both proposals agree on the data model, and both match the tree: one STRICT votes row per (reports.id, users.github_id), withdrawing deletes the row, the wire carries the reader's desired state (up|down|none), every write is a single statement, counts are computed on read, and the dislike count appears only on the owner-gated /admin/reports/<slug>. Three spikes back this: reports.id survives replace and unpublish/republish and cascades on delete; foreign_keys=1 on all 48 serving connections; single-statement upserts gave 0 BUSY, while a deferred read-then-write gave 215-253 per run. Where the proposals differ, each piece was picked against the code:\n\n(1) Anonymous vote POST. Practice's 303 back to /reports/<slug>#votes beats crossdomain's 303 into sign-in. The repo's own rule 'no sign-in control is ever a form' (.taad/fitness.yaml) records that a form submission redirected to the identity provider is blocked by the site's form-action 'self'. A POST that chains 303 /auth/github/login then 302 github.com is exactly that path. Back on the report, the existing header anchor (C1/C2, measured present) returns the reader to the report after sign-in.\n\n(2) Auth seam. Crossdomain's auth.Participant(ctx) (Viewer, error), with ErrSignedOut and ErrIdentityUnavailable, beats practice's IdentifyErr. It is the same size, and one call returns all three outcomes, so a handler cannot read ViewerFrom and forget the error. SignInThenReturn is dropped because of (1).\n\n(3) Leak oracle. Crossdomain's two-run noninterference test (TestDislikesDoNotInterfere) beats practice's keyword scan. The keyword scan already exists end to end in the finish-line test's beside(). The two-run comparison also catches implicit flows (net score, totals, a Location that encodes the vote kind) on every observed route. Its determinism precondition was checked: siteCSP is a constant, renderReader builds pages only from the row and the Viewer, and the harness clock is fixed.\n\n(4) Vote block placement. The block is identical on / and /reports/<slug>, and every vote returns to the permalink. This is forced by TestReaderPagesShareOneLayout, which requires the two pages to be identical bytes for signed-in viewers, so no page-dependent return field is possible.\n\n(5) Schema. Practice's plain STRICT table with no extra index. Crossdomain's WITHOUT ROWID and (report_id, kind) index were dropped: the primary-key prefix already makes the per-report count a range scan. Crossdomain's column name `kind` was taken.\n\n(6) Form parsing and redirect. Crossdomain's strict 'exactly one vote value' parsing, and its '#votes' fragment on a Location that is the same for every outcome (LocalPath accepts '#').\n\n(7) Anonymous hint. A plain-text 'Sign in to vote.' with no second anchor, so the anchorRE-based tests and the acceptance test's links[0] are untouched.\n\nPractice raised over_engineering_flag against the generic-reactions/counter-cache/JS answer, and this composition stays on the trimmed side. Its one optional extra, the fitness token fence, is kept, because it follows the house idiom (BySlug/ListAll, OpenRaw) and costs only corpus rows.",
+  "components": [
+   {
+    "name": "Migration 0003_votes.sql",
+    "lives_at": "internal/store/migrations/0003_votes.sql",
+    "responsibility": "CREATE TABLE votes (report_id INTEGER NOT NULL REFERENCES reports (id) ON DELETE CASCADE, github_id INTEGER NOT NULL REFERENCES users (github_id) ON DELETE CASCADE, kind TEXT NOT NULL CHECK (kind IN ('up', 'down')), created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (report_id, github_id)) STRICT. Times are unix seconds, the house convention. The file holds only CREATE TABLE: no ALTER, no table rebuild, nothing that touches users, sessions or reports, so no cascade can fire during migration (#930). No column or comment phrase may match the 'being the owner is never stored' patterns.",
+    "key_interactions": "loadMigrations picks it up as version 3 with no change to migrate.go. applyMigration runs it with foreign keys off, then foreign_key_check, then user_version=3. store_test derives the expected version from len(all). Library.Delete's DELETE FROM reports on the foreign_keys=1 pool cascades to votes (spike-measured). Replace, unpublish and publish keep reports.id, so votes survive them."
+   },
+   {
+    "name": "votes.Book (C-006 Reactions)",
+    "lives_at": "internal/votes/votes.go",
+    "responsibility": "The only code that reads or writes the votes table. It has five parts. (1) New(db *sql.DB, now func() time.Time) *Book. (2) Cast(ctx, reportID, githubID int64, k Kind) error, where Kind is Up=\"up\" or Down=\"down\". Any other Kind is refused before SQL runs. Cast is ONE statement: INSERT INTO votes (report_id, github_id, kind, created_at, updated_at) SELECT id, ?, ?, ?, ? FROM reports WHERE id = ? AND status = 'published' ON CONFLICT (report_id, github_id) DO UPDATE SET kind = excluded.kind, updated_at = excluded.updated_at. RowsAffected 0 returns ErrNotOpen (the report was unpublished or deleted after the handler looked it up). (3) Withdraw(ctx, reportID, githubID) is one DELETE, and a missing row is not an error. (4) Public(ctx, reportID, viewerID int64) returns (PublicView{Likes int; Mine string}, error) from one SELECT that counts only kind='up', plus the viewer's own kind. viewerID 0 never matches, because users has CHECK github_id > 0. (5) OwnerTally(ctx, reportID) returns (Tally{Likes, Dislikes int}, error). No method opens a transaction, and the package takes no lock.",
+    "key_interactions": "Built inside server.New as votes.New(st.DB(), clock), so New's signature, cmd/hband/main.go and both harness New calls stay unchanged. It imports only the standard library. PublicView is the only vote type that reader code receives, and it has no dislike field. Fitness rules fence OwnerTally to admin.go, confine SQL on the table to this package, and forbid transactions here."
+   },
+   {
+    "name": "auth.Participant",
+    "lives_at": "internal/auth/session.go",
+    "responsibility": "Participant(ctx) (Viewer, error) answers 'who is this, and may they take part'. It returns the Viewer when one is signed in. It returns ErrIdentityUnavailable, wrapping the store error, when identifyErrFrom(ctx) holds one. It returns ErrSignedOut for an anonymous visitor. This closes the gap the build-check named: a public write handler could not tell 'store down' from 'anonymous'.",
+    "key_interactions": "Used by the vote handler. renderReader keeps its policy that a failed identity reads as anonymous, and RequireOwner keeps calling identifyErrFrom. A later moderation epic adds a blocked-reader sentinel here, not in the handler."
+   },
+   {
+    "name": "Vote handler",
+    "lives_at": "internal/server/vote.go",
+    "responsibility": "POST /reports/{slug}/vote. It sets Cache-Control no-store first, then runs these steps in order. (1) Participant returns ErrIdentityUnavailable: log it and answer 503. (2) reports.PublishedBySlug: ErrNotFound answers http.NotFound, identical for draft, unpublished, deleted and unknown slugs; any other error is logged and answers 503. (3) back := \"/reports/\" + rep.Slug + \"#votes\", always built from the stored row. On ErrSignedOut it answers auth.SeeOther(w, back) and writes nothing. (4) The body is capped by http.MaxBytesReader at 1 KiB, then ParseForm runs. A parse error, or len(r.PostForm[\"vote\"]) != 1, answers 400. (5) up or down calls Cast, none calls Withdraw, and any other value answers 400. ErrNotOpen answers http.NotFound. Any other error is logged and answers 503. (6) It finishes with auth.SeeOther(w, back): the same Location whatever was cast. It never uses BySlug, http.Redirect, StatusSeeOther or HTML string literals (existing rules).",
+    "key_interactions": "Registered in router.go as mux.HandleFunc(\"POST /reports/{slug}/vote\", a.vote), inside cop.Handler and Identify. A cross-site POST gets 403 from CrossOriginProtection before the handler runs. GET and HEAD on the path get the mux's 405."
+   },
+   {
+    "name": "Reader composition",
+    "lives_at": "internal/server/reader.go",
+    "responsibility": "readerData gains Votes votes.PublicView. renderReader, before its state switch and only when state == stateFound, calls a.votes.Public(ctx, rep.ID, viewerID), where viewerID is the Viewer's GitHubID when signed in and 0 otherwise. On error it logs, sets state = stateUnavailable and clears rep, so the existing 503 'Reports cannot be shown right now' page and status derivation apply (#944) and a defaulted '0 likes' never appears. The app struct gains votes *votes.Book.",
+    "key_interactions": "It stays the single path for / and /reports/<slug>. The page keeps 'private, no-cache'. TestReaderPagesShareOneLayout keeps holding because the block depends only on rep and the viewer, never on which page is drawn."
+   },
+   {
+    "name": "Reader page votes block",
+    "lives_at": "internal/server/templates/report.html",
+    "responsibility": "Inside the HasReport branch, below the iframe: <section class=\"votes\" id=\"votes\">. It always contains <p class=\"likes\">{{.Votes.Likes}} like or likes</p>, with the word chosen by eq .Votes.Likes 1. Signed-in viewers then get an optional <p>Your vote: thumbs up.</p> or <p>Your vote: thumbs down.</p>, and a <form method=\"post\" action=\"/reports/{{.Report.Slug}}/vote\"> holding submit buttons name=vote value=up 'Thumbs up' and value=down 'Thumbs down'. A value=none 'Take back my vote' button appears only when .Votes.Mine is set. There is no aria-pressed, no hidden fields, and no page-dependent return field. Anonymous viewers get <p class=\"vote-hint\">Sign in to vote.</p> and no second anchor. No branch, the IsOwner one included, renders a dislike count or puts any digit inside or beside the vote controls.",
+    "key_interactions": "internal/server/static/site.css gets a .votes rule using inherited colours, the existing #8884 border tone and spacing only, never pure red or green, so the blank-found well stays valid (#941). The finish-line test reads the like count from this <p> on / and /reports/<slug>."
+   },
+   {
+    "name": "Owner tally on the admin report view",
+    "lives_at": "internal/server/admin.go",
+    "responsibility": "adminReport calls a.votes.OwnerTally(ctx, rep.ID) after BySlug. An error is logged and answers 500, as its existing lookup does. adminData gains Tally votes.Tally. admin_report.html adds, after the dl, <h2>Votes</h2><p class=\"tally\">{{L}} like or likes</p><p class=\"tally\">{{D}} dislike or dislikes</p>. Each number sits in the same block as its label (not dt/dd), and both are shown always, 0 included. Drafts show the votes they kept.",
+    "key_interactions": "Reached only through the existing GET /admin/reports/{slug} adminRoutes row, behind RequireOwner and OwnerRoute (no-store). No admin route is added, so the access matrix is unchanged. This is the only place a dislike number is rendered."
+   },
+   {
+    "name": "Fitness rules and corpus rows",
+    "lives_at": ".taad/fitness.yaml",
+    "responsibility": "Three rules (see architecture_rules): only admin.go calls OwnerTally; only internal/votes writes SQL on the votes table; internal/votes opens no transaction. Each rule gets at least one fire row and one quiet row in internal/fitnessrules/testdata/rule_spellings.json, its name is added to rules_under_test, and a bounded_by entry states its known hole and stops there (#939, #931). The local matcher reads raw text, comments included, so the tokens must not appear in comments outside the excepted files.",
+    "key_interactions": "Checked by TestRuleSpellingsCorpus and TestRulesHoldOnTheTree, and by the engine's own fitness check."
+   },
+   {
+    "name": "Tests",
+    "lives_at": "internal/server/vote_test.go",
+    "responsibility": "internal/votes/votes_test.go runs against a real store.Open in t.TempDir, with users and reports rows inserted directly. It covers re-press, switch, withdrawing with no vote and twice, per-reader and per-report scoping, Cast on a draft or missing id (ErrNotOpen and no row), a bad Kind refused, and a one-run port of the concurrency spike against the real Cast/Withdraw (50 readers plus 10 SignIn, 0 errors, COUNT=50). internal/server/vote_test.go uses the harness: anonymous refused with no form and no row; cross-site refused; hidden slugs give identical 404s; bad forms give 400; identity-store failure gives 503; a failed votes read on the reader page gives 503; votes follow replace, unpublish/republish and delete; and TestDislikesDoNotInterfere. TestReaderPathVariants (reader_test.go) gains rows for GET /reports/x/vote, POST /reports/x/vote/, POST //reports/x/vote and an anonymous POST /reports/x/vote, each pinned to the response go1.27.4 actually gives (#934, #944).",
+    "key_interactions": "Uses newHarness, mint, withSID, withHeader, mustUpload, mustAct and count. The engine plants and runs tests/acceptance/test_e003_1_sign_in_and_vote.py. The builder must run it locally, because C1/C2 were measured only against internal/testutil/fakegithub, and the acceptance stand-in GitHub differs (no PKCE check, Accept-dependent token encoding)."
+   }
+  ],
+  "contracts": [
+   {
+    "name": "POST /reports/{slug}/vote",
+    "kind": "rest",
+    "auth_model": "The server-side session cookie is resolved by auth.Identify and read through auth.Participant. Cross-site requests are refused by net/http CrossOriginProtection (trusted origin cfg.Origin) plus SameSite=Lax. There is no CSRF token; the finish-line test sends one only if the page has one. Anyone signed in may vote, the owner included.",
+    "error_cases": "403 for a cross-site request (CrossOriginProtection, before the handler; nothing written). 503 when the identity lookup failed. 404 (http.NotFound) for a draft, unpublished, deleted or unknown slug: the same answer for anonymous and signed-in visitors, and for a report unpublished between lookup and write (ErrNotOpen). 303 to /reports/<stored slug>#votes for an anonymous visitor, with nothing written. 400 for a missing, repeated or unknown vote value, a value only in the query string, or a body over 1 KiB. 503 on a store write error. 405 from the mux for other methods.",
+    "notes": "The body is application/x-www-form-urlencoded with exactly one vote=up|down|none, read from r.PostForm. It sets the reader's vote: re-sending the same value (double click, back-button resubmit, retry) leaves the same state. Success, including the no-op case, answers 303 through auth.SeeOther to /reports/<stored slug>#votes, the same Location whatever was cast. Cache-Control: no-store. No count ever appears in this response."
+   },
+   {
+    "name": "votes.Book",
+    "kind": "function",
+    "auth_model": "In-process. Callers authorise. Public may be called from any handler. OwnerTally may be called only from internal/server/admin.go (fitness rule).",
+    "error_cases": "Cast returns ErrNotOpen when no published report has that id (0 rows changed), and an error for a Kind other than Up or Down, before any SQL runs. Withdraw on a missing row returns nil. Driver errors are returned wrapped.",
+    "notes": "New(db *sql.DB, now func() time.Time) *Book. Cast(ctx, reportID, githubID int64, k Kind) error. Withdraw(ctx, reportID, githubID int64) error. Public(ctx, reportID, viewerID int64) (PublicView{Likes int; Mine string}, error), where Mine is \"\", \"up\" or \"down\" and viewerID 0 means anonymous. OwnerTally(ctx, reportID int64) (Tally{Likes, Dislikes int}, error). Every write is a single statement, with no transaction (rule)."
+   },
+   {
+    "name": "auth.Participant",
+    "kind": "function",
+    "auth_model": "Reads the context that Identify filled in.",
+    "error_cases": "ErrIdentityUnavailable (wraps the store error Identify recorded) or ErrSignedOut (anonymous visitor, unknown or expired session).",
+    "notes": "func Participant(ctx context.Context) (Viewer, error). It is exported beside ViewerFrom, and identifyErrFrom stays unexported."
+   },
+   {
+    "name": "Reader page votes block (/ and /reports/<slug>)",
+    "kind": "ui",
+    "auth_model": "Public. The form appears only when SignedIn.",
+    "error_cases": "If the vote read fails, the page renders stateUnavailable: 503 'Reports cannot be shown right now'.",
+    "notes": "'<N> like' or '<N> likes' in its own <p class=\"likes\">, once per page, including 0. Signed-in viewers also see an optional 'Your vote: thumbs up./down.' sentence, Thumbs up and Thumbs down buttons, and 'Take back my vote' only while they hold a vote. Anonymous viewers see 'Sign in to vote.' as plain text. No dislike count, for any viewer. No digits in or beside the vote controls. Neutral colours only. The bytes are identical on / and on the newest report's /reports/<slug>."
+   },
+   {
+    "name": "Admin report view tally",
+    "kind": "ui",
+    "auth_model": "RequireOwner plus OwnerRoute (pinned GitHub ID); Cache-Control no-store.",
+    "error_cases": "A tally read error answers 500, the admin convention.",
+    "notes": "/admin/reports/<slug> shows <h2>Votes</h2> followed by '<L> like(s)' and '<M> dislike(s)' in two separate <p> elements, always, 0 included. This is the only place a dislike number is rendered."
+   }
+  ],
+  "key_decisions": [
+   {
+    "decision": "Schema: votes(report_id → reports.id ON DELETE CASCADE, github_id → users.github_id ON DELETE CASCADE, kind TEXT CHECK IN ('up','down'), created_at, updated_at, PRIMARY KEY (report_id, github_id)) STRICT, in 0003_votes.sql. A missing row means no vote. There is no extra index and no WITHOUT ROWID.",
+    "reversibility": "expensive",
+    "rationale": "The primary key makes 'one vote per reader per report' a property of the schema. Keying on reports.id keeps votes through replace and unpublish/republish and removes them on delete (spike: id 1=1, row kept, cascade fired). The primary-key prefix already serves the per-report count. Any later change is a forward-only migration through migrate.go, the hot file (#930)."
+   },
+   {
+    "decision": "The wire carries the desired state (vote=up|down|none), applied as an idempotent assignment, never a toggle or a ±1 delta. Withdrawing is its own button.",
+    "reversibility": "expensive",
+    "rationale": "The finish line requires that pressing thumbs up again changes nothing, which a toggle (the Huddo-style 'click again to cancel') would break. A state survives double submits and retries. The route, the field and its values are now a contract that the acceptance test depends on. This is the state-based register idea both designers reached: store the state, never the deltas."
+   },
+   {
+    "decision": "Every vote write is one SQL statement: Cast is INSERT…SELECT FROM reports WHERE id=? AND status='published' ON CONFLICT DO UPDATE, and Withdraw is one DELETE. There is no transaction and no package lock, and a fitness rule forbids transactions in internal/votes.",
+    "reversibility": "cheap",
+    "rationale": "Spike concurrent-vote-upserts-no-busy measured 0 errors over 5 runs for single statements alongside SignIn, against 215-253 SQLITE_BUSY/BUSY_SNAPSHOT errors per run, with lost rows, for a deferred read-then-write. The SELECT inside the INSERT re-checks 'published' atomically, which closes the race between lookup and write without a lock. The INSERT…SELECT form itself was not in the spike; case 13 settles it during the build."
+   },
+   {
+    "decision": "Counts are computed by aggregate on every read, with no counter column. A failed vote read turns the reader page into stateUnavailable (503), never a defaulted '0 likes'.",
+    "reversibility": "cheap",
+    "rationale": "A stored counter drifts under switches, withdrawals and cascades, and needs the read-then-write the spike showed failing. A wrong count is worse than the existing 'cannot be shown right now' page."
+   },
+   {
+    "decision": "An anonymous vote POST answers 303 to /reports/<stored slug>#votes and writes nothing. It does not redirect into sign-in.",
+    "reversibility": "cheap",
+    "rationale": "The repo's rule 'no sign-in control is ever a form' records that a form submission redirected to the identity provider is blocked by the site's form-action 'self' in Chromium and Safari. POST, 303 to /auth/github/login, then 302 to GitHub is that path. Back on the report, the existing header anchor (C1/C2, measured present) returns the reader there after sign-in. The realistic case is a session that expired while the page was open."
+   },
+   {
+    "decision": "The handler resolves the published report before checking whether the visitor is signed in. Every redirect target comes from the stored slug, and the Location is the same for every outcome.",
+    "reversibility": "cheap",
+    "rationale": "Hidden slugs then give the same 404 whether the visitor is anonymous or signed in, as TestHiddenReportsAreIndistinguishable requires of reader routes. The Location never reflects the request (#944) and never encodes which vote was cast."
+   },
+   {
+    "decision": "The dislike count reaches no reader page, the owner's included. It is shown only on /admin/reports/<slug>. Reader code receives only votes.PublicView, which has no dislike field. OwnerTally is fenced to admin.go, and SQL on the table is confined to internal/votes. A two-run noninterference test, TestDislikesDoNotInterfere, decides the question.",
+    "reversibility": "cheap",
+    "rationale": "Any owner check inside a public template is a place a later edit can leak the count. Keeping the secret out of the reader data type removes that place and makes privacy independent of the open proxy-caching question (Q-007). The two-run comparison catches implicit flows that a keyword scan cannot name, and its sensitivity controls keep it from passing for an empty reason."
+   },
+   {
+    "decision": "Votes live in a new internal/votes package on Store.DB(), constructed inside server.New. auth gains only Participant(ctx) (Viewer, error) with ErrSignedOut and ErrIdentityUnavailable.",
+    "reversibility": "cheap",
+    "rationale": "Store.DB() is documented as the pool for packages that own later tables, as reports.Library already does. Constructing the Book inside New leaves main.go and both harness New calls unchanged. Participant returns all three identity outcomes from one call, so a public write handler cannot treat a store outage as an anonymous visitor."
+   },
+   {
+    "decision": "No site JavaScript: a plain form POST and Post/Redirect/Get. The vote block renders identically on / and /reports/<slug>, and a vote cast from the home page lands on the report's permalink.",
+    "reversibility": "cheap",
+    "rationale": "TestReaderPagesShareOneLayout requires the two pages to be identical bytes for signed-in viewers, which rules out a page-dependent return field. Reports and reader pages carry no JS, and this works whatever the open Q-012 decides."
+   },
+   {
+    "decision": "The vote UI uses plain submit buttons and a 'Your vote: …' sentence, with no aria-pressed or toggle styling, and neutral colours only.",
+    "reversibility": "cheap",
+    "rationale": "Toggle semantics would tell users that pressing again undoes the vote, which the server deliberately does not do. Pure red or green within ±8 in the chrome invalidates the blank-found browser well (#941)."
+   }
+  ],
+  "proposals": [
+   {
+    "designer": "practice",
+    "selected": "core",
+    "note": "Taken from practice: the plain STRICT schema; the anonymous POST answering 303 back to the report, for the form-action reason the repo records; a vote cast from home landing on the permalink (which TestReaderPagesShareOneLayout requires); counts computed by aggregate; the token-rule idiom; the '{N} like(s)' wording. Replaced: IdentifyErr, aria-pressed, and the keyword leak test, whose job the finish-line test already does. Practice raised over_engineering_flag against counters, a generic reactions table and a JS fetch endpoint, and none of those were taken."
+   },
+   {
+    "designer": "crossdomain",
+    "selected": "partial",
+    "note": "Taken from crossdomain: the information-flow framing; TestDislikesDoNotInterfere (two runs plus sensitivity controls) as the privacy oracle; auth.Participant; strict exactly-one-value parsing; the '#votes' fragment on an outcome-independent Location; the 'Your vote' sentence with no toggle semantics; the column name `kind`, ErrNotOpen, Public/OwnerTally. Dropped: SignInThenReturn and the anonymous-to-sign-in redirect (form-action), the second 'to vote' sign-in anchor, WITHOUT ROWID, and the (report_id, kind) index."
+   }
+  ],
+  "coherence_check": "Checked across the pieces taken from the two proposals:\n\n(1) Anonymous handling vs auth seam. Participant's ErrSignedOut now feeds practice's 303 to the report. Crossdomain's SignInThenReturn had no caller left and was dropped, so there is one anonymous contract and not two.\n\n(2) The '#votes' fragment vs auth.SeeOther. LocalPath (next.go) accepts '#' (0x23, in range; url.Parse yields only a Fragment), so the crossdomain Location passes the existing redirect gate unchanged.\n\n(3) Error contracts unified. ErrNoReport and ErrNotOpen merged into ErrNotOpen, mapped to http.NotFound so that a report unpublished mid-request answers byte-for-byte like any hidden slug. Store errors are 503 on every public path. The admin tally error is 500, the admin convention.\n\n(4) Privacy invariant. Both proposals keep dislikes off every reader page, the owner's included, so the type split (PublicView without dislikes) and the noninterference test assume the same thing. Its determinism precondition was checked in the tree: siteCSP is a constant, renderReader builds only from the row and the Viewer, the harness clock is fixed, and the comparison excludes Date.\n\n(5) Shared-layout invariant. TestReaderPagesShareOneLayout requires / and /reports/<newest> to be identical bytes for signed-in viewers. This forbids any page-dependent field in the vote form and settles 'votes from home return to the permalink'. The crossdomain second anchor would have been absorbed by the test's anchor replacement, but it was dropped anyway in favour of plain hint text.\n\n(6) Concurrency. Both proposals use INSERT…SELECT…ON CONFLICT, but the spike measured INSERT…VALUES. This is an unmeasured edge, held by case 13 and by the no-transaction rule. If it fails, only Cast's internals change.\n\n(7) Local fitness matcher. It reads raw text with comments included (rules_test.go fires), so rule 2 is case-sensitive uppercase SQL to stay quiet on Go comments, and the OwnerTally token must not appear in comments outside the excepted files.\n\n(8) No outside-defect workaround applies. form-action covering redirects and SQLite returning BUSY on a stale-snapshot upgrade are designed behaviour, not defects, so no setting or notice is owed.\n\n(9) Out of epic: blocked readers' votes being 'frozen but counted' belongs to the moderation epic. Participant is where it attaches, after the anonymous check in the handler.\n\nNothing here has been contested on these points: the schema, the desired-state wire and the single-statement writes were proposed identically by both designers and have survived no disagreement, only the spikes.",
+  "architecture_rules": [
+   {
+    "name": "only the owner's admin page reads the dislike tally",
+    "files": "**/*.go",
+    "must_not_match": [
+     "\\.OwnerTally\\b"
+    ],
+    "except_files": [
+     "internal/server/admin.go",
+     "internal/votes/**",
+     "**/*_test.go"
+    ],
+    "because": "OwnerTally is the only producer of a dislike count. A reader handler, template helper or new endpoint that calls it (or takes its method value) serves dislikes to readers, which the project's privacy constraint forbids. Known hole: a dislike field added to PublicView inside internal/votes. TestDislikesDoNotInterfere catches that; this rule does not."
+   },
+   {
+    "name": "only internal/votes writes SQL on the votes table",
+    "files": "**/*.go",
+    "must_not_match": [
+     "\\b(FROM|INTO|UPDATE|JOIN)\\s+votes\\b"
+    ],
+    "except_files": [
+     "internal/votes/**",
+     "**/*_test.go"
+    ],
+    "because": "A second reader of the table can count kind='down' and bypass both the OwnerTally fence and the PublicView type. A second writer bypasses Cast's published-only check and its single-statement discipline. Known holes: lower-case SQL, and a table name built by concatenation."
+   },
+   {
+    "name": "vote writes never open a transaction",
+    "files": "internal/votes/**/*.go",
+    "must_not_match": [
+     "\\.Begin(Tx)?\\(",
+     "\\bBEGIN\\b"
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "Spike concurrent-vote-upserts-no-busy measured a read-then-write transaction failing 215-253 times per run with SQLITE_BUSY/BUSY_SNAPSHOT, returned at once without waiting on busy_timeout, and losing votes. Single statements had 0 errors under the same load."
+   }
+  ],
+  "cases": [
+   {
+    "behaviour": "give a thumbs up",
+    "shape": "the reader already holds a thumbs up and presses it again",
+    "why": "This takes the ON CONFLICT DO UPDATE path. If RowsAffected is not 1 there, a re-press reads as ErrNotOpen and answers 404, and the finish line's 'pressing it again changes nothing' fails. The like count must stay 1.",
+    "check": "go test -count=1 -run '^TestCastSameVoteTwice$' ./internal/votes/"
+   },
+   {
+    "behaviour": "change a vote",
+    "shape": "a reader holding thumbs up sends thumbs down",
+    "why": "The conflict update must replace the kind rather than add a row: likes 0 and dislikes 1 afterwards, not likes 1 and dislikes 1.",
+    "check": "go test -count=1 -run '^TestCastSwitches$' ./internal/votes/"
+   },
+   {
+    "behaviour": "withdraw a vote",
+    "shape": "the reader holds no vote (never voted, or already withdrew) and sends none",
+    "why": "A DELETE of 0 rows must not be an error and must not 404. The acceptance test withdraws after a switch and again later, and a back-button resubmit repeats it.",
+    "check": "go test -count=1 -run '^TestWithdrawWithoutVote$' ./internal/votes/"
+   },
+   {
+    "behaviour": "one vote per reader per report",
+    "shape": "two readers vote on one report, and one reader votes on two reports",
+    "why": "A key on github_id alone, or on report_id alone, overwrites the wrong row. Two likes must make 2, and one reader's likes must count once on each report.",
+    "check": "go test -count=1 -run '^TestVotesScopedPerReaderAndReport$' ./internal/votes/"
+   },
+   {
+    "behaviour": "refuse a vote from someone not signed in",
+    "shape": "a visitor with no session, or an expired one, POSTs vote=up or down to a published report; the page they were shown has no vote form",
+    "why": "Participant returns ErrSignedOut. The handler must answer 303 to /reports/<slug>#votes with no row written, and the template must offer anonymous viewers no form, only the like count and the hint.",
+    "check": "go test -count=1 -run '^TestVoteAnonymousRefused$' ./internal/server/"
+   },
+   {
+    "behaviour": "refuse a vote sent from another site",
+    "shape": "the request carries a valid reader session but Sec-Fetch-Site: cross-site, or Origin https://evil.example with no Sec-Fetch-Site",
+    "why": "CrossOriginProtection must answer 403 before the handler runs, with no count changed. If the route were registered outside the cop-wrapped mux, it would be unprotected.",
+    "check": "go test -count=1 -run '^TestVoteCrossSiteRefused$' ./internal/server/"
+   },
+   {
+    "behaviour": "vote on something that is not a published report",
+    "shape": "the slug names a draft, an unpublished, a deleted or no report, asked anonymously and signed in; also the route spelled oddly (GET, trailing slash, double slash)",
+    "why": "The lookup-before-identity order must give identical 404s, so the route is no oracle for drafts. The mux's 405, 404 and 307 for path variants must be pinned from observation, with a draft x identical to an unknown x (#934, #944).",
+    "check": "go test -count=1 -run '^(TestVoteHiddenReportsAreIndistinguishable|TestReaderPathVariants)$' ./internal/server/"
+   },
+   {
+    "behaviour": "read the vote form",
+    "shape": "vote is missing, repeated (vote=up&vote=down), unknown (sideways), present only in the query string, or the body is over 1 KiB",
+    "why": "Strict parsing must answer 400 and write nothing. PostFormValue would silently take the first of two values, and r.Form would accept a query-string value.",
+    "check": "go test -count=1 -run '^TestVoteBadFormRefused$' ./internal/server/"
+   },
+   {
+    "behaviour": "handle a database failure",
+    "shape": "the session lookup fails during Identify (store closed, grammar-valid sid) on a vote POST, or the votes read fails on a reader page (votes table dropped)",
+    "why": "Identify records the error and leaves the visitor anonymous. Without Participant, the vote would be refused as anonymous rather than answered 503. Without the stateUnavailable switch, the reader page would show a false '0 likes'.",
+    "check": "go test -count=1 -run '^(TestVoteIdentityUnavailable|TestReaderVotesReadFails)$' ./internal/server/"
+   },
+   {
+    "behaviour": "cast a vote as the report is unpublished",
+    "shape": "Cast is called for a report id whose row is a draft or no longer exists",
+    "why": "The INSERT…SELECT with status='published' must change 0 rows and return ErrNotOpen, which the handler maps to the same 404. Otherwise a vote attaches to a hidden report.",
+    "check": "go test -count=1 -run '^TestCastRefusesUnpublished$' ./internal/votes/"
+   },
+   {
+    "behaviour": "keep votes with their report",
+    "shape": "a voted report is replaced by re-upload, then unpublished and republished, then deleted",
+    "why": "Votes are keyed by reports.id. The spike measured that replace keeps the id and that delete cascades. This pins it as a regression through the real admin routes and the like count shown.",
+    "check": "go test -count=1 -run '^TestVotesFollowReportLifecycle$' ./internal/server/"
+   },
+   {
+    "behaviour": "show dislikes only to the author",
+    "shape": "other readers cast thumbs down while an anonymous visitor, a non-voting non-owner and an up-voting non-owner observe /, /reports/x, /reports/y, /reports, /admin, /admin/reports/x and their own vote POST; the owner observes /admin/reports/x",
+    "why": "Every non-owner observation (status, body, Location, Cache-Control) must be byte-identical before and after the down votes, and an up-to-down switch must look the same as up-to-none. Sensitivity controls: an extra like must change the anonymous /reports/x, and the owner's view must go from '0 dislikes' to '3 dislikes' with each number in its label's block.",
+    "check": "go test -count=1 -run '^TestDislikesDoNotInterfere$' ./internal/server/"
+   },
+   {
+    "behaviour": "vote while others vote and sign in",
+    "shape": "50 readers cast, switch and withdraw at the same moment as 10 SignIn calls, on the pool as store.Open ships it",
+    "why": "The spike measured INSERT…VALUES, not the INSERT…SELECT form Cast uses. Any 'database is locked' or SQLITE_BUSY, or a final COUNT other than 50, means the shape needs changing.",
+    "check": "go test -count=1 -run '^TestConcurrentVotesNoBusy$' ./internal/votes/"
+   },
+   {
+    "behaviour": "render the like line in the site chrome",
+    "shape": "the anonymous found-state report page (the blank-found well) now carries the votes section",
+    "why": "A pure red or green vote style invalidates the headless-Edge script assay with 'INVALID RUN: the site chrome contains a signal colour' (#941). That is a styling defect, and the threshold must not be loosened.",
+    "check": "go test -count=1 -run '^TestReportScriptsNeverRun$' ./internal/server/"
+   }
+  ],
+  "code_claims": [
+   {
+    "path": "internal/auth/session.go",
+    "symbol": "identifyErrFrom",
+    "claim": "identifyErrFrom is unexported and returns the store error Identify stored under identifyErrKey, so code outside package auth cannot tell a store outage from an anonymous visitor today."
+   },
+   {
+    "path": "internal/auth/session.go",
+    "symbol": "ViewerFrom",
+    "claim": "ViewerFrom returns (Viewer, ok) from the request context, with ok false when no Viewer was attached (anonymous, unknown or expired session, or a store error)."
+   },
+   {
+    "path": "internal/auth/session.go",
+    "symbol": "Identify",
+    "claim": "Identify records a LookupSession error under identifyErrKey and attaches no Viewer; on success it attaches a Viewer whose IsOwner comes from IsOwner(a.cfg.OwnerGitHubID, id)."
+   },
+   {
+    "path": "internal/auth/owner.go",
+    "symbol": "RequireOwner",
+    "claim": "RequireOwner sets Cache-Control no-store first, then answers 503 on an identify error, 303 to sign-in for an anonymous GET or HEAD, 403 for other anonymous methods and 403 with a forbidden page for a signed-in non-owner."
+   },
+   {
+    "path": "internal/auth/next.go",
+    "symbol": "LocalPath",
+    "claim": "LocalPath accepts 1-512 byte targets with every byte in 0x21..0x7E, a single leading '/', no backslash or %5c, and no scheme, host, opaque part or user after url.Parse, so '/reports/x#votes' is accepted."
+   },
+   {
+    "path": "internal/auth/next.go",
+    "symbol": "SeeOther",
+    "claim": "SeeOther writes the LocalPath-checked target verbatim as Location with a 303, and '/' for a rejected target."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "renderReader",
+    "claim": "renderReader is the single path for both reader pages: it derives the status from the state (503 only for stateUnavailable), sets Next to '/reports/'+rep.Slug only for reportPage, and sets Cache-Control 'private, no-cache'."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "readerData",
+    "claim": "readerData holds only pageData, Report, HasReport and Unavailable, with no vote or count fields."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "readReport",
+    "claim": "readReport looks the report up with reports.PublishedBySlug and answers http.NotFound for ErrNotFound, so draft and unknown slugs look the same."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "New",
+    "claim": "New(cfg, st, lib, clock) registers GET /reports/{slug} on a std ServeMux and returns securityHeaders(cop.Handler(a.auth.Identify(mux))), where cop is http.NewCrossOriginProtection with cfg.Origin as trusted origin."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "siteCSP",
+    "claim": "siteCSP is a constant with no per-request nonce and includes form-action 'self'."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminRoutes",
+    "claim": "adminRoutes already has a GET /admin/reports/{slug} row handled by adminReport, mounted only behind RequireOwner and wrapped in OwnerRoute."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminReport",
+    "claim": "adminReport looks the report up with BySlug (drafts included), answers 404 for ErrNotFound and 500 for other errors, and renders admin_report.html with adminData."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminData",
+    "claim": "adminData embeds pageData and holds Error, Form, Reports and Report, and is shared by admin.html and admin_report.html."
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "symbol": "report-frame",
+    "claim": "In its HasReport branch report.html shows the title, the meta line and the sandboxed report-frame iframe, and nothing below the iframe."
+   },
+   {
+    "path": "internal/store/store.go",
+    "symbol": "servingPragmas",
+    "claim": "Every serving-pool connection is opened with journal_mode(WAL), busy_timeout(5000) and foreign_keys(1)."
+   },
+   {
+    "path": "internal/store/store.go",
+    "symbol": "DB",
+    "claim": "Store.DB exposes the serving pool and is documented as being for the packages that own later tables."
+   },
+   {
+    "path": "internal/store/migrate.go",
+    "symbol": "loadMigrations",
+    "claim": "loadMigrations refuses any file not named NNNN_name.sql and any version set that is not 1,2,3 without gaps, so the next migration must be 0003_*.sql."
+   },
+   {
+    "path": "internal/store/migrate.go",
+    "symbol": "applyMigration",
+    "claim": "applyMigration turns foreign keys off, runs the migration inside BEGIN/COMMIT, runs a foreign key check that rolls back on any violation, and sets user_version."
+   },
+   {
+    "path": "internal/store/migrations/0002_reports.sql",
+    "symbol": "AUTOINCREMENT",
+    "claim": "reports.id is INTEGER PRIMARY KEY AUTOINCREMENT in a STRICT table, explicitly so that later votes referencing reports.id never attach to a different report."
+   },
+   {
+    "path": "internal/store/migrations/0001_identity.sql",
+    "symbol": "github_id",
+    "claim": "users.github_id is the INTEGER PRIMARY KEY with CHECK (github_id > 0), and sessions reference it with ON DELETE CASCADE."
+   },
+   {
+    "path": "internal/store/signin.go",
+    "symbol": "ON CONFLICT",
+    "claim": "SignIn upserts the user with ON CONFLICT (github_id) DO UPDATE, so a users row is never deleted on sign-in and a votes cascade from users does not fire there."
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "symbol": "PublishedBySlug",
+    "claim": "PublishedBySlug selects a report by slug only when status = 'published' and returns ErrNotFound otherwise."
+   },
+   {
+    "path": "internal/reports/reports.go",
+    "symbol": "Report",
+    "claim": "Report carries ID int64, the stable row id that votes reference."
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "symbol": "TestReaderPagesShareOneLayout",
+    "claim": "TestReaderPagesShareOneLayout requires / and /reports/newest to be the same response for signed-in viewers, and the same apart from the sign-in anchor for anonymous ones."
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "symbol": "TestReaderPathVariants",
+    "claim": "TestReaderPathVariants pins each odd reader-path spelling, compares a draft x with an unknown x, and its notAllowed check expects 405 with Allow 'GET, HEAD' for POST /reports/x."
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "symbol": "newHarness",
+    "claim": "newHarness opens a real store and report library in a temp dir and builds the handler with New(cfg, st, h.lib, h.clock.Now) on a fixed fake clock; mint creates a live session through store.SignIn."
+   },
+   {
+    "path": "internal/fitnessrules/rules_test.go",
+    "symbol": "TestRuleSpellingsCorpus",
+    "claim": "TestRuleSpellingsCorpus fails any rule listed in rules_under_test that lacks at least one fire row and one quiet row."
+   },
+   {
+    "path": "internal/fitnessrules/rules_test.go",
+    "symbol": "fires",
+    "claim": "fires matches each must_not_match pattern with Go's regexp against the file's raw text, comments included, and skips patterns Go cannot compile."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "form-action",
+    "claim": "The rule 'no sign-in control is ever a form' records that a form whose submission ends in a redirect to the identity provider is blocked by the site's form-action 'self' in Chromium and Safari."
+   }
+  ],
+  "outside_claims": [
+   {
+    "claim": "SQLite's INSERT … SELECT … ON CONFLICT needs a WHERE clause on the SELECT to avoid a parse ambiguity. Cast's SELECT has one (WHERE id = ? AND status = 'published').",
+    "evidence": "recalled",
+    "source": "memory (SQLite documentation, UPSERT)",
+    "if_wrong": "Cast fails to prepare. Every vote case fails at once, and Cast's SQL changes; nothing else does."
+   },
+   {
+    "claim": "sqlite3_changes, and so database/sql RowsAffected on modernc.org/sqlite, counts a row touched by ON CONFLICT DO UPDATE as 1, including when the new values equal the old.",
+    "evidence": "recalled",
+    "source": "memory (SQLite documentation, sqlite3_changes / UPSERT)",
+    "if_wrong": "A re-press returns ErrNotOpen and answers 404. Case 1 fails, and Cast must tell 'no published report' apart some other way, for example with a RETURNING clause."
+   },
+   {
+    "claim": "In WAL mode, a single autocommit write statement that reads first (INSERT … SELECT) begins its write transaction at statement start and waits on busy_timeout, unlike a deferred multi-statement transaction that upgrades from a read snapshot and gets SQLITE_BUSY_SNAPSHOT at once.",
+    "evidence": "recalled",
+    "source": "memory; the spike measured only the INSERT … VALUES … ON CONFLICT form (spikes#195 concurrent-vote-upserts-no-busy)",
+    "if_wrong": "Case 13 fails under load. Cast becomes a plain INSERT … VALUES upsert, relying on the foreign key, with the published check moved to the handler. Only Cast's internals change."
+   },
+   {
+    "claim": "net/http CrossOriginProtection refuses non-safe requests carrying Sec-Fetch-Site: cross-site or same-site, or an Origin that is neither the request's host nor a trusted origin, with 403. It allows a request that carries neither header.",
+    "evidence": "measured",
+    "source": "survey surveys#189: go test -count=1 ./... exit 0, which includes admin_test.go's 'cross origin' cases (Sec-Fetch-Site cross-site/same-site, Origin https://evil.example → 403) and the harness's header-less POSTs succeeding",
+    "if_wrong": "Cross-site votes would reach the handler (case 6 fails), or header-less test POSTs would be refused. A token-based CSRF scheme would be needed, against the project's decided stack."
+   },
+   {
+    "claim": "Chromium and Safari apply CSP form-action to the redirects that follow a form submission, so a POST answered 303 to /auth/github/login and then 302 to github.com is blocked under form-action 'self'.",
+    "evidence": "recalled",
+    "source": ".taad/fitness.yaml rule 'no sign-in control is ever a form' (m3); not re-measured for this design",
+    "if_wrong": "Nothing breaks. A 303 back to the report is still correct, merely one click longer than a direct sign-in redirect would be."
+   },
+   {
+    "claim": "go1.27.4's ServeMux answers GET /reports/x/vote, where only a POST pattern matches the path, with 405 and an Allow header listing POST. It redirects POST //reports/x/vote to the cleaned path with 307, and answers 404 for a trailing slash.",
+    "evidence": "recalled",
+    "source": "memory; the sibling rows in TestReaderPathVariants were measured (#934)",
+    "if_wrong": "Only the expectations in TestReaderPathVariants change. They are written from the observed response, never by changing routing."
+   },
+   {
+    "claim": "http.MaxBytesReader makes ParseForm return an error once the urlencoded body exceeds the cap. ParseForm leaves PostForm empty for a POST whose Content-Type is not application/x-www-form-urlencoded.",
+    "evidence": "recalled",
+    "source": "memory (net/http documentation)",
+    "if_wrong": "An oversized or wrongly typed body would reach the value switch. Case 8 catches it, and the handler adds an explicit check."
+   }
+  ],
+  "cross_domain_transfer": {
+   "source_domain": "Information-flow security: Goguen–Meseguer noninterference, checked as a 2-safety hyperproperty by comparing two runs",
+   "pattern": "Each report's dislike count is HIGH (secret) data, and everything a non-owner can receive is LOW output. The pattern has three parts. (1) Typing: the reader path can only obtain votes.PublicView, which has no slot for a dislike count, so no reader template can render one, the owner's included. (2) Declassification happens in exactly one place, the owner-gated adminReport, fenced by the OwnerTally token rule and the votes-table SQL rule. (3) The oracle is a two-run test: record non-owner observations, have other readers cast down votes through the real route, record again, and require byte-identical results. Sensitivity controls (a new like must change the LOW view; the owner's tally must change) keep it from passing for an empty reason.",
+   "transfer_found": true,
+   "rationale": "'Dislikes are visible only to the author' is a confidentiality property, and its failure modes are the ones information-flow security catalogues. Explicit flows: rendering the number. Implicit flows: a net score, a total from which dislikes = total − likes, ordering by score, a Location that encodes the vote kind. Channels: a shared cache carrying an owner page. A keyword scan, which the finish line already has in beside(), catches only explicit flows in words it knows. Comparing whole responses catches the rest on every observed route, including routes later slices add, if they are added to the list. The framing also drove choices elsewhere: kind stored as text rather than ±1, the same Location for every outcome, no dislike branch in reader templates even for the owner, and counts derived from rows.",
+   "invariants": [
+    {
+     "precondition": "LOW outputs are deterministic given LOW inputs: reader pages, the 403 page and admin refusals carry no per-request nonce, token or clock value besides the Date header.",
+     "status": "holds",
+     "evidence": "siteCSP in internal/server/router.go is a constant. renderReader builds the page from the stored row and the Viewer only. The harness clock is fixed (newHarness), and the comparison excludes Date."
+    },
+    {
+     "precondition": "The HIGH input is exactly the other readers' down votes. The public like count depends only on up rows, so up→down looks the same publicly as up→none.",
+     "status": "holds",
+     "evidence": "By construction, Public counts only kind='up', and Mine concerns only the viewer's own row. TestDislikesDoNotInterfere compares the two switches."
+    },
+    {
+     "precondition": "No implicit flow through which report is shown or in what order.",
+     "status": "holds",
+     "evidence": "Library.Latest orders by published_at DESC, id DESC (internal/reports/reports.go). A future popularity ordering must use likes only, or the test fails on any observed page."
+    },
+    {
+     "precondition": "The only declassifying sink is reachable only by the pinned owner, and no cache can carry it to anyone else.",
+     "status": "holds",
+     "evidence": "adminReport is an adminRoutes row behind RequireOwner and OwnerRoute, which set Cache-Control no-store. Reader pages never hold the count, so this holds whatever the open Q-007 (proxy caching of GET /) decides."
+    },
+    {
+     "precondition": "The observed route list covers every route a non-owner can reach.",
+     "status": "must-verify",
+     "evidence": "ServeMux cannot enumerate its routes, so the test lists them by hand: /, /reports/<slug>, /reports, /admin, /admin/reports/<slug> and the vote POST. A later slice that adds a public page (show-all, comments) must add it to the list, or the guarantee does not cover that page."
+    },
+    {
+     "precondition": "Timing and contention channels are closed.",
+     "status": "fails",
+     "evidence": "Not defended. Body bytes are asserted identical, but latency could shift with write contention while dislikes are cast. This is accepted for a personal report site, and the guarantee covers content only."
+    }
+   ]
+  },
+  "channeled_experts": [
+   "information-flow security (Goguen–Meseguer noninterference, 2-run hyperproperty testing)",
+   "SQLite UPSERT and WAL write-lock behaviour",
+   "Go net/http CrossOriginProtection design",
+   "state-based replicated registers (idempotent assignment vs op-based toggles)"
+  ],
+  "prior_art": [
+   {
+    "pattern": "One upserted row per (report, user, action), updated in place, for thumbs ratings on reports",
+    "where": "https://github.com/PostHog/posthog/pull/79011",
+    "authority": "oss",
+    "basis": "cited",
+    "source_date": "2026-08-06"
+   },
+   {
+    "pattern": "A thumbs up/down row at the end of a report body; one click submits, with no free-text field",
+    "where": "https://github.com/PostHog/posthog/pull/73709",
+    "authority": "oss",
+    "basis": "cited",
+    "source_date": "2026-07-25"
+   },
+   {
+    "pattern": "Like/dislike with 'click again to take back' toggle semantics. Rejected here because the finish line requires a repeated thumbs up to change nothing; withdrawing is a separate action.",
+    "where": "https://docs.huddo.com/ideas/howto/voting/",
+    "authority": "official",
+    "basis": "cited"
+   },
+   {
+    "pattern": "Votes from GitHub sign-in kept by the app, one per GitHub account, with totals derived from them",
+    "where": "https://gitback.us/docs/private-repo-votes",
+    "authority": "official",
+    "basis": "cited"
+   },
+   {
+    "pattern": "Public dislike count hidden while the creator still sees it in a private dashboard",
+    "where": "YouTube (public dislikes hidden 2021; visible to creators in YouTube Studio)",
+    "authority": "official",
+    "basis": "recalled",
+    "source_date": "2021-11"
+   },
+   {
+    "pattern": "Noninterference: low outputs must not depend on high inputs, checked by comparing two runs that differ only in secret inputs",
+    "where": "Goguen & Meseguer 1982; Clarkson & Schneider, 'Hyperproperties' 2010",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "INSERT … SELECT … ON CONFLICT DO UPDATE needs a WHERE on the SELECT; upsert has been supported since SQLite 3.24",
+    "where": "SQLite documentation, UPSERT",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Post/Redirect/Get: a state-changing form POST answers 303 to a GET page",
+    "where": "Common web pattern (Post/Redirect/Get)",
+    "authority": "community",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "CSRF defence by Sec-Fetch-Site, then Origin vs Host, with trusted origins; cross-site non-safe requests get 403",
+    "where": "Go net/http CrossOriginProtection (Go 1.25+)",
+    "authority": "official",
+    "basis": "recalled"
+   }
+  ],
+  "whats_new": [
+   "internal/store/migrations/0003_votes.sql: the votes table (PK report_id+github_id, kind 'up'|'down', cascades from reports and users)",
+   "internal/votes/votes.go: Book with Cast, Withdraw, Public (PublicView{Likes, Mine}), OwnerTally (Tally{Likes, Dislikes}) and ErrNotOpen",
+   "internal/votes/votes_test.go, including a one-run port of the concurrency spike against the real Cast/Withdraw",
+   "internal/auth/session.go: Participant(ctx) (Viewer, error) with ErrSignedOut and ErrIdentityUnavailable",
+   "internal/server/vote.go: the POST /reports/{slug}/vote handler, registered in router.go; app gains votes *votes.Book, built from st.DB() inside New",
+   "reader.go: readerData.Votes filled in renderReader for stateFound; a failed read becomes stateUnavailable (503)",
+   "templates/report.html: the votes section (like count for everyone; Thumbs up/Thumbs down/Take back my vote for signed-in viewers; plain 'Sign in to vote.' hint otherwise) and a neutral .votes rule in static/site.css",
+   "admin.go and templates/admin_report.html: adminData.Tally and a Votes section with '<L> like(s)' and '<M> dislike(s)'",
+   "Three .taad/fitness.yaml rules (OwnerTally fence, votes-table SQL confinement, no transaction in internal/votes) with fire and quiet rows and bounded_by entries in rule_spellings.json",
+   "internal/server/vote_test.go: refusals, hidden slugs, bad forms, store failures, lifecycle, and TestDislikesDoNotInterfere",
+   "TestReaderPathVariants rows for the vote route, pinned from the observed mux responses"
+  ],
+  "whats_reused": [
+   "Sign-in from a report and the local-only return (C1, C2, measured present): the layout.html anchor, renderReader's Next, Login/Callback, LocalPath and SeeOther, unchanged",
+   "net/http CrossOriginProtection already wrapping every route: cross-site vote POSTs get 403 with no new code",
+   "auth.SeeOther as the only 303, as the existing redirect rule requires",
+   "reports.PublishedBySlug for the handler's lookup, so hidden slugs give the reader page's identical 404",
+   "renderReader's found/empty/unavailable state machine and its 'private, no-cache' header",
+   "RequireOwner and OwnerRoute and the existing GET /admin/reports/{slug} row; no admin route added, so the access matrix is unchanged",
+   "Store.DB() serving pool (WAL, busy_timeout 5000, foreign_keys=1 on every connection, spike-measured) and migrate.go unchanged",
+   "reports.id stability across replace and unpublish/republish, and Library.Delete firing the cascade (spike-measured)",
+   "The server harness (newHarness, mint, withSID, withHeader, mustUpload, mustAct, count) and TestReaderPathVariants' draft-versus-unknown comparison",
+   "The headless-Edge blank-found well (TestReportScriptsNeverRun) as the colour guard for the new chrome"
+  ],
+  "taste_disagreements": [
+   "Auth seam: practice's IdentifyErr(ctx) error vs crossdomain's Participant(ctx) (Viewer, error). Chose Participant: one call returns all three outcomes.",
+   "Anonymous vote POST: crossdomain's 303 into sign-in vs practice's 303 back to the report. Chose the report: the repo records that form-action 'self' blocks a form submission redirected to the identity provider, and a different measured answer would not change the design.",
+   "Vote button state: practice's aria-pressed vs crossdomain's 'Your vote: …' sentence with no toggle semantics. Chose the sentence.",
+   "Schema shape: crossdomain's WITHOUT ROWID plus a (report_id, kind) index vs practice's plain STRICT table. Chose plain; the PK prefix serves the count.",
+   "Names: column vote vs kind (chose kind); Book vs Box (chose Book); ForReader/ForOwner vs Public/OwnerTally (chose Public/OwnerTally); ErrNoReport vs ErrNotOpen (chose ErrNotOpen).",
+   "Anonymous prompt: crossdomain's second 'Sign in with GitHub to vote' anchor vs nothing (practice) vs plain hint text (chosen), which leaves the anchor-based tests alone.",
+   "Privacy oracle: practice's 'no number beside a dislike label' scan vs crossdomain's two-run noninterference comparison. Chose the comparison; the scan already lives in the finish-line test."
+  ],
+  "retier": {
+   "tier": "high",
+   "why": "This design adds migration 0003 through internal/store/migrate.go, the security-adjacent hot file (#930), where a forward-only schema is expensive to reverse. It adds the site's first public state-changing endpoint, fed by outside input and ending in a redirect (#935 asks for the input-driven second review pass on exactly this). It exports a new auth seam other code will read (Participant). And it enforces a project privacy constraint (dislikes owner-only) whose failure is silent in every page a non-owner sees."
+  },
+  "decidable_disagreements": [],
+  "filed_for_later": [],
+  "open_questions": [],
+  "stack_chosen": []
+ }
+}

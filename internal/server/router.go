@@ -16,6 +16,7 @@ import (
 	"github.com/sshubham2/hband/internal/config"
 	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/store"
+	"github.com/sshubham2/hband/internal/votes"
 )
 
 //go:embed templates/*.html
@@ -35,6 +36,7 @@ type app struct {
 	store   *store.Store
 	reports *reports.Library
 	auth    *auth.Auth
+	votes   *votes.Book
 	pages   *template.Template
 }
 
@@ -49,6 +51,7 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 		store:   st,
 		reports: lib,
 		auth:    auth.New(cfg, st, clock),
+		votes:   votes.New(st.DB(), clock),
 		pages:   template.Must(template.ParseFS(templateFS, "templates/*.html")),
 	}
 
@@ -58,6 +61,11 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 	// /admin. Identify still runs in front of /raw as on every route, but
 	// readRaw never reads the viewer it resolves.
 	mux.HandleFunc("GET /reports/{slug}", a.readReport)
+	// The public write a reader uses to vote: a signed-in reader sets their
+	// vote. It is behind cross-origin protection and Identify like every route.
+	// POST /auth/logout, registered by a.auth.Routes below, is the other public
+	// POST.
+	mux.HandleFunc("POST /reports/{slug}/vote", a.vote)
 	mux.HandleFunc("GET /raw/{slug}", a.readRaw)
 	mux.HandleFunc("GET /healthz", a.healthz)
 	staticSub, err := fs.Sub(staticFS, "static")

@@ -1,0 +1,359 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-004",
+ "title": "Reader signs in with GitHub from a report, comes back to it, and gives a thumbs up or down they can change or withdraw; likes are public, dislikes owner-only",
+ "status": "active",
+ "branch": "slice/SL-004",
+ "opened_at": "2026-11-23T20:12:48.245Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C3: A signed-in reader can give a report a thumbs up or a thumbs down; an anonymous reader cannot vote: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4: One vote per reader per report: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C5: A reader can change their vote (up ↔ down): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C6: A reader can withdraw their vote: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C7: The like count is shown publicly on the report page: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C8: The dislike count is shown only to the author (pinned owner), never to anonymous or non-owner readers: missing"
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Auth seam: practice's IdentifyErr(ctx) error vs crossdomain's Participant(ctx) (Viewer, error). Chose Participant: one call returns all three outcomes."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Anonymous vote POST: crossdomain's 303 into sign-in vs practice's 303 back to the report. Chose the report: the repo records that form-action 'self' blocks a form submission redirected to the identity provider, and a different measured answer would not change the design."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Vote button state: practice's aria-pressed vs crossdomain's 'Your vote: …' sentence with no toggle semantics. Chose the sentence."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Schema shape: crossdomain's WITHOUT ROWID plus a (report_id, kind) index vs practice's plain STRICT table. Chose plain; the PK prefix serves the count."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Names: column vote vs kind (chose kind); Book vs Box (chose Book); ForReader/ForOwner vs Public/OwnerTally (chose Public/OwnerTally); ErrNoReport vs ErrNotOpen (chose ErrNotOpen)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Anonymous prompt: crossdomain's second 'Sign in with GitHub to vote' anchor vs nothing (practice) vs plain hint text (chosen), which leaves the anchor-based tests alone."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Privacy oracle: practice's 'no number beside a dislike label' scan vs crossdomain's two-run noninterference comparison. Chose the comparison; the scan already lives in the finish-line test."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The decided testing stack in the project's record still says the default Edge path is used when HBAND_TEST_BROWSER is unset. The code no longer does that, so the record entry is stale and a person or the architecture owner should update it."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: The build account for O-018 (m4, waived to N-028) says no quiet rows were added for FROM \"votes\" and FROM main.votes. The tree has them: rule_spellings.json rows vote-sql-q004 and vote-sql-q005 pin exactly those spellings as known-quiet."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/fitnessrules/testdata/rule_spellings.json: read in round one by parsing it with python -I json (lesson #945), not with Read, and limited to the rows, rules_under_test and bounded_by entries of the three SL-004 rules. The file is not in this round's diff."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: .taad/fitness.yaml: only the SL-004 hunk (lines 226-271) was read, through git diff in round one. The file is not in this round's diff."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The deployed service: the home-server container behind the VPS reverse proxy over WireGuard. Not checked: real https, __Host- Secure cookies and X-Forwarded-* as the proxy actually sends them; whether the proxy caches the personalised /reports/<slug> or / with the reader's 'Your vote' line (Q-007 is still open; the pages send Cache-Control 'private, no-cache' and the vote POST sends no-store)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A real GitHub OAuth round trip. Only the stand-in GitHub in the acceptance test and the fakegithub test helper were used."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A signed-in person pressing Thumbs up / Thumbs down / Take back my vote in a real browser. That would check form-action 'self', a SameSite=Lax cookie on the same-site POST, the Sec-Fetch-Site the browser really sends, and the 303 back to /reports/<slug>#votes landing on the votes section. HTTP-level simulation only."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Migration 0003 run on the real production database at user_version 2. Tested only on a synthetic existing database (TestVotesMigrationOnAnExistingDatabase)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Browsers other than Chrome (Firefox, Safari, phones), and narrow or light-scheme layouts of the new votes block."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: foreign_keys on serving connections opened later in a long-running process, after idle expiry or a reconnect (N-026, from the spike). Not measurable here."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: Design case 14's check command (`go test -count=1 -run '^TestReportScriptsNeverRun$' ./internal/server/`) and the whole-suite command start headless Edge, because headless.Browser (internal/testutil/headless/headless.go:37-41, 57-61) returns the first msedge.exe path when HBAND_TEST_BROWSER is unset. The engine had measured Edge as not to be started on this machine (the new profile signs in to the Microsoft account and imports old history). None of the three critique passes asked what a design's `check` commands launch. A check could be written from it: for every case `check`, grep the named test for headless.Browser and require the command to set HBAND_TEST_BROWSER or the default to be non-Edge."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The CC-001 check (equivalent mechanisms and syntax variants) was applied only to rule 2's quoting and view holes. Plain uppercase SQL still got past two of the three new rules: rule 2 missed `FROM reports r, votes v` and `UPDATE OR IGNORE votes`, and rule 3 missed SAVEPOINT (a deferred transaction, the pattern the spike measured failing) and lowercase `begin`. Rule 3's `because` also named no known hole, which the design's own Fitness component requires."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: Critique #1 said in its prose that it could not check test_e003_1 (not in the tree, lesson #928), but filed no finding. The design therefore stayed unsourced on four facts that decide its privacy architecture: where the owner's dislike count is read (/admin/reports/<slug>), the links[0] sign-in anchor, the button labels and the anonymous-POST expectation. A person had to approve a design whose key facts nobody had read."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design's case matrix named only the identity-lookup and votes-read failures. It left out the vote handler's PublishedBySlug non-ErrNotFound branch (internal/server/vote.go:41-44, 503). A regression there would make every report look deleted, and no case exercised it. TestVoteIdentityUnavailable's closed-store subtest always fails at Participant first."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does a real browser let a signed-in reader's vote POST through, and does the 303 to /reports/<slug>#votes land on the votes section? That needs CSP form-action 'self', the SameSite=Lax sid cookie on a same-site POST, and the real Sec-Fetch-Site header to all behave as the HTTP-level tests assume. Nothing so far has used a real browser for it."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does migration 0003_votes.sql apply cleanly to the real production database at user_version 2 (home-server container)? Only a synthetic existing database was tested (TestVotesMigrationOnAnExistingDatabase), and the production data is not reachable from this machine."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Edge was started on the person's machine at least twice despite the engine knowing it must not be: the builder's first full suite run, and a code-review mutation run. The build-check's own 13.8 s TestReportScriptsNeverRun run recorded no browser variable, so it may have started Edge too (unconfirmed). Nothing before code-review round 1 caught it. The design's case-14 check command ran the browser test with no HBAND_TEST_BROWSER, and three critique passes did not notice. The fix (build #2, code-review #2 and #3) was a different slice's defect and cost three extra laps."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The decided testing stack still says the default Edge path is used when HBAND_TEST_BROWSER is unset. The code no longer does that, so the record is stale. It was the source of the defect and has not been corrected."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Critique ran 3 times and critique-review 2. The rules were designed with holes that only the second reviewer found. CC-001 was applied to one of three new fitness rules, so rule 2 missed comma joins and UPDATE OR <conflict> votes, and rule 3 missed SAVEPOINT and lowercase begin. The design also leaned on the contents of test_e003_1 without sourcing any of it, and critique #1 said so in prose but filed no finding."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Five accepted-pending minors were waived to notes (N-028, N-029, N-030, N-031, N-032). The m4 content landed through M-add-1's build anyway, so O-018's 'waived' and the builder's 'not built' contradict the tree (vote-sql-q004 and q005 in rule_spellings.json). The code-review caught the drift."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Code-review #1 left 5 of 18 changed files not read whole, by the engine's own measurement of its tool record. They included .taad/fitness.yaml and rule_spellings.json, which hold the privacy fences. Round 2 still read only the SL-004 hunk of fitness.yaml and read rule_spellings.json through a JSON parse. That is the thing lesson #935 says never to allow."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The slice was opened medium and never re-sized after build-check showed 6 of 8 criteria missing. It then touched 22 files in build #1."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The kind CHECK in 0003 was pinned by no test, and the migration test's 'sideways' row failed on the users foreign key (github_id 8 was never inserted), not on the CHECK. The vote handler's report-lookup 503 branch was untested. Both were found only by code-review mutations and waived (N-032, N-030)."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T22:56:19.301Z",
+     "head": "38e2b223b677051e148f8be4f1c6d20dfcdc20ef",
+     "summary": "Both proposals agree on the data model, and both match the tree: one STRICT votes row per (reports.id, users.github_id), withdrawing deletes the row, the wire carries the reader's desired state (up|down|none), every write is a single statement, counts are computed on read, and the dislike count appears only on the owner-gated /admin/reports/<slug>.",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T23:14:42.332Z",
+     "head": "38e2b223b677051e148f8be4f1c6d20dfcdc20ef",
+     "summary": "The design is sound in its substance, and I checked it against the tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T23:23:24.992Z",
+     "head": "38e2b223b677051e148f8be4f1c6d20dfcdc20ef",
+     "summary": "All four first-pass findings are real and correctly filed as minor.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T23:32:23.968Z",
+     "head": "cc05875fb54e5d35b1dcb87cdf82562991abbb7c",
+     "summary": "I built the voting feature as designed.",
+     "caused_by": null,
+     "changed": {
+      "src": 16,
+      "config": 1,
+      "tests": 1,
+      "listed": 18,
+      "measured_by_git": 22
+     },
+     "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T23:56:58.562Z",
+     "head": "94486f56abd6ceff69dafb64c8e304317014884d",
+     "summary": "I took Microsoft Edge out of the headless test helper's default browser list in `internal/testutil/headless/headless.go`.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "2 obligation(s) landed on this stage after it passed (O-021, O-022), so nothing downstream was ever going to carry them out and the merge would have refused. Sent back with what raised them: O-021 (fix): M1 (major): internal/testutil/headless.Browser falls back to Microsoft Edge whenever HBAND_TEST_BROWSER is unset. So the project's whole-suite command `go test -count=1 ./...`, and case 14's check command `go test -count=1 -run '^TestReportScriptsNeverRun$' ./internal/server/`, start msedge.exe on this machine. The engine has measured Edge as not to be started here: at its first run it signs the profile in to the Windows Microsoft account and imports the person's old IE/Edge Legacy history. That has now happened on two runs: the builder's first full suite and one of this review's mutation runs. This slice depends on that test as its case-14 oracle, so every engine run of the case can start Edge. The project's decided testing stack says 'otherwise the default Edge path is used'. That decision predates the measurement and is outranked by it. Remove the Edge paths from defaultBrowsers. Either make the unset case skip with its message, or default to another Chromium-family browser such as the installed Chrome. Update the doc comment on Browser to match. [shown by a failing run] The engine ran the code review's test for this, internal/testutil/headless/edge_default_test.go, with `go test -count=1 -run ^TestBrowserNeverDefaultsToEdge$ ./internal/testutil/headless/`, and it FAILED. Put that test at internal/testutil/headless/edge_default_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestBrowserNeverDefaultsToEdge$ ./internal/testutil/headless/` again in your tree, and that run is what closes this; your word does not. The test: package headless import ( \"strings\" \"testing\" ) // Microsoft Edge must never be started by default on this machine: its first // run signs the profile in with the Windows Microsoft account and imports the // person's old browsing history. With HBAND_TEST_BROWSER unset, Browser must // skip or pick another Chromium-family browser, never Edge. func TestBrowserNeverDefaultsToEdge(t *testing.T) { t.Setenv(\"HBAND_TEST_BROWSER\", \"\") got := Browser(t) if strings.Contains(strings.ToLower(got), \"msedge\") { t.Fatalf(\"with HBAND_TEST_BROWSER unset, Browser chose %q: Edge must not be started by default\", got) } } O-022 (fix): IN-M1 (major): When HBAND_TEST_BROWSER is unset, Browser falls back to the Edge install paths in defaultBrowsers and returns C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe on this machine (measured). So TestReportScriptsNeverRun starts Edge every time the case-14 check (`go test -count=1 -run '^TestReportScriptsNeverRun$' ./internal/server/`) or the project's whole-suite command `go test -count=1 ./...` runs without the variable. The engine forbids starting Edge here: a new Edge profile is signed in to the Windows Microsoft account and silently imports the person's old browsing history. The builder's first full run of this slice did exactly that. The variable's unset value is the input the code gets wrong. Take the msedge.exe entries out of defaultBrowsers. Either list only other Chromium-family install paths (for example C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe and its (x86) twin), or leave the list empty so an unset HBAND_TEST_BROWSER always skips. Change the doc comment (lines 13-16) and the skip message (line 62, which suggests msedge.exe) to match. [shown by a failing run] The engine ran the code review's test for this, internal/testutil/headless/default_browser_test.go, with `go test -count=1 -run ^TestDefaultBrowserIsNeverEdge$ ./internal/testutil/headless/`, and it FAILED. Put that test at internal/testutil/headless/default_browser_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestDefaultBrowserIsNeverEdge$ ./internal/testutil/headless/` again in your tree, and that run is what closes this; your word does not. The test: package headless import ( \"path/filepath\" \"strings\" \"testing\" ) // With HBAND_TEST_BROWSER unset the default must never be Microsoft Edge: on // this machine a new Edge profile is signed in to the Windows Microsoft account // and imports the person's old browsing history at first run. Browser only // looks the path up here; nothing is started. func TestDefaultBrowserIsNeverEdge(t *testing.T) { t.Setenv(\"HBAND_TEST_BROWSER\", \"\") p := Browser(t) if strings.EqualFold(filepath.Base(p), \"msedge.exe\") { t.Fatalf(\"HBAND_TEST_BROWSER unset, and Browser chose Edge by default: %s\", p) } }",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-021",
+       "O-022",
+       "O-023",
+       "O-024",
+       "O-025"
+      ]
+     },
+     "changed": {
+      "tests": 3,
+      "listed": 3,
+      "measured_by_git": 7
+     },
+     "details": "build-slice-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-23T23:48:07.456Z",
+     "head": "cc05875fb54e5d35b1dcb87cdf82562991abbb7c",
+     "summary": "The voting feature matches the design.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-23T23:59:17.652Z",
+     "head": "94486f56abd6ceff69dafb64c8e304317014884d",
+     "summary": "Stale re-review: the tree moved, so I read the diff from cc05875 to the current tree.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-23T23:56:57.014Z, and build-slice has judged since (2026-11-23T23:58:43.986Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T00:02:53.112Z",
+     "head": "d9149c8d403e3360c08417be35b4034b1c3cef93",
+     "summary": "All 14 design acceptance criteria are met on this tree, at code contact.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "reflect",
+   "title": "Reflect",
+   "order": 10,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T00:08:03.533Z",
+     "head": "d9149c8d403e3360c08417be35b4034b1c3cef93",
+     "summary": "SL-004 built the voting half of the SC-010/SC-009 merge.",
+     "caused_by": null,
+     "changed": {},
+     "details": "reflect-1.json"
+    }
+   ]
+  }
+ ]
+}

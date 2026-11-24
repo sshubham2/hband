@@ -1,0 +1,202 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-004",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-23T23:14:42.332Z",
+ "head": "38e2b223b677051e148f8be4f1c6d20dfcdc20ef",
+ "run_id": 11759,
+ "summary": "The design is sound in its substance, and I checked it against the tree. The schema keys on reports.id, which the spike measured as stable. Each write is a single statement, which the spike measured. Cast's INSERT…SELECT re-checks the published status in the same statement that writes. The handler looks the report up before checking who is signed in, which keeps hidden slugs from being an oracle. Every redirect goes through auth.SeeOther to a Location that is the same for every outcome; LocalPath accepts '#'. Reader pages get only PublicView. The vote form and redirect are forced by TestReaderPagesShareOneLayout. The outside claims Cast depends on hold. sqlite.org/lang_upsert.html shows the parsing-ambiguity rule (put a WHERE on the SELECT), and Cast already has one. Per sqlite.work, sqlite3_changes() \"always returns 1 when using the UPSERT clause\", so a second press of the same vote does not look like ErrNotOpen. The reports write transactions all begin with a write, so votes add no new BUSY_SNAPSHOT exposure for the owner's actions.\n\nFour findings, none a blocker or major.\n- One minor defect: the privacy check's observer set leaves out the owner's own reader pages. A dislike field added to PublicView and rendered only under IsOwner would therefore pass every guard. This contradicts the rule's own claim that TestDislikesDoNotInterfere catches that hole, and the design's decision that no reader page carries the count, the owner's included.\n- Three minor extras:\n  - The must-verify route list holds only as long as later slices remember to extend it (it omits /raw, /auth and /healthz even today).\n  - Participant does not stop a later write handler from calling ViewerFrom.\n  - The SQL-confinement rule's bounded_by does not name quoted or schema-qualified table names, or SQL views in migrations (CC-001).\n\nI could not check the finish-line test test_e003_1. It is not in the tree (lesson #928), and I have no shell to SELECT its body from the ledger read-only. So I have not verified the design's assumptions about its selectors, button labels, its anonymous-POST expectation, or where it looks for the owner's dislike count. Settling that needs a read-only SELECT of the E-003 acceptance body.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The design is sound in its substance, and I checked it against the tree. The schema keys on reports.id, which the spike measured as stable. Each write is a single statement, which the spike measured. Cast's INSERT…SELECT re-checks the published status in the same statement that writes. The handler looks the report up before checking who is signed in, which keeps hidden slugs from being an oracle. Every redirect goes through auth.SeeOther to a Location that is the same for every outcome; LocalPath accepts '#'. Reader pages get only PublicView. The vote form and redirect are forced by TestReaderPagesShareOneLayout. The outside claims Cast depends on hold. sqlite.org/lang_upsert.html shows the parsing-ambiguity rule (put a WHERE on the SELECT), and Cast already has one. Per sqlite.work, sqlite3_changes() \"always returns 1 when using the UPSERT clause\", so a second press of the same vote does not look like ErrNotOpen. The reports write transactions all begin with a write, so votes add no new BUSY_SNAPSHOT exposure for the owner's actions.\n\nFour findings, none a blocker or major.\n- One minor defect: the privacy check's observer set leaves out the owner's own reader pages. A dislike field added to PublicView and rendered only under IsOwner would therefore pass every guard. This contradicts the rule's own claim that TestDislikesDoNotInterfere catches that hole, and the design's decision that no reader page carries the count, the owner's included.\n- Three minor extras:\n  - The must-verify route list holds only as long as later slices remember to extend it (it omits /raw, /auth and /healthz even today).\n  - Participant does not stop a later write handler from calling ViewerFrom.\n  - The SQL-confinement rule's bounded_by does not name quoted or schema-qualified table names, or SQL views in migrations (CC-001).\n\nI could not check the finish-line test test_e003_1. It is not in the tree (lesson #928), and I have no shell to SELECT its body from the ledger read-only. So I have not verified the design's assumptions about its selectors, button labels, its anonymous-POST expectation, or where it looks for the owner's dislike count. Settling that needs a read-only SELECT of the E-003 acceptance body.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "TestDislikesDoNotInterfere observes only non-owners on reader pages (anonymous, a non-owner who has not voted, a non-owner who voted up). The owner observes only /admin/reports/x. So nothing checks the design's decision that 'The dislike count reaches no reader page, the owner's included'. Suppose a later edit adds a Dislikes field to PublicView inside internal/votes (where neither token rule applies) and renders it in report.html under {{if .Viewer.IsOwner}}. Then: the non-owner observations do not change, so the two-run test passes; OwnerTally is never called, so rule 1 is quiet; the SQL is inside internal/votes, so rule 2 is quiet. The owner's reader page, served on the personalised path that Q-007 is still open about, now carries the count. That reverses the design's reason for the type split: 'makes privacy independent of the open proxy-caching question (Q-007)'. The rule's because text, already written into fitness.yaml, says the test catches exactly this hole. It does so only when the rendering is not gated.",
+    "evidence": "Design case 'show dislikes only to the author': 'an anonymous visitor, a non-voting non-owner and an up-voting non-owner observe /, /reports/x, /reports/y, /reports, /admin, /admin/reports/x ...; the owner observes /admin/reports/x'. Key decision: 'The dislike count reaches no reader page, the owner's included.' .taad/fitness.yaml:232-236, the because of rule 1.",
+    "file": ".taad/fitness.yaml",
+    "line": 235,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 235,
+     "text": "PublicView inside internal/votes. TestDislikesDoNotInterfere catches that; this rule does"
+    },
+    "fix": "Add the owner as an observer of /, /reports/x and /reports/y in TestDislikesDoNotInterfere. The owner's reader pages must be byte-identical before and after the other readers' down votes, as the non-owners' are. The owner's /admin/reports/x stays the sensitivity control that must change. The owner casts no vote between the two recordings, so the determinism precondition still holds."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "extra",
+    "claim": "The precondition the cross-domain transfer marked must-verify ('the observed route list covers every route a non-owner can reach') holds only as long as later slices remember to extend a hand-written list. It is already false today: the list omits GET /raw/{slug}, /healthz, /static/ and the /auth/github/* routes. None of those reads votes now, so this slice is not leaking. What breaks if it stays false: the show-all page (a project constraint) or the comments slice adds a public route that ranks or annotates by a vote-derived value, such as a net score from a new Book method inside internal/votes where no fence applies. TestDislikesDoNotInterfere does not observe that route, and the leak ships with every guard green. Lesson #944 records the same failure for the access matrix: reader routes did not join it automatically. The house already has the by-construction form for admin routes, a table that the tests enumerate.",
+    "evidence": "Design cross_domain_transfer invariant 5: 'ServeMux cannot enumerate its routes, so the test lists them by hand ... A later slice that adds a public page ... must add it to the list'. router.go registers its public routes inline. The admin routes are a table that tests enumerate (admin.go:13-16).",
+    "file": "internal/server/admin.go",
+    "line": 15,
+    "quote": {
+     "path": "internal/server/admin.go",
+     "line": 15,
+     "text": "// only behind auth.RequireOwner. Tests enumerate it, so a new row joins the"
+    },
+    "fix": "Register the public reader routes (/, /reports/{slug}, /raw/{slug} and the new POST /reports/{slug}/vote) from a publicRoutes table in router.go, as adminRoutes are registered. TestDislikesDoNotInterfere then iterates that table, filling {slug} with x and y, plus the admin paths, so a route a later slice adds is observed without anyone editing the test. If that is too much for this slice, file it for the show-all or comments slice."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "extra",
+    "claim": "The design says it chose Participant because 'one call returns all three outcomes, so a handler cannot read ViewerFrom and forget the error'. That is not true by construction. ViewerFrom stays exported and documented as 'the read API for later blocks', and nothing stops the next public write handler (SC-011 comments) from calling it. That handler would treat a store outage as an anonymous visitor: a 303 back to the report with the write silently dropped, instead of a 503. Only remembering keeps the invariant, across every later write handler.",
+    "evidence": "Design selection_rationale (2) and key decision 'auth gains only Participant'. internal/auth/session.go:59-64 exports ViewerFrom for later blocks. Today it is called only from internal/server/reader.go:97 and internal/server/admin.go:60.",
+    "file": "internal/auth/session.go",
+    "line": 59,
+    "quote": {
+     "path": "internal/auth/session.go",
+     "line": 59,
+     "text": "// ViewerFrom is the read API for later blocks: ok is false for anonymous"
+    },
+    "fix": "Add a token rule in the house idiom (as for BySlug/ListAll and OpenRaw): must_not_match '\\bViewerFrom\\b' in **/*.go, except internal/auth/**, internal/server/reader.go, internal/server/admin.go and **/*_test.go. Its because: any handler that acts on the visitor must use auth.Participant so that a store outage is a 503. Add one fire row and one quiet row in rule_spellings.json."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "extra",
+    "claim": "Under CC-001 (equivalent mechanisms and syntax variants), the rule 'only internal/votes writes SQL on the votes table' has holes that its bounded_by does not name. It names only lower-case SQL and a concatenated table name. It also misses a quoted identifier (FROM \\\"votes\\\" written inside a Go string), a schema-qualified one (FROM main.votes), and, most importantly, the equivalent mechanism outside its glob: a later internal/store/migrations/*.sql that does CREATE VIEW ... AS SELECT ... FROM votes, or a trigger. Go code anywhere could then read dislikes FROM that view without the token 'votes' appearing in any .go file, bypassing both PublicView and the OwnerTally fence. Following #939, the remedy is to name the hole, not to chase every spelling.",
+    "evidence": ".taad/fitness.yaml:241-251. files is '**/*.go' only, and the pattern requires the bare name immediately after the keyword.",
+    "file": ".taad/fitness.yaml",
+    "line": 244,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 244,
+     "text": "- \\b(FROM|INTO|UPDATE|JOIN)\\s+votes\\b"
+    },
+    "fix": "Extend the rule's bounded_by entry in rule_spellings.json and its because text to name quoted and schema-qualified identifiers and SQL views or triggers created in later migrations. Optionally add one quiet row each that pins FROM \\\"votes\\\" and FROM main.votes as known-quiet (the frametok-q004 idiom), so whoever closes the hole later flips those rows to fire."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "Checked the load-bearing recalled claims. (a) The UPSERT parsing ambiguity: sqlite.org/lang_upsert.html §2.2 shows 'INSERT INTO t1 SELECT * FROM t2 WHERE true ON CONFLICT...', so a WHERE is needed, and Cast's SELECT has 'WHERE id = ? AND status = ...'. (b) RowsAffected on DO UPDATE: sqlite.work ('Identifying Insert vs. Update in SQLite UPSERT Operations') says sqlite3_changes() 'always returns 1 when using the UPSERT clause', so a second press of the same vote does not become ErrNotOpen. (c) That a single autocommit write statement waits on busy_timeout: this follows from the same OP_Transaction write-begin path as the spike-measured INSERT…VALUES, and case 13 holds it. (d) LocalPath accepts '/reports/x#votes': confirmed from next.go:27-47. (e) PublishedBySlug filters on status='published' (reports.go:318-321). (f) Report.ID is int64 (reports.go:42). (g) The harness helpers newHarness, mint, withSID, withHeader, mustUpload, mustAct, count and sameResponse all exist. sameResponse ignores only Date, which supports the determinism precondition. NOT CHECKED: the finish-line test test_e003_1's content (its selectors, button labels, anonymous-POST expectation, and where the owner is expected to read dislikes). It is not in the tree (Glob tests/** finds nothing), and design-slice-1.json quotes none of it. Settling this needs a read-only SELECT of the E-003 acceptance body from the ledger, which this toolset (no shell) cannot run."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "None blocking. The cases cover: a second press of the same vote, a switch, withdrawing with no vote and twice, scoping per reader and per report, a report unpublished between lookup and write (INSERT…SELECT), lifecycle (replace, unpublish/republish, delete), malformed forms (missing, repeated, unknown, query-string only, over 1 KiB), an identity-store outage, a failed votes read, cross-site requests, and odd spellings of the path. A Withdraw racing an unpublish only removes the reader's own row, which is harmless. A missing or multipart Content-Type leaves PostForm empty and answers 400. A reader's own down vote shown to them ('Your vote: thumbs down.') is their own data, not a leak."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "m2: the noninterference route list is hand-maintained, and the precondition marked must-verify is already false (it omits /raw, /auth and /healthz), harmlessly for now. Otherwise the invariants are enforced by construction: the PK makes one vote per reader, the CHECK limits kind to up/down, the type split keeps dislikes out of PublicView, and the no-transaction rule backs the spike's single-statement result."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "none: three fitness rules with corpus rows follow the house idiom (BySlug/ListAll, OpenRaw). Participant is one small function. The concurrency port runs once, at about 3 s. The two-run test is justified by a project privacy constraint with a silent failure mode. The generic-reactions table, counter cache, JS endpoint, extra index and WITHOUT ROWID were all rightly dropped."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "none material. The REST contract states every status, including COP's 403 before the handler and the mux's 405. The vote 404 carries Cache-Control no-store and so differs from the mux-baseline 404 that TestHiddenReportsAreIndistinguishable uses for GET reader routes. It is still identical across draft, unpublished, deleted and unknown slugs, which is the property the design claims, so it is no oracle. I have not checked the UI contract against the unseen finish-line test (see unfounded-assumptions)."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "none: an identity outage gives 503 before the lookup, for every slug. A lookup error gives 503. ErrNotOpen gives the same 404. A Cast or Withdraw error gives 503. A Public error turns the reader page into stateUnavailable (503), never a defaulted '0 likes'. An OwnerTally error gives 500, the admin convention. A template error gives 500 through render's buffer. Each write is a single statement, so a cancelled context or an interrupted statement is atomic."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "none: consistent with the decided stack (std ServeMux patterns, CrossOriginProtection with no CSRF tokens, forward-only NNNN migrations, modernc SQLite with WAL/busy_timeout/foreign_keys). It uses no site JS, which keeps it neutral on the open Q-012. Dislikes are owner-only per the privacy constraint. The merged SC-009 sign-in and return to the report (C1/C2) are reused unchanged."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "m3: Participant does not fence ViewerFrom from later write handlers, despite the design's claim. m4: the votes-SQL rule's bounded_by does not name quoted or qualified identifiers or views and triggers in migrations (CC-001, equivalent mechanism). Existing rules are honoured: redirects only through auth.SeeOther; the handler uses PublishedBySlug and not BySlug (\\.BySlug does not match .PublishedBySlug); no HTML in Go string literals; neutral colours for the blank-found well (#941). No existing Go comment trips the new rules: the only 'votes' mentions are in reports.go:9 and 0002_reports.sql:5, and neither matches."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "m1: the noninterference oracle never observes the owner's reader pages, so the decision that the owner's reader page carries no dislike count is unguarded, and rule 1's because text overclaims. Otherwise each behaviour has a named go test command, including the regression tests for lifecycle and concurrency and the TestReaderPathVariants rows pinned from observation (#934, #944)."
+   },
+   {
+    "dimension": "security",
+    "result": "none beyond m1. CSRF: the route is inside cop.Handler (router.go:88) and the cross-site cases are tested. Open redirect: the Location is built from the stored slug and passes through LocalPath/SeeOther. SQL injection: the SQL is parameterised. Body DoS: MaxBytesReader at 1 KiB. Draft oracle: lookup comes before identity, and every hidden slug gets the same 404. The sandboxed report iframe has no allow-forms, so a report cannot submit a vote. Privacy: dislikes are rendered only behind RequireOwner+OwnerRoute (no-store). Timing channels are explicitly accepted as out of scope."
+   }
+  ]
+ },
+ "prescribed": {
+  "host": 681,
+  "at": "2026-11-23T23:29:06.901Z",
+  "runs": [
+   {
+    "run_id": 11763,
+    "resumed_from": "221d4871-db9b-4873-85c4-275d73c1a741",
+    "ending": "completed",
+    "cost_usd": 1.0988289999999994,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 1970,
+    "key": "M-add-1",
+    "digest": "5ea97490393b66ce"
+   },
+   {
+    "finding_id": 1971,
+    "key": "M-add-2",
+    "digest": "95b8d254132e196c"
+   },
+   {
+    "finding_id": 1966,
+    "key": "m1",
+    "digest": "ec58df17d7adab46"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 1970,
+    "key": "M-add-1",
+    "digest": "5ea97490393b66ce",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read internal/fitnessrules/rules_test.go whole:\n- globRegexp at 115-136: 'internal/votes/**/*.go' becomes ^internal/votes/(?:.*/)?[^/]*\\.go$, so it does match internal/votes/votes.go.\n- fires at 152-180: each pattern is compiled separately with Go regexp over the raw text, comments included, so an inline (?i) works.\n- The corpus row loop at 234-237: an empty path defaults to \"internal/server/x.go\".\n- The YAML item parser at 104-105: unquoted patterns like the proposed ones parse.\n\nRead .taad/fitness.yaml 241-261: rules 2 and 3 are exactly as the design wrote them.\n\nRan each proposed and existing pattern by hand against these spellings: FROM reports r, votes v; UPDATE OR IGNORE votes; INSERT OR REPLACE INTO votes; REPLACE INTO votes; DELETE FROM votes; LEFT JOIN votes; conn.ExecContext(ctx, \"SAVEPOINT s\"); \"begin\"; \"begins\"; .BeginTx(; and a *sql.Tx parameter.",
+    "why": "The new patterns do catch SAVEPOINT, lowercase begin and UPDATE OR <x> votes. \\bbegin\\b does not fire on 'begins' or on BeginTx. Three gaps remain.\n\n(1) Corpus path. The prescription says nothing about the corpus row path for rule 3. A row with no path is evaluated at internal/server/x.go, which rule 3's files glob excludes. A fire row written that way fails loudly. A quiet row written that way passes for the wrong reason: the rule never applied to it. Rule 3's quiet rows would then pin nothing.\n\n(2) Caller-supplied transaction. Rule 3 only sees tokens inside internal/votes. Suppose a later Book method takes a caller's *sql.Tx, for example a comment slice that wants 'post and upvote atomically', and does its read then write inside it. That is the deferred read-then-write upgrade the spike measured failing with 215-253 BUSY errors per run. The transaction would be opened by internal/server, which no rule fences. internal/votes would contain no Begin, BEGIN or SAVEPOINT token at all. 'The remaining holes for rule 3' does not name this one.\n\n(3) Comma joins. The finding itself calls the comma join the likely shape of a show-all ranking query and the m2 leak scenario. The prescription leaves it known-quiet, and nothing else covers it: the route list of the noninterference test does not observe pages that later slices add. The only reason given for not closing it is that a bare ',\\s*votes\\b' fires on f(w, votes). A pattern anchored on the SQL keyword avoids that.",
+    "instead": "Keep the prescription, plus three changes.\n\n(a) Give every rule-3 corpus row (fire and quiet) path \"internal/votes/votes.go\". Add a quiet row whose text has a word like 'begins', to prove the (?i) word boundary.\n\n(b) Add \\bsql\\.Tx\\b to rule 3's must_not_match: Book has no reason to name *sql.Tx. Add one fire row: func (b *Book) castIn(tx *sql.Tx, ...).\n\n(c) For rule 2, add the pattern \\bFROM\\b[^\"`;]*,\\s*votes\\b. It needs an uppercase FROM earlier in the same string literal: a quote, backtick or semicolon ends the match, so f(w, votes) stays quiet. Add a fire row for \"SELECT r.id FROM reports r, votes v WHERE v.report_id = r.id\" and a quiet row for \"render(w, votes)\". Keep quoted and schema-qualified identifiers and views as bounded_by entries."
+   },
+   {
+    "finding_id": 1971,
+    "key": "M-add-2",
+    "digest": "95b8d254132e196c",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "- Glob tests/** finds nothing: tests/ does not exist on this tree, and HEAD is uat after SL-003.\n- Grep for acceptance references outside .taad/slices: the only hits are rule_spellings.json:152 (path tests/acceptance/harness/page.go), cmd/hband/main_test.go:302 ('the finish line's environment shape') and admin_test.go:344. So the finish-line harness has existed somewhere, but it was never committed.\n- Read .taad/slices/SL-004/index.json and grepped design-slice-1.json: it quotes no line of test_e003_1, and it is the only record of beside() and links[0].\n- Lesson #928: for SL-001 the e001 finish-line tests 'were never in the tree for any stage'.\n- I could not read the ledger's E-003 epic row or find out when the engine plants the test: I had no shell for a read-only SELECT.",
+    "why": "(1) No fallback when the test is absent. The build is told to 'read the planted test_e003_1 before writing the admin tally'. The start state seen on this project so far is that the test is not in the worktree: tests/ is absent now, and #928 recorded the same for SL-001. If the engine plants it only at validate, the builder has nothing to read. The prescription then does nothing, and the premortem scenario (rework after the build) is unchanged. The fix as filed sent facts to the E-003 epic row, where a read-only SELECT could settle them. The triaged version dropped that source.\n\n(2) Only (c) has a disposition. Suppose the test expects an anonymous POST to answer 303 into /auth/github/login, the crossdomain alternative the design rejected. That is a person-approved contract against a design decision, and the builder is given no route. Improvising there either breaks the finish line or reverses the form-action decision without design.\n\n(3) The trigger for (c) is too broad. Say the test reads the owner's dislike count on another owner-gated page, such as the /admin list. That page is also in admin.go, which rule 1 excepts, and it sits behind RequireOwner and no-store. It needs no change to PublicView or to the privacy architecture. Yet 'anywhere other than /admin/reports/<slug>' sends the slice back to design-slice for a change the builder could make inside the design.",
+    "instead": "Order of sources at build start:\n1. If tests/acceptance/test_e003_1* is in the worktree, read it.\n2. Otherwise, read the E-003 epic's acceptance body from the ledger in place: file:<engine.db>?mode=ro, SELECT only, nothing copied.\n3. If neither is available, record that facts (a) to (d) are unconfirmed and that the build proceeds on the design's account. Do not report them as checked.\n\nGo back to design-slice when:\n- (c) shows the owner's dislike count expected on any page that a non-RequireOwner route serves: /, /reports/<slug>, or any other reader page.\n- (d) shows that the anonymous-POST behaviour the test expects differs from the 303 back to /reports/<slug>#votes.\n\nAdjust in the build, inside admin.go and the templates:\n- an owner-gated admin page other than /admin/reports/<slug>;\n- markup, labels and selectors."
+   },
+   {
+    "finding_id": 1966,
+    "key": "m1",
+    "digest": "ec58df17d7adab46",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "- layout.html 9-12: with SignedIn, the owner sees 'Signed in as @login', the Admin link (only when .Viewer.IsOwner) and the logout form. There is no per-request token: CrossOriginProtection uses no CSRF token, and siteCSP is a constant (router.go:29-31).\n- reader.go 96-117: renderReader builds from the row and the Viewer only, and Cache-Control is constant.\n- reader_test.go 34-60: sameResponse and headerSig ignore only Date.\n- harness_test.go 72-211: the clock is fixed. mint signs in through store.SignIn with an empty AvatarURL. withSID sets the cookie. serve uses httptest directly. rebuild can swap the owner.\n\nConclusion: the owner's reader pages are deterministic across the two recordings, so the prescription can be built and will not flake. Minting the down-voting readers between the recordings writes only users and sessions, which the owner's page does not show.",
+    "why": "The check targets exactly the case where rendering is gated on IsOwner, but nothing proves that the owner's reader GETs are drawn with IsOwner true. Suppose the observation uses a sid that resolves as anonymous or non-owner: a different variable, a cookie for a session that has since expired or been replaced, or a handler rebuilt with another owner through h.rebuild. Then the reader pages show no IsOwner branch, stay byte-identical, and the test passes without testing anything, which is the failure the design's sensitivity controls exist to prevent. The /admin/reports/x control does not settle it, because the prescription does not require the reader GETs to use the same sid. Even with the same sid, it proves the session at the admin request, not at each reader request.",
+    "instead": "As prescribed, plus a check that the observation is real. In both recordings, each owner GET of /, /reports/x and /reports/y must contain `<a href=\"/admin\">Admin</a>` and 'Signed in as @<owner login>', or the test fails as INVALID. Use the same sid value for those GETs and for the /admin/reports/x sensitivity control, minted once from testOwnerID before the first recording."
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:1970",
+   "finding:1971",
+   "finding:1966"
+  ],
+  "counts": {
+   "holds": 0,
+   "hole": 3,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "All three prescriptions can be built, and each one fixes what it targets. Each also leaves a small gap. Nothing here blocks the slice.\n\n- **M-add-1 (fitness rules 2 and 3):** the default corpus path is internal/server/x.go (rules_test.go:234-237). Rule 3 only covers internal/votes/**/*.go, so a quiet row for it written without a path passes without testing anything. Rule 3 also misses a transaction that a caller opens and passes into internal/votes. The comma join is left open even though the finding itself calls it the likely leak, and a cheap pattern anchored on FROM would close it without firing on f(w, votes).\n- **M-add-2 (finish-line test):** its only source is \"the planted test\". tests/ is absent from this tree, and lesson #928 says the finish-line tests were never in the tree, so there may be nothing to read. It gives a route back to design only for fact (c). The trigger \"anywhere other than /admin/reports/<slug>\" is too broad: another owner-gated admin page would send the slice back to design for nothing.\n- **m1 (owner as observer):** it can be built as written and the result is deterministic. The owner's reader page has no per-request value, and sameResponse ignores only Date. But no check proves that the owner's reader GETs are actually drawn with IsOwner set, so a wrong or stale cookie would pass without testing anything.\n\nNot checked: when the engine plants test_e003_1, and whether the E-003 epic row has a body. I had no shell, so I could not read the ledger read-only.",
+  "why": "",
+  "round": "landed"
+ }
+}

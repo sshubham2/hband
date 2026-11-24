@@ -114,7 +114,7 @@ func TestLocalPathCorpus(t *testing.T) {
 			t.Errorf("LocalPath(%q) = %q, %v; want \"/\", false", s, got, ok)
 		}
 	}
-	good := []string{"/", "/admin", "/admin/", "/reports/a-b?x=1", "/a//b", "/..//evil.example", "/%2e%2e/x", "/a?next=%2Fb",
+	good := []string{"/", "/admin", "/admin/", "/reports/a-b?x=1", "/reports/a-b#votes", "/a//b", "/..//evil.example", "/%2e%2e/x", "/a?next=%2Fb",
 		"/" + strings.Repeat("a", 511)}
 	for _, s := range good {
 		if got, ok := LocalPath(s); !ok || got != s {
