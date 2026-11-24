@@ -396,6 +396,38 @@ func TestBinary(t *testing.T) {
 		}
 	})
 
+	// HBAND_TRUSTED_PROXIES (SL-013): a malformed value stops startup with exit 2,
+	// names the variable and never echoes the value; unset, the shipped default,
+	// trusts nobody and the program serves, the show-all page included.
+	t.Run("a malformed HBAND_TRUSTED_PROXIES is refused, and unset is served", func(t *testing.T) {
+		for _, bad := range []string{"proxy.example.test", "10.0.0.1,", "10.0.0.0/0", "fe80::1%eth0", "10.0.0.0/33"} {
+			env := baseEnv(t.TempDir(), freeAddr(t))
+			env["HBAND_TRUSTED_PROXIES"] = bad
+			p := startProc(t, bin, env)
+			if code := p.waitExit(t, 10*time.Second); code != 2 {
+				t.Fatalf("HBAND_TRUSTED_PROXIES=%q: exit code %d, want 2: %s", bad, code, p.out.String())
+			}
+			out := p.out.String()
+			if !strings.Contains(out, "HBAND_TRUSTED_PROXIES") || strings.Contains(out, bad) || strings.Contains(out, secretMarker) || strings.Contains(out, "listening") {
+				t.Fatalf("HBAND_TRUSTED_PROXIES=%q: unexpected output: %s", bad, out)
+			}
+		}
+		addr := freeAddr(t)
+		env := baseEnv(t.TempDir(), addr)
+		if _, set := env["HBAND_TRUSTED_PROXIES"]; set {
+			t.Fatal("the base environment sets HBAND_TRUSTED_PROXIES: this run would not be the shipped default")
+		}
+		p := startProc(t, bin, env)
+		p.waitListening(t)
+		c := browser(addr, false)
+		if status, _, body := fetch(t, c, "http://"+addr+"/healthz"); status != 200 || body != "ok" {
+			t.Fatalf("/healthz with the variable unset: %d %q", status, body)
+		}
+		if status, _, body := fetch(t, c, "http://"+addr+"/reports"); status != 200 || !strings.Contains(body, "No reports yet.") || !strings.Contains(body, "<h1>All reports</h1>") {
+			t.Fatalf("/reports with the variable unset: %d %q", status, body)
+		}
+	})
+
 	// The shipped defaults (#929): no HBAND_DATA_DIR and no HBAND_MAX_UPLOAD_BYTES.
 	// The data directory is ./data under the working directory, the cap is
 	// 26214400, and the whole upload lifecycle works through the real binary.

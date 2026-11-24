@@ -327,6 +327,28 @@ func (l *Library) Latest(ctx context.Context) (Report, error) {
 		"SELECT "+columns+" FROM reports WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT 1"))
 }
 
+// ListPublished returns the published reports only, newest publish date first
+// and highest id first among those published in the same second (the order
+// Latest takes its first row from). A draft, an unpublished report and a deleted
+// one are never in it. It is the show-all list.
+func (l *Library) ListPublished(ctx context.Context) ([]Report, error) {
+	rows, err := l.db.QueryContext(ctx,
+		"SELECT "+columns+" FROM reports WHERE status = 'published' ORDER BY published_at DESC, id DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Report
+	for rows.Next() {
+		r, err := scanReport(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // ListAll returns every report, drafts included, newest id first. It is the
 // admin list.
 func (l *Library) ListAll(ctx context.Context) ([]Report, error) {

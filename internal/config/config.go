@@ -3,13 +3,14 @@
 // Load validates every variable and reports all the bad ones at once. It reads
 // only HBAND_OWNER_GITHUB_ID, HBAND_GITHUB_CLIENT_ID, HBAND_GITHUB_CLIENT_SECRET,
 // HBAND_BASE_URL, HBAND_ADDR, HBAND_DATA_DIR, HBAND_GITHUB_URL,
-// HBAND_GITHUB_API_URL and HBAND_MAX_UPLOAD_BYTES; every other name (including
-// HBAND_TRUSTED_PROXIES, which is left for a later block) is ignored.
+// HBAND_GITHUB_API_URL, HBAND_MAX_UPLOAD_BYTES and HBAND_TRUSTED_PROXIES; every
+// other name is ignored.
 package config
 
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -73,6 +74,12 @@ type Config struct {
 	GitHubAPIURL string
 	// GitHubOverridden is true when either base differs from the production default.
 	GitHubOverridden bool
+
+	// TrustedProxies are the addresses a request may come from for its
+	// X-Forwarded-For header to be believed (HBAND_TRUSTED_PROXIES). Every prefix is
+	// masked and is never /0. Nil when the variable is unset or empty: no peer is
+	// trusted and the header is ignored.
+	TrustedProxies []netip.Prefix
 }
 
 // Error lists every bad variable. It never carries a variable's value.
@@ -166,6 +173,19 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	c.GitHubOverridden = c.GitHubURL != defaultGitHubURL || c.GitHubAPIURL != defaultGitHubAPI
 
+	// Trusted proxies: unset trusts nobody. A set value is a comma-separated list
+	// of addresses and CIDR prefixes and every item must be good, so a typo cannot
+	// quietly trust fewer proxies than the operator meant (or, with /0, everyone).
+	const proxiesVar = "HBAND_TRUSTED_PROXIES"
+	if raw := getenv(proxiesVar); raw != "" {
+		list, why := parseProxies(raw)
+		if why != "" {
+			bad(proxiesVar, why)
+		} else {
+			c.TrustedProxies = list
+		}
+	}
+
 	if len(problems) > 0 {
 		return Config{}, &Error{Problems: problems}
 	}
@@ -212,6 +232,52 @@ func parseBase(raw string) (*url.URL, string) {
 		return nil, "must be https unless the host is 127.0.0.1, localhost or [::1]"
 	}
 	return u, ""
+}
+
+// parseProxies reads a comma-separated list of IP addresses and CIDR prefixes.
+// Each item is trimmed; an IPv4-mapped IPv6 form is read as the IPv4 one, a bare
+// address becomes a /32 or /128 and a prefix is masked. The second result is a
+// reason that never repeats the input. An empty item, a name that is not an
+// address, a zone, a prefix that cannot be read and a prefix of length 0 (which
+// would trust every peer) are refused.
+func parseProxies(raw string) ([]netip.Prefix, string) {
+	var out []netip.Prefix
+	for _, item := range strings.Split(raw, ",") {
+		item = strings.TrimSpace(item)
+		switch {
+		case item == "":
+			return nil, "has an empty item (a stray comma or a blank list)"
+		case strings.Contains(item, "%"):
+			return nil, "must not carry an IPv6 zone"
+		}
+		var p netip.Prefix
+		if strings.Contains(item, "/") {
+			pp, err := netip.ParsePrefix(item)
+			if err != nil {
+				return nil, "has an item that is not an IP address or a CIDR prefix"
+			}
+			addr, bits := pp.Addr(), pp.Bits()
+			if addr.Is4In6() {
+				if bits < 96 {
+					return nil, "has an IPv4-mapped prefix shorter than /96"
+				}
+				addr, bits = addr.Unmap(), bits-96
+			}
+			if bits == 0 {
+				return nil, "must not trust every address (a /0 prefix)"
+			}
+			p = netip.PrefixFrom(addr, bits).Masked()
+		} else {
+			addr, err := netip.ParseAddr(item)
+			if err != nil {
+				return nil, "has an item that is not an IP address (names are not accepted)"
+			}
+			addr = addr.Unmap()
+			p = netip.PrefixFrom(addr, addr.BitLen())
+		}
+		out = append(out, p)
+	}
+	return out, ""
 }
 
 func isLoopbackHost(h string) bool {

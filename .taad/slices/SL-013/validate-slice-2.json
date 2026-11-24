@@ -1,0 +1,297 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-013",
+ "stage": "validate-slice",
+ "attempt": 2,
+ "at": "2026-11-24T18:41:43.502Z",
+ "head": "",
+ "run_id": 12094,
+ "summary": "SL-013 was checked at HEAD 976e649 against a binary built from this tree, run on loopback. The show-all page is at GET /reports and an \"All reports\" link is in the header.\n\n**Live binary run**\n- Setup: HBAND_TRUSTED_PROXIES=127.0.0.1, seeded data, requests carrying X-Forwarded-For, and real headless Chrome from CHROME_BIN.\n- The page lists only published reports, newest first. A draft, an unpublished report and a deleted one are absent, and each answers 404.\n- Likes count thumbs-up only: 2 up and 1 down gives \"2 likes\".\n- The comment count leaves out a removed root and a blocked writer's comment but keeps the visible reply. It shows \"1 comment\", the same as the report page's own count.\n- Views:\n  - A Chrome open counts 1. A repeat from the same address counts nothing.\n  - Googlebot, curl, Python-urllib and an empty user agent add nothing. Neither do HEAD, /raw or a request with no X-Forwarded-For.\n  - Firefox from a new address adds 1. Two IPv6 addresses in one /64 count once; a different /64 counts again.\n  - GET / and then the newest report from the same visitor count once.\n- POST /reports gives 405 and /reports/ gives 404.\n- After the program stopped, none of the addresses used appears in hband.db, its WAL or its shm, whether as text, UTF-16 or the raw 4 bytes.\n- The log warned without naming an address.\n\n**Finish lines, read from the ledger without writing to it**\n- All four E-002 bodies pass against this build.\n- All 12 bodies of E-001 and E-003..E-006 still pass.\n- No Edge was started. The msedge processes I found were created at 21:58 the previous evening, before this run. They are not headless and use no temp profile, so they are not test-started.\n\n**Other checks**\n- go vet is clean.\n- Fitness op=check: all 35 rules hold.\n- Every named test for the 14 cases passes, and the server tests also pass under -count=2.\n- Both Python guard tests pass.\n\n**Failures, neither from this slice's code**\n- TestConcurrentVotesNoBusy is a pre-existing flake that depends on machine load. In the full suite at -p 4 it failed in 2 of 3 runs on HEAD and in 1 of 3 runs on the 1251104 baseline, with the same SQLITE_BUSY error. On HEAD run alone it passed 3 of 3.\n- A cosmetic extra: in the header, \"Sign in with GitHub\" sits about 8 px higher than the new \"All reports\" link.\n\n**Not reached**\n- C11 (the real proxy over WireGuard) is for a person to run.\n- The engine's screenshots of the report page (s2) show 404 because its scenario asked for /reports/harbour-survey, which is not in its own library. My own screenshot of a report page shows the header and its link drawn correctly.\n\nThe index shows no loop. There was one send-back from code review (O-026 and O-030, tests only), and it was fixed in one attempt.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "SL-013 was checked at HEAD 976e649 against a binary built from this tree, run on loopback. The show-all page is at GET /reports and an \"All reports\" link is in the header.\n\n**Live binary run**\n- Setup: HBAND_TRUSTED_PROXIES=127.0.0.1, seeded data, requests carrying X-Forwarded-For, and real headless Chrome from CHROME_BIN.\n- The page lists only published reports, newest first. A draft, an unpublished report and a deleted one are absent, and each answers 404.\n- Likes count thumbs-up only: 2 up and 1 down gives \"2 likes\".\n- The comment count leaves out a removed root and a blocked writer's comment but keeps the visible reply. It shows \"1 comment\", the same as the report page's own count.\n- Views:\n  - A Chrome open counts 1. A repeat from the same address counts nothing.\n  - Googlebot, curl, Python-urllib and an empty user agent add nothing. Neither do HEAD, /raw or a request with no X-Forwarded-For.\n  - Firefox from a new address adds 1. Two IPv6 addresses in one /64 count once; a different /64 counts again.\n  - GET / and then the newest report from the same visitor count once.\n- POST /reports gives 405 and /reports/ gives 404.\n- After the program stopped, none of the addresses used appears in hband.db, its WAL or its shm, whether as text, UTF-16 or the raw 4 bytes.\n- The log warned without naming an address.\n\n**Finish lines, read from the ledger without writing to it**\n- All four E-002 bodies pass against this build.\n- All 12 bodies of E-001 and E-003..E-006 still pass.\n- No Edge was started. The msedge processes I found were created at 21:58 the previous evening, before this run. They are not headless and use no temp profile, so they are not test-started.\n\n**Other checks**\n- go vet is clean.\n- Fitness op=check: all 35 rules hold.\n- Every named test for the 14 cases passes, and the server tests also pass under -count=2.\n- Both Python guard tests pass.\n\n**Failures, neither from this slice's code**\n- TestConcurrentVotesNoBusy is a pre-existing flake that depends on machine load. In the full suite at -p 4 it failed in 2 of 3 runs on HEAD and in 1 of 3 runs on the 1251104 baseline, with the same SQLITE_BUSY error. On HEAD run alone it passed 3 of 3.\n- A cosmetic extra: in the header, \"Sign in with GitHub\" sits about 8 px higher than the new \"All reports\" link.\n\n**Not reached**\n- C11 (the real proxy over WireGuard) is for a person to run.\n- The engine's screenshots of the report page (s2) show 404 because its scenario asked for /reports/harbour-survey, which is not in its own library. My own screenshot of a report page shows the header and its link drawn correctly.\n\nThe index shows no loop. There was one send-back from code review (O-026 and O-030, tests only), and it was fixed in one attempt.",
+  "checks": [
+   {
+    "what": "go vet over the whole module, TAAD3_HOME pointed at an empty scratch folder",
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "evidence": "exit 0, no output. The scratch TAAD3_HOME was still empty afterwards."
+   },
+   {
+    "what": "Full suite on HEAD, runs 1 and 2 of 3",
+    "command": "go test -count=1 -p 4 ./...  (HEAD 976e649)",
+    "outcome": "failed",
+    "nature": "pre-existing",
+    "evidence": "Run 1: TestConcurrentVotesNoBusy, 'run 1: 48 of the calls failed, first: voter 50: votes: cast: database is locked (5) (SQLITE_BUSY)'. Run 2 of the follow-up pair: 44 calls failed the same way. Every other package passed in both runs. The baseline 1251104, extracted by git archive into scratch, failed the same test the same way (47 calls, SQLITE_BUSY) in 1 of 3 full-suite runs on the same machine. The slice only adds a read (PublicLikes) to votes.go, which this test never calls. Package timings swing 4-5x between runs (comments 3.8 s vs 20 s), which points to the 5000 ms busy_timeout being exceeded under load the person's own use puts on the machine."
+   },
+   {
+    "what": "Full suite on HEAD, the passing run",
+    "command": "go test -count=1 -p 4 ./...",
+    "outcome": "passed",
+    "evidence": "Run 3: all 12 packages ok, votes 7.5 s, server 20.9 s, exit 0"
+   },
+   {
+    "what": "Full suite on the baseline 1251104, for comparison",
+    "command": "git archive 1251104 | tar -x into scratch; go test -count=1 -p 4 ./... x4",
+    "outcome": "passed",
+    "evidence": "3 of 4 runs exit 0. The run that failed was TestConcurrentVotesNoBusy with SQLITE_BUSY, the same failure HEAD shows, so the flake predates this slice."
+   },
+   {
+    "what": "The flaky votes test on its own, on HEAD",
+    "command": "go test -count=3 -run '^TestConcurrentVotesNoBusy$' ./internal/votes",
+    "outcome": "passed",
+    "evidence": "ok 17.1 s, all 3 repetitions passed"
+   },
+   {
+    "what": "The four E-002 finish bodies (show-all lists published, row numbers, opens counted once, proxy visitors hashed), read from the ledger without writing to it and run against a build of this tree",
+    "command": "python -I tests/acceptance/run_finish.py --e002",
+    "outcome": "passed",
+    "evidence": "e002_1 passes in 10 s, e002_2 5 s, e002_3 5 s, e002_4 5 s. 'passing: 4 of 4', exit 0"
+   },
+   {
+    "what": "Other epics' finish bodies with the show-all page and nav link present",
+    "command": "python -I tests/acceptance/run_finish.py --others",
+    "outcome": "passed",
+    "evidence": "e001_1..6, e003_1, e004_1, e004_2 (Chrome, 9 s), e005_1 and e006_1..2 all pass. 'passing: 12 of 12', exit 0"
+   },
+   {
+    "what": "Live binary: who is listed, and in what order",
+    "command": "python -I <scratch>/live_check.py: go build ./cmd/hband, start on 127.0.0.1:18931 with HBAND_TRUSTED_PROXIES=127.0.0.1, seed through sqlite3, GET /reports",
+    "outcome": "passed",
+    "evidence": "Rows: /reports/bravo 'Bravo Notes' (Published 18 November 2026), then /reports/alpha 'Alpha Survey 7' (Published 21 September 2026). The draft, the unpublished report and the deleted report are absent. GET /reports/draft-x, /reports/unpub-x and /reports/deleted-x each return 404. Each row's href opened its report with 200."
+   },
+   {
+    "what": "Live binary: likes and the visible comment count",
+    "command": "live_check.py: alpha has 2 up votes and 1 down; comments are a removed root, its visible reply and a blocked writer's root",
+    "outcome": "passed",
+    "evidence": "Alpha's row reads '2 likes · 1 comment · 0 views' and the report page prints '1 comment'. Bravo has only a dislike and reads '0 likes'."
+   },
+   {
+    "what": "Live binary: open counting, de-duplication and the bot filter",
+    "command": "live_check.py: a sequence of GET and HEAD requests to /reports/alpha, varying User-Agent and X-Forwarded-For",
+    "outcome": "passed",
+    "evidence": "Count after each step:\n- Chrome from 203.0.113.10: 1\n- the same again: 1\n- Googlebot (with Mozilla/): 1\n- curl: 1\n- Python-urllib: 1\n- empty user agent: 1\n- HEAD: 1\n- /raw/alpha: 1\n- no X-Forwarded-For: 1\n- '203.0.113.10, 127.0.0.1': 1\n- Firefox from 203.0.113.30: 2\n- 2001:db8::1: 3\n- 2001:db8::2 (same /64): 3\n- 2001:db8:0:1::1: 4\n\nGET /reports from 192.0.2.99, made after every step, never raised any count."
+   },
+   {
+    "what": "Live binary: GET / and GET /reports/<newest> from one visitor",
+    "command": "live_check.py: GET / then GET /reports/bravo, both from 198.51.100.9",
+    "outcome": "passed",
+    "evidence": "After GET /, Bravo reads 1 view. After GET /reports/bravo from the same visitor it still reads 1 view."
+   },
+   {
+    "what": "Live binary: path variants",
+    "command": "live_check.py: POST /reports, GET /reports/",
+    "outcome": "passed",
+    "evidence": "POST /reports returns 405 and GET /reports/ returns 404"
+   },
+   {
+    "what": "Live binary: no plain address on disk",
+    "command": "after the program stopped, scan every file under HBAND_DATA_DIR for the addresses used",
+    "outcome": "passed",
+    "evidence": "Files scanned: hband.db, hband.db-wal, hband.db-shm and 5 report html files. No hits for 203.0.113.10, 203.0.113.30, 198.51.100.9 or 2001:db8::1, as ASCII, as UTF-16LE, or (for 203.0.113.10) as the raw 4 bytes."
+   },
+   {
+    "what": "Live binary: the misconfiguration warning names no address",
+    "command": "read hband.log after the run",
+    "outcome": "passed",
+    "evidence": "'WARN a peer in HBAND_TRUSTED_PROXIES sent no X-Forwarded-For client entry; opens are not being counted until the proxy forwards the visitor's address', with no address in it"
+   },
+   {
+    "what": "Real Chrome screenshots of a report page and the show-all page",
+    "command": "%CHROME_BIN% --headless=new --user-data-dir=<scratch> --window-size=1280,900|390,844 --screenshot <url>",
+    "outcome": "passed",
+    "evidence": "rep-wide.png: the report page loads with header 'hband … All reports  Sign in with GitHub'. all-phone.png shows both rows with their numbers and dates. The 390 px shots are cropped on the right because headless Chrome lays the page out wider than its window; the legend wraps at about 500 px. The engine's own s1-phone shot shows the true phone layout fitting."
+   },
+   {
+    "what": "Header nav alignment once 'All reports' sits beside 'Sign in with GitHub'",
+    "command": "look at s1-wide-light.png, s1-phone-light.png and my rep-wide.png; read site.css:4-9",
+    "outcome": "failed",
+    "nature": "extra",
+    "evidence": "In every shot the 'Sign in with GitHub' text sits about 8 px higher than 'All reports'. The nav is a flex container with align-items: center, and .signin has min-height 2.5rem and padding, so its text sits at the top of a 40 px box while the plain link is centred. Cosmetic. Nobody required header alignment."
+   },
+   {
+    "what": "Architecture fitness rules",
+    "command": "mcp Fitness op=check",
+    "outcome": "passed",
+    "evidence": "'35 rule(s) checked against 100 parsed file(s), 50 file(s) read. Every declared rule holds.'"
+   },
+   {
+    "what": "Named tests for each of the 14 cases",
+    "command": "go test -count=1 -v -run '^(TestRecord|TestObviousBot|TestTrustedProxies|TestMigrateFiveToSix|TestNoPlainAddressStored|TestVisibleCounts|TestListPublished|TestPublicLikes|TestRulesHoldOnTheTree|TestRuleSpellingsCorpus|TestBinary)$' ./...",
+    "outcome": "passed",
+    "evidence": "All 11 '--- PASS' lines and every package ok, exit 0"
+   },
+   {
+    "what": "Server-side cases under -count=2 (order and once-only warning stability)",
+    "command": "go test -count=2 -run '^(TestClientAddr|TestClientAddrWarnsOncePerResolver|TestOpenCounting|TestShowAll|TestShowAllCommentCount|TestReaderPathVariants|TestStoreFaultSteps)$' ./internal/server",
+    "outcome": "passed",
+    "evidence": "ok 7.6 s, exit 0"
+   },
+   {
+    "what": "The Edge-guard tests from build attempt 2",
+    "command": "python -I tests/acceptance/test_run_finish_edge_guard.py; python -I tests/acceptance/check_run_finish_needs_chrome_bin.py (PYTHONDONTWRITEBYTECODE=1)",
+    "outcome": "passed",
+    "evidence": "'Ran 1 test … OK' exit 0; 'ok: the body was not run' exit 0"
+   },
+   {
+    "what": "No Edge was started by the finish runs",
+    "command": "Get-CimInstance Win32_Process msedge.exe: creation time, headless flag, temp profile",
+    "outcome": "passed",
+    "evidence": "5 msedge processes were running, all created 24-11-2026 21:58:22, before this run (00:17-00:19 on 25 Nov). None has --headless and none uses a temp profile, so none was started by a test. e004_2 ran on Chrome."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "1. browse the show-all page: published reports, a draft, an unpublished report, a deleted one, and two published in the same second",
+    "met": "yes",
+    "how": "Live binary: only the published reports are listed, newest first, and the draft, the unpublished report and the deleted one each return 404. The same-second tie order is covered by TestListPublished (passes) and was not exercised live."
+   },
+   {
+    "criterion": "2. browse the show-all page: nothing published; counts of 1 (singular labels) and 1000; a title ending in a digit",
+    "met": "yes",
+    "how": "Live: '1 comment', '1 view' and the title 'Alpha Survey 7' read correctly, and the E-002 row-number body passes. The empty library and the 1000 counts are covered by TestShowAll (passes), not run live."
+   },
+   {
+    "criterion": "3. browse the show-all page: the reports, votes, comments or report_opens read fails",
+    "met": "yes",
+    "how": "Code only: TestStoreFaultSteps passes under -count=2, giving 503 with the outage sentence. Not induced on the live binary."
+   },
+   {
+    "criterion": "4. likes: dislikes only, a like switched to a dislike, a blocked account's like",
+    "met": "yes",
+    "how": "Live: 2 up and 1 down reads '2 likes', and a report holding only a dislike reads '0 likes'. The switched like and the blocked account's like are covered by TestPublicLikes (passes)."
+   },
+   {
+    "criterion": "5. visible comment count: spike fixtures A-D, including the 110-deep chain",
+    "met": "yes",
+    "how": "Live: a removed root plus its visible reply plus a blocked writer's comment gives '1 comment' on both the row and the report page. Fixtures A-D and the 110-chain (summed across branch pages) are covered by TestVisibleCounts and TestShowAllCommentCount (pass)."
+   },
+   {
+    "criterion": "6. count an open once per visitor per UTC day: day rollover under +5:30, IPv6 /64, one address on two reports",
+    "met": "yes",
+    "how": "Live: a same-day repeat is not counted, two addresses in one /64 collapse, and a different /64 counts. The UTC rollover is checked only on a fake clock (TestRecord passes); no real midnight was crossed."
+   },
+   {
+    "criterion": "7. open a report: / and the newest share one key; HEAD, /raw, branch page, /reports, admin preview, 404, 503, the owner and a failing Record write nothing",
+    "met": "yes",
+    "how": "Live: / then /reports/bravo from one visitor gives 1 view. HEAD, /raw and repeated GET /reports never counted. The branch page, admin preview, owner, 503 and failing Record are covered by TestOpenCounting (passes under -count=2)."
+   },
+   {
+    "criterion": "8. ignore obvious bots: empty, Go-http-client, python, curl, Googlebot and bingbot, HeadlessChrome, Lighthouse, against browser user agents",
+    "met": "yes",
+    "how": "Live: Googlebot (with Mozilla/), curl, Python-urllib and an empty user agent were not counted, while Chrome and Firefox were. The full list is in TestObviousBot (passes), and the E-002 opens body passes."
+   },
+   {
+    "criterion": "9. tell visitors apart behind the proxy: untrusted peer, spoofed leftmost entry, several header lines, all entries trusted, unparsable entry, ports, mapped peer, X-Real-IP or Forwarded alone",
+    "met": "yes",
+    "how": "Live: a trusted peer with no X-Forwarded-For is not counted and logs a warning with no address, and a different X-Forwarded-For address counts as a new visitor. The 67-row corpus in TestClientAddr passes under -count=2. An untrusted peer could not be presented live because the server listens on 127.0.0.1 only."
+   },
+   {
+    "criterion": "10. configure the trusted proxy: unset, IPv4 and IPv6 lists with CIDRs, malformed values",
+    "met": "yes",
+    "how": "TestTrustedProxies and TestBinary pass. Live, the binary started with HBAND_TRUSTED_PROXIES=127.0.0.1."
+   },
+   {
+    "criterion": "11. upgrade a populated v5 database to v6 and keep no plain address",
+    "met": "yes",
+    "how": "TestMigrateFiveToSix and TestNoPlainAddressStored pass. Live: after real requests, a byte scan of hband.db, the WAL and the shm found none of the addresses used. Not run against the production database."
+   },
+   {
+    "criterion": "12. reach the show-all page by its path variants",
+    "met": "yes",
+    "how": "Live: POST /reports gives 405 and /reports/ gives 404. The draft-x and unknown-x harness variants are covered by TestReaderPathVariants (passes)."
+   },
+   {
+    "criterion": "13. keep the fitness rules true",
+    "met": "yes",
+    "how": "Fitness op=check: 35 rules hold. TestRuleSpellingsCorpus and TestRulesHoldOnTheTree pass."
+   },
+   {
+    "criterion": "14. other epics' finish lines with a show-all page now present",
+    "met": "yes",
+    "how": "run_finish.py --others: 12 of 12 bodies exit 0 against this tree. e004_2 ran on Chrome and no Edge was started."
+   },
+   {
+    "criterion": "C1-C10 (build-check's criteria from the slice text, all 'missing' at 1251104): the page with title, date, likes, visible comments and times opened; each row opens the report; once per visitor per day; bots ignored; real client address, stored only as a hash",
+    "met": "yes",
+    "how": "All observed on the live binary (see the checks), and all four E-002 bodies pass against the product. 'Times opened' is labelled 'views', as the design chose and left open for a person."
+   },
+   {
+    "criterion": "C11: Through the real VPS proxy over WireGuard, counts are keyed by each visitor's own address, not the proxy's",
+    "met": "person-run",
+    "how": "On the home server, set HBAND_TRUSTED_PROXIES to the address hband actually sees as the peer (check whether Docker NAT presents the bridge gateway rather than the WireGuard peer). Make sure the VPS proxy sets or appends X-Forwarded-For. Open one report from two different networks, say phone data and home broadband, with a normal browser. /reports must then show that report's views up by 2, not 1. The hband log must not carry 'sent no X-Forwarded-For client entry' or the untrusted-peer warning."
+   }
+  ],
+  "planned": [],
+  "obligations": [
+   {
+    "key": "O-015",
+    "verified": "cannot-tell",
+    "evidence": "Only a deployment can show this. Locally, with the peer trusted and X-Forwarded-For sent, distinct addresses count separately. A trusted peer that sends no X-Forwarded-For counts nothing and logs an address-free warning. Whether the real VPS peer (or the Docker bridge gateway) is in HBAND_TRUSTED_PROXIES, and whether the proxy sets X-Forwarded-For, is C11, which is for a person to run."
+   },
+   {
+    "key": "O-016",
+    "verified": "yes",
+    "evidence": "The four E-002 bodies each ran in 5-10 s at about 18:47-18:49 UTC, far from 00:00 UTC, and all passed. The day logic is pinned by TestRecord on a fake clock across 00:00 UTC with time.Local at +5:30, and it passes. The remaining exposure is the known few-seconds-a-day window, a stated limit."
+   }
+  ],
+  "screens": [
+   {
+    "screen": "s1-wide-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "header nav, top right",
+      "what": "'Sign in with GitHub' sits about 8 px higher than the new 'All reports' link next to it. .signin is a 2.5rem-tall flex item with its text at the top, while the plain link is centred."
+     },
+     {
+      "where": "the 'Look Notes' row",
+      "what": "It reads '0 likes · 0 comments · 0 views', while the phone shot of the same report reads '9 comments · 1 view'. The two screens were captured on different data, so they do not agree with each other. That comes from the capture scenario, not the page."
+     }
+    ]
+   },
+   {
+    "screen": "s1-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "header nav",
+      "what": "Same misalignment: 'Sign in with GitHub' sits higher than 'All reports' on the same line."
+     }
+    ]
+   },
+   {
+    "screen": "s2-wide-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "whole screen",
+      "what": "A bare '404 page not found'. The capture asked for /reports/harbour-survey, which its own library does not hold (it held 'Look Notes'), so nothing of the report page or its header link can be seen here. In my own run a real report page (/reports/alpha) loads with 'All reports' in the header."
+     }
+    ]
+   },
+   {
+    "screen": "s2-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "whole screen",
+      "what": "Same bare 404 for /reports/harbour-survey, a slug that is not in the capture's library. It shows nothing of the product's report page."
+     }
+    ]
+   }
+  ],
+  "not_reached": [
+   "The real VPS reverse proxy over WireGuard (C11, O-015): what peer address hband sees there (WireGuard peer or Docker bridge gateway), and the real X-Forwarded-For chain shape, multiple hops and IPv6.",
+   "A real UTC midnight in a running process. The rollover was only exercised on TestRecord's fake clock.",
+   "The in-memory visitor key across a restart. A mid-day restart re-counting returning visitors was not run live.",
+   "Migrating the production database on the home server (its real user_version and data) to v6. Only test fixtures and a fresh scratch database were migrated.",
+   "An untrusted peer presenting X-Forwarded-For to the live binary. The server listened on 127.0.0.1 only, so every live request came from the trusted peer, and that path rests on the TestClientAddr corpus.",
+   "True phone-width rendering from my own Chrome run. Headless Chrome laid the page out at about 500 px, so for the phone layout I relied on the engine's s1-phone shot.",
+   "The signed-in owner viewing /reports and a report in a real browser. Owner exclusion rests on TestOpenCounting and on the E-002 bodies, whose owner never opens a report.",
+   "Real visitors' browser user agents beyond the fixed strings used here, and real crawler traffic."
+  ]
+ }
+}

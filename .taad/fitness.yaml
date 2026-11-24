@@ -8,12 +8,16 @@ rules:
   - name: no request header ever supplies scheme, host or client identity
     files: '**/*.go'
     must_not_match:
-    - (?i)"(x-forwarded-[a-z-]+|x-real-ip|forwarded)"
-    because: Scheme and host come only from HBAND_BASE_URL. A trusted forwarded header lets
-      any client spoof the callback URL, the Secure decision or the trusted CSRF origin. C-006
-      decides proxy trust deliberately when it needs the client IP.
+    - (?i)["`](x-forwarded-[a-z-]+|x-real-ip|forwarded)["`]
+    because: 'Scheme and host come only from HBAND_BASE_URL. A trusted forwarded header elsewhere
+      lets any client spoof the callback URL, the Secure decision or the trusted CSRF origin.
+      SL-013 settled C-006: the client address for open counting is resolved in clientaddr.go
+      alone, from X-Forwarded-For sent by a peer listed in HBAND_TRUSTED_PROXIES; the rule
+      ''no Go file names a forwarded header other than X-Forwarded-For'' keeps that one file
+      to that one header. Both quote styles are matched, so a raw string is no way round it.'
     except_files:
     - '**/*_test.go'
+    - internal/server/clientaddr.go
   - name: no cookie is ever SameSite=Strict
     files: '**/*.go'
     must_not_match:
@@ -442,4 +446,66 @@ rules:
       inbox. This pattern leaves those reads alone.'
     except_files:
     - internal/comments/**
+    - '**/*_test.go'
+
+  # settled by SL-013
+  - name: no Go file names a forwarded header other than X-Forwarded-For
+    files: '**/*.go'
+    must_not_match:
+    - (?i)["`]x-forwarded-(?:[a-eg-z-][a-z-]*|f|f[a-np-z-][a-z-]*|fo|fo[a-qs-z-][a-z-]*|for[a-z-]+)["`]
+    - (?i)["`](x-real-ip|forwarded)["`]
+    - (?i)["`][a-z0-9-]*(-ip|client-?ip)["`]
+    - (?i)["`](?:(?:[a-wyz0-9-][a-z0-9-]*|x[a-z0-9-]+)-)?forwarded(?:-[a-z-]+)?["`]
+    because: 'clientaddr.go is excepted from the broad forwarded-header rule only so that it
+      can read X-Forwarded-For. If it also named X-Forwarded-Proto or X-Forwarded-Host, a client
+      could steer scheme or host again. If it named X-Real-IP or Forwarded, it would trust a
+      header the rightmost-untrusted walk does not cover, and a client could choose its own
+      identity. The last two patterns close the family of client-identity headers a CDN or
+      an ingress adds (True-Client-IP, CF-Connecting-IP, X-Azure-ClientIP, Fly-Client-IP,
+      X-Original-Forwarded-For): any quoted name ending in -ip or client-ip, and any quoted
+      name made of forwarded, with or without a prefix other than the single letter x
+      (X-Forwarded-For is x then forwarded, which is why that one prefix is left out). Known
+      holes are a header name built by concatenation or held in a constant defined elsewhere,
+      ranging over r.Header, and client-identity names that match none of those shapes (for
+      example X-Envoy-External-Address).'
+    except_files:
+    - '**/*_test.go'
+  - name: only clientaddr.go reads the connecting address
+    files: '**/*.go'
+    must_not_match:
+    - \.RemoteAddr\b
+    because: Behind the VPS proxy, RemoteAddr is the proxy for every visitor. Any other code
+      keying on it, such as a later per-address rate limit or another counter, collapses every
+      visitor into one, which is R-004. Each such reader must go through the client resolver
+      in clientaddr.go and its trusted-proxy walk.
+    except_files:
+    - internal/server/clientaddr.go
+    - '**/*_test.go'
+    - internal/testutil/**
+  - name: open writes never open a transaction
+    files: internal/opens/**/*.go
+    must_not_match:
+    - \.Begin(Tx)?\(
+    - (?i)\b(BEGIN|SAVEPOINT)\b
+    - \bsql\.Tx\b
+    because: 'Spike concurrent-vote-upserts-no-busy (lesson #949) measured read-then-write transactions
+      on this pool failing 215-253 times per run with SQLITE_BUSY or BUSY_SNAPSHOT, returned
+      at once without waiting on busy_timeout. Single statements failed 0 times. Record runs
+      on every public report GET, so a transaction there loses opens under load. Known hole:
+      a transaction opened outside the package and handed in through an interface.'
+    except_files:
+    - '**/*_test.go'
+  - name: only internal/opens names the report_opens table in SQL
+    files: '**/*.go'
+    must_not_match:
+    - \b(FROM|INTO|UPDATE|JOIN)\s+report_opens\b
+    - \bUPDATE\s+OR\s+[A-Z]+\s+report_opens\b
+    - \bFROM\b[^"`;]*,\s*report_opens\b
+    because: 'The keyed hash and the published-only insert live only in Record. A second writer
+      could store a raw 16-byte IPv6 address, which passes the length CHECK, and put a plain
+      visitor address in the database. It could also count opens of drafts. Known holes, as
+      for the votes and comments rules: lower-case SQL, a table name built by concatenation,
+      quoted or schema-qualified names, and views or triggers created in a .sql migration.'
+    except_files:
+    - internal/opens/**
     - '**/*_test.go'

@@ -40,3 +40,9 @@ main.reader { max-width: 72rem; }
 .blocked-account { margin-top: 1rem; padding-top: .5rem; border-top: 1px solid #8884; }
 .blocked-account li { margin: .5rem 0; }
 .reply-to { margin: .25rem 0; font-style: italic; }
+.legend { margin: .25rem 0 1rem; font-size: .9em; }
+.report-list { list-style: none; margin: 0; padding: 0; }
+.report-row { padding: .75rem 0; border-top: 1px solid #8884; }
+.report-row h2 { margin: 0 0 .25rem; font-size: 1.1rem; overflow-wrap: anywhere; }
+.report-row p { margin: .25rem 0; }
+.report-row .published { font-size: .9em; }

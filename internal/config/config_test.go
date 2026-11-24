@@ -2,6 +2,8 @@ package config
 
 import (
 	"errors"
+	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -183,10 +185,16 @@ func TestLoadIgnoresUnknownVariables(t *testing.T) {
 	if cfg.DataDir != "./data" {
 		t.Fatalf("unset HBAND_DATA_DIR gave %q", cfg.DataDir)
 	}
+	// HBAND_TRUSTED_PROXIES is read now (SL-013); HBAND_SOMETHING_ELSE is the name
+	// that stays ignored.
+	if want := []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}; !slices.Equal(cfg.TrustedProxies, want) {
+		t.Fatalf("HBAND_TRUSTED_PROXIES=127.0.0.1 gave %v, want %v", cfg.TrustedProxies, want)
+	}
 	for k := range asked {
 		switch k {
 		case "HBAND_OWNER_GITHUB_ID", "HBAND_GITHUB_CLIENT_ID", "HBAND_GITHUB_CLIENT_SECRET", "HBAND_BASE_URL",
-			"HBAND_ADDR", "HBAND_DATA_DIR", "HBAND_GITHUB_URL", "HBAND_GITHUB_API_URL", "HBAND_MAX_UPLOAD_BYTES":
+			"HBAND_ADDR", "HBAND_DATA_DIR", "HBAND_GITHUB_URL", "HBAND_GITHUB_API_URL", "HBAND_MAX_UPLOAD_BYTES",
+			"HBAND_TRUSTED_PROXIES":
 		default:
 			t.Errorf("Load read %s, which is not one of its variables", k)
 		}
@@ -242,4 +250,96 @@ func TestConfigStringHidesSecret(t *testing.T) {
 	if strings.Contains(cfg.String(), marker) {
 		t.Fatal("String() leaks the client secret")
 	}
+}
+
+// HBAND_TRUSTED_PROXIES: unset (or empty) trusts nobody, a list of addresses and
+// CIDR prefixes is read into masked prefixes, and every malformed item stops
+// startup with an error that names the variable and never repeats its value.
+func TestTrustedProxies(t *testing.T) {
+	const name = "HBAND_TRUSTED_PROXIES"
+	p := func(ss ...string) []netip.Prefix {
+		var out []netip.Prefix
+		for _, s := range ss {
+			out = append(out, netip.MustParsePrefix(s))
+		}
+		return out
+	}
+	t.Run("unset and empty trust nobody", func(t *testing.T) {
+		for _, set := range []map[string]string{{name: "\x00unset"}, {name: ""}} {
+			cfg, err := Load(env(set))
+			if err != nil {
+				t.Fatalf("%v: %v", set, err)
+			}
+			if cfg.TrustedProxies != nil {
+				t.Errorf("%v trusts %v, want nobody", set, cfg.TrustedProxies)
+			}
+		}
+	})
+	t.Run("accepted lists", func(t *testing.T) {
+		for raw, want := range map[string][]netip.Prefix{
+			"127.0.0.1":                          p("127.0.0.1/32"),
+			"::1":                                p("::1/128"),
+			"10.0.0.0/8":                         p("10.0.0.0/8"),
+			"10.1.2.3/24":                        p("10.1.2.0/24"),
+			" 10.0.0.1 , fd00::/8 ":              p("10.0.0.1/32", "fd00::/8"),
+			"192.168.0.0/16,2001:db8::5,::1/128": p("192.168.0.0/16", "2001:db8::5/128", "::1/128"),
+			"::ffff:10.0.0.1":                    p("10.0.0.1/32"),
+			"::ffff:10.0.0.0/104":                p("10.0.0.0/8"),
+			"0.0.0.0/1":                          p("0.0.0.0/1"),
+		} {
+			cfg, err := Load(env(map[string]string{name: raw}))
+			if err != nil {
+				t.Errorf("%q refused: %v", raw, err)
+				continue
+			}
+			if !slices.Equal(cfg.TrustedProxies, want) {
+				t.Errorf("%q gave %v, want %v", raw, cfg.TrustedProxies, want)
+			}
+		}
+	})
+	t.Run("malformed values are refused by name", func(t *testing.T) {
+		for _, raw := range []string{
+			"proxy.example", // a hostname
+			"localhost",     // a hostname
+			"10.0.0.1,",     // a stray comma
+			",10.0.0.1",     // another
+			"10.0.0.1,,10.0.0.2",
+			" ", // a blank list
+			",",
+			"10.0.0.0/33", // a prefix too long
+			"2001:db8::/129",
+			"10.0.0.0/abc",
+			"10.0.0.0/",
+			"10.0.0.1/24/8",
+			"fe80::1%eth0", // a zone
+			"fe80::%eth0/64",
+			"10.0.0.0/0", // would trust every peer
+			"::/0",
+			"::ffff:0.0.0.0/96",
+			"::ffff:10.0.0.0/64",
+			"300.1.1.1",
+			"10.0.0.1 10.0.0.2",
+			"10.0.0.1;10.0.0.2",
+			"10.0.0.1, bad.example.test",
+		} {
+			_, err := Load(env(map[string]string{name: raw}))
+			if err == nil {
+				t.Errorf("%s=%q accepted", name, raw)
+				continue
+			}
+			got := problemNames(t, err)
+			if !strings.Contains(got, name) {
+				t.Errorf("%s=%q: error does not name the variable: %s", name, raw, got)
+			}
+			if v := strings.TrimSpace(raw); len(v) > 2 && strings.Contains(got, v) {
+				t.Errorf("%s=%q: the error repeats the value: %s", name, raw, got)
+			}
+		}
+	})
+	t.Run("a bad value is reported with the others", func(t *testing.T) {
+		_, err := Load(env(map[string]string{name: "proxy.example", "HBAND_OWNER_GITHUB_ID": "octocat"}))
+		if got := problemNames(t, err); !strings.Contains(got, name) || !strings.Contains(got, "HBAND_OWNER_GITHUB_ID") {
+			t.Errorf("Load did not report both problems at once: %s", got)
+		}
+	})
 }

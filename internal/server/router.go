@@ -10,12 +10,14 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/sshubham2/hband/internal/auth"
 	"github.com/sshubham2/hband/internal/comments"
 	"github.com/sshubham2/hband/internal/config"
 	"github.com/sshubham2/hband/internal/feedback"
+	"github.com/sshubham2/hband/internal/opens"
 	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/store"
 	"github.com/sshubham2/hband/internal/votes"
@@ -47,8 +49,17 @@ type app struct {
 	// needs the thread reads it here and nowhere else (renderReader, readBranch
 	// and the redirect after a comment), and it is a field only so that a test can
 	// make that one read fail while every other lookup works.
-	tree  func(ctx context.Context, reportID int64) ([]*comments.Node, error)
-	pages *template.Template
+	tree func(ctx context.Context, reportID int64) ([]*comments.Node, error)
+	// opens counts how often each report was opened, on the same pool. recordOpen
+	// is the one write of it (renderReader's countOpen calls it and nothing else
+	// does) and is a field only so that a test can make that write fail.
+	opens      *opens.Book
+	recordOpen func(ctx context.Context, reportID int64, visitor netip.Addr) error
+	// client resolves the real client address behind the proxy, from
+	// HBAND_TRUSTED_PROXIES. It is built here, so each app (and each test) has its
+	// own once-only warnings.
+	client *clientResolver
+	pages  *template.Template
 }
 
 // New builds the whole handler. The chain from outside in: security headers,
@@ -71,9 +82,12 @@ func newApp(cfg config.Config, st *store.Store, lib *reports.Library, clock func
 		votes:    votes.New(st.DB(), clock),
 		comments: comments.New(st.DB(), clock, cfg.OwnerGitHubID),
 		feedback: feedback.New(st.DB(), clock),
+		opens:    opens.New(st.DB(), clock),
+		client:   newClientResolver(cfg.TrustedProxies, nil),
 		pages:    template.Must(template.ParseFS(templateFS, "templates/*.html")),
 	}
 	a.tree = a.comments.Tree
+	a.recordOpen = a.opens.Record
 	return a
 }
 
@@ -82,6 +96,9 @@ func (a *app) handler() http.Handler {
 	cfg := a.cfg
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", a.home)
+	// The show-all page: every published report, newest first. An exact path (the
+	// pattern is not a subtree), so /reports/ stays the mux's 404.
+	mux.HandleFunc("GET /reports", a.showAll)
 	// The share URL, and the isolated path its iframe loads. Neither is under
 	// /admin. Identify still runs in front of /raw as on every route, but
 	// readRaw never reads the viewer it resolves.
