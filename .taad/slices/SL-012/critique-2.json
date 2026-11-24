@@ -1,0 +1,215 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-012",
+ "stage": "critique",
+ "attempt": 2,
+ "at": "2026-11-24T13:40:08.576Z",
+ "head": "",
+ "run_id": 12033,
+ "summary": "The core of the design fits the code as it stands. Every refusal sits inside one of the four existing single statements (postSQL, Cast's INSERT…SELECT, which keeps its WHERE, Withdraw's DELETE, and sendSQL). Block and Unblock are one statement each. The read side already hides, counts and restores. TestPostRoutesAreClassified will force a body class for the new no-field POSTs. One required item is missing and it has real consequences: lesson #977's m5 was deferred to SC-021, and the design gives no remove control on the Blocked users page. moderationList shows only comments readers can see, and placeholders never get a remove form, so the owner has no way to remove a blocked account's comment while it is blocked. Unblocking then brings every one of them back, and the design's own test 6 assumes a removal that the UI cannot make. Smaller issues: m6 (ParentRemoved and its 'removed comment' wording) is still not picked up. The check that refuses to block the owner lives in one handler, while the fitness rule says Block does it. The error path of the follow-up EXISTS read is unstated. The tests the design says to flip are the wrong ones. The Blocked page's parent link goes nowhere for parents below the depth cap of 5 and for unpublished reports. The rule text about reads of blocked_accounts would become false. Extras for the backlog: a census so that any new participant write must be refused for blocked accounts, a Block entry point for accounts that only send feedback, a real-browser render of the owner UI, and a size limit on the Blocked page. I made no web searches: the design leans on no recalled outside claim. Its SQLite upsert and ServeMux GET/HEAD assumptions are long-standing, and Cast keeps the WHERE clause that the upsert parse needs.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The core of the design fits the code as it stands. Every refusal sits inside one of the four existing single statements (postSQL, Cast's INSERT…SELECT, which keeps its WHERE, Withdraw's DELETE, and sendSQL). Block and Unblock are one statement each. The read side already hides, counts and restores. TestPostRoutesAreClassified will force a body class for the new no-field POSTs. One required item is missing and it has real consequences: lesson #977's m5 was deferred to SC-021, and the design gives no remove control on the Blocked users page. moderationList shows only comments readers can see, and placeholders never get a remove form, so the owner has no way to remove a blocked account's comment while it is blocked. Unblocking then brings every one of them back, and the design's own test 6 assumes a removal that the UI cannot make. Smaller issues: m6 (ParentRemoved and its 'removed comment' wording) is still not picked up. The check that refuses to block the owner lives in one handler, while the fitness rule says Block does it. The error path of the follow-up EXISTS read is unstated. The tests the design says to flip are the wrong ones. The Blocked page's parent link goes nowhere for parents below the depth cap of 5 and for unpublished reports. The rule text about reads of blocked_accounts would become false. Extras for the backlog: a census so that any new participant write must be refused for blocked accounts, a Block entry point for accounts that only send feedback, a real-browser render of the owner UI, and a size limit on the Blocked page. I made no web searches: the design leans on no recalled outside claim. Its SQLite upsert and ServeMux GET/HEAD assumptions are long-standing, and Cast keeps the WHERE clause that the upsert parse needs.",
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "major",
+    "dimension": "drift-from-design",
+    "nature": "required",
+    "claim": "The Blocked users page has no remove control. Lesson #977 (m5, deferred to SC-021 in SL-010's decision records) requires one per comment that is not yet removed, with a new strict `from` value, and the design leaves it out. Without it nothing in the UI can remove a blocked account's comment while it is blocked. moderationList shows only comments readers can see, so blocked comments drop off /admin/reports/<slug>. The reader-side CanRemove is false on placeholders. A blocked comment with no visible reply is drawn nowhere. So when the owner reviews a blocked account's comments and unblocks it, every one comes back publicly, abusive ones included. The only workaround is to unblock (publishing them), remove, then block again. The design's own test 6 ('A comment removed while its writer was blocked stays hidden after unblock') assumes a removal that only a hand-made POST can make.",
+    "evidence": "internal/server/thread.go:106 (moderationList emits only non-placeholder nodes); internal/server/admin.go:274-281 (the from enum accepts only absent or \"admin\"); design component '[SC-021] Block routes and the Blocked users page' lists each li with body, report link and parent link only; lesson #977 (1).",
+    "file": "internal/server/admin.go",
+    "line": 276,
+    "quote": {
+     "path": "internal/server/admin.go",
+     "line": 276,
+     "text": "case len(from) == 1 && from[0] == \"admin\":"
+    },
+    "fix": "On admin_blocked.html, give each comment that is not removed the same `<details class=\"remove\">` two-step, posting to /admin/comments/<id>/remove with a hidden from=blocked. Extend adminCommentRemove's enum with \"blocked\", landing on /admin/blocked (still built from nothing in the request), and add from=blocked rows to TestCommentRemove's from shapes and to the removeBodyRows corpus. TestUnblockRestores (test 6) must press that real remove form while the account is blocked and then the real POST /admin/users/<u>/unblock, not a SQL DELETE (lesson #977 (3), Q-026)."
+   },
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "drift-from-design",
+    "nature": "required",
+    "claim": "Once SC-021 can block accounts, a placeholder can mean 'blocked' as well as 'removed'. The admin moderation list still labels every reply under a placeholder 'in reply to a removed comment'. For a blocked parent that is false, and unblocking brings the parent back. Lesson #977 (2), m6, names this as SC-021's work, and the design does not pick it up.",
+    "evidence": "internal/server/thread.go:83-85 and :113 set ParentRemoved for any placeholder parent. internal/server/remove_test.go:648 and :704 pin the wording.",
+    "file": "internal/server/templates/admin_report.html",
+    "line": 46,
+    "quote": {
+     "path": "internal/server/templates/admin_report.html",
+     "line": 46,
+     "text": "<p class=\"reply-to\">{{if .ParentRemoved}}in reply to a removed comment{{else if .ParentLogin}}in reply to @{{.ParentLogin}}{{else}}top level{{end}}</p>"
+    },
+    "fix": "Rename modItem.ParentRemoved to ParentHidden. Draw 'in reply to a hidden comment' (it keeps the block away from the word 'comment' beside a digit, as now), and update the two remove_test.go expectations to the observed new text."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The rule 'the owner cannot be blocked' depends on every caller remembering it. The design puts the auth.IsOwner check in the POST /admin/users/{u}/block handler only, and comments.Book.Block(ctx, u) is a bare INSERT. comments.Book is built from (db, now) and has no owner id, so it cannot refuse. The fitness rule fencing blocked_accounts justifies itself by saying the refusal lives in Block. Any later caller of Block, such as a Block form on feedback articles or a bulk block, can block the author. That would hide every Author comment on the site and refuse the owner's own posts with 403.",
+    "evidence": ".taad/fitness.yaml:434-436; internal/comments/comments.go:55-64 (Book{db, now}, New(db, now)); design '[SC-021] Block routes': 'auth.IsOwner(a.cfg.OwnerGitHubID, u): 400'.",
+    "file": ".taad/fitness.yaml",
+    "line": 434,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 434,
+     "text": "because: Block and Unblock in internal/comments are where the pinned owner's own id is refused,"
+    },
+    "fix": "Make Block refuse the owner itself: Block(ctx, ownerID, u) returning a new comments.ErrOwnerBlock when auth.IsOwner(ownerID, u), checked before the INSERT. The handler maps it to 400. TestBlock asserts the refusal at store level as well as through the route."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "defect",
+    "claim": "The design adds a follow-up `SELECT EXISTS (… blocked_accounts …)` after a 0-row write in Post, Cast, Withdraw and Send. It says 'the read only chooses the wording' and gives no result for a failed read. For Withdraw, which today never looks at RowsAffected and returns nil, a builder could reasonably return nil on a read error. A blocked account's withdraw would then get the success 303 although nothing happened, and a store fault would be hidden as success. Post, Cast and Send could equally fall back to ErrNoTarget or ErrNotOpen (404) on a read error.",
+    "evidence": "Design '[SC-021] Refusal at the point of use': 'When 0 rows are written, a follow-up read … picks the error … otherwise: the existing answer (ErrNoTarget, ErrNotOpen, or nil for a no-op Withdraw)'.",
+    "file": "internal/votes/votes.go",
+    "line": 78,
+    "end_line": 84,
+    "quote": {
+     "path": "internal/votes/votes.go",
+     "line": 80,
+     "text": "`DELETE FROM votes WHERE report_id = ? AND github_id = ?`, reportID, githubID); err != nil {"
+    },
+    "fix": "State the contract: if the follow-up read fails, it returns a wrapped error ('votes: withdraw: is blocked: %w' and likewise for the others), which the handlers answer 503, never the existing refusal or nil. Give each package one unit case where the read fails, for example a ctx cancelled between the Exec and the read, or the read run against a closed pool."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "drift-from-design",
+    "nature": "defect",
+    "claim": "The design tells the builder to flip 'the blocked-row cases near comment_test.go:448 and :1082'. Those cases only plant block rows, and the build check measured that they keep passing. The tests that actually break are elsewhere. One is the subtest at internal/server/branch_test.go:443-457, which expects a 303 for a blocked account's post. The other is the TestThreadCapFive fixture, which inserts the block row at :105 and then calls h.book().Post as account 9 under t.Fatal at :111. Once Post refuses, that fixture dies, and TestThreadCapFive is a depth-cap test, not a block test.",
+    "evidence": "Survey C2 evidence; internal/server/branch_test.go:105 and :443-457.",
+    "file": "internal/server/branch_test.go",
+    "line": 111,
+    "quote": {
+     "path": "internal/server/branch_test.go",
+     "line": 111,
+     "text": "if _, err := h.book().Post(bg, rep, 9, c[4], \"C-hidden-6-end\"); err != nil {"
+    },
+    "fix": "Name the real tests. In TestThreadCapFive, post C-hidden-6-end before inserting the blocked_accounts row (the reply is still hidden, which is what the fixture needs). Rewrite the 'a comment nobody can see keeps the report page' subtest as a 403-and-nothing-stored case at depths 0, 1 and cap+3."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "claim": "On the Blocked users page, the link to the parent a reply answered is fixed as `/reports/<slug>#comment-<parent>`. That anchor is missing for any parent deeper than threadDepthCap (5), because such a parent is drawn only on a branch page, /reports/<slug>/comments/<root>. Blocked() also lists comments on drafts and unpublished reports (no status filter), and for those both the report link and the parent link go to a 404. The brief asks the page to show 'each hidden comment's report and parent comment'. For deep threads and unpublished reports the design's links show neither.",
+    "evidence": "internal/server/thread.go:17-20 (writes at any depth, drawn on branch pages); internal/server/comment.go:111 landing() already picks the branch page for an id via a.tree + Find + branchRoot; design '[SC-021] Block store' Blocked(): 'LEFT JOIN reports', with no status.",
+    "file": "internal/server/thread.go",
+    "line": 20,
+    "quote": {
+     "path": "internal/server/thread.go",
+     "line": 20,
+     "text": "const threadDepthCap = 5"
+    },
+    "fix": "Build the parent link the way landing() does: one a.tree read per report shown on the page, then Find and branchRoot for the parent. Keep 'comment-<parent>' in the href so finish line 2's reader still matches. For a report that is not published, link to /admin/reports/<slug> instead of /reports/<slug>. Blocked() returns the report's status for this."
+   },
+   {
+    "id": "m6",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The design adds reads of blocked_accounts that the fitness rule's stated contract does not allow: a standalone `SELECT EXISTS` after a refused write in votes and in feedback, and an EXISTS column in feedback's inboxSQL. The rule's `because` says votes and feedback read the table only inside their own write statements. The regex fires only on writes, so nothing fails, but the rule then states something about the code that is false. This repeats the bounded_by drift lesson #969 records.",
+    "evidence": ".taad/fitness.yaml:437-438; design '[SC-021] Refusal at the point of use' and '[SC-021] Feedback: the blocked mark'.",
+    "file": ".taad/fitness.yaml",
+    "line": 437,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 437,
+     "text": "votes and feedback may only READ the table, inside their own write statements"
+    },
+    "fix": "Change the rule's because to the reads the design adds: NOT EXISTS inside writes, the post-refusal EXISTS read, and the owner inbox's blocked column. Keep it single-quoted and run Fitness op=check (lesson #971)."
+   },
+   {
+    "id": "m7",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "extra",
+    "claim": "'A blocked account cannot take part' depends on someone remembering it. It is four hand-placed copies of `AND NOT EXISTS (SELECT 1 FROM blocked_accounts k WHERE k.github_id = ?)` in three packages, plus three follow-up reads. TestBlockedRefusals hand-lists six attempts on the three public POST routes. The router registers those routes with bare mux.HandleFunc calls and no table, so a later participant write would pass every test while letting a blocked account through. Examples are a sender's reply on a feedback thread (lesson #965 mentions SenderThreads) or a comment edit.",
+    "evidence": "internal/server/router.go:97-103 (the three public POST routes, hand-registered); design case 2 lists the six attempts by hand.",
+    "file": "internal/server/router.go",
+    "line": 97,
+    "quote": {
+     "path": "internal/server/router.go",
+     "line": 97,
+     "text": "mux.HandleFunc(\"POST /reports/{slug}/vote\", a.vote)"
+    },
+    "fix": "Give TestBlockedRefusals a census, as TestPostRoutesAreClassified is for adminRoutes. Keep a table of every non-admin POST pattern with its blocked-refusal case, and fail when the server answers a POST outside /admin and /auth that the table does not list. Probe this through the built mux, or refactor the three public writes into a route table the test enumerates."
+   },
+   {
+    "id": "m8",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "The only Block entry point is the Block form on the moderation list. That list shows only comments readers can see. An account that only sends private feedback (abusive messages in the owner's inbox), or whose visible comments were all removed, has no Block control anywhere in the UI, although the brief says a block stops it sending feedback. Reaching it needs a hand-made POST with a numeric id the UI never shows.",
+    "evidence": "Design key decision '[SC-021] Block forms appear only on the admin moderation list'; the feedback-<n> articles on admin_report.html get only the 'blocked' badge.",
+    "fix": "Put a Block two-step in each feedback-<n> article of a sender who is not blocked, worded so that the lowercase word 'blocked' stays out of non-blocked articles: 'Block @login' contains no 'blocked'. It needs Message.GitHubID."
+   },
+   {
+    "id": "m9",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "extra",
+    "claim": "Owner UI is again planned without a real-browser render. That includes the Block `<details>` two-step on the moderation list, the Blocked users page, and the Unblock form, plus the remove form M1 adds. These are a fourth slice of signed-in owner controls proven only by httptest markup checks. The same-origin form POST through http.CrossOriginProtection from a real browser's Sec-Fetch-Site has never run (lessons #978, #961).",
+    "evidence": "Design 'How tests show it' lists only go tests and the HTTP-level finish lines 1 and 2.",
+    "fix": "One Go test that seeds an owner session through the test store, renders /admin/reports/<slug> and /admin/blocked in the engine's Chrome (TestReportScriptsNeverRun's harness), and checks that the Block and Unblock forms are closed by default and that the page is not blank."
+   },
+   {
+    "id": "m10",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "/admin/blocked lists every comment and every feedback message of every blocked account, with no limit. With M1 it also carries one remove form per comment. The accounts most likely to be blocked are prolific spammers, which is the per-comment-form size problem lesson #960 measured (about 2.1 MB of forms at 10,000 comments). The design does not decide whether a limit applies, which lesson #966 asked owner pages to do.",
+    "evidence": "Design '[SC-021] Block routes and the Blocked users page': 'a <ul> with one <li> per comment'.",
+    "fix": "Decide it explicitly: either state that no limit applies, as the owner inbox does, or cap each account's section at its newest N comments with a count of the rest."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "Checked the design's claims about the tree. visibleSQL reads blocked_accounts (comments.go:70). postSQL, Cast, Withdraw and sendSQL are single statements, and Cast's INSERT…SELECT keeps its WHERE when the predicate is added. The Owner(Inbox|Reply) fence covers OwnerInboxBySender. Raw-SQL block rows in TestCountReconciles and remove_test do not go through Post, so they survive the refusal. One wrong assumption: the tests to flip are named incorrectly (m4)."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "Parent links go nowhere below depth cap 5 and on unpublished reports (m5). Accounts that only send feedback cannot be blocked from the UI (m8). The page has no size limit (m10). Race between the refused write and the follow-up read: harmless, only the wording changes. Blocking an id that never signed in and repeated blocks are both covered."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "The participant refusal is four hand-placed predicates with no census over public POST routes (m7). The owner refusal sits only in the handler (m2)."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "none: the follow-up EXISTS read is needed so Withdraw can tell a refusal from 'held no vote'. N+1 OwnerInboxBySender calls are proportionate for a one-person site. No new tables or migrations."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "The follow-up read has no error contract (m3). Body policy for the field-less block and unblock POSTs (lesson #973) holds by construction: TestPostRoutesAreClassified (remove_body_corpus_test.go:160-185) fails on any unclassified adminRoutes POST, and its existing 'no field' class (publish/unpublish/delete) is the right one, so no finding."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "m3: what a failed follow-up EXISTS read returns is not specified. Otherwise Block and Unblock errors give 500, GET /admin/blocked errors give 500 and never an empty page, and the handlers map ErrBlocked to 403. CC-002 was checked: no new PublishedBySlug-style lookups are added."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "Lesson #977's deferred obligations: the m5 remove form on the Blocked page is missing (M1), and the m6 ParentRemoved rename is missing (m1). Test 6 must drive the real Unblock and remove routes (folded into M1). The built modItem lacks GitHubID and ParentID, which the design already intends SC-021 to add."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "The fitness rule says Block refuses the owner, but the design puts that check in the handler (m2). The rule's prose on reads becomes false (m6). The ViewerFrom rule is unaffected: the handlers already use auth.Participant, and admin.go is exempt. The blocked_accounts write regex stays quiet on the votes and feedback statements, because \\S* cannot span 'votes …'."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "The design names tests TestBlock, TestBlockedRefusals, TestBlockedPage and TestUnblockRestores, plus observe() and TestFeedbackDoesNotInterfere rows, and both epic-44 bodies. Gaps: the wrong tests named to flip (m4), no real-route remove while blocked (M1), no failed-read case (m3), no real-browser render (m9). check_e006_1_stops_at_block.py has to go once line 1 passes (lesson #976); the design does not say this, and the build will find it."
+   },
+   {
+    "dimension": "security",
+    "result": "The block, unblock and blocked-page routes sit behind RequireOwner, OwnerRoute and CrossOriginProtection. GitHubID appears only on admin pages. Removed bodies are blanked in SQL on the Blocked page. Private feedback reads stay inside the Owner* fence. The only weakness is that the owner refusal is not enforced at the store (m2). Unblock has no owner check, so self-blocking is recoverable."
+   }
+  ]
+ }
+}

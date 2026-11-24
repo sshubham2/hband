@@ -1,0 +1,131 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-012",
+ "title": "Author blocks a GitHub account and unblocks it from a Blocked users page: its comments leave public view everywhere, it can no longer comment, send feedback or vote, and its vote stays as it was",
+ "status": "active",
+ "branch": "slice/SL-012",
+ "opened_at": "2026-11-24T12:15:36.046Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C1 The author blocks a GitHub account (POST /admin/users/{u}/block, writing blocked_accounts through internal/comments): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C2 A blocked account can no longer comment or reply (refused, stored nowhere): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C3 A blocked account can no longer send feedback: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4 A blocked account can no longer like or dislike, and cannot change or withdraw its vote (vote frozen): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C5 Blocking changes no vote numbers: a blocked account's likes and dislikes keep counting: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C7 Blocked users page (SC-022): lists each blocked account with every comment it posted (its report and, for a reply, the parent comment), removed ones without text, its feedback, and an Unblock control. Reached from an admin link: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C8 Unblocking from the Blocked users page restores the account's comments and counts publicly and lets it take part again (a comment removed while blocked stays hidden): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C9 The account's feedback is marked 'blocked' on the report's admin view, only for blocked senders, and Block controls exist on the admin moderation list: missing"
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T12:22:47.020Z",
+     "head": "c86560004b05b46eed42cb71ca4afbe37473f784",
+     "summary": "Composed by the engine from E-006's design (design 229, made by SL-010 for the whole epic and attacked once, whole).",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T12:22:47.566Z",
+     "head": "c86560004b05b46eed42cb71ca4afbe37473f784",
+     "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 7:10pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    },
+    {
+     "n": 2,
+     "state": "unrecorded",
+     "at": "2026-11-24T13:40:08.576Z",
+     "head": "",
+     "summary": "The core of the design fits the code as it stands.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T13:47:19.248Z",
+     "head": "c86560004b05b46eed42cb71ca4afbe37473f784",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}
