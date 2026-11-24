@@ -223,10 +223,12 @@ func TestReaderPagesShareOneLayout(t *testing.T) {
 	gone := h.say(somebody, "newest", "a comment that will be removed", 0)
 	h.say(somebody, "newest", "a reply that outlives it", gone)
 	h.exec(`UPDATE comments SET removed_at = 5 WHERE id = ?`, gone)
-	// A private message from the non-owner on the newest report: the box and the
-	// sent note the pages draw read only who is looking and the stored slug, so
-	// no viewer's page shows the message, and the two routes still match.
+	// A private message from the non-owner on the newest report, and the author's
+	// answer to it. The sender is shown their own thread beneath the box and nobody
+	// else is; it is read for the report shown and the viewer, so the two routes
+	// still match for the sender.
 	h.sendFeedback(somebody, "newest", "a private note to the author")
+	h.mustReply(owner, 1, "newest", "a private answer from the author")
 
 	for name, sid := range map[string]string{"owner": owner, "non-owner": somebody} {
 		home := h.serve("GET", "/", h.withSID(sid))
@@ -245,12 +247,29 @@ func TestReaderPagesShareOneLayout(t *testing.T) {
 				t.Errorf("%s: the home page does not show %q", name, want)
 			}
 		}
-		if strings.Contains(home.Body, "a private note to the author") {
-			t.Errorf("%s: the page shows a private feedback message", name)
+		// The message and the answer are the sender's alone, after the box's form.
+		shown := name == "non-owner"
+		for _, text := range []string{"a private note to the author", "a private answer from the author"} {
+			if strings.Contains(home.Body, text) != shown {
+				t.Errorf("%s: the page shows the private text %q = %v, want %v", name, text, !shown, shown)
+			}
+		}
+		if shown {
+			inOrder(t, name+": /", home.Body, `<form method="post" action="/reports/newest/feedback">`, `<ol class="own-feedback">`,
+				"a private note to the author", "a private answer from the author")
 		}
 		if name == "non-owner" && !strings.Contains(home.Body, `<form method="post" action="/reports/newest/feedback">`) {
 			t.Errorf("%s: the page has no feedback form for the newest report", name)
 		}
+	}
+	// Another signed-in reader is shown neither, and the two routes still match.
+	other := h.mint(8, "other")
+	otherHome, otherPage := h.serve("GET", "/", h.withSID(other)), h.serve("GET", "/reports/newest", h.withSID(other))
+	if d := sameResponse(otherHome, otherPage); d != "" {
+		t.Errorf("another reader: / and /reports/newest differ: %s", d)
+	}
+	if strings.Contains(otherHome.Body, "a private note to the author") || strings.Contains(otherHome.Body, "a private answer from the author") || strings.Contains(otherHome.Body, "own-feedback") {
+		t.Errorf("another reader is shown the sender's thread:\n%s", otherHome.Body)
 	}
 
 	home := h.serve("GET", "/")

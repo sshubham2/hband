@@ -27,6 +27,14 @@
 {{range .Feedback}}<article class="feedback-message" id="feedback-{{.ID}}">
 <header class="byline">{{if .AvatarURL}}<img class="avatar" src="{{.AvatarURL}}" alt="" width="24" height="24"> {{end}}<span class="login">{{.Login}}</span> <time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></header>
 <p class="body">{{.Body}}</p>
+{{range .Replies}}<div class="feedback-reply">
+<header class="byline"><span class="badge">Author</span> <time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></header>
+<p class="body">{{.Body}}</p>
+</div>
+{{end}}<form method="post" action="/admin/feedback/{{.ID}}/reply">
+<textarea name="body" required maxlength="5000" rows="3" aria-label="Reply to @{{.Login}}"></textarea>
+<button type="submit">Send reply</button>
+</form>
 </article>
 {{else}}<p>No feedback on this report yet.</p>
 {{end}}</section>

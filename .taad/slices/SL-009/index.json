@@ -1,0 +1,259 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-009",
+ "title": "Author replies privately to a reader's feedback from the report's admin view, and the reader sees their own feedback and the replies beneath the feedback box",
+ "status": "active",
+ "branch": "slice/SL-009",
+ "opened_at": "2026-11-24T09:16:10.217Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "The admin feedback view offers the author a reply form on each feedback message: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "POST /admin/feedback/{n}/reply stores the author's reply to that message (adminRoutes row, adminFeedbackReply, feedback.OwnerReplyTarget and feedback.OwnerReply): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "The author's admin view shows each reply beneath the message it answers (Message.Replies filled by OwnerInbox): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "The reader sees their own feedback and the author's replies beneath the feedback box when they next open the report (SenderThreads, readerData.OwnFeedback, <ol class=\"own-feedback\">): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "The reply stays private between the author and that reader: other readers and anonymous visitors see neither the message nor the reply, and only the owner can post a reply: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "E-005's finish test (third done_when line: the reply written from the admin view shows with the reader's own message beneath the box, and no other reader or anonymous visitor sees either) passes: missing"
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No cap or paging on the owner's inbox (deferred finding m5). Open question Q-023 says no cap until SC-021/E-006, and the design adds none. As built, every admin message article now carries a textarea and a button, so the page grows with the number of messages. A shared reply form or paging is a later lever."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "feedback from blocked accounts is still stored but not marked on the admin page. The design leaves that to SC-021."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Decide the owner-inbox bound (a cap, paging or one shared reply form) before the feedback volume is large. Every admin article now has a textarea and a button, and lesson #960 puts per-item forms at about 2 MB per 10,000 items. Q-023 is the question."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Case (m)'s script, tests/acceptance/test_e005_1_private_feedback.py, exists only in the ledger. Whoever plants the finish test should confirm it exits 0 from the repo root, or the file should be placed in the repo."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Signed-in pages (the admin reply form and the reader's own thread) can't be opened by the engine with a bare command, because config refuses to start without HBAND_* variables. I looked at them with a one-off overlay probe in real Chrome (about 3 s); a committed signed-in browser test would make that repeatable. This is the same wall as lesson #961."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The fitness.yaml text for 'only the reader page reads a sender's own feedback thread' still says 'Quiet until SC-017 adds the method'. It is stale now that the method exists; I left the configuration alone."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: OwnerReply returns only an error, not the (int64, error) the design names. This follows the accepted m1 change that made Send return only an error. The only caller is the owner's route, which needs no id, and nothing would call the returned value; TestOwnerReplyReturnsNoID pins it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The own-thread <ol> is placed after the hidden <p id=\"feedback-sent\"> that feedback.html already has after </form>, not directly after </form>. It is still after the form's action text, as case (a) and the finish test require, and the success fragment still lands on the note just above the thread."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Case (m) was run from a scratch copy of the ledger's finish body, not as tests/acceptance/test_e005_1_private_feedback.py from the repo root. The file is engine-planted (needs_its_test) and is in no tree; I did not add it to the repo."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/reader_test.go (not seen: lines 1-189, 300-726 of 726) -- partly-opened: a Read returned only part of it; seen only as 2 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/reader_test.go:1-189,296-end -- I read only lines 190-295, which hold TestReaderPagesShareOneLayout, plus this slice's full diff of the file. The diff is confined to that function, so the unread lines are unchanged by SL-009."
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: .taad/fitness.yaml:386 -- the because-text of the rule \"only the reader page reads a sender's own feedback thread\" still says \"Quiet until SC-017 adds the method\", but SenderThreads exists and is called from reader.go. It is not one of this slice's files, and the .taad/slices/SL-009/code-review-1.json file already reports it."
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/server/reader.go:67-71 -- the OwnFeedback comment ends \"so it is every other viewer's zero value\". The sense is that it stays nil for visitors, the owner and any non-found state. The wording is awkward but not false, so I left it."
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/server/reader.go:193-196 -- the writeReader doc lists what personalises a reader page (who is signed in, the Admin link, a reply form) and does not mention the viewer's own feedback thread. It is still true, so I left it."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Real GitHub OAuth sign-in. Every signed-in path ran against the stand-in GitHub from the finish test harness."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The VPS reverse proxy over WireGuard and real https. Requests came from loopback with X-Forwarded-Proto/For headers set by the harness."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: How the signed-in pages render at 390 px on a real phone, and in Firefox or Safari. My 390 px headless capture was a crop of a wider layout; only 500 px and wider were seen properly."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The signed-in pages in the light colour scheme. My Chrome captures came out dark."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The signed-in pages with their real CSP headers in a browser. The probe proxy passed only Content-Type, and the last capture hid the report frame on purpose."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The finish test run as its literal command from the repo root. tests/acceptance/test_e005_1_private_feedback.py is not in the tree, and only a scratch copy with ROOT patched was run."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Page size and load time of the owner's admin page with many messages (Q-023, still open). There is now one form per message; this was not measured."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Production database state. No migration was added; 0005 already had feedback_replies, but prod user_version was not checked (Q-015/Q-016)."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T09:21:18.254Z",
+     "head": "1702d6e936a9860f5a9c37b201ebacee4ec73aa5",
+     "summary": "Composed by the engine from E-005's design (design 226, made by SL-007 for the whole epic and attacked once, whole).",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T09:21:18.592Z",
+     "head": "1702d6e936a9860f5a9c37b201ebacee4ec73aa5",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T09:21:19.046Z",
+     "head": "1702d6e936a9860f5a9c37b201ebacee4ec73aa5",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T09:21:19.570Z",
+     "head": "8d40d5589f2a19f0bb9e86498f2762cb66f21e35",
+     "summary": "The owner can now answer a feedback message from the admin report page, and the reader who sent it sees it beneath their feedback box.",
+     "caused_by": null,
+     "changed": {
+      "src": 10,
+      "listed": 10,
+      "measured_by_git": 14
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T09:34:49.758Z",
+     "head": "8d40d5589f2a19f0bb9e86498f2762cb66f21e35",
+     "summary": "SL-009 matches E-005's SC-017/SC-018 design.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T09:43:24.563Z",
+     "head": "344833604d77154162d0772ba2eb5b544647675e",
+     "summary": "SL-009 does what PS-017 and the merged SC-018 ask, and nothing I ran contradicts the build.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,160 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-009",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-24T09:21:19.570Z",
+ "head": "8d40d5589f2a19f0bb9e86498f2762cb66f21e35",
+ "run_id": 11951,
+ "summary": "The owner can now answer a feedback message from the admin report page, and the reader who sent it sees it beneath their feedback box. I added a route, POST /admin/feedback/{n}/reply, that stores the reply, and a reply form and the replies inside each admin message article. For a signed-in non-owner, the report pages now show their own messages and the author's replies in `<ol class=\"own-feedback\">`, read by their own session ID so nobody else sees them. `go vet` and the full `go test -count=1 ./...` pass, and E-005's finish test exits 0 from a scratch copy; a real-Chrome look at the signed-in pages (not committed) showed them drawing correctly.",
+ "payload": {
+  "status": "complete",
+  "summary": "The owner can now answer a feedback message from the admin report page, and the reader who sent it sees it beneath their feedback box. I added a route, POST /admin/feedback/{n}/reply, that stores the reply, and a reply form and the replies inside each admin message article. For a signed-in non-owner, the report pages now show their own messages and the author's replies in `<ol class=\"own-feedback\">`, read by their own session ID so nobody else sees them. `go vet` and the full `go test -count=1 ./...` pass, and E-005's finish test exits 0 from a scratch copy; a real-Chrome look at the signed-in pages (not committed) showed them drawing correctly.",
+  "files": [
+   {
+    "path": "internal/feedback/feedback.go",
+    "change": "modified",
+    "why": "Reply, Sent, Message.Replies, OwnerInbox filling replies, SenderThreads, OwnerReplyTarget, OwnerReply (single INSERT…SELECT, no transaction)"
+   },
+   {
+    "path": "internal/server/admin.go",
+    "change": "modified",
+    "why": "adminRoutes row POST /admin/feedback/{n}/reply and adminFeedbackReply (canonicalID → OwnerReplyTarget → one body → OwnerReply → 303 to #feedback-<n>)"
+   },
+   {
+    "path": "internal/server/reader.go",
+    "change": "modified",
+    "why": "readerData.OwnFeedback, filled in renderReader for a signed-in non-owner on stateFound; a read error becomes stateUnavailable (503)"
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "change": "modified",
+    "why": "each admin feedback-<n> article gets its replies and a reply form"
+   },
+   {
+    "path": "internal/server/templates/feedback.html",
+    "change": "modified",
+    "why": "own-thread <ol class=\"own-feedback\"> after the form and the hidden sent note, signed-in non-owner branch only, no row ids"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "neutral-colour rules for .feedback-reply, .own-feedback and the admin reply form"
+   },
+   {
+    "path": "internal/server/feedback_test.go",
+    "change": "modified",
+    "why": "reply helpers and shared body tables; new reply tests (cases a-h, j, k); lifecycle test writes replies through the route; the SC-016 'sender's own pages unchanged' subtest replaced by the two-world per-label noninterference subtest; 'the write fails' subtest updated for the 503"
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "change": "modified",
+    "why": "observe() gains each non-owner observer's POST /admin/feedback/1/reply"
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "change": "modified",
+    "why": "TestReaderPagesShareOneLayout seeded with the sender's message and a reply; checks the sender sees them, the owner and another reader do not, and / and /reports/newest stay identical"
+   },
+   {
+    "path": "internal/feedback/feedback_test.go",
+    "change": "modified",
+    "why": "package tests for OwnerReply, OwnerReplyTarget, inbox replies, SenderThreads (scope, order, UTC with time.Local forced to +5:30, no query for id <= 0), reader types carrying no id"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "Built SC-017 and merged SC-018. Case tests feed each shape in, mostly in internal/server/feedback_test.go. (a) TestFeedbackReply. (b, c) TestFeedbackReplyTargets: malformed ids, unknown ids, a message deleted with its report, and a skipped-insert race all give a 404 byte-identical to the baseline, with nothing written. (d) TestFeedbackReplyBodies shares the refused and accepted tables with TestFeedbackBodies. (e) TestFeedbackReplyToUnpublishedReport. (f) TestFeedbackReplyIsTheOwnersAlone plus the automatic TestAdminAccessMatrix row. (g) The TestFeedbackDoesNotInterfere subtest 'a reader's thread and the author's reply to it reach nobody else', plus the observe() reply POST. (h) TestFeedbackSenderSeesOnlyTheirOwnThread. (i) TestReaderPagesShareOneLayout. (j) TestFeedbackStoreFailure subtests: renaming feedback_replies gives 503 for the sender and 500 for the admin page and the reply write; renaming feedback gives 500 for the lookup. (k) the feedbackIDRE checks in those tests. (l) TestFeedbackFollowsReportLifecycle with replies written through the route. (m) E-005's finish test, read from the ledger in place and run from a scratch copy with ROOT patched, exits 0.",
+    "mutation": {
+     "file": "internal/server/reader.go",
+     "find": "own, err := a.feedback.SenderThreads(r.Context(), rep.ID, v.GitHubID)",
+     "replace": "own, err := a.feedback.SenderThreads(r.Context(), rep.ID, int64(7))",
+     "test_command": "go test -count=1 -run TestFeedbackReply ./internal/server"
+    }
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestFeedbackReply",
+    "test_command": "go test -count=1 -run TestFeedback ./internal/server"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "note": "Exit 0."
+   },
+   {
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "All 11 test packages ok, including internal/server (about 12 s, which runs the real Chrome test TestReportScriptsNeverRun through CHROME_BIN), internal/feedback and internal/fitnessrules. internal/fitnessrules checks the OwnerReply and SenderThreads fences, and the new calls sit only in admin.go and reader.go."
+   },
+   {
+    "command": "go test -count=1 -run TestFeedback ./internal/server",
+    "outcome": "passed",
+    "note": "All feedback tests, including the new reply tests and both store-failure branches."
+   },
+   {
+    "command": "mutation: reader.go SenderThreads keyed by int64(7) instead of v.GitHubID, then go test -count=1 -run TestFeedback ./internal/server",
+    "outcome": "failed",
+    "note": "Failed on purpose. TestFeedbackReply, TestFeedbackSenderSeesOnlyTheirOwnThread and TestFeedbackDoesNotInterfere went red. I restored the file afterwards and the diff matches what I intended."
+   },
+   {
+    "command": "python -I <scratch>/tests/acceptance/test_e005_1_private_feedback.py (SELECT finish FROM epics WHERE id=43 read in place with mode=ro; ROOT patched to the worktree; TAAD3_HOME set to an empty scratch folder)",
+    "outcome": "passed",
+    "note": "Ran 1 test, OK, exit 0, in 4.5 s. It builds ./cmd/hband and serves the binary against the stand-in GitHub. It was run twice, with identical results."
+   },
+   {
+    "command": "go test -count=1 -overlay <scratch>/overlay.json -run TestZZProbeShots ./internal/server (throwaway probe in scratch, not in the tree; real Chrome through CHROME_BIN signing in via the fake GitHub)",
+    "outcome": "passed",
+    "note": "I looked at screenshots of the signed-in pages. The admin page shows one reply form per message, with the replies and Author badge under reader's message. The reader's page shows the box, the hidden sent note not drawn, then 'You wrote' with the message and the two replies. At 500 px wide the layout wraps cleanly. A second reader sees only their own message. No signal colours."
+   }
+  ],
+  "deviations": [
+   "OwnerReply returns only an error, not the (int64, error) the design names. This follows the accepted m1 change that made Send return only an error. The only caller is the owner's route, which needs no id, and nothing would call the returned value; TestOwnerReplyReturnsNoID pins it.",
+   "The own-thread <ol> is placed after the hidden <p id=\"feedback-sent\"> that feedback.html already has after </form>, not directly after </form>. It is still after the form's action text, as case (a) and the finish test require, and the success fragment still lands on the note just above the thread.",
+   "Case (m) was run from a scratch copy of the ledger's finish body, not as tests/acceptance/test_e005_1_private_feedback.py from the repo root. The file is engine-planted (needs_its_test) and is in no tree; I did not add it to the repo."
+  ],
+  "not_built": [
+   "No cap or paging on the owner's inbox (deferred finding m5). Open question Q-023 says no cap until SC-021/E-006, and the design adds none. As built, every admin message article now carries a textarea and a button, so the page grows with the number of messages. A shared reply form or paging is a later lever.",
+   "feedback from blocked accounts is still stored but not marked on the admin page. The design leaves that to SC-021."
+  ],
+  "follow_ups": [
+   "Decide the owner-inbox bound (a cap, paging or one shared reply form) before the feedback volume is large. Every admin article now has a textarea and a button, and lesson #960 puts per-item forms at about 2 MB per 10,000 items. Q-023 is the question.",
+   "Case (m)'s script, tests/acceptance/test_e005_1_private_feedback.py, exists only in the ledger. Whoever plants the finish test should confirm it exits 0 from the repo root, or the file should be placed in the repo.",
+   "Signed-in pages (the admin reply form and the reader's own thread) can't be opened by the engine with a bare command, because config refuses to start without HBAND_* variables. I looked at them with a one-off overlay probe in real Chrome (about 3 s); a committed signed-in browser test would make that repeatable. This is the same wall as lesson #961.",
+   "The fitness.yaml text for 'only the reader page reads a sender's own feedback thread' still says 'Quiet until SC-017 adds the method'. It is stale now that the method exists; I left the configuration alone."
+  ],
+  "architecture": [
+   {
+    "block": "C-007",
+    "kind": "line",
+    "find": "migration 0005 also creates a feedback_replies table that no non-test code reads or writes. Today the only reader is the owner's admin page (OwnerInbox, newest first, with each sender's current login and avatar). A message is never drawn on a reader page; the sender is told only by a hidden 'Sent to the author.' note that the #feedback-sent fragment of the post-send 303 reveals. No reply is written or shown yet, and feedback from blocked accounts is stored but not marked.",
+    "replace": "migration 0005 also creates a feedback_replies table, written only by OwnerReply (the owner's reply, one INSERT…SELECT keyed by the message id, stored whatever the report's publish state) and read only by OwnerInbox and SenderThreads. Two views show messages and replies: the owner's admin page (OwnerInbox, newest first, with each sender's current login and avatar and the author's replies under each message), and the sender's own reader pages (SenderThreads, keyed by the signed-in viewer's own GitHub ID, shows that reader their own messages and the author's replies oldest first beneath the feedback box; the Sent and Reply types it returns carry no row id). No one else sees a message or a reply, and the owner's reader pages do not ask for one; the sender is also told by a hidden 'Sent to the author.' note that the #feedback-sent fragment of the post-send 303 reveals. Feedback from blocked accounts is stored but not marked.",
+    "why": "internal/feedback/feedback.go: OwnerReply, OwnerReplyTarget, SenderThreads, repliesOf, Message.Replies, Sent; internal/server/reader.go renderReader calls SenderThreads only for signedIn && !v.IsOwner; internal/server/admin.go adminFeedbackReply is the only caller of OwnerReply*."
+   },
+   {
+    "block": "C-008",
+    "kind": "depends",
+    "add": [
+     "C-007"
+    ],
+    "why": "internal/server/reader.go imports internal/feedback (readerData.OwnFeedback []feedback.Sent) and calls a.feedback.SenderThreads in renderReader; internal/server/templates/feedback.html draws the thread."
+   },
+   {
+    "block": "C-009",
+    "kind": "line",
+    "find": "the per-report view of dislikes and private feedback (including who sent it, with blocked accounts marked)",
+    "replace": "the per-report view of dislikes and private feedback (including who sent it, with blocked accounts marked), where the owner answers each message through a reply form (POST /admin/feedback/{n}/reply, adminFeedbackReply) and sees each reply under the message it answers",
+    "why": "internal/server/admin.go: adminRoutes row POST /admin/feedback/{n}/reply and adminFeedbackReply; internal/server/templates/admin_report.html: the replies and a reply form inside each feedback-<n> article."
+   }
+  ],
+  "mandatory": [],
+  "screens": [],
+  "app": null
+ }
+}

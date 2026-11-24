@@ -1,0 +1,255 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-009",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-24T09:43:24.563Z",
+ "head": "344833604d77154162d0772ba2eb5b544647675e",
+ "run_id": 11958,
+ "summary": "SL-009 does what PS-017 and the merged SC-018 ask, and nothing I ran contradicts the build. I checked it against the code, not a live deployment.\n\n**What I ran** (TAAD3_HOME set to an empty scratch folder each time):\n- `go vet ./...` exits 0.\n- `go test -count=1 ./...` passes in all 11 packages.\n- The architecture rules all hold (29 of 29).\n- E-005's finish test exits 0: \"Ran 1 test … OK\" in 4.5 s. I read its body from the ledger in place (mode=ro, `SELECT finish FROM epics WHERE id=43`) and ran a scratch copy with ROOT patched to this worktree. It builds `./cmd/hband` and serves it against the stand-in GitHub. It covers the reply link on the admin page, the owner's POST, the reader's message and the reply showing after the feedback box, and another reader and a visitor seeing neither.\n\n**Mutations.** I made seven of my own, through `-overlay` so the tree was never touched. They differ from the build's and the code review's, and the tests caught every one:\n- SenderThreads ignoring which report it is reading;\n- OwnerReply ignoring a write that inserted nothing;\n- the reader's own thread drawn above the form;\n- the reply body read with FormValue;\n- OwnerReply skipping Normalize;\n- a SenderThreads read error swallowed instead of making the page a 503;\n- the 303 losing its #feedback-n fragment.\n\n**Real headless Chrome** (CHROME_BIN), on the running binary, with the signed-in session passed through a small scratch proxy:\n- Reader A's report page shows the form, then \"You wrote\" with their message, then the reply with its Author badge underneath.\n- Reader B sees only their own message.\n- Reader A, on the other report, sees only the message they sent there.\n- The admin page shows a \"Send reply\" form with an aria-label on each message, and the reply drawn under the message it answers.\n- At 1000 px and 500 px wide the layout is clean.\n- No probe Chrome process was left running, and the probe profiles were deleted.\n\n**Process.** No loop: every stage has a single attempt. The critique and critique review each passed in under a second with no account, as the code review already noted.\n\n**Not reached:** real GitHub OAuth, the VPS and WireGuard proxy, real https, phone browsers at 390 px, the light colour scheme on signed-in pages, and production data.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "SL-009 does what PS-017 and the merged SC-018 ask, and nothing I ran contradicts the build. I checked it against the code, not a live deployment.\n\n**What I ran** (TAAD3_HOME set to an empty scratch folder each time):\n- `go vet ./...` exits 0.\n- `go test -count=1 ./...` passes in all 11 packages.\n- The architecture rules all hold (29 of 29).\n- E-005's finish test exits 0: \"Ran 1 test … OK\" in 4.5 s. I read its body from the ledger in place (mode=ro, `SELECT finish FROM epics WHERE id=43`) and ran a scratch copy with ROOT patched to this worktree. It builds `./cmd/hband` and serves it against the stand-in GitHub. It covers the reply link on the admin page, the owner's POST, the reader's message and the reply showing after the feedback box, and another reader and a visitor seeing neither.\n\n**Mutations.** I made seven of my own, through `-overlay` so the tree was never touched. They differ from the build's and the code review's, and the tests caught every one:\n- SenderThreads ignoring which report it is reading;\n- OwnerReply ignoring a write that inserted nothing;\n- the reader's own thread drawn above the form;\n- the reply body read with FormValue;\n- OwnerReply skipping Normalize;\n- a SenderThreads read error swallowed instead of making the page a 503;\n- the 303 losing its #feedback-n fragment.\n\n**Real headless Chrome** (CHROME_BIN), on the running binary, with the signed-in session passed through a small scratch proxy:\n- Reader A's report page shows the form, then \"You wrote\" with their message, then the reply with its Author badge underneath.\n- Reader B sees only their own message.\n- Reader A, on the other report, sees only the message they sent there.\n- The admin page shows a \"Send reply\" form with an aria-label on each message, and the reply drawn under the message it answers.\n- At 1000 px and 500 px wide the layout is clean.\n- No probe Chrome process was left running, and the probe profiles were deleted.\n\n**Process.** No loop: every stage has a single attempt. The critique and critique review each passed in under a second with no account, as the code review already noted.\n\n**Not reached:** real GitHub OAuth, the VPS and WireGuard proxy, real https, phone browsers at 390 px, the light colour scheme on signed-in pages, and production data.",
+  "checks": [
+   {
+    "what": "Static analysis",
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "evidence": "exit 0"
+   },
+   {
+    "what": "Whole suite",
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "All 11 packages ok, including internal/server (12.2 s), internal/feedback and internal/fitnessrules. testutil/fakegithub has no test files. Exit 0."
+   },
+   {
+    "what": "E-005 finish test (case m)",
+    "command": "python -I .taad-scratch/validate1/readfinish.py (sqlite3 file:C:/Users/sshub/AppData/Roaming/taad3/engine.db?mode=ro, SELECT id, finish FROM epics WHERE id=43, closed), then python -I .taad-scratch/validate1/tests/acceptance/test_e005_1_private_feedback.py with ROOT patched to the worktree",
+    "outcome": "passed",
+    "evidence": "Ran 1 test in 4.526s, OK, exit 0. The ledger row says needs_its_test: true, path tests/acceptance/test_e005_1_private_feedback.py, body of 21624 chars. The reply assertions at body lines 351-361 all held."
+   },
+   {
+    "what": "Architecture rules",
+    "command": "Fitness op=check",
+    "outcome": "passed",
+    "evidence": "29 rules checked against 68 parsed files: every declared rule holds."
+   },
+   {
+    "what": "Mutant M2: senderSQL ignores report_id (case h)",
+    "command": "go test -count=1 -overlay <scratch>/overlay.json -run 'TestFeedback|TestOwner|TestSender|TestReaderPagesShareOneLayout|TestAdminAccessMatrix' ./internal/feedback ./internal/server",
+    "outcome": "passed",
+    "evidence": "Killed, exit 1. Failing: TestFeedbackDoesNotInterfere (reader thread subtest), TestFeedbackFollowsReportLifecycle, TestFeedbackSenderSeesOnlyTheirOwnThread, TestSenderThreads."
+   },
+   {
+    "what": "Mutant M4: OwnerReply returns nil when the INSERT…SELECT inserts 0 rows (case c race)",
+    "command": "same go test with overlay",
+    "outcome": "passed",
+    "evidence": "Killed, exit 1. Failing: TestFeedbackReplyTargets, TestOwnerReplyNeedsAMessage."
+   },
+   {
+    "what": "Mutant M5: own-feedback <ol> moved above the feedback form (cases a, i)",
+    "command": "same go test with overlay on feedback.html",
+    "outcome": "passed",
+    "evidence": "Killed, exit 1. Failing: TestFeedbackReply, TestFeedbackReplyMarkup, TestFeedbackReplyToUnpublishedReport, TestFeedbackSenderSeesOnlyTheirOwnThread, TestFeedbackDoesNotInterfere, TestFeedbackSend, TestReaderPagesShareOneLayout."
+   },
+   {
+    "what": "Mutant M6: reply body read with r.FormValue, so the query string counts and repeats pass (case d, exactly one body)",
+    "command": "same go test with overlay on admin.go",
+    "outcome": "passed",
+    "evidence": "Killed, exit 1. Failing: TestFeedbackReplyBodies."
+   },
+   {
+    "what": "Mutant M7: OwnerReply skips comments.Normalize (case d)",
+    "command": "same go test with overlay on feedback.go",
+    "outcome": "passed",
+    "evidence": "Killed, exit 1. Failing: TestFeedbackReplyBodies, TestFeedbackReplyTargets, TestFeedbackStoreFailure/the_reply_write_fails, TestOwnerReplyRefusedBodyRunsNoSQL, TestOwnerReplyStoresAndNormalises."
+   },
+   {
+    "what": "Mutant M8: a SenderThreads read error is logged but the page stays found (case j)",
+    "command": "same go test with overlay on reader.go",
+    "outcome": "passed",
+    "evidence": "Killed, exit 1. Failing: TestFeedbackStoreFailure/the_sender's_thread_read_fails and TestFeedbackStoreFailure/the_write_fails."
+   },
+   {
+    "what": "Mutant M9: reply 303 without the #feedback-<n> fragment (case a)",
+    "command": "same go test with overlay on admin.go",
+    "outcome": "passed",
+    "evidence": "Killed, exit 1. Failing: TestFeedbackReply, ReplyBodies, ReplyTargets, ReplyMarkup, ReplyToUnpublishedReport, SenderSeesOnlyTheirOwnThread, FollowsReportLifecycle, DoesNotInterfere, StoreFailure and TestReaderPagesShareOneLayout. The tree was left unchanged: git status showed no src changes."
+   },
+   {
+    "what": "The case (b) id table includes x, 0, -1, +1 and 01",
+    "command": "Grep internal/server/feedback_test.go",
+    "outcome": "passed",
+    "evidence": "feedback_test.go:1195 tries x, 0, -1, +1, 01, 001, 1x, x1, 1.0, %201, 1%20, 2^64-sized and int64-overflow ids, 99, 3 and an Arabic-Indic digit."
+   },
+   {
+    "what": "Handler order matches the design: canonicalID → OwnerReplyTarget → MaxBytesReader(maxCommentBody) with exactly one PostForm body → OwnerReply → 303 to /admin/reports/<slug>#feedback-<n>",
+    "command": "Read internal/server/admin.go:26-45,163-206; internal/feedback/feedback.go:140-323; internal/server/reader.go:60-153; templates/feedback.html",
+    "outcome": "passed",
+    "evidence": "admin.go:43 adds the adminRoutes row and admin.go:163-206 follows the designed order. replySQL (feedback.go:291) is a single INSERT…SELECT with no transaction. SenderThreads filters on both report_id and github_id and returns nil without a query when the id is 0 or less. renderReader (reader.go:139-153) calls it only when stateFound && signedIn && !v.IsOwner, and a read error makes the page stateUnavailable."
+   },
+   {
+    "what": "Real headless Chrome on the built binary: the signed-in reader's own thread and the owner's admin reply form",
+    "command": "python -I .taad-scratch/validate1/tests/acceptance/probe_e005_shots.py (a scratch copy of the finish test that saves each page's HTML and screenshots it through CHROME_BIN via a cookie-injecting loopback proxy; the last run hides only .report-frame)",
+    "outcome": "passed",
+    "evidence": "Every run exited 0 with the test OK. In shots4/reader-s1-noframe.png reader A sees the form, then 'You wrote' with their message, then the 'Author' badge and the reply. In reader-s2-noframe-narrow.png (500 px) reader B sees only their own message, with no reply. reader-s1-other.html (A on the beta report) has one own-feedback item and no alpha text. owner-admin-wide.png shows a 'Send reply' textarea and button per message (aria-label 'Reply to @login') with the reply under reader A's message. No reader HTML contains feedback-<digit> or /admin/feedback/."
+   },
+   {
+    "what": "Signed-in pages at 390 px wide",
+    "command": "chrome --headless=new --window-size=390,2600 --screenshot (inside the probe)",
+    "outcome": "not-run",
+    "evidence": "The capture is a crop of a wider layout: the header and the note are cut at the right edge, and the iframe's right border is off-screen. Headless Chrome's window does not honour a width this narrow, so this measures the tool, not the page. The engine's own 390 px screen of the signed-out page lays out correctly, and at 500 px the signed-in page wraps cleanly."
+   },
+   {
+    "what": "Screenshot scrolled to #feedback",
+    "command": "chrome --headless=new --screenshot http://127.0.0.1:<proxy>/reports/<a>#feedback",
+    "outcome": "not-run",
+    "evidence": "It captured an almost blank, unpainted frame, about 6 KB. I replaced it with the frame-hidden capture above, which did draw."
+   },
+   {
+    "what": "No probe browser left running; probe profiles removed",
+    "command": "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | Where CommandLine -like '*validate1*'; Remove-Item of the 23 tmp* user-data dirs under .taad-scratch/validate1",
+    "outcome": "passed",
+    "evidence": "Count 0. The 23 dirs were removed. git status shows only the pre-existing .taad bookkeeping and .taad-scratch."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "PS-017: from the admin feedback view the author writes a reply to a feedback message, and it stays private between the author and that reader",
+    "met": "yes",
+    "how": "The finish test, run from a scratch copy, exits 0: the owner posts through /admin/feedback/<n>/reply from the admin view, and another reader and a visitor see neither the message nor the reply. Real Chrome on the binary showed the same. TestFeedbackDoesNotInterfere's per-label noninterference subtest passes, and the M2 and M5 mutants broke it."
+   },
+   {
+    "criterion": "SC-018 (merged): the reader sees their own feedback and the author's replies beneath the feedback box",
+    "met": "yes",
+    "how": "reader-s1.html has <ol class=\"own-feedback\"> after the form and the hidden #feedback-sent note, holding the message and the reply. The real-Chrome screenshot shows it drawn under the box. The finish test asserts the box comes before the message and the reply."
+   },
+   {
+    "criterion": "(a) Owner replies with a valid body: 303 to #feedback-<n>, one feedback_replies row, the reply under its message on the admin page, and the sender sees the message and the reply after the form's action text",
+    "met": "yes",
+    "how": "TestFeedbackReply passes, and the M9 mutant (fragment dropped) and the M5 mutant (thread drawn above the form) both kill it. The admin screenshot shows the reply under its message."
+   },
+   {
+    "criterion": "(b) n is 'x', '0', '-1', '+1' or '01': 404 and nothing written; the TestAdminAccessMatrix row stays green",
+    "met": "yes",
+    "how": "TestFeedbackReplyTargets' id table at feedback_test.go:1195 includes them all, and it and TestAdminAccessMatrix pass in the full suite."
+   },
+   {
+    "criterion": "(c) An unknown n, or a message deleted with its report: 404 and nothing written",
+    "met": "yes",
+    "how": "TestFeedbackReplyTargets passes, and the M4 mutant (0 rows treated as success) kills it and TestOwnerReplyNeedsAMessage."
+   },
+   {
+    "criterion": "(d) Reply bodies follow the same refused and accepted table as TestFeedbackBodies: 400, or stored normalised",
+    "met": "yes",
+    "how": "TestFeedbackReplyBodies passes. The M6 mutant (FormValue) and the M7 mutant (no Normalize) both kill it."
+   },
+   {
+    "criterion": "(e) A reply to a draft report's feedback is stored, and the reader sees it only once the report is published",
+    "met": "yes",
+    "how": "TestFeedbackReplyToUnpublishedReport passes in the suite, and the M5 mutant also turns it red, so it reads the drawn thread."
+   },
+   {
+    "criterion": "(f) Non-owner and anonymous POSTs get 403, through the access matrix",
+    "met": "yes",
+    "how": "TestFeedbackReplyIsTheOwnersAlone and TestAdminAccessMatrix pass. The route is an adminRoutes row (admin.go:43), behind the owner gate."
+   },
+   {
+    "criterion": "(g) Per-label noninterference: B's message and its reply change no observe() observation and none of A's pages; B sees exactly B's thread",
+    "met": "yes",
+    "how": "The TestFeedbackDoesNotInterfere subtest 'a reader's thread and the author's reply to it reach nobody else' passes. The M2 and M5 mutants kill it."
+   },
+   {
+    "criterion": "(h) The sender sees only their own messages on that report: not their message on another report, not another reader's",
+    "met": "yes",
+    "how": "TestFeedbackSenderSeesOnlyTheirOwnThread passes, and the M2 mutant kills it. In the probe, reader A's beta page showed only the beta message, and reader B's alpha page only B's message."
+   },
+   {
+    "criterion": "(i) TestReaderPagesShareOneLayout, seeded with feedback and a reply, keeps / and /reports/newest identical for that sender",
+    "met": "yes",
+    "how": "It passes in the suite, and the M5 mutant kills it."
+   },
+   {
+    "criterion": "(j) A SenderThreads read failure makes the reader page 503; a reply write failure gives 500",
+    "met": "yes",
+    "how": "TestFeedbackStoreFailure's subtests 'the sender's thread read fails' and 'the reply write fails' pass. The M8 mutant (error swallowed) kills the 503 subtest."
+   },
+   {
+    "criterion": "(k) No reader page contains 'feedback-' followed by a digit, or '/admin/feedback/'",
+    "met": "yes",
+    "how": "The feedbackIDRE checks in the tests pass. None of the probe's real reader HTML (reader-s1, reader-s2, reader-s1-other) contains either: the only feedback- ids are feedback-sent, feedback-message and feedback-reply."
+   },
+   {
+    "criterion": "(l) TestFeedbackFollowsReportLifecycle repeated with replies written through OwnerReply",
+    "met": "yes",
+    "how": "It passes. The M2 and M9 mutants both make it fail, which shows it exercises the reply route and the sender thread."
+   },
+   {
+    "criterion": "(m) `python tests/acceptance/test_e005_1_private_feedback.py` exits 0",
+    "met": "yes",
+    "how": "The ledger's exact body exits 0 against this tree. The one change is ROOT, set to the worktree path, which is what its dirname×3 would compute at tests/acceptance. The file itself is engine-planted (needs_its_test: true) and is not in the repo, so the literal command from the repo root cannot run until the engine places it."
+   }
+  ],
+  "planned": [
+   {
+    "ordinal": 1,
+    "met": "yes",
+    "evidence": "Every part the design names is in the tree:\n- the adminRoutes row and adminFeedbackReply in the designed order;\n- OwnerReplyTarget, and OwnerReply as a single INSERT…SELECT;\n- Message.Replies filled by OwnerInbox;\n- Sent and Reply with no id;\n- SenderThreads;\n- readerData.OwnFeedback, set only for a signed-in non-owner on stateFound, with an error giving 503;\n- the reply form and replies in each admin feedback-<n> article;\n- <ol class=\"own-feedback\"> after the form.\n\nThere is no new migration. Cases (a)-(m) each have a passing test, the finish test exits 0, and seven independent mutants were all caught. Two declared deviations remain: OwnerReply returns only an error, and the <ol> sits after the hidden sent note rather than directly after </form>. Neither changes any case."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "verified": "yes",
+    "evidence": "Each case named in O-001's discharge text exists and passes in `go test -count=1 ./...`. Seven independent overlay mutants were all killed by those tests, and the E-005 finish test exits 0 from a scratch copy of the ledger body with ROOT patched."
+   }
+  ],
+  "screens": [
+   {
+    "screen": "s1-wide-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "whole screen",
+      "what": "It is the signed-out report page, so it shows none of what SL-009 added: the reader's own thread and the admin reply form are drawn only when signed in. I looked at those separately in my own headless-Chrome captures."
+     },
+     {
+      "where": "report frame",
+      "what": "The frame is an empty white box, the visible result of the frame-ancestors console error the engine already listed. It comes from the harness origin (127.0.0.1 vs https://hband.test), not from this slice."
+     }
+    ]
+   },
+   {
+    "screen": "s1-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "comments, the fourth-level comment",
+      "what": "The very long unbroken login wraps onto its own lines below the avatar, so the avatar sits alone on a line and the date drops to a third line. This is the SL-008 thread layout, not SL-009."
+     },
+     {
+      "where": "comment bylines",
+      "what": "Each avatar shows as a broken-image icon, which matches the img-src CSP errors already listed. The fixture's avatars.example host is the cause, not this slice."
+     },
+     {
+      "where": "whole screen",
+      "what": "Signed out, so the SL-009 surfaces are not on it."
+     }
+    ]
+   }
+  ],
+  "not_reached": [
+   "Real GitHub OAuth sign-in. Every signed-in path ran against the stand-in GitHub from the finish test harness.",
+   "The VPS reverse proxy over WireGuard and real https. Requests came from loopback with X-Forwarded-Proto/For headers set by the harness.",
+   "How the signed-in pages render at 390 px on a real phone, and in Firefox or Safari. My 390 px headless capture was a crop of a wider layout; only 500 px and wider were seen properly.",
+   "The signed-in pages in the light colour scheme. My Chrome captures came out dark.",
+   "The signed-in pages with their real CSP headers in a browser. The probe proxy passed only Content-Type, and the last capture hid the report frame on purpose.",
+   "The finish test run as its literal command from the repo root. tests/acceptance/test_e005_1_private_feedback.py is not in the tree, and only a scratch copy with ROOT patched was run.",
+   "Page size and load time of the owner's admin page with many messages (Q-023, still open). There is now one form per message; this was not measured.",
+   "Production database state. No migration was added; 0005 already had feedback_replies, but prod user_version was not checked (Q-015/Q-016)."
+  ]
+ }
+}

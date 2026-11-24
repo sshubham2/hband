@@ -9,6 +9,7 @@ import (
 
 	"github.com/sshubham2/hband/internal/auth"
 	"github.com/sshubham2/hband/internal/comments"
+	"github.com/sshubham2/hband/internal/feedback"
 	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/votes"
 )
@@ -63,6 +64,11 @@ type readerData struct {
 	Votes votes.PublicView
 	// Thread is the report's comments, pruned for readers and ready to draw.
 	Thread []commentView
+	// OwnFeedback is the viewer's own private messages on this report with the
+	// author's replies, oldest first. It is set only for a signed-in viewer who is
+	// not the owner, read for that viewer's own id, so it is every other viewer's
+	// zero value. The type has no row id to print.
+	OwnFeedback []feedback.Sent
 }
 
 // home is the public landing page: the newest published report, laid out
@@ -128,6 +134,21 @@ func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPa
 			state, rep = stateUnavailable, reports.Report{}
 		} else {
 			d.Thread = views
+		}
+	}
+	if state == stateFound && signedIn && !v.IsOwner {
+		// The viewer's own messages and the author's replies to them, under the
+		// feedback box. The key is the session's GitHub id and nothing from the
+		// request, so it is the same on both pages and no reader is shown another's.
+		// The owner reads feedback on the admin page, so the owner's pages are not
+		// asked. A thread that cannot be read is never drawn as an empty one: the
+		// page says it cannot be shown.
+		own, err := a.feedback.SenderThreads(r.Context(), rep.ID, v.GitHubID)
+		if err != nil {
+			slog.Error("reader: read the viewer's own feedback", "error", err)
+			state, rep = stateUnavailable, reports.Report{}
+		} else {
+			d.OwnFeedback = own
 		}
 	}
 	switch state {

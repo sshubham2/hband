@@ -1,0 +1,111 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-009",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-24T09:34:49.758Z",
+ "head": "8d40d5589f2a19f0bb9e86498f2762cb66f21e35",
+ "run_id": 11954,
+ "summary": "SL-009 matches E-005's SC-017/SC-018 design. Every difference from the design is one the build declared. I found no defect in what was written.\n\n**Reply route** (`admin.go`)\n- `adminFeedbackReply` (`admin.go:163-206`) runs in the designed order: canonicalID, then `OwnerReplyTarget` (404 or 500), then `MaxBytesReader(maxCommentBody)` with exactly one `PostForm[\"body\"]` (400), then `OwnerReply` (400, 404 or 500), then a 303 built from the stored slug and the parsed id.\n- The row sits in `adminRoutes`, behind `RequireOwner` and `OwnerRoute`. The gate sets no-store and answers 403 to non-owners and to anonymous POSTs.\n\n**Feedback package** (`feedback.go`)\n- `OwnerReplyTarget` and `OwnerReply` are in place, and `OwnerReply` writes with a single INSERT…SELECT and no transaction.\n- `OwnerInbox` fills `Message.Replies` from a second query, grouped in Go.\n- `SenderThreads` filters on both report_id and github_id in both of its queries, and returns nothing without a query for an id of 0 or less.\n- Every created_at read back goes through `unixUTC`.\n- `Sent` and `Reply` carry no id.\n\n**Reader pages** (`renderReader`, `reader.go:139-153`)\n- `SenderThreads` is called only on stateFound, for a signed-in non-owner, keyed by the session's `v.GitHubID`. A read error makes the page a 503.\n- The own-thread `<ol class=\"own-feedback\">` is drawn only in the non-owner branch of `feedback.html`, after the form and the hidden sent note, with no `feedback-<digit>` anywhere.\n- `branch.html` does not include the feedback box, so no reader page draws one without the thread data.\n\n**Docstrings and test names:** each one the diff adds says what the code beside it does. I checked the comments on `adminRoutes`, `adminFeedbackReply`, `OwnerReply`/`replySQL`, `readerData.OwnFeedback`, the `renderReader` block, the `observe()` reply-POST comment and the `TestFeedbackStoreFailure` subtests.\n\n**What I ran** (with `TAAD3_HOME` set to an empty scratch folder):\n- `go vet ./...`: exit 0.\n- `go test -count=1 ./...`: all 11 packages ok.\n- E-005's finish test: I read `SELECT finish FROM epics WHERE id=43` from the ledger in place (`mode=ro`), wrote the body to scratch with ROOT pointed at this worktree, and ran it with `python -I`. \"Ran 1 test … OK\", exit 0. That covers the reply pins at lines 351-361: `/admin/feedback/<n>/reply` is on the admin page, the box comes before the sender's message and the reply, and another reader and a visitor see neither.\n- An independent mutation through `-overlay`, with the worktree left untouched: `senderSQL`'s `AND f.github_id = ?` replaced by `AND ? > 0`. Both subtests of `TestFeedbackDoesNotInterfere` went red, including \"reader A's GET … differs between the worlds\". So the per-label noninterference proof (case g) catches a sender-keying leak by itself.\n- The architecture-rule check: 29 rules, all hold. The `Owner(Inbox|Reply)\\w*` fence also covers `OwnerReplyTarget`.\n\n**Whole files read:** `vote_test.go` (lesson #969), `feedback_test.go` (both packages), `feedback.go`, `admin.go`, `reader.go`, both templates and `site.css`. The `observe()` list now includes each non-owner observer's `POST /admin/feedback/1/reply`. Its observers are signed-in non-owners, so the `SenderThreads` path runs for every observation.\n\n**Other notes:**\n- The one note I filed is text only: the stale \"Quiet until SC-017 adds the method\" in the because-text of `.taad/fitness.yaml`'s `SenderThreads` rule (line 386).\n- Q-023 (the owner-inbox bound, lesson #966) is still an open question. The build left it undecided and said so, which is right.\n- Process: the slice index records critique and critique-review each passing in under a second, with no account. Lesson #965 asked for SC-017 to get its own critique at high risk. Nothing in the tree turned out to need that critique, but the critique stage did not do what that lesson asked.\n\nSecond reader, for inputs: I reviewed this for inputs and found no defects. I read the changed code whole: internal/feedback/feedback.go, internal/server/admin.go, internal/server/reader.go, admin_report.html, feedback.html, site.css, thread.js, internal/server/feedback_test.go, the observe() region of vote_test.go, the reader_test.go diff, and the new reply and thread tests in internal/feedback/feedback_test.go (lines 150-501).\n\n**Checks run**\n- `go vet ./...` exits 0.\n- `go test -count=1` on internal/feedback, internal/server and internal/fitnessrules: all ok.\n- An overlay probe of the reply route, kept in a scratch folder outside the tree and deleted afterwards. It sent these to POST /admin/feedback/{n}/reply:\n  - ids `%31`, `1%2F` and `%2B1`;\n  - paths with a trailing slash, a double slash and `/./`;\n  - bodies `body=a;b`, a body in both the query string and the form, U+2028 alone, U+200B alone, a U+202E bidi override, and closing tags `</p></div></ol></section>`.\n\n**What the probe showed**\n- `%31` decodes to id 1 and is taken as message 1. That is the same message, the route is the owner's alone, and no browser form sends it, so it is not a defect.\n- `1%2F` and `%2B1` give 404. The odd paths give 307 to the clean path or 404.\n- An unencoded semicolon is a 400, from Go's form parser. Browsers always encode it.\n- Only the form value counts; the query-string value is ignored.\n- U+2028 alone is refused, because it is white space.\n- U+200B alone and the bidi override are stored. That is the shared `comments.Normalize` rule, not something this diff added. The bidi override cannot reach outside its own `<p>`.\n- The closing tags are drawn escaped on the reader's own thread.\n\n**Code shapes checked**\n- The handler looks the message up, then releases it for the body parse. The write runs again as one INSERT…SELECT that checks the message exists, and the AUTOINCREMENT ids mean a deleted message's id never comes back.\n- A message's report never changes, so the slug from the lookup stays right.\n- The two-query reads in OwnerInbox and SenderThreads can only drop a reply that arrives between the queries. They cannot leak anything.\n- SenderThreads is keyed only by the session's GitHub ID and asks nothing for an ID of 0 or less.\n- The 503 page does not draw OwnFeedback, because the box is inside `{{if .HasReport}}`.\n- branch.html does not include the feedback template.\n- thread.js touches only `button.toggle`.\n- The 303 Location is at most 124 bytes, well under LocalPath's 512.\n- The textarea's maxlength of 5000 matches Normalize's 5000-rune cap after CRLF→LF, with 5000 four-byte runes encoding to about 60 KB, under the 64 KiB form cap.\n\n**Not covered**\nPer the split, the obligations, the case matrix and design drift were left to the second reviewer.",
+ "payload": {
+  "status": "complete",
+  "verdict": "clean",
+  "summary": "SL-009 matches E-005's SC-017/SC-018 design. Every difference from the design is one the build declared. I found no defect in what was written.\n\n**Reply route** (`admin.go`)\n- `adminFeedbackReply` (`admin.go:163-206`) runs in the designed order: canonicalID, then `OwnerReplyTarget` (404 or 500), then `MaxBytesReader(maxCommentBody)` with exactly one `PostForm[\"body\"]` (400), then `OwnerReply` (400, 404 or 500), then a 303 built from the stored slug and the parsed id.\n- The row sits in `adminRoutes`, behind `RequireOwner` and `OwnerRoute`. The gate sets no-store and answers 403 to non-owners and to anonymous POSTs.\n\n**Feedback package** (`feedback.go`)\n- `OwnerReplyTarget` and `OwnerReply` are in place, and `OwnerReply` writes with a single INSERT…SELECT and no transaction.\n- `OwnerInbox` fills `Message.Replies` from a second query, grouped in Go.\n- `SenderThreads` filters on both report_id and github_id in both of its queries, and returns nothing without a query for an id of 0 or less.\n- Every created_at read back goes through `unixUTC`.\n- `Sent` and `Reply` carry no id.\n\n**Reader pages** (`renderReader`, `reader.go:139-153`)\n- `SenderThreads` is called only on stateFound, for a signed-in non-owner, keyed by the session's `v.GitHubID`. A read error makes the page a 503.\n- The own-thread `<ol class=\"own-feedback\">` is drawn only in the non-owner branch of `feedback.html`, after the form and the hidden sent note, with no `feedback-<digit>` anywhere.\n- `branch.html` does not include the feedback box, so no reader page draws one without the thread data.\n\n**Docstrings and test names:** each one the diff adds says what the code beside it does. I checked the comments on `adminRoutes`, `adminFeedbackReply`, `OwnerReply`/`replySQL`, `readerData.OwnFeedback`, the `renderReader` block, the `observe()` reply-POST comment and the `TestFeedbackStoreFailure` subtests.\n\n**What I ran** (with `TAAD3_HOME` set to an empty scratch folder):\n- `go vet ./...`: exit 0.\n- `go test -count=1 ./...`: all 11 packages ok.\n- E-005's finish test: I read `SELECT finish FROM epics WHERE id=43` from the ledger in place (`mode=ro`), wrote the body to scratch with ROOT pointed at this worktree, and ran it with `python -I`. \"Ran 1 test … OK\", exit 0. That covers the reply pins at lines 351-361: `/admin/feedback/<n>/reply` is on the admin page, the box comes before the sender's message and the reply, and another reader and a visitor see neither.\n- An independent mutation through `-overlay`, with the worktree left untouched: `senderSQL`'s `AND f.github_id = ?` replaced by `AND ? > 0`. Both subtests of `TestFeedbackDoesNotInterfere` went red, including \"reader A's GET … differs between the worlds\". So the per-label noninterference proof (case g) catches a sender-keying leak by itself.\n- The architecture-rule check: 29 rules, all hold. The `Owner(Inbox|Reply)\\w*` fence also covers `OwnerReplyTarget`.\n\n**Whole files read:** `vote_test.go` (lesson #969), `feedback_test.go` (both packages), `feedback.go`, `admin.go`, `reader.go`, both templates and `site.css`. The `observe()` list now includes each non-owner observer's `POST /admin/feedback/1/reply`. Its observers are signed-in non-owners, so the `SenderThreads` path runs for every observation.\n\n**Other notes:**\n- The one note I filed is text only: the stale \"Quiet until SC-017 adds the method\" in the because-text of `.taad/fitness.yaml`'s `SenderThreads` rule (line 386).\n- Q-023 (the owner-inbox bound, lesson #966) is still an open question. The build left it undecided and said so, which is right.\n- Process: the slice index records critique and critique-review each passing in under a second, with no account. Lesson #965 asked for SC-017 to get its own critique at high risk. Nothing in the tree turned out to need that critique, but the critique stage did not do what that lesson asked.\n\nSecond reader, for inputs: I reviewed this for inputs and found no defects. I read the changed code whole: internal/feedback/feedback.go, internal/server/admin.go, internal/server/reader.go, admin_report.html, feedback.html, site.css, thread.js, internal/server/feedback_test.go, the observe() region of vote_test.go, the reader_test.go diff, and the new reply and thread tests in internal/feedback/feedback_test.go (lines 150-501).\n\n**Checks run**\n- `go vet ./...` exits 0.\n- `go test -count=1` on internal/feedback, internal/server and internal/fitnessrules: all ok.\n- An overlay probe of the reply route, kept in a scratch folder outside the tree and deleted afterwards. It sent these to POST /admin/feedback/{n}/reply:\n  - ids `%31`, `1%2F` and `%2B1`;\n  - paths with a trailing slash, a double slash and `/./`;\n  - bodies `body=a;b`, a body in both the query string and the form, U+2028 alone, U+200B alone, a U+202E bidi override, and closing tags `</p></div></ol></section>`.\n\n**What the probe showed**\n- `%31` decodes to id 1 and is taken as message 1. That is the same message, the route is the owner's alone, and no browser form sends it, so it is not a defect.\n- `1%2F` and `%2B1` give 404. The odd paths give 307 to the clean path or 404.\n- An unencoded semicolon is a 400, from Go's form parser. Browsers always encode it.\n- Only the form value counts; the query-string value is ignored.\n- U+2028 alone is refused, because it is white space.\n- U+200B alone and the bidi override are stored. That is the shared `comments.Normalize` rule, not something this diff added. The bidi override cannot reach outside its own `<p>`.\n- The closing tags are drawn escaped on the reader's own thread.\n\n**Code shapes checked**\n- The handler looks the message up, then releases it for the body parse. The write runs again as one INSERT…SELECT that checks the message exists, and the AUTOINCREMENT ids mean a deleted message's id never comes back.\n- A message's report never changes, so the slug from the lookup stays right.\n- The two-query reads in OwnerInbox and SenderThreads can only drop a reply that arrives between the queries. They cannot leak anything.\n- SenderThreads is keyed only by the session's GitHub ID and asks nothing for an ID of 0 or less.\n- The 503 page does not draw OwnFeedback, because the box is inside `{{if .HasReport}}`.\n- branch.html does not include the feedback template.\n- thread.js touches only `button.toggle`.\n- The 303 Location is at most 124 bytes, well under LocalPath's 512.\n- The textarea's maxlength of 5000 matches Normalize's 5000-rune cap after CRLF→LF, with 5000 four-byte runes encoding to about 60 KB, under the 64 KiB form cap.\n\n**Not covered**\nPer the split, the obligations, the case matrix and design drift were left to the second reviewer.",
+  "findings": [
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "The because-text of the fitness rule 'only the reader page reads a sender's own feedback thread' still says 'Quiet until SC-017 adds the method.' SC-017 has now added feedback.Book.SenderThreads (feedback.go:228) and its only non-test caller (reader.go:146). The rule is live and correctly quiet because reader.go is excepted, so the sentence misstates why the rule matches nothing.",
+    "file": ".taad/fitness.yaml",
+    "line": 386,
+    "evidence": ".taad/fitness.yaml:383-388 (rule because-text). internal/feedback/feedback.go:228 defines SenderThreads. internal/server/reader.go:146 calls a.feedback.SenderThreads.",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 386,
+     "text": "reader''s thread to another. Quiet until SC-017 adds the method. Known hole: a call in"
+    },
+    "fix": "Drop 'Quiet until SC-017 adds the method.' or replace it with 'renderReader in reader.go is its only caller.'"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "Each part of the design is in the code:\n- internal/server/admin.go:43 has the adminRoutes row, and admin.go:163-206 has adminFeedbackReply in the designed order.\n- internal/feedback/feedback.go:99-132 holds Reply, Message.Replies and Sent (no ID).\n- feedback.go:156-186 is OwnerInbox filling Replies, :228-263 is SenderThreads, :274-284 is OwnerReplyTarget and :305-322 is OwnerReply (single INSERT…SELECT).\n- internal/server/reader.go:71 adds readerData.OwnFeedback, and reader.go:139-153 fills it only for a signed-in non-owner on stateFound; an error becomes stateUnavailable.\n- templates/admin_report.html:30-37 draws the replies and a reply form in each feedback-<n> article.\n- templates/feedback.html:11-20 draws the own-feedback <ol> after the form and the note, in the non-owner branch only.\n\nEach case is covered:\n- (a) TestFeedbackReply\n- (b, c) TestFeedbackReplyTargets\n- (d) TestFeedbackReplyBodies, sharing badBodies/goodBodies with TestFeedbackBodies\n- (e) TestFeedbackReplyToUnpublishedReport\n- (f) TestFeedbackReplyIsTheOwnersAlone plus the TestAdminAccessMatrix row, which adminPaths generates\n- (g) the TestFeedbackDoesNotInterfere two-world subtest plus the observe() reply POST at vote_test.go:534. My overlay mutation that dropped github_id from senderSQL turned it red.\n- (h) TestFeedbackSenderSeesOnlyTheirOwnThread\n- (i) TestReaderPagesShareOneLayout (reader_test.go:230-272)\n- (j) TestFeedbackStoreFailure subtests 'the sender's thread read fails' (503) and 'the reply write fails' (500)\n- (k) the feedbackIDRE checks\n- (l) TestFeedbackFollowsReportLifecycle with mustReply\n- (m) I re-ran the ledger's finish body from scratch: exit 0.\n\nThe full suite passes."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "internal/server/feedback_test.go feeds each named shape in.\n- (a) TestFeedbackReply:1084 POSTs a reply as the owner. It asserts the 303 Location /admin/reports/x#feedback-1, one feedback_replies row with created_at, the replies inOrder inside article 1 only, and the sender's / and /reports/x showing the form action, then the own-feedback list, the message and the replies, with times in UTC under time.Local=+5:30.\n- (b) TestFeedbackReplyTargets:1195 sends x, 0, -1, +1, 01 and more, each with three bodies, and compares every answer byte-for-byte against the unknown-id 404, with zero rows written.\n- (c) The same test covers an unknown id 99, message 2 after its report was deleted, a stale form after the slug was re-uploaded, and a RAISE(IGNORE) race.\n- (d) TestFeedbackReplyBodies:1248 runs the shared badBodies, notFormBodies and goodBodies tables against /admin/feedback/1/reply and checks the stored normalised text.\n- (e) TestFeedbackReplyToUnpublishedReport:1294 unpublishes, replies, sees a 404 and no text for the sender, then republishes and checks inOrder.\n- (f) TestFeedbackReplyIsTheOwnersAlone:1322 tries the sender, another reader and a visitor against ids 1, 99 and x with three bodies each: all 403, nothing written. The TestAdminAccessMatrix row comes from adminRoutes.\n- (g) TestFeedbackDoesNotInterfere:655 builds two worlds with A's messages and a reply in both and B's message and a reply in one. It compares observe() and A's three pages byte-for-byte, with sensitivity controls; my mutation run turned it red.\n- (h) TestFeedbackSenderSeesOnlyTheirOwnThread:1376 uses three readers on two reports, with replies written out of order.\n- (i) reader_test.go:230-272 seeds a message and a reply and compares / with /reports/newest for the sender and for another reader.\n- (j) TestFeedbackStoreFailure:500 renames feedback_replies (the sender gets 503, the admin page 500) and :536 renames it before a reply (500).\n- (k) feedbackIDRE is asserted on the reader pages in TestFeedbackSend, Reply, SenderSeesOnly, DoesNotInterfere and Box.\n- (l) TestFeedbackFollowsReportLifecycle:772 writes the replies through mustReply.\n- (m) The ledger finish body, run from scratch: OK, exit 0."
+   }
+  ],
+  "matches_design": true,
+  "drift": [],
+  "unreviewed": [
+   "internal/server/reader_test.go:1-189,296-end -- I read only lines 190-295, which hold TestReaderPagesShareOneLayout, plus this slice's full diff of the file. The diff is confined to that function, so the unread lines are unchanged by SL-009."
+  ],
+  "second_round": {
+   "run_id": 11955,
+   "filed": 0,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 9,
+    "changed": 10,
+    "listed": 1
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 10,
+   "read_whole": 9,
+   "deleted": [],
+   "runs": [
+    11954,
+    11955
+   ],
+   "range": {
+    "base": "1702d6e936a9860f5a9c37b201ebacee4ec73aa5",
+    "head": "8d40d5589f2a19f0bb9e86498f2762cb66f21e35",
+    "source": "commits",
+    "hunk_base": "1702d6e936a9860f5a9c37b201ebacee4ec73aa5",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": "internal/server/reader_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-189, 300-726 of 726",
+     "reason": "a Read returned only part of it; seen only as 2 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 726,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

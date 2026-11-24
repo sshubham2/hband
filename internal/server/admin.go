@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/sshubham2/hband/internal/auth"
 	"github.com/sshubham2/hband/internal/feedback"
@@ -36,6 +37,10 @@ func adminRoutes(a *app) []adminRoute {
 		{Method: "POST", Pattern: "/admin/reports/{slug}/publish", Handler: a.adminPublish},
 		{Method: "POST", Pattern: "/admin/reports/{slug}/unpublish", Handler: a.adminUnpublish},
 		{Method: "POST", Pattern: "/admin/reports/{slug}/delete", Handler: a.adminDelete},
+
+		// Feedback is keyed by the message's row id. The owner answers a message
+		// here; the reader it came from is the only other person who is shown it.
+		{Method: "POST", Pattern: "/admin/feedback/{n}/reply", Handler: a.adminFeedbackReply},
 	}
 }
 
@@ -55,7 +60,8 @@ type adminData struct {
 	// Tally is the report's likes and dislikes, shown on its admin page only.
 	Tally votes.Tally
 	// Feedback is the private messages readers sent about the report, newest
-	// first, each with its sender. It is shown on this page only.
+	// first, each with its sender and the author's replies. It is shown on this
+	// page only.
 	Feedback []feedback.Message
 }
 
@@ -107,7 +113,8 @@ func (a *app) adminSave(w http.ResponseWriter, r *http.Request, o auth.Owner) {
 }
 
 // adminReport is the edit page: the like and dislike counts, the private
-// feedback readers sent, the sandboxed preview, the publish state, the replace
+// feedback readers sent with the author's replies and a reply form on each
+// message, the sandboxed preview, the publish state, the replace
 // form with the slug filled in, and delete.
 func (a *app) adminReport(w http.ResponseWriter, r *http.Request, o auth.Owner) {
 	rep, err := a.reports.BySlug(r.Context(), r.PathValue("slug"))
@@ -141,6 +148,61 @@ func (a *app) adminReport(w http.ResponseWriter, r *http.Request, o auth.Owner) 
 	d.Feedback = inbox
 	d.Form = uploadForm{Title: rep.Title, Slug: rep.Slug, Status: rep.Status}
 	a.render(w, http.StatusOK, "admin_report.html", d)
+}
+
+// adminFeedbackReply handles POST /admin/feedback/{n}/reply: the owner answers
+// one feedback message. The form carries exactly one field, body.
+//
+// The order is the comment handler's, target-first: the message id is checked
+// and the message looked up before the body is read, so a malformed or unknown
+// id is the same 404 whatever the body is, and the owner's POST to the access
+// matrix's placeholder id ("x") is a 404. A reply is stored whatever the
+// report's publish state; the sender is shown it when the report is published.
+// The answer is a 303 back to that message on its report's admin page, built from
+// the stored slug and the parsed id, never from the request.
+func (a *app) adminFeedbackReply(w http.ResponseWriter, r *http.Request, o auth.Owner) {
+	n, ok := canonicalID([]string{r.PathValue("n")})
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	slug, err := a.feedback.OwnerReplyTarget(r.Context(), n)
+	switch {
+	case errors.Is(err, feedback.ErrNoTarget):
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		slog.Error("admin: look up the feedback to answer", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxCommentBody)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	// Only the body of the request counts, and exactly one value of it: a field in
+	// the query string is not the form, and a repeated one is ambiguous.
+	bodies := r.PostForm["body"]
+	if len(bodies) != 1 {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	err = a.feedback.OwnerReply(r.Context(), n, bodies[0])
+	switch {
+	case errors.Is(err, feedback.ErrBadBody):
+		http.Error(w, "Bad request", http.StatusBadRequest)
+	case errors.Is(err, feedback.ErrNoTarget):
+		// The message was deleted with its report since the lookup.
+		http.NotFound(w, r)
+	case err != nil:
+		slog.Error("admin: write the reply", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	default:
+		auth.SeeOther(w, "/admin/reports/"+slug+"#feedback-"+strconv.FormatInt(n, 10))
+	}
 }
 
 // adminRaw is the owner's preview, drafts included. It stays behind the gate
