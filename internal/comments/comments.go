@@ -117,7 +117,9 @@ func (b *Book) Post(ctx context.Context, reportID, githubID, parentID int64, bod
 //  6. more than MaxRunes runes is refused.
 //
 // Nothing is rewritten as HTML: escaping is html/template's job, at the place
-// the text is drawn, and the stored text stays exactly what was typed.
+// the text is drawn, so markup is stored as the characters that were typed.
+// Apart from the line-ending and trimming steps (2 and 4), the stored text is
+// what was typed.
 func Normalize(raw string) (string, error) {
 	if !utf8.ValidString(raw) {
 		return "", ErrBadBody

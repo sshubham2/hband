@@ -67,8 +67,8 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 	mux.HandleFunc("GET /reports/{slug}", a.readReport)
 	// The public write a reader uses to vote: a signed-in reader sets their
 	// vote. It is behind cross-origin protection and Identify like every route.
-	// POST /auth/logout, registered by a.auth.Routes below, is the other public
-	// POST.
+	// The comment write below and POST /auth/logout, registered by a.auth.Routes
+	// below, are the other public POSTs.
 	mux.HandleFunc("POST /reports/{slug}/vote", a.vote)
 	// The public write a signed-in reader (the owner included) uses to comment
 	// or reply, behind the same cross-origin protection and Identify.

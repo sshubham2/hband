@@ -96,8 +96,8 @@ func TestArrangeRefusesRowsThatAreNotATree(t *testing.T) {
 	}
 }
 
-// chainRows is n rows, each a reply to the one before; shownFrom says which of
-// them are shown.
+// chainRows is n rows with ids 1 to n, each a reply to the one before (row 1 is
+// top level); shown says, by id, which of them are shown.
 func chainRows(n int, shown func(i int) bool) []row {
 	rows := make([]row, n)
 	for i := range rows {
