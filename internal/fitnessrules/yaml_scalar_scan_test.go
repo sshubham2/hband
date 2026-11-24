@@ -33,6 +33,7 @@ var (
 // character YAML gives a meaning (* & ! [ { @ and the like), or writes an item that
 // reads as a mapping. A quoted scalar fails differently: an apostrophe that is not
 // doubled, or a backslash that is not an escape.
+// A rule key, rule item or list item at the wrong column is refused too.
 func yamlScalarRefusals(src string) []string {
 	lines := strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n")
 	var out []string
@@ -45,6 +46,9 @@ func yamlScalarRefusals(src string) []string {
 
 	// parent is the nearest key above with no value of its own, which a list belongs to.
 	parent, parentCol := "", -1
+	// ruleDash is where a rule's "- " sits, ruleCol where its keys begin. A key at another
+	// column ends the rule's mapping for YAML, and the loader reads only column 4.
+	ruleDash, ruleCol := -1, -1
 	for i := 0; i < len(lines); {
 		line := lines[i]
 		if blank(line) || comment(line) {
@@ -75,6 +79,18 @@ func yamlScalarRefusals(src string) []string {
 			continue
 		case m != nil:
 			col = len(line) - len(rest)
+			switch {
+			case dash:
+				if ruleDash < 0 {
+					ruleDash = indent
+				}
+				if indent != ruleDash {
+					add(i+1, "a rule item at column %d, the others at %d: %q", indent, ruleDash, strings.TrimSpace(line))
+				}
+				ruleCol = col
+			case ruleCol >= 0 && col != ruleCol:
+				add(i+1, "a key at column %d, the keys of its rule at %d: %q", col, ruleCol, strings.TrimSpace(line))
+			}
 			value = m[2]
 			start = col + len(m[1]) + 1
 			for start < len(line) && line[start] == ' ' {
@@ -89,6 +105,9 @@ func yamlScalarRefusals(src string) []string {
 				continue
 			}
 		case dash:
+			if parentCol >= 0 && indent < parentCol {
+				add(i+1, "a list item at column %d, left of its key %s at %d: %q", indent, parent, parentCol, strings.TrimSpace(line))
+			}
 			value = rest
 			start = len(line) - len(rest)
 		default:
