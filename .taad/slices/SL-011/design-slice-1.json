@@ -1,0 +1,37 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-011",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-24T12:15:49.316Z",
+ "head": "c86560004b05b46eed42cb71ca4afbe37473f784",
+ "run_id": null,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "selection_rationale": "Composed by the engine from 1 minor defect a failing test proves (SC-037). Each names the defect and carries the test that shows it, so there was nothing for a tournament to choose between.",
+  "whats_new": [],
+  "whats_reused": [],
+  "components": [],
+  "key_decisions": [
+   {
+    "decision": "SC-037: O-021 closed the class 'fitness.yaml text that the engine's YAML reader refuses but the lenient Go line loader accepts', with yamlScalarRefusals as its scanner and yaml_scalars.json as its corpus.",
+    "reversibility": "cheap",
+    "rationale": "the engine watched internal/fitnessrules/yaml_indent_test.go fail with `go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/`"
+   }
+  ],
+  "proposals": [],
+  "coherence_check": "Each row is fixed on its own and none may undo another. A row whose test already passes is left alone, and the build says so.",
+  "cases": [],
+  "upkeep_rows": [
+   {
+    "key": "SC-037",
+    "title": "O-021 closed the class 'fitness.yaml text that the engine's YAML reader refuses but the lenient Go line loader accepts', with yamlScalarRefusals as its scanner and yaml_scalars.json as its corpus.",
+    "description": "m1 (minor): O-021 closed the class 'fitness.yaml text that the engine's YAML reader refuses but the lenient Go line loader accepts', with yamlScalarRefusals as its scanner and yaml_scalars.json as its corpus. The scanner misses one member: a rule key indented less than the keys beside it, such as `   files: ...` at three spaces under a rule whose mapping starts at four.\n- A YAML parser refuses it: the block mapping ends, and a mapping start at column 3 inside the block sequence is 'expected <block end>, but found <block mapping start>'.\n- loadRules in rules_test.go only reads keys at exactly four spaces (`^    ([a-z_]+):`). It skips the line without a word, so the rule loses its `files` glob, applies to nothing, and TestRulesHoldOnTheTree stays green.\n- yamlScalarRefusals has no indentation check for key lines, so it accepts the line too.\nThat is the same silent-and-unenforced outcome the class exists to stop. It is an ordinary authoring accident. The corpus covers tabs and continuation lines that read as keys, but not a key at the wrong column.\n\nIn yamlScalarRefusals, remember the column of the first key of each rule mapping (the key after '- ', for example name). Refuse a later key line of that rule whose column differs and which is not a new '- ' item. Add refuse rows to yaml_scalars.json, for example 'key-misindented-less' ('rules:\\n  - name: r\\n    must_not_match:\\n    - x\\n   files: a/**' refused at line 5) and 'key-misindented-two' (a key at two spaces after '  - name: r'), plus an accept row with every key at four spaces.\n\nCLOSE THE CLASS, NOT THIS INSTANCE. m1 is one member of \"fitness.yaml text that the engine's YAML reader refuses but the lenient Go line loader accepts\" (members come from ordinary input, by accident). Enumerate the class into a corpus committed with the code -- a table of inputs, fire/quiet plant rows, an alias list, a census of every type that carries the value -- in the repository or .taad/slices/SL-010/, make every row pass, and show the code before your fix failing the rows you claim to close. Bound the class by who produces its members, not by every exotic spelling. Answer this obligation with `corpus`: the corpus's path from the repository root. It is not discharged without one.\n\n[shown by a failing run] The engine ran the code review's test for this, internal/fitnessrules/yaml_indent_test.go, with `go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/`, and it FAILED. Put that test at internal/fitnessrules/yaml_indent_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/` again in your tree, and that run is what closes this; your word does not. The test:\n\npackage fitnessrules\n\nimport \"testing\"\n\n// TestYAMLScanRefusesMisindentedRuleKey: a rule key indented less than the keys\n// beside it (three spaces where the rule's mapping starts at four) is refused by a\n// YAML parser (\"expected <block end>, but found '<block mapping start>'\"), and the\n// line loader in rules_test.go, which only reads keys at exactly four spaces, skips\n// it without a word, so the rule silently loses that key. The scan must refuse it.\nfunc TestYAMLScanRefusesMisindentedRuleKey(t *testing.T) {\n\tsrc := \"rules:\\n  - name: r\\n    must_not_match:\\n    - x\\n   files: internal/comments/**/*.go\\n\"\n\tgot := yamlScalarRefusals(src)\n\tif len(got) == 0 {\n\t\tt.Fatalf(\"a rule key at three spaces under a mapping at four is not refused\")\n\t}\n\tif n := firstLine(got); n != 5 {\n\t\tt.Errorf(\"first refused at line %d, want 5: %v\", n, got)\n\t}\n}\n\nDeferred from SL-010 as O-025 (fix, owed to build-slice). Why it was not done there: one more member of a class this slice already closed once: a class that comes back after it was closed is not closed by another lap here, so it is filed and does not go to the builder again",
+    "test_path": "internal/fitnessrules/yaml_indent_test.go",
+    "test_body": "package fitnessrules\n\nimport \"testing\"\n\n// TestYAMLScanRefusesMisindentedRuleKey: a rule key indented less than the keys\n// beside it (three spaces where the rule's mapping starts at four) is refused by a\n// YAML parser (\"expected <block end>, but found '<block mapping start>'\"), and the\n// line loader in rules_test.go, which only reads keys at exactly four spaces, skips\n// it without a word, so the rule silently loses that key. The scan must refuse it.\nfunc TestYAMLScanRefusesMisindentedRuleKey(t *testing.T) {\n\tsrc := \"rules:\\n  - name: r\\n    must_not_match:\\n    - x\\n   files: internal/comments/**/*.go\\n\"\n\tgot := yamlScalarRefusals(src)\n\tif len(got) == 0 {\n\t\tt.Fatalf(\"a rule key at three spaces under a mapping at four is not refused\")\n\t}\n\tif n := firstLine(got); n != 5 {\n\t\tt.Errorf(\"first refused at line %d, want 5: %v\", n, got)\n\t}\n}\n",
+    "test_command": "go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/"
+   }
+  ]
+ }
+}

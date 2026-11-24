@@ -125,3 +125,58 @@ func TestFitnessYAMLCorpusCoversEveryCarrier(t *testing.T) {
 		}
 	}
 }
+
+// TestFitnessYAMLMisindentedKeyCensus is the census of the column class: a key of a
+// rule written at a column other than the one its siblings use. The rows are not
+// written by hand: every carrier key but name (which opens the rule) is planted at
+// each column from 1 to 8 beside a sibling at 4, and the scan must refuse it at
+// that line, while the same text with the key at 4 must pass. Columns below 4 end
+// the rule's mapping for a YAML parser; columns above 4 after a scalar are read as
+// more of that scalar, which holds ": ". The line loader in rules_test.go reads
+// only column 4 and drops either without a word.
+func TestFitnessYAMLMisindentedKeyCensus(t *testing.T) {
+	c := loadYAMLCorpus(t)
+	value := map[string]string{
+		"files":           "files: a/**",
+		"because":         "because: Plain text, no colon-space.",
+		"must_not_match":  "must_not_match:\n%s- x",
+		"must_not_import": "must_not_import:\n%s- net/http",
+		"except_files":    "except_files:\n%s- b/**",
+	}
+	planted := 0
+	for _, k := range c.Carriers {
+		if k == "name" {
+			continue // the first key of a rule: the rows of its own cover a rule item at the wrong column
+		}
+		shape, ok := value[k]
+		if !ok {
+			t.Errorf("carrier %q has no planted shape in this census: add one", k)
+			continue
+		}
+		sibling := "    files: s\n"
+		if k == "files" {
+			sibling = "    because: s\n"
+		}
+		for col := 1; col <= 8; col++ {
+			pad := strings.Repeat(" ", col)
+			key := pad + strings.ReplaceAll(shape, "%s", pad)
+			src := "rules:\n  - name: r\n" + sibling + key + "\n"
+			got := yamlScalarRefusals(src)
+			if col == 4 {
+				if len(got) != 0 {
+					t.Errorf("%s at column 4, beside its siblings, is refused: %v\n%s", k, got, src)
+				}
+				continue
+			}
+			planted++
+			if len(got) == 0 {
+				t.Errorf("%s at column %d beside siblings at 4 is not refused:\n%s", k, col, src)
+			} else if n := firstLine(got); n != 4 {
+				t.Errorf("%s at column %d: first refused at line %d, want 4: %v", k, col, n, got)
+			}
+		}
+	}
+	if planted == 0 {
+		t.Fatal("the census planted nothing")
+	}
+}

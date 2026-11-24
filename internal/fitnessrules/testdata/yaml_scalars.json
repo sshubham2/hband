@@ -474,6 +474,250 @@
    "expect": "accept",
    "yaml": "rules:\r\n  - name: r\r\n    files: '**/*.go'\r\n    because: Plain text, no colon-space.\r\n      Second line.",
    "why": "a clean snippet with CRLF line endings"
+  },
+  {
+   "id": "key-misindented-less",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 5,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - x\n   files: a/**",
+   "why": "SL-011: a key at 3 where the rule's keys start at 4: YAML ends the mapping (expected <block end>), the line loader reads only 4 and drops the key"
+  },
+  {
+   "id": "key-misindented-two",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n  files: a/**",
+   "why": "a key at 2, level with the '- ' of the rule item: not a key of the rule, and the loader skips it"
+  },
+  {
+   "id": "key-misindented-one",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n files: a/**",
+   "why": "a key at 1"
+  },
+  {
+   "id": "key-misindented-less-crlf",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 5,
+   "yaml": "rules:\r\n  - name: r\r\n    must_not_match:\r\n    - x\r\n   files: a/**",
+   "why": "the same, with CRLF line endings"
+  },
+  {
+   "id": "key-misindented-after-scalar",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    because: text\n   files: a/**",
+   "why": "a key at 3 straight after a plain scalar value"
+  },
+  {
+   "id": "key-misindented-after-quoted",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    because: 'text'\n   files: a/**",
+   "why": "a key at 3 straight after a quoted scalar"
+  },
+  {
+   "id": "key-misindented-after-block-scalar",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 5,
+   "yaml": "rules:\n  - name: r\n    because: >-\n      text\n   files: a/**",
+   "why": "a key at 3 straight after a block scalar: the block ends and the key is at the wrong column"
+  },
+  {
+   "id": "key-misindented-after-comment",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 5,
+   "yaml": "rules:\n  - name: r\n    # note: settled\n\n   files: a/**",
+   "why": "a comment and a blank line between does not move the key"
+  },
+  {
+   "id": "key-misindented-because",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n   because: Scheme and host come only from config.",
+   "why": "a prose key at 3"
+  },
+  {
+   "id": "key-misindented-empty-list-key",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 3,
+   "yaml": "rules:\n  - name: r\n   must_not_match:\n   - x",
+   "why": "a list key with no value at 3: the key line is refused, not just its items"
+  },
+  {
+   "id": "key-misindented-must-not-import",
+   "carrier": "must_not_import",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    files: a/**\n   must_not_import:\n   - net/http",
+   "why": "an import list key at 3"
+  },
+  {
+   "id": "key-misindented-except-files",
+   "carrier": "except_files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    files: a/**\n  except_files:\n  - b/**",
+   "why": "an except list key at 2"
+  },
+  {
+   "id": "key-misindented-more-after-scalar",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    because: text\n     files: a/**",
+   "why": "a key at 5 after a plain scalar is a continuation line holding ': '"
+  },
+  {
+   "id": "item-misindented-less",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n   - x",
+   "why": "a list item at 3 under a key at 4: YAML refuses it, and the loader (items at exactly 4) drops it"
+  },
+  {
+   "id": "item-misindented-less-after-ok-item",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 5,
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - x\n   - y",
+   "why": "a second item at 3 after an item at 4"
+  },
+  {
+   "id": "item-misindented-import",
+   "carrier": "must_not_import",
+   "who": "pattern author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    must_not_import:\n  - net/http",
+   "why": "an import item at 2"
+  },
+  {
+   "id": "item-misindented-except",
+   "carrier": "except_files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: r\n    except_files:\n   - b/**",
+   "why": "an except item at 3"
+  },
+  {
+   "id": "rule-start-misindented-more",
+   "carrier": "name",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: a\n    files: x\n   - name: b\n    files: y",
+   "why": "a second rule item at 3 where the first is at 2"
+  },
+  {
+   "id": "rule-start-misindented-less",
+   "carrier": "name",
+   "who": "prose author",
+   "expect": "refuse",
+   "line": 4,
+   "yaml": "rules:\n  - name: a\n    files: x\n - name: b\n    files: y",
+   "why": "a second rule item at 1 where the first is at 2"
+  },
+  {
+   "id": "rule-start-second-rule-key-misindented",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "refuse",
+   "line": 5,
+   "yaml": "rules:\n  - name: a\n    files: x\n  - name: b\n   files: y",
+   "why": "the second rule's keys start at 4; its files key is at 3"
+  },
+  {
+   "id": "keys-all-at-four-ok",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    files: a/**\n    must_not_match:\n    - x\n    - y\n    because: Plain text, no colon-space.\n    must_not_import:\n    - net/http\n    except_files:\n    - b/**",
+   "why": "the designed correct line: every key of the rule at the column of its first key, items at their key's column"
+  },
+  {
+   "id": "two-rules-all-at-four-ok",
+   "carrier": "name",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: a\n    must_not_match:\n    - x\n  - name: b\n    files: y\n    because: text",
+   "why": "a new '- ' item after a list is a new rule, not a key at the wrong column"
+  },
+  {
+   "id": "rule-keys-in-another-order-ok",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    except_files:\n    - b/**\n    because: text\n    files: a/**",
+   "why": "the order of keys inside a rule does not matter, only their column"
+  },
+  {
+   "id": "comments-at-any-column-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n # a comment at column 1: fine\n\n   # at 3 too\n    files: a/**\n        # deep\n    because: text",
+   "why": "comments and blank lines do not carry a column"
+  },
+  {
+   "id": "key-shaped-text-in-block-scalar-ok",
+   "carrier": "because",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    because: >-\n      note: this reads as a key\n      files: but it is text of the block\n    files: a/**",
+   "why": "lines inside a block scalar are text whatever column their words sit at"
+  },
+  {
+   "id": "list-item-continuation-then-key-ok",
+   "carrier": "must_not_match",
+   "who": "pattern author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    must_not_match:\n    - 'a: b'\n    - plain text\n      carried on\n    files: a/**",
+   "why": "a continuation line of a plain item and a key after it"
+  },
+  {
+   "id": "top-level-key-after-rules-ok",
+   "carrier": "name",
+   "who": "prose author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    files: a/**\nother: value",
+   "why": "a key at column 0 ends the rules, it is not a rule key at the wrong column"
+  },
+  {
+   "id": "rules-key-at-zero-then-keys-ok",
+   "carrier": "files",
+   "who": "glob author",
+   "expect": "accept",
+   "yaml": "rules:\n  - name: r\n    files: a/**\nrules2:\n  - name: s\n    files: b/**",
+   "why": "a second top-level sequence starts its own columns"
   }
  ]
 }

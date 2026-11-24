@@ -32,7 +32,9 @@ var (
 // items of must_not_match, must_not_import and except_files) starts a value with a
 // character YAML gives a meaning (* & ! [ { @ and the like), or writes an item that
 // reads as a mapping. A quoted scalar fails differently: an apostrophe that is not
-// doubled, or a backslash that is not an escape.
+// doubled, or a backslash that is not an escape. Any author can also put a line at
+// the wrong column: a key of a rule at another column than the rule's first key, a
+// rule item at another column than the other rules', a list item left of its key.
 func yamlScalarRefusals(src string) []string {
 	lines := strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n")
 	var out []string
@@ -45,6 +47,11 @@ func yamlScalarRefusals(src string) []string {
 
 	// parent is the nearest key above with no value of its own, which a list belongs to.
 	parent, parentCol := "", -1
+	// ruleDash is the column of the '- ' that opens a rule, ruleKeyCol the column of the
+	// keys of the rule being read (where its first key, after the '- ', begins). A key
+	// of that rule written at another column ends its block mapping for a YAML parser,
+	// and the line loader in rules_test.go, which reads only column 4, drops it silently.
+	ruleDash, ruleKeyCol := -1, -1
 	for i := 0; i < len(lines); {
 		line := lines[i]
 		if blank(line) || comment(line) {
@@ -75,6 +82,23 @@ func yamlScalarRefusals(src string) []string {
 			continue
 		case m != nil:
 			col = len(line) - len(rest)
+			switch {
+			case dash:
+				// A new rule. Its '- ' sits where the other rules' do, and its first key
+				// sets the column the rest of its keys must share.
+				if ruleDash >= 0 && indent != ruleDash {
+					add(i+1, "a rule item at column %d where the others are at %d, which YAML refuses and the loader skips: %q", indent, ruleDash, strings.TrimSpace(line))
+				}
+				if ruleDash < 0 {
+					ruleDash = indent
+				}
+				ruleKeyCol = col
+			case indent == 0:
+				// A top-level key, which ends the rules before it.
+				ruleDash, ruleKeyCol = -1, -1
+			case ruleKeyCol >= 0 && col != ruleKeyCol:
+				add(i+1, "a key at column %d where the keys of its rule are at %d, which YAML refuses and the loader skips: %q", col, ruleKeyCol, strings.TrimSpace(line))
+			}
 			value = m[2]
 			start = col + len(m[1]) + 1
 			for start < len(line) && line[start] == ' ' {
@@ -89,6 +113,9 @@ func yamlScalarRefusals(src string) []string {
 				continue
 			}
 		case dash:
+			if parentCol >= 0 && indent < parentCol {
+				add(i+1, "a list item at column %d under %s at column %d, which YAML refuses and the loader skips: %q", indent, parent, parentCol, strings.TrimSpace(line))
+			}
 			value = rest
 			start = len(line) - len(rest)
 		default:
