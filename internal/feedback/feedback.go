@@ -1,7 +1,8 @@
 // Package feedback keeps the private messages a signed-in reader sends to the
 // author of a report. They are not comments: they live in their own table,
-// nothing that reads the public thread can reach them, and only the author's
-// admin page lists them.
+// nothing that reads the public thread can reach them, and only two views show
+// them: the author's admin page, and the sender's own page, which shows that
+// reader their own messages and the author's replies.
 //
 // It is the only code that names the feedback tables in SQL. Every write is one
 // SQL statement and this package never opens a transaction: a transaction that
@@ -12,10 +13,14 @@
 // locked".
 //
 // What may leave this package is decided by who calls it. OwnerInbox returns
-// every message on a report with each sender's login and avatar, and is for the
-// owner's admin page alone; the fitness rules keep every other file from naming
-// it. Send hands back no row id: the only public caller is the sender's own
-// form, and an id is a counter shared with every other reader's messages.
+// every message on a report with each sender's login and avatar and the author's
+// replies, and OwnerReplyTarget and OwnerReply serve the author's reply route;
+// all three are for the owner's admin handlers alone, and the fitness rules keep
+// every other file from naming them. SenderThreads is for the reader page alone
+// and is keyed by the signed-in viewer's own id. Send hands back no row id, and
+// the types a reader is shown (Sent, Reply) have none: the only public caller is
+// the sender's own form, and an id is a counter shared with every other reader's
+// messages.
 package feedback
 
 import (
@@ -29,13 +34,14 @@ import (
 )
 
 var (
-	// ErrBadBody is returned by Send for a body that is not acceptable plain
-	// text: empty, too long, not UTF-8 or holding a control. It is the same value
-	// as comments.ErrBadBody, so feedback and comments follow one set of rules
-	// and a caller tests for one error.
+	// ErrBadBody is returned by Send and OwnerReply for a body that is not
+	// acceptable plain text: empty, too long, not UTF-8 or holding a control. It
+	// is the same value as comments.ErrBadBody, so feedback and comments follow
+	// one set of rules and a caller tests for one error.
 	ErrBadBody = comments.ErrBadBody
 	// ErrNoTarget is returned by Send when no published report has that id at the
-	// moment of the write: it is a draft, was unpublished or was deleted.
+	// moment of the write (it is a draft, was unpublished or was deleted), and by
+	// OwnerReplyTarget and OwnerReply when no message has that id.
 	ErrNoTarget = errors.New("feedback: nothing to send feedback on")
 )
 
@@ -88,6 +94,14 @@ func (b *Book) Send(ctx context.Context, reportID, githubID int64, body string) 
 	return nil
 }
 
+// Reply is the author's answer to one message. It carries no author and no id:
+// every reply is the pinned owner's, and a reader is never shown a row id.
+type Reply struct {
+	Body string
+	// When is the time the reply was written, in UTC.
+	When time.Time
+}
+
 // Message is one message as the owner sees it: with its row id, who sent it
 // and when. It is the owner's type; nothing a reader is shown is built from it.
 type Message struct {
@@ -101,6 +115,20 @@ type Message struct {
 	Body      string
 	// When is the time the message was sent, in UTC.
 	When time.Time
+	// Replies are the author's answers to this message, oldest first.
+	Replies []Reply
+}
+
+// Sent is one of a reader's own messages as that reader is shown it, with the
+// author's replies. It deliberately has no ID field: a message's id is a counter
+// shared with every other reader's messages, so a template that could print it
+// would tell a reader how much feedback others sent.
+type Sent struct {
+	Body string
+	// When is the time the message was sent, in UTC.
+	When time.Time
+	// Replies are the author's answers, oldest first.
+	Replies []Reply
 }
 
 // unixUTC is the one conversion from a stored created_at to a time: unix
@@ -114,8 +142,17 @@ FROM feedback f JOIN users u ON u.github_id = f.github_id
 WHERE f.report_id = ?
 ORDER BY f.id DESC`
 
+// inboxRepliesSQL reads every reply to a message on the report in one pass, in
+// the order they were written; OwnerInbox groups them by message in Go.
+const inboxRepliesSQL = `
+SELECT p.feedback_id, p.body, p.created_at
+FROM feedback_replies p JOIN feedback f ON f.id = p.feedback_id
+WHERE f.report_id = ?
+ORDER BY p.id`
+
 // OwnerInbox returns every message on the report, newest first, each with its
-// sender. It applies no limit. It is for the owner's admin page only.
+// sender and the author's replies to it. It applies no limit. It is for the
+// owner's admin page only.
 func (b *Book) OwnerInbox(ctx context.Context, reportID int64) ([]Message, error) {
 	rows, err := b.db.QueryContext(ctx, inboxSQL, reportID)
 	if err != nil {
@@ -135,5 +172,151 @@ func (b *Book) OwnerInbox(ctx context.Context, reportID int64) ([]Message, error
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("feedback: inbox: %w", err)
 	}
+	if len(out) == 0 {
+		return out, nil
+	}
+	replies, err := b.repliesOf(ctx, inboxRepliesSQL, reportID)
+	if err != nil {
+		return nil, fmt.Errorf("feedback: inbox: %w", err)
+	}
+	for i := range out {
+		out[i].Replies = replies[out[i].ID]
+	}
 	return out, nil
+}
+
+// repliesOf runs one of the reply queries (three columns: the message's id, the
+// reply's body and its created_at, oldest reply first) and groups the replies by
+// the message they answer.
+func (b *Book) repliesOf(ctx context.Context, query string, args ...any) (map[int64][]Reply, error) {
+	rows, err := b.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64][]Reply{}
+	for rows.Next() {
+		var id, created int64
+		var r Reply
+		if err := rows.Scan(&id, &r.Body, &created); err != nil {
+			return nil, err
+		}
+		r.When = unixUTC(created)
+		out[id] = append(out[id], r)
+	}
+	return out, rows.Err()
+}
+
+const senderSQL = `
+SELECT f.id, f.body, f.created_at
+FROM feedback f
+WHERE f.report_id = ? AND f.github_id = ?
+ORDER BY f.id`
+
+const senderRepliesSQL = `
+SELECT p.feedback_id, p.body, p.created_at
+FROM feedback_replies p JOIN feedback f ON f.id = p.feedback_id
+WHERE f.report_id = ? AND f.github_id = ?
+ORDER BY p.id`
+
+// SenderThreads returns the messages githubID sent on the report, oldest first,
+// each with the author's replies. It is the reader's own view: the caller must
+// pass the signed-in viewer's own id from the session, never a value from the
+// request, because the id is the only thing that keeps one reader's thread from
+// another's. An id that is not a real account (zero or negative) is answered with
+// nothing and no query.
+func (b *Book) SenderThreads(ctx context.Context, reportID, githubID int64) ([]Sent, error) {
+	if githubID <= 0 {
+		return nil, nil
+	}
+	rows, err := b.db.QueryContext(ctx, senderSQL, reportID, githubID)
+	if err != nil {
+		return nil, fmt.Errorf("feedback: sender threads: %w", err)
+	}
+	defer rows.Close()
+	var out []Sent
+	var ids []int64
+	for rows.Next() {
+		var id, created int64
+		var s Sent
+		if err := rows.Scan(&id, &s.Body, &created); err != nil {
+			return nil, fmt.Errorf("feedback: sender threads: %w", err)
+		}
+		s.When = unixUTC(created)
+		out = append(out, s)
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("feedback: sender threads: %w", err)
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	replies, err := b.repliesOf(ctx, senderRepliesSQL, reportID, githubID)
+	if err != nil {
+		return nil, fmt.Errorf("feedback: sender threads: %w", err)
+	}
+	for i := range out {
+		out[i].Replies = replies[ids[i]]
+	}
+	return out, nil
+}
+
+const replyTargetSQL = `
+SELECT r.slug
+FROM feedback f JOIN reports r ON r.id = f.report_id
+WHERE f.id = ?`
+
+// OwnerReplyTarget returns the slug of the report a message was sent on, so the
+// owner's reply can be answered with a redirect back to that report's admin
+// page. It returns ErrNoTarget when there is no such message. It is for the
+// owner's reply route alone.
+func (b *Book) OwnerReplyTarget(ctx context.Context, feedbackID int64) (string, error) {
+	var slug string
+	err := b.db.QueryRowContext(ctx, replyTargetSQL, feedbackID).Scan(&slug)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNoTarget
+	}
+	if err != nil {
+		return "", fmt.Errorf("feedback: reply target: %w", err)
+	}
+	return slug, nil
+}
+
+// replySQL stores one reply, and only when the message still exists at the
+// moment of the write: the check is inside the statement, so a reply can never
+// attach to a message that was deleted with its report after the caller looked
+// it up. Message ids are never handed out again (AUTOINCREMENT), so a form left
+// open in an old tab cannot land on another reader's message.
+const replySQL = `
+INSERT INTO feedback_replies (feedback_id, body, created_at)
+SELECT f.id, ?, ?
+FROM feedback f
+WHERE f.id = ?`
+
+// OwnerReply stores the author's reply to a message. The body is normalised here
+// (comments.Normalize), so every reply that is stored satisfies the same body
+// rules as a message; ErrBadBody is returned before any SQL runs. It returns
+// ErrNoTarget when the message is not there at write time. Whatever the report's
+// state, a reply is stored: the reader sees it once the report is published.
+//
+// It records no author: the route that calls it is the owner's, and a reply is
+// the owner's by construction. It returns no id; nothing needs one.
+func (b *Book) OwnerReply(ctx context.Context, feedbackID int64, body string) error {
+	body, err := comments.Normalize(body)
+	if err != nil {
+		return err
+	}
+	res, err := b.db.ExecContext(ctx, replySQL, body, b.now().Unix(), feedbackID)
+	if err != nil {
+		return fmt.Errorf("feedback: reply: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("feedback: reply: %w", err)
+	}
+	if n == 0 {
+		return ErrNoTarget
+	}
+	return nil
 }

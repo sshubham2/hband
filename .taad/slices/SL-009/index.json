@@ -1,0 +1,113 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-009",
+ "title": "Author replies privately to a reader's feedback from the report's admin view, and the reader sees their own feedback and the replies beneath the feedback box",
+ "status": "active",
+ "branch": "slice/SL-009",
+ "opened_at": "2026-11-24T09:16:10.217Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "The admin feedback view offers the author a reply form on each feedback message: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "POST /admin/feedback/{n}/reply stores the author's reply to that message (adminRoutes row, adminFeedbackReply, feedback.OwnerReplyTarget and feedback.OwnerReply): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "The author's admin view shows each reply beneath the message it answers (Message.Replies filled by OwnerInbox): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "The reader sees their own feedback and the author's replies beneath the feedback box when they next open the report (SenderThreads, readerData.OwnFeedback, <ol class=\"own-feedback\">): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "The reply stays private between the author and that reader: other readers and anonymous visitors see neither the message nor the reply, and only the owner can post a reply: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "E-005's finish test (third done_when line: the reply written from the admin view shows with the reader's own message beneath the box, and no other reader or anonymous visitor sees either) passes: missing"
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T09:21:18.254Z",
+     "head": "1702d6e936a9860f5a9c37b201ebacee4ec73aa5",
+     "summary": "Composed by the engine from E-005's design (design 226, made by SL-007 for the whole epic and attacked once, whole).",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T09:21:18.592Z",
+     "head": "1702d6e936a9860f5a9c37b201ebacee4ec73aa5",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T09:21:19.046Z",
+     "head": "1702d6e936a9860f5a9c37b201ebacee4ec73aa5",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}

@@ -510,7 +510,8 @@ func (w *dislikeWorld) observe(t *testing.T) observation {
 		"/reports/x/comments/" + strconv.FormatInt(w.first, 10)}
 	// Each observer also sends a comment POST and a feedback POST that write
 	// nothing: a visitor's is answered with the 303 back to the report, and a
-	// signed-in reader's empty body with a 400.
+	// signed-in reader's empty body with a 400. They also try the owner's reply
+	// route, which refuses each of them.
 	for _, who := range []struct {
 		name, sid, own, comment, feedback string
 	}{
@@ -528,6 +529,9 @@ func (w *dislikeWorld) observe(t *testing.T) observation {
 		obs[who.name+" POST /reports/x/vote"] = h.postVote(who.sid, "x", who.own)
 		obs[who.name+" POST /reports/x/comments"] = h.postComment(who.sid, "x", who.comment)
 		obs[who.name+" POST /reports/x/feedback"] = h.postFeedback(who.sid, "x", who.feedback)
+		// The owner's reply route is closed to all three: the same 403 for a message
+		// that exists and for one that does not, and nothing written.
+		obs[who.name+" POST /admin/feedback/1/reply"] = h.postReply(who.sid, "1", who.feedback)
 	}
 	for _, p := range []string{"/", "/reports/x", "/reports/y"} {
 		res := h.serve("GET", p, h.withSID(w.owner))

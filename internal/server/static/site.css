@@ -15,6 +15,9 @@ main.reader { max-width: 72rem; }
 .comments, .feedback, .feedback-inbox { margin-top: 1rem; padding-top: .5rem; border-top: 1px solid #8884; }
 .comments textarea, .feedback textarea, .feedback-inbox textarea { display: block; box-sizing: border-box; width: 100%; max-width: 40rem; margin: .25rem 0 .5rem; font: inherit; }
 .feedback-message { margin: .75rem 0; }
+.feedback-reply { margin: .5rem 0 .5rem .75rem; padding-left: .5rem; border-left: 1px solid #8884; }
+.own-feedback { list-style: none; margin: .75rem 0 0; padding: 0; }
+.feedback-inbox form { margin: .25rem 0 .5rem; }
 .feedback-sent { margin: .5rem 0; }
 #feedback-sent:target { display: block; }
 .comment { margin: .75rem 0; }
