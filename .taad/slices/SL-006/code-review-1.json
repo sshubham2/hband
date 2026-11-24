@@ -1,0 +1,517 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-006",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-24T03:49:36.448Z",
+ "head": "9789fb9d98fe3efcc01a742955d102926a8c7dcf",
+ "run_id": 11835,
+ "summary": "SL-006 (SC-011, with SC-012 and SC-015 merged in) matches design 225. It has migration 0004 exactly as spike 197 measured it, a single-statement Post that calls Normalize, one redacting Tree read, a non-recursive reverse-id prune in arrange, a handler that follows vote.go's order through auth.Participant, the badge computed in buildThread through auth.IsOwner with a !Placeholder guard, a defines-only comments.html included only in the found state, the comment CSS with overflow: clip, and the widened fitness fences with corpus rows.\n\nThe tree was read, not just listed. The design's promises hold against the code:\n- The handler answers each case as the contract says: 303 #comments for a signed-out visitor with nothing parsed, 404 http.NotFound for every unusable target, 400 for every bad form, and 503 for identity and store errors.\n- A failed Tree read makes the page a 503 and never 'No comments yet.'.\n- Hidden text is blanked in SQL, so it never reaches Go.\n- The cap lives only in threadDepthCap.\n- Nothing in product code deletes a users row. SignIn is ON CONFLICT DO UPDATE, so the new NO ACTION key on github_id breaks no other module.\n\nRan, with TAAD3_HOME set to a new scratch folder:\n- go vet ./... was clean, and go test -count=1 ./... passed in every package.\n- TestThreadTenThousandTiming -v: 10,000 comments (3,000 hidden). Tree took 16.6 ms, buildThread under 1 ms, the render 48.3 ms, and the page is 3,983,164 bytes.\n- TestDeleteReportWithDeepChain -v: deleting a 1,500-deep chain took 4.2 ms and a 10,000-deep chain 25.6 ms.\n- Fitness op=check: all 25 rules hold.\n- Finish line 1 (epics.finish id=42, read in place with mode=ro, only ROOT changed, run with python -I) exited 0 in 6.4 s.\n- An overlay probe, which left nothing in the worktree, confirmed two behaviours. An anonymous POST on a closed store answers 503 from the report-lookup branch. A blocked account's own new post answers 303 to #comment-1 but is never drawn, as the design leaves blocking to SC-021.\n\nEvery row of the case matrix is fed its shape by the named test. Two small notes: an untested 503 branch in postComment (an extra), and a docstring that contradicts Normalize's own steps (text).\n\nSecond reader, for inputs: I read the input-facing code for SL-006 in full: Normalize/Post in internal/comments/comments.go, Tree/arrange/Find in tree.go, postComment/canonicalID in internal/server/comment.go, buildThread in thread.go, comments.html, report.html, the reader.go integration, router.go, migration 0004, the site.css additions, the four SL-006 rules in .taad/fitness.yaml, and the runner in rules_test.go, which matches whole-file text with \\s crossing newlines. I also read store.SignIn's users upsert. It uses ON CONFLICT DO UPDATE, not REPLACE, so a commenter's users row is never deleted and the github_id NO ACTION FK cannot block a second sign-in.\n\nI fed crafted inputs to the handler and to Normalize through a go test -overlay probe kept in a scratch folder, so the worktree is unchanged:\n- A multipart form, a request with no Content-Type and a query string holding ';' all get 400.\n- `charset=UTF-8` on the urlencoded type is accepted with a 303.\n- 5000 four-byte runes (a 60,005-byte form) are accepted. The same body with 2000 leading CRLFs (72,005 bytes) gets 400 from the 64 KiB cap. That is out of reach of the page's own textarea, whose maxlength counts UTF-16 units.\n- U+2028 and NBSP alone are refused as empty.\n- U+200B, U+FEFF, U+3164, U+2800, U+180E and tag characters alone are accepted, and the stored comment renders blank.\n\nOn the other branches:\n- canonicalID refuses '+5', '007', '', repeats and int64 overflow.\n- Every value in Post's INSERT…SELECT is bound in the right order. The published-report and visible-parent re-checks sit in the one statement, so no lookup-to-write gap lets a refused target through.\n- A CR followed by CRLF becomes two LFs, which is correct.\n- arrange refuses out-of-order rows, self-parents and missing parents. Placeholders reach the template with GitHubID 0.\n- Body, login, avatar and id are all drawn through html/template contexts.\n\nOn the regex side, the four SL-006 patterns hold against the realistic spellings: DELETE/REPLACE/INSERT OR … INTO, comma joins, multi-line backtick SQL, BEGIN through Conn, sendBeacon and WebSocketStream. The holes left over (lower-case SQL, quoted or schema-qualified names, bracket access, method values) are already named in each rule's bounded_by, and per lesson #939 I filed no spelling laps.\n\nI also ran go vet ./..., go test -count=1 on ./internal/comments/, ./internal/store/ and ./internal/fitnessrules/, and the TestComment|TestBuildThread|TestThread|TestReader|TestDislikes slice of ./internal/server/. All passed. Fitness op=check: 25 rules hold.\n\nI found two things, neither a defect: an extra on invisible-only bodies, and a stale sentence in Normalize's doc comment.\n\nReading pass: I have now read rule_spellings.json lines 8-44 and 321-398 with numbered Reads. Nothing new to file.\n\n- **Lines 14-17** add four bounded_by entries, one for each SL-006 rule. Each one names the same holes as its rule's `because` in .taad/fitness.yaml.\n- **Lines 36-39** add the four SL-006 rule names to rules_under_test. They are spelled exactly as in fitness.yaml.\n- **Line 326** changed only by the comma that now follows vote-tx-q005.\n- **Lines 327-396** are the 70 SL-006 rows:\n  - every fire row matches its rule's pattern, and every quiet row stays quiet or pins a hole that bounded_by names;\n  - the rows for the Participant rule carry paths that test both the widened scope and its exceptions;\n  - the static-script rows sit at internal/server/static/thread.js, plus one quiet row each for the CSS file and a Go file.\n\nTestRuleSpellingsCorpus and TestRulesHoldOnTheTree passed in my full-suite run, and Fitness op=check reported all 25 rules holding.\n\nOne small wording point, too small to file: the site-script bounded_by says rows q003 to q007 \"pin these\". Some of the holes it names have no row of their own: link-prefetch beacons, serviceWorker.register, requestSubmit, and outerHTML reached through a variable. Each is still named as not bounded, and lesson #939 says to stop there.\n\nMy earlier verdict stands: what was built matches design 225, every case in the matrix is fed its input shape, and the two findings already filed are the only notes.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "SL-006 (SC-011, with SC-012 and SC-015 merged in) matches design 225. It has migration 0004 exactly as spike 197 measured it, a single-statement Post that calls Normalize, one redacting Tree read, a non-recursive reverse-id prune in arrange, a handler that follows vote.go's order through auth.Participant, the badge computed in buildThread through auth.IsOwner with a !Placeholder guard, a defines-only comments.html included only in the found state, the comment CSS with overflow: clip, and the widened fitness fences with corpus rows.\n\nThe tree was read, not just listed. The design's promises hold against the code:\n- The handler answers each case as the contract says: 303 #comments for a signed-out visitor with nothing parsed, 404 http.NotFound for every unusable target, 400 for every bad form, and 503 for identity and store errors.\n- A failed Tree read makes the page a 503 and never 'No comments yet.'.\n- Hidden text is blanked in SQL, so it never reaches Go.\n- The cap lives only in threadDepthCap.\n- Nothing in product code deletes a users row. SignIn is ON CONFLICT DO UPDATE, so the new NO ACTION key on github_id breaks no other module.\n\nRan, with TAAD3_HOME set to a new scratch folder:\n- go vet ./... was clean, and go test -count=1 ./... passed in every package.\n- TestThreadTenThousandTiming -v: 10,000 comments (3,000 hidden). Tree took 16.6 ms, buildThread under 1 ms, the render 48.3 ms, and the page is 3,983,164 bytes.\n- TestDeleteReportWithDeepChain -v: deleting a 1,500-deep chain took 4.2 ms and a 10,000-deep chain 25.6 ms.\n- Fitness op=check: all 25 rules hold.\n- Finish line 1 (epics.finish id=42, read in place with mode=ro, only ROOT changed, run with python -I) exited 0 in 6.4 s.\n- An overlay probe, which left nothing in the worktree, confirmed two behaviours. An anonymous POST on a closed store answers 503 from the report-lookup branch. A blocked account's own new post answers 303 to #comment-1 but is never drawn, as the design leaves blocking to SC-021.\n\nEvery row of the case matrix is fed its shape by the named test. Two small notes: an untested 503 branch in postComment (an extra), and a docstring that contradicts Normalize's own steps (text).\n\nSecond reader, for inputs: I read the input-facing code for SL-006 in full: Normalize/Post in internal/comments/comments.go, Tree/arrange/Find in tree.go, postComment/canonicalID in internal/server/comment.go, buildThread in thread.go, comments.html, report.html, the reader.go integration, router.go, migration 0004, the site.css additions, the four SL-006 rules in .taad/fitness.yaml, and the runner in rules_test.go, which matches whole-file text with \\s crossing newlines. I also read store.SignIn's users upsert. It uses ON CONFLICT DO UPDATE, not REPLACE, so a commenter's users row is never deleted and the github_id NO ACTION FK cannot block a second sign-in.\n\nI fed crafted inputs to the handler and to Normalize through a go test -overlay probe kept in a scratch folder, so the worktree is unchanged:\n- A multipart form, a request with no Content-Type and a query string holding ';' all get 400.\n- `charset=UTF-8` on the urlencoded type is accepted with a 303.\n- 5000 four-byte runes (a 60,005-byte form) are accepted. The same body with 2000 leading CRLFs (72,005 bytes) gets 400 from the 64 KiB cap. That is out of reach of the page's own textarea, whose maxlength counts UTF-16 units.\n- U+2028 and NBSP alone are refused as empty.\n- U+200B, U+FEFF, U+3164, U+2800, U+180E and tag characters alone are accepted, and the stored comment renders blank.\n\nOn the other branches:\n- canonicalID refuses '+5', '007', '', repeats and int64 overflow.\n- Every value in Post's INSERT…SELECT is bound in the right order. The published-report and visible-parent re-checks sit in the one statement, so no lookup-to-write gap lets a refused target through.\n- A CR followed by CRLF becomes two LFs, which is correct.\n- arrange refuses out-of-order rows, self-parents and missing parents. Placeholders reach the template with GitHubID 0.\n- Body, login, avatar and id are all drawn through html/template contexts.\n\nOn the regex side, the four SL-006 patterns hold against the realistic spellings: DELETE/REPLACE/INSERT OR … INTO, comma joins, multi-line backtick SQL, BEGIN through Conn, sendBeacon and WebSocketStream. The holes left over (lower-case SQL, quoted or schema-qualified names, bracket access, method values) are already named in each rule's bounded_by, and per lesson #939 I filed no spelling laps.\n\nI also ran go vet ./..., go test -count=1 on ./internal/comments/, ./internal/store/ and ./internal/fitnessrules/, and the TestComment|TestBuildThread|TestThread|TestReader|TestDislikes slice of ./internal/server/. All passed. Fitness op=check: 25 rules hold.\n\nI found two things, neither a defect: an extra on invisible-only bodies, and a stale sentence in Normalize's doc comment.\n\nReading pass: I have now read rule_spellings.json lines 8-44 and 321-398 with numbered Reads. Nothing new to file.\n\n- **Lines 14-17** add four bounded_by entries, one for each SL-006 rule. Each one names the same holes as its rule's `because` in .taad/fitness.yaml.\n- **Lines 36-39** add the four SL-006 rule names to rules_under_test. They are spelled exactly as in fitness.yaml.\n- **Line 326** changed only by the comma that now follows vote-tx-q005.\n- **Lines 327-396** are the 70 SL-006 rows:\n  - every fire row matches its rule's pattern, and every quiet row stays quiet or pins a hole that bounded_by names;\n  - the rows for the Participant rule carry paths that test both the widened scope and its exceptions;\n  - the static-script rows sit at internal/server/static/thread.js, plus one quiet row each for the CSS file and a Go file.\n\nTestRuleSpellingsCorpus and TestRulesHoldOnTheTree passed in my full-suite run, and Fitness op=check reported all 25 rules holding.\n\nOne small wording point, too small to file: the site-script bounded_by says rows q003 to q007 \"pin these\". Some of the holes it names have no row of their own: link-prefetch beacons, serviceWorker.register, requestSubmit, and outerHTML reached through a variable. Each is still named as not bounded, and lesson #939 says to stop there.\n\nMy earlier verdict stands: what was built matches design 225, every case in the matrix is fed its input shape, and the two findings already filed are the only notes.",
+  "matches_design": true,
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "extra",
+    "file": "internal/server/comment.go",
+    "line": 44,
+    "end_line": 47,
+    "claim": "postComment's branch for 'the report lookup failed with an error other than ErrNotFound', which answers 503, is reached by no test. TestCommentStoreFailure's 'the store is closed' subtest posts with a session cookie, so the request stops at auth.Participant (ErrIdentityUnavailable) before PublishedBySlug runs. The rename and session-drop subtests leave the reports lookup working. An overlay probe shows the branch is right today: an anonymous POST on a closed store answers 503 'Service unavailable' with no Location, and logs 'comment: look up the report'. But nothing pins it. If the branch were collapsed into the NotFound case, an outage would answer 404, and if it were moved after the signed-out check, an outage would answer the success-looking 303 to #comments, and the suite would stay green. The case matrix (row 11) names only the comments-read and session-lookup failures.",
+    "evidence": "internal/server/comment.go:39-48 (the PublishedBySlug switch). internal/server/comment_test.go:948-958 (the closed-store subtest uses `reader`). Probe TestZZReviewProbe/anonymous_POST,_store_closed printed `503 \"\" \"Service unavailable\\n\"`.",
+    "quote": {
+     "path": "internal/server/comment.go",
+     "line": 45,
+     "text": "slog.Error(\"comment: look up the report\", \"error\", err)"
+    },
+    "fix": "In TestCommentStoreFailure's 'the store is closed' subtest, also send h.postComment(\"\", \"x\", commentForm(\"hello\", 0)). Assert 503, an empty Location and Cache-Control: no-store."
+   },
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "file": "internal/comments/comments.go",
+    "line": 120,
+    "claim": "Normalize's docstring ends with 'the stored text stays exactly what was typed'. That contradicts steps 2 and 4 of the same docstring and the code beside it: CRLF and a lone CR become LF (lines 125-126), and the ends are trimmed (line 135). TestCommentBadBody's controls also store 'a\\r\\nb' as 'a\\nb' and '  hi  ' as 'hi'. A later caller who relies on the docstring, for example to compare a stored body with the submitted one, would be misled.",
+    "evidence": "internal/comments/comments.go:110-140",
+    "quote": {
+     "path": "internal/comments/comments.go",
+     "line": 120,
+     "text": "the stored text stays exactly what was typed."
+    },
+    "fix": "Reword the sentence to: 'Nothing is rewritten as HTML: escaping is html/template's job, at the place the text is drawn, so markup is stored as the characters that were typed.'"
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "Normalize tests a body for emptiness with strings.TrimSpace only. A body made only of characters that draw nothing, and that Go's unicode.IsSpace does not class as space, therefore passes and is stored. The page then shows a comment with a byline and an empty p.body. Probed: Normalize accepted U+200B ZERO WIDTH SPACE, U+FEFF, U+3164 HANGUL FILLER, U+2800 BRAILLE BLANK, U+180E and U+E0041 (a tag character) each on its own, and a POST of body=​​ from a signed-in reader got 303 /reports/x#comment-2. Any signed-in account can fill a thread with blank comments, and the app has no removal path yet (SC-020). The design's case 3 names 'empty' and 'whitespace only' as refused shapes, but this family falls outside the TrimSpace definition it chose.",
+    "class_of": "blank-rendering body characters that strings.TrimSpace does not trim",
+    "threat": "adversary",
+    "file": "internal/comments/comments.go",
+    "line": 135,
+    "end_line": 137,
+    "evidence": "Overlay probe TestZZProbeInputs (scratch, not in tree) logged Normalize(\"​\") = \"​\", <nil>, and likewise for ﻿, ㅤ, ⠀, ᠎ and \\U000e0041. 'zwsp body: 303 \"/reports/x#comment-2\"'.",
+    "quote": {
+     "path": "internal/comments/comments.go",
+     "line": 136,
+     "text": "if s == \"\" || utf8.RuneCountInString(s) > MaxRunes {"
+    },
+    "fix": "Leave the stored text as it is, and refuse the body when strings.TrimFunc(s, f) == \"\". Here f is unicode.IsSpace(r) || unicode.Is(unicode.Cf, r) || unicode.Is(unicode.Mn, r) || r is one of U+115F, U+1160, U+3164, U+FFA0, U+2800. Add these to TestNormalize's table as ErrBadBody rows."
+   },
+   {
+    "id": "IN-t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "Normalize's doc comment ends by saying 'the stored text stays exactly what was typed'. The function trims leading and trailing white space and turns CRLF and a lone CR into LF before storing, as steps 2 and 4 of the same comment say. A reader who relies on the closing sentence, for example to expect indentation at the start of a body to survive, is misled.",
+    "file": "internal/comments/comments.go",
+    "line": 119,
+    "end_line": 120,
+    "quote": {
+     "path": "internal/comments/comments.go",
+     "line": 120,
+     "text": "// the text is drawn, and the stored text stays exactly what was typed."
+    },
+    "fix": "Change the sentence to say that the stored text is what was typed apart from the line-ending and trimming steps above, and is never rewritten as HTML."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/server/comment_test.go:177-247 TestCommentPostFlow. It signs in through mintUser with an avatar, gets a 303 to /reports/x#comment-1 and the stored row, then checks the login, the avatar src and the body on / and /reports/x for anonymous and signed-in viewers."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "comment_test.go:249-322: no session, expired, unknown and malformed cookies all get 303 #comments with 0 rows, including empty and over-64KiB bodies; draft and unknown slugs give byte-identical NotFound; cross-site requests get 403. comment_test.go:923-946: a POST while the session lookup fails answers 503."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "comment_test.go:324-361 TestCommentLiteralHTML: <b>, <script>, <img onerror>, &, quotes, </article>, {{.}} and <!-- -->. The escaped text sits in p.body, the articles balance, there is no live markup, and the body is stored as typed."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "comment_test.go:363-432 TestCommentBadBody and 470-518 TestCommentParentField. comments_test.go:264-305 TestNormalize table."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "comment_test.go:434-468: missing, other-report, removed and blocked-writer parents give the identical 404 with the row count unchanged. comments_test.go:139-142: the raw cross-report insert fails with 787. comments_test.go:349-357: a late unpublish gives ErrNoTarget."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "comment_test.go:542-606 draws a 40-level chain nested, and a 150-level chain stored through Book.Post to exactly 100 levels with the cut note. tree_test.go:118-156 arranges 10,000 levels. comment_test.go:620-637 TestBuildThreadDepth."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "comment_test.go:639-675: the clock is set backwards between posts, siblings a1 and a2 share a second, and id order holds on both pages."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "comment_test.go:677-806 covers shapes A-G and unblocking with no writes. tree_test.go:48-83 (TestArrange) and 196-261 (TestTreeRedactsHidden)."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "comment_test.go:808-884: owner 42 and look-alike 4243 both have the login report-author, seen by four viewers. rebuild(4243) and rebuild(0) move or drop the badge, and the owner's placeholder carries none."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "comment_test.go:995-1055 TestCommentReportLifecycle: replace, unpublish, republish, and a delete through mustAct with a 1,500-deep chain and y's comments interleaved. comments_test.go:186-262 (1,500 and 10,000, 787 control). My run: 4.2 ms and 25.6 ms."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "reader_test.go diff seeds a thread with a reply, an owner comment and a placeholder, and adds the comment route rows to TestReaderPathVariants. vote_test.go diff seeds comments in the dislike world and adds a comment POST that writes nothing per observer. TestReportScriptsNeverRun passed in my full-suite run."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "internal/store/comments_migration_test.go:18-119, from v2 and v3: rows intact, foreign_key_check empty, keys live, and a newer-than-binary file refused."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "comments_test.go:400-452 TestConcurrentPostsNoBusy: 16x25 posts with no error, unique ids, every parent id smaller, exact count."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "Re-run by this review: epics.finish id=42 read with mode=ro, test_e004_1 body written to scratch with only ROOT changed, python -I gave 'Ran 1 test in 6.446s OK', exit 0."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": ".taad/fitness.yaml: files internal/server/**/*.go, except reader.go, admin.go and **/*_test.go; the because names the helper gap. rule_spellings.json: cmt-vf-f001..f005 (comments.go, comment.go, vote.go, feedback.go, thread.go), cmt-vf-q005 known-quiet helper, bounded_by 'write handlers resolve the poster (SL-006 m1)'."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "internal/comments/comments.go:84-87: Normalize runs before any SQL. comment.go:82-83 maps ErrBadBody to 400. comments_test.go:379-388: on a closed store a bad body still gives ErrBadBody."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "0004_comments.sql:12-24 header records NO ACTION as measured, DEFERRABLE as the only fallback and the fence ruling out deepest-first. Line 43: the self-FK has no action clause."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "Same procedure reproduced by this review (read in place with mode=ro, scratch copy, ROOT only, python -I); it passed."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "comments_migration_test.go:20-60 'from version 2' runs 0003 and 0004 in one start. The follow_ups carry the 'whatever user_version it holds (see Q-015)' rehearsal wording."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "internal/server/static/site.css: .body { ... white-space: pre-wrap; overflow-wrap: anywhere; overflow: clip; }, pinned by comment_test.go:1151-1178."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "comment_test.go:249-322, as for O-002."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "comment_test.go:324-361, as for O-003."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "comment_test.go:363-432, comments_test.go:264-394."
+   },
+   {
+    "key": "O-027",
+    "discharged": "yes",
+    "evidence": "comment_test.go:434-468, comments_test.go:103-180 and 309-394."
+   },
+   {
+    "key": "O-028",
+    "discharged": "yes",
+    "evidence": "comment_test.go:470-518: '+1' and '01' name the existing comment 1, so accepting them would store a row and fail the test."
+   },
+   {
+    "key": "O-029",
+    "discharged": "yes",
+    "evidence": "comment_test.go:560-605 (150 stored through Book.Post), tree_test.go:118-156."
+   },
+   {
+    "key": "O-030",
+    "discharged": "yes",
+    "evidence": "comment_test.go:639-675."
+   },
+   {
+    "key": "O-031",
+    "discharged": "yes",
+    "evidence": "comment_test.go:677-806 and tree_test.go:48-83, 196-261."
+   },
+   {
+    "key": "O-032",
+    "discharged": "yes",
+    "evidence": "comment_test.go:808-884."
+   },
+   {
+    "key": "O-033",
+    "discharged": "yes",
+    "evidence": "reader_test.go and vote_test.go diffs; comment_test.go:214-238."
+   },
+   {
+    "key": "O-034",
+    "discharged": "yes",
+    "evidence": "comment_test.go:886-959: renaming the comments table gives a 503 page with no 'No comments yet.' while votes still read; dropping sessions gives a 503 POST with 0 rows."
+   },
+   {
+    "key": "O-035",
+    "discharged": "yes",
+    "evidence": "comment_test.go:995-1055, comments_test.go:186-262."
+   },
+   {
+    "key": "O-036",
+    "discharged": "yes",
+    "evidence": "comments_migration_test.go."
+   },
+   {
+    "key": "O-037",
+    "discharged": "yes",
+    "evidence": "Finish line 1 re-run by this review, exit 0."
+   },
+   {
+    "key": "O-038",
+    "discharged": "yes",
+    "evidence": "Measured by this review with TestThreadTenThousandTiming -v (2,500 top-level comments x 3 replies, 3,000 hidden, signed-in viewer): Tree 16.6 ms, buildThread under 1 ms, render 48.3 ms, page 3,983,164 bytes. One uncontended run. The page size grows with the thread, which only the deferred m10 bounds."
+   },
+   {
+    "key": "O-039",
+    "discharged": "yes",
+    "evidence": ".taad/fitness.yaml site-scripts rule: the because now says markup injection, with siteCSP still blocking script; pattern \\b(sendBeacon|WebSocket\\w*|EventSource|WebTransport)\\b. Corpus cmt-js-f016..f020. bounded_by 'site script sinks and requests' names image and prefetch beacons, import(), Worker, serviceWorker.register, form.submit and requestSubmit."
+   },
+   {
+    "key": "O-040",
+    "discharged": "yes",
+    "evidence": "comment_test.go:1060-1136 TestThreadTenThousandTiming: wide shape, signed-in render, each step asserted under 1 s. Reproduced (see O-038)."
+   },
+   {
+    "key": "O-041",
+    "discharged": "yes",
+    "evidence": "The build's follow_ups hold the release-order item and the rehearsal-on-a-copy item worded as the critic asked. No code was owed."
+   },
+   {
+    "key": "O-042",
+    "discharged": "yes",
+    "evidence": "fitness.yaml pattern '\\b(setHTML(Unsafe)?|parseHTML(Unsafe)?|createContextualFragment|parseFromString)\\s*\\(|\\.srcdoc\\s*=|\\bsetAttribute\\s*\\(\\s*[''\"]srcdoc'. Corpus cmt-js-f007..f013, cmt-js-q001 (textContent) and q007 (bracket access, known-quiet)."
+   },
+   {
+    "key": "O-043",
+    "discharged": "yes",
+    "evidence": "comment_test.go:847-867: the login is removed before matching \\bauthor\\b, the owner's placeholder is checked for no badge and no word, and the page badge count equals the visible owner-ID comments."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "comment_test.go:249-322. Anonymous top-level and reply POSTs (plus expired, unknown and malformed cookies) answer 303 to /reports/x#comments with 0 rows. A signed-in session sending Sec-Fetch-Site cross-site or same-site, or a foreign Origin, gets 403 with 0 rows. Same-origin controls are taken."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "comment_test.go:324-361 posts the exact hostile string (<b>, <script>, <img onerror>, &, quotes, </article>, {{.}}) and checks p.body's unescaped text equals it, with no live tags in the page bytes."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "comment_test.go:363-432 sends empty, whitespace, nbsp, 5000/5001 ASCII and 4-byte runes, invalid and truncated UTF-8, NUL/SOH/ESC/DEL/U+0085/U+009F, repeated, over 64 KiB and 1 MiB, and query-only bodies. CRLF, lone CR, tab and newline, and trimming controls are stored as normalised. TestNormalize is the table."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "comment_test.go:434-468 seeds a real removed comment, a real blocked writer, another report's comment and a missing id. comments_test.go:351-357 unpublishes the report and then posts through Book.Post. comments_test.go:139-142 is the raw cross-report INSERT (787)."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "comment_test.go:478-517: abc, 0, -1, +1, 01, 007, empty, repeated and the rest. '+1' and '01' name the existing comment 1, so a lax parser would store a row and fail the test. The query-only parent is shown stored as top level."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "comment_test.go:560-605 stores 150 levels through Book.Post and the token-stack scanner checks the depth reaches exactly 100 with the cut note. tree_test.go:118-156 arranges 10,000 rows."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "comment_test.go:639-675: fakeClock.Set moves the clock back to -48h for the third top-level comment and back again for sibling a3. An order by created_at would fail."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "comment_test.go:677-806 sets removed_at and blocked_accounts with raw SQL for each listed shape, including B (a visible reply three levels below a removed chain), and the unblock with the row count unchanged."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "comment_test.go:808-884: the owner ID and 4243 share the login report-author. The owner's removed comment c5 has a visible reply c6, and it is checked for no badge."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "reader_test.go diff: the newest report carries a reply, an owner comment and a placeholder, checked for owner and non-owner byte identity and the anonymous thread. The TestReaderPathVariants comment rows. vote_test.go newDislikeWorld seeds a thread, with a guard that it is drawn."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "comment_test.go:887-921: ALTER TABLE comments RENAME, with votes shown still readable. comment_test.go:923-946: DROP TABLE sessions, then a POST with a live session gives 503."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "comment_test.go:995-1055 covers replace, unpublish, republish, and a mustAct delete with seedChain(1500, y interleaved every 250). comments_test.go:186-262 adds Library.Delete at 1,500 and 10,000 with the 787 control."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "comments_migration_test.go:18-119 builds populated v2 (users, sessions, reports) and v3 (plus votes) files with openWith, then Opens them with the full embedded set."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "Re-run by this review: the test_e004_1 body from epics.finish id=42, with only ROOT changed, ran with python -I and exited 0 ('Ran 1 test in 6.446s OK')."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [
+   ".taad/slices/SL-006/*.json -- these are the engine's records of each stage, not slice code or configuration, so they were not judged."
+  ],
+  "second_round": {
+   "run_id": 11836,
+   "filed": 2,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 11837,
+   "session": "0b788144-0b7b-4622-aad4-5a2b5d4426b8",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       13,
+       17
+      ],
+      [
+       35,
+       39
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      8,
+      44
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       326,
+       396
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      321,
+      398
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 3,
+   "named": [],
+   "before": {
+    "read_whole": 14,
+    "changed": 19,
+    "listed": 5
+   },
+   "filed": 0,
+   "read_after": 3,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 19,
+   "read_whole": 14,
+   "deleted": [],
+   "runs": [
+    11835,
+    11836,
+    11837
+   ],
+   "range": {
+    "base": "93e28aadd9a7c2538cf0b3067ce451d570a14cba",
+    "head": "9789fb9d98fe3efcc01a742955d102926a8c7dcf",
+    "source": "commits",
+    "hunk_base": "93e28aadd9a7c2538cf0b3067ce451d570a14cba",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "partly-opened",
+     "section": "lines 1-347 of 347",
+     "reason": "seen only through a shell command: git --no-pager, git diff",
+     "size_lines": 347,
+     "hunks": []
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "partly-opened",
+     "section": "lines 1-7, 45-320 of 398",
+     "reason": "a Read returned only part of it; seen only as 4 Grep lines; seen only through a shell command: $code",
+     "size_lines": 398,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-658 of 658",
+     "reason": "seen only through a shell command: $s, git diff",
+     "size_lines": 658,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/static/site.css",
+     "state": "partly-opened",
+     "section": "lines 1-26 of 26",
+     "reason": "seen only through a shell command: git --no-pager, git diff",
+     "size_lines": 26,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/vote_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-627 of 627",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 627,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

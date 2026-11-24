@@ -1,0 +1,197 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-006",
+ "stage": "reflect",
+ "attempt": 1,
+ "at": "2026-11-24T04:11:20.200Z",
+ "head": "08652107fe7c2a600bd65808d248895c5c8a929d",
+ "run_id": 11841,
+ "summary": "SL-006 built SC-011 with SC-012 and SC-015 merged in. It adds migration 0004 (comments and blocked_accounts), the internal/comments package (single-statement Post, one redacting Tree read, non-recursive arrange), POST /reports/{slug}/comments, the thread and Author badge on / and /reports/<slug>, and four fitness rules with 70 corpus rows. It passed validation against the built binary and Chrome, graded `code` contact, with one failed check: a reply chain deeper than about 40 levels leaves the right edge at 1000 px. SC-013 (depth cap 5, continue links, branch page, toggle) is deliberately unbuilt, so SC-011 has two measured depth gaps until it lands. The slice took 3 spike laps, 2 designs, 4 critique and 4 critique-review runs and 2 builds, and nothing in 22 findings rose above minor.",
+ "payload": {
+  "status": "complete",
+  "reason": "Reflection written from the recorded stages (repro through validate). I did not re-run commands or open the ledger. The numbers I quote come from builds#432, reviews#693 and validations#261.",
+  "summary": "SL-006 built SC-011 with SC-012 and SC-015 merged in. It adds migration 0004 (comments and blocked_accounts), the internal/comments package (single-statement Post, one redacting Tree read, non-recursive arrange), POST /reports/{slug}/comments, the thread and Author badge on / and /reports/<slug>, and four fitness rules with 70 corpus rows. It passed validation against the built binary and Chrome, graded `code` contact, with one failed check: a reply chain deeper than about 40 levels leaves the right edge at 1000 px. SC-013 (depth cap 5, continue links, branch page, toggle) is deliberately unbuilt, so SC-011 has two measured depth gaps until it lands. The slice took 3 spike laps, 2 designs, 4 critique and 4 critique-review runs and 2 builds, and nothing in 22 findings rose above minor.",
+  "estimate_error": "Both were wrong, in different directions. Medium was too small: 27 files changed, a new package, a migration through the hot migrate.go, three merged criteria (SC-011, SC-012, SC-015), 70 corpus rows and 6 gate laps (spike x3, design x2, plus the repeated critique, critique-review, build and code-review runs). That is large. High risk was right, and it held. The first spike returned a no-go (Chrome stops nesting at reply 256), and the design's two schema forks forced a re-synthesis. Measured, those forks changed nothing in the schema (spike 197: go, go). SC-013 was split out of the slice but left it with known interim gaps, so size it as two slices that must ship together.",
+  "learned": [
+   {
+    "kind": "risk",
+    "lesson": "SC-011 alone is not releasable, but the release gate does not say so. Replies deeper than about 40 levels leave the right edge of a 1000 px viewport. Replies past threadDepthCap=100 are stored and answered with a 303 to an anchor the page never draws (m8, deferred). The filed release gate (SC-036) names only SC-020 and SC-021. Treat SC-013 as a release prerequisite of the same weight, and say so when SC-013 or SC-020 is opened.",
+    "evidence": "validations#261 failed check 'Deep chain layout in real Chrome at a 1000 px viewport'; m8 deferred in the critique dispositions ('closed by SC-013'); SC-036 text lists only SC-020 and SC-021."
+   },
+   {
+    "kind": "design",
+    "lesson": "A display depth cap has two limits on this site and the design derived only one. Chrome 158's 513-element parse limit gave cap 100 (about 205 DOM levels). The horizontal limit was never computed. In internal/server/static/site.css, .replies adds .75rem of margin, .5rem of padding and a 1px border per level, so 100 levels is wider than any viewport. Any cap or indent change in SC-013 (cap 5) or later must be checked at 400 and 1000 px, not only against the DOM depth.",
+    "evidence": "design 225 key_decisions (cap justified only by spike 196: 'Depth 100 is about 205 DOM levels'); validations#261: chain deeper than about level 40 squeezes and then leaves the edge at 1000 px."
+   },
+   {
+    "kind": "process",
+    "lesson": "Person-facing check items are frozen at the first design's wording, and later critique fixes do not rewrite them. SC-035 on the backlog still says 'production user_version 3' and 'start the new binary on it'. Accepted fixes m5 and M-add-1 were written to remove both: the version is unknown (Q-015), and starting the binary on the live file is the deploy that SC-036 forbids and that an older binary cannot undo. The corrected rehearsal-on-a-copy wording exists only in builds#432 LEFT OPEN, because a build cannot edit filed_for_later. Whoever acts on SC-035 should use the build's rehearsal steps. A later reviewer who writes 'that item no longer exists' must check the ledger first.",
+    "evidence": "SC-035 and SC-036 text in 'Already filed by this slice's stages'; builds#432 LEFT OPEN ('For the person (migration rehearsal on a copy, Q-015)'); reviews#692 finding 1 says the item was removed; O-041 discharged by follow_ups text only."
+   },
+   {
+    "kind": "process",
+    "lesson": "This loop's review effort went to the wrong place. Across 22 findings (critique 10+2+2, critique-review 2+4, code review 4), none was above minor. At least 3 were fitness-rule spelling and pattern findings (Participant fence, site-script network list, HTML-sink list). Those produced 70 corpus rows and four rules, one of which guards static/thread.js, a file that does not exist until SC-013. The defects that touched behaviour came from running things: the input probe (blank bodies, the untested 503 branch) and validation (the layout squeeze). For the next slice, point the critic at the input and viewport shapes the design names, and keep new fitness rules to files that exist (lesson #939 already says to stop at bounded_by).",
+    "evidence": "reviews#691, #692, #693 and the dispositions list; builds#432 ('70 corpus rows'); the findings that surfaced by running (IN-m1, m1/503, validations#261) are all minor and not from the model gates before the build."
+   },
+   {
+    "kind": "process",
+    "lesson": "When a design lists an expensive-to-reverse schema fork as 'recalled, the build settles it with a test', the synthesis flags it as forcing re-synthesis, and the loop pays a full lap: one spike, design 2, critique x2, review x2. Here the first design's recalled answers (NO ACTION self-FK clears 1,500- and 10,000-deep chains; the composite FK refuses cross-report and missing parents with 787) were right, so the extra laps bought a confirmation. Put every FK, cascade and self-reference fork of a new table into the FIRST spike's experiment list, so the design is written once.",
+    "evidence": "risk-spike #1 ran 3 experiments (2 held, 1 failed) with no FK experiment; spike 197 returned go, go (Library.Delete 5 ms / 44 ms; 787 on cross-report and missing parent); design 225 differs from design 1 only in naming DEFERRABLE as the fallback."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "For SC-020 and SC-021 the hide model is read-time and tiny. A comment is hidden when removed_at IS NOT NULL or its writer has a blocked_accounts row, through the single visibleSQL constant used by both Post's parent check and Tree. SC-020 is one UPDATE of removed_at. Deleting a comment that has replies fails with 787, so removal is never a DELETE. SC-021 is an INSERT or DELETE on blocked_accounts, and unblocking restores comments with no per-comment writes. Neither should touch Tree. Two things are not built. Post does not refuse a blocked poster: such a post is stored, answered 303 #comment-N and never drawn, and SC-021 must decide that. Each new route must have rows added by hand to TestReaderPathVariants and TestDislikesDoNotInterfere (m9 deferred), and it falls inside the widened Participant fence, so its handler must use auth.Participant.",
+    "evidence": "internal/comments/comments.go visibleSQL (design components); migration 0004 header; reviews#693 overlay probe ('A blocked account's own new post answers 303 to #comment-1 but is never drawn'); m9 deferral 'due before SC-020/021 add routes'; the widened rule in .taad/fitness.yaml."
+   },
+   {
+    "kind": "design",
+    "lesson": "Reads of a whole thread are cheap; bytes are the cost. At 10,000 comments with 3,000 hidden, Tree took 16.6-21 ms, buildThread 1-4.5 ms and the render 48-54 ms. GET /reports/big through the binary took 83-121 ms. The page was 3.67 MB anonymous and 5.80 MB signed in (7,500 articles, 500 placeholders), and 3.98 MB signed in for the wide in-process shape (2,500 top-level comments x 3 replies). The per-comment reply form accounts for roughly 2.1 MB of the signed-in/anonymous difference. If page size has to be bounded, the levers are top-level paging (SC-013), the per-account post rate (m10, E-006) and one shared reply form. A cheaper query is not a lever.",
+    "evidence": "validations#261 O-038 probe; builds#432 and reviews#693 TestThreadTenThousandTiming (19 ms / 1 ms / 48 ms, 3,983,164 bytes)."
+   },
+   {
+    "kind": "process",
+    "lesson": "The engine cannot open this app with a bare command. internal/config refuses to start without HBAND_OWNER_GITHUB_ID, HBAND_GITHUB_CLIENT_ID/SECRET and HBAND_BASE_URL, so the build declared no screens or app. Validation then hand-built a probe.py with the finish line's stand-in GitHub, and Chrome had no session cookie. The signed-in UI (compose form, reply details forms) was never rendered in a browser on this slice. The only Chrome test, TestReportScriptsNeverRun, is anonymous. Every later UI slice (SC-013, SC-016) will hit the same wall unless a signed-in session is arranged for Chrome.",
+    "evidence": "builds#432 LEFT OPEN ('config refuses to start without HBAND_OWNER_GITHUB_ID...'); validations#261 LEFT OPEN ('The signed-in page in a real browser: Chrome had no session cookie')."
+   },
+   {
+    "kind": "process",
+    "lesson": "The second, input-driven code-review pass again found the real defect, and lesson #935's whole-file rule again was not enforced. The review closed with 5 of 19 changed files partly opened: .taad/fitness.yaml (347 lines), rule_spellings.json (398), reader_test.go (658), site.css (26) and vote_test.go (627). The engine had to send it back for 3 unread hunks. site.css, 26 lines, is the file whose .replies indent the validation then found failing. When a design's visual claim rests on a CSS or template file, require a numbered whole-file read of that file in the review.",
+    "evidence": "reviews#693 LEFT OPEN ('not read (measured)' list and 'sent back to 3 changed hunk(s)'); IN-m1 found by the overlay input probe; validations#261 layout failure."
+   }
+  ],
+  "candidates": [
+   {
+    "title": "Refuse comment bodies that draw nothing (zero-width, filler and format-only text)",
+    "urgency": "soon",
+    "why": "Normalize in internal/comments/comments.go decides 'empty' with strings.TrimSpace only (step 5). The code-review input probe (reviews#693, go test -overlay, worktree untouched) showed each of U+200B, U+FEFF, U+3164, U+2800, U+180E and U+E0041 alone is accepted. A signed-in POST of body=U+200B U+200B answered 303 /reports/x#comment-2 and stored a comment that draws a byline over an empty p.body. U+2028 and NBSP alone are refused. Design 225 case 3 promised that whitespace-only bodies are refused. The finding was waived on SL-006 (O-046 / N-053). Until SC-020 exists the owner cannot remove one, and SC-036 gates the release on SC-020, not on this. Shape: TrimFunc with unicode.IsSpace, Cf, Mn and the filler list (U+115F, U+1160, U+3164, U+FFA0, U+2800); keep the stored text unchanged; add ErrBadBody rows to the TestNormalize table, plus a control that a visible character followed by a combining mark is still accepted."
+   },
+   {
+    "title": "Open signed-in report pages in real Chrome: minted-session launcher and a compose/reply-form check at depth and at 1000 px",
+    "urgency": "soon",
+    "why": "Validation could not render the signed-in page. validations#261 LEFT OPEN says the reply <details> forms and the top-level form were checked only in server HTML, and builds#432 says config refuses to start without HBAND_OWNER_GITHUB_ID, HBAND_GITHUB_CLIENT_ID/SECRET and HBAND_BASE_URL, so no app or screens were declared. The reply form (internal/server/templates/comments.html, details.reply) is the only UI path to C4. The only Chrome test, TestReportScriptsNeverRun in internal/server/browser_test.go, is anonymous. The deep-chain squeeze was seen only on a hand-served page with the iframe removed. Seams exist: store.SignIn via mint in internal/server/harness_test.go, internal/testutil/headless (Chrome only, never Edge) and internal/testutil/fakegithub. First read the E-004 finish line 2 body (SELECT finish FROM epics WHERE id=42, test_e004_2), because SC-013's test already drives levels 1-8 and the toggle in Chrome, and build only the part it does not cover."
+   }
+  ],
+  "missed": [
+   {
+    "gate": "critique",
+    "what": "The design chose strings.TrimSpace as the emptiness test and listed 'empty' and 'whitespace only' as refused shapes (case 3). Neither the design nor the critique asked which code points draw nothing but are not unicode.IsSpace: Cf (U+200B, U+FEFF), the Hangul fillers (U+115F, U+1160, U+3164, U+FFA0), U+2800, U+180E and tag characters. A check could be written from it: feed Normalize each of those alone and expect ErrBadBody.",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "caught_by": "code-review (second input-driven pass, go test -overlay probe, reviews#693 finding IN-m1); then waived as O-046 / N-053, so it ships.",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique",
+    "what": "The design's error-path case for store failures named only the comments-read failure and the session-lookup failure. postComment's 503 for a PublishedBySlug error other than ErrNotFound (comment.go:44-47 per reviews#693) had no case, even though the handler contract lists it. The 'store is closed' subtest posts with a session cookie, so it stops at auth.Participant first. A check could be written from it: an anonymous POST on a closed store must answer 503 with an empty Location and Cache-Control: no-store.",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "caught_by": "code-review (reviews#693 finding m1); waived as O-044 / N-051.",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique",
+    "what": "threadDepthCap=100 was justified only against Chrome's 513-element parse limit (about 205 DOM levels, spike 196). The design never computed horizontal space: .replies adds .75rem margin, .5rem padding and a 1px border per level, so 100 levels cannot fit a 1000 px viewport. A check could be written from it: cap x per-level indent against 400 and 1000 px, or a Chrome screenshot of a chain at the cap.",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "caught_by": "validation (validations#261 failed check 'Deep chain layout in real Chrome at a 1000 px viewport': a chain deeper than about level 40 squeezes and then leaves the right edge). SC-013's cap of 5 fixes it, but it is not in SC-036's release gate.",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique-review",
+    "what": "Critique-review attempt 2 (reviews#692) said the rework 'removed the only person-facing pre-deploy migration item' and that m5 and M-add-1 'point at nothing'. The ledger already held that item as SC-035, in attempt-1 wording ('production user_version 3', 'start the new binary on it'). The corrections were discharged (O-041) by text in the build's follow_ups, so SC-035 on the backlog still carries the two assertions the fixes were meant to remove. Following it literally migrates the live database, which SC-036 forbids and an older binary cannot undo. A check could be written from it: before saying an item is missing, SELECT the candidates table for it.",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "caught_by": "nothing before this reflection (compared SC-035's text with builds#432 LEFT OPEN)",
+    "prescribed_fix": "M-add-1"
+   }
+  ],
+  "what_went_wrong": [
+   "Design attempt 1 left two schema forks as 'recalled, the build settles it with a test', and its own synthesis marked them as forcing re-synthesis. That cost spike lap 3, design 2, critique x2 and critique-review x2. Spike 197 then returned go, go and changed nothing in the schema (only the fallback was renamed from CASCADE to DEFERRABLE). Spike #1's three experiments had not included the FK forks.",
+   "Four gate runs (critique #1 and #3, critique-review #1 and #3) halted waiting on a person and were then answered by a model. The result was 22 findings, none above minor. At least 3 were fitness-rule spelling findings for static/thread.js, a file that does not exist until SC-013, with 70 corpus rows written around them. The behaviour defects came from the input probe and from validation.",
+   "Build #1 was cut off partway by the provider's 5-hour limit. Build #2 inherited a tree holding unreviewed attempt-1 work and had to reconcile it with design 2.",
+   "Code review closed with 5 of 19 changed files only partly opened (fitness.yaml, rule_spellings.json, reader_test.go, site.css, vote_test.go), against lesson #935, and was sent back for 3 unread hunks. site.css is 26 lines and holds the .replies indent that validation later found failing.",
+   "Validation passed with one failed check (deep-chain layout at 1000 px). Its only remedy is SC-013, which the release gate SC-036 does not name. Validation was graded `code`, not `real`. GitHub was a stand-in, there was no proxy or https, 400 px was not measured (headless Chrome will not lay out below about 500 px, Q-013), and the signed-in forms were never rendered in a browser.",
+   "SC-035 on the backlog carries the stale 'production user_version 3' and 'start the new binary on it' wording that accepted fixes m5 and M-add-1 existed to correct. The corrected rehearsal steps live only in builds#432 LEFT OPEN.",
+   "The previous reflect run (reflections#112) recorded no account, so nothing from SL-006 reached the backlog until now.",
+   "Two waived items are real and ship: the blank-body acceptance (N-053) and the untested 503 branch (N-051). The Normalize docstring that contradicted the code (steps 2 and 4) was written by the builder and caught only in code review."
+  ],
+  "unknowns": [
+   "Does the production database (home server) sit at user_version 2 or 3? Q-015 is still open and only history-built binaries (38e2b22 at v2, 93e28aa at v3) were migrated. This decides whether 0003 and 0004 run together in one start on the first deploy.",
+   "Do real avatars (avatars.githubusercontent.com URLs as GitHub returns them, stored by safeAvatar) load under siteCSP img-src in a browser? Validation used avatars.example URLs, and the header avatar is the only real-world precedent.",
+   "How does the thread lay out at phone widths (400 px) and in Firefox, Safari and mobile Chrome? Headless Chrome will not lay out below about 500 px (Q-013), and this is needed before SC-013 fixes the indent and cap-5 layout.",
+   "What does E-004 finish line 2 (test_e004_2, epics.id=42) already drive in Chrome: the reply forms, or only levels 1-8, the branch page and the fold toggle? That decides how much of the signed-in browser check is still owed.",
+   "Does a 5.8 MB signed-in page at 10,000 comments stay usable through the VPS proxy over a real link? Only loopback timings (83-121 ms) were measured."
+  ],
+  "lessons_judged": [
+   {
+    "id": 950,
+    "verdict": "used",
+    "why": "The design pinned a plain form POST answered with auth.SeeOther to /reports/<stored slug>#comment-<id> (or #comments for signed-out). The comment section was byte-identical on / and /reports/talk for anonymous and signed-in viewers in validation."
+   },
+   {
+    "id": 951,
+    "verdict": "used",
+    "why": "Design 225 and the build read SELECT finish FROM epics WHERE id=42 in place (mode=ro). They ran the body from a scratch folder with only ROOT changed, and finish line 1 passed in 6.4 s (accepted fix m4). The lesson's E-003/id 41 numbers belonged to the earlier slice; this one is E-004/id 42."
+   },
+   {
+    "id": 949,
+    "verdict": "used",
+    "why": "Post is one INSERT...SELECT with no transaction, the handler goes through auth.Participant, the Participant rule was widened across internal/server, and TestConcurrentPostsNoBusy ran 16 goroutines with no BUSY."
+   },
+   {
+    "id": 948,
+    "verdict": "used",
+    "why": "TestDislikesDoNotInterfere was extended with comment POST observations and seeded comments, and TestReaderPathVariants got the comment-route rows. Both lists are still hand-written (m9 deferred), so the guarantee for later routes still depends on remembering."
+   },
+   {
+    "id": 944,
+    "verdict": "used",
+    "why": "Comments were added inside renderReader's found state, so / and /reports/<slug> share them. A Tree error maps to stateUnavailable (503), and path variants of the new route were pinned in TestReaderPathVariants rather than assumed."
+   },
+   {
+    "id": 941,
+    "verdict": "used",
+    "why": "The comment CSS uses only neutral and currentColor values. TestCommentStyles pins that, and TestReportScriptsNeverRun ran in Chrome with blank-found green=0 red=0."
+   },
+   {
+    "id": 930,
+    "verdict": "used",
+    "why": "migrate.go was read whole before 0004 was written. The file follows the NNNN_name.sql grammar, TestCommentsMigrationFromV2AndV3 starts from populated v2 and v3 files, and validation upgraded databases made by history-built binaries to version 4."
+   },
+   {
+    "id": 148,
+    "verdict": "used",
+    "why": "Dispositions checked critic claims against files: m1 against fitness.yaml:303-306, and M-add-3 was overridden after grepping site.css and layout.html. The lesson also applied the other way: critique-review wrote that the pre-deploy item no longer existed without checking the ledger, where it was SC-035."
+   },
+   {
+    "id": 946,
+    "verdict": "used",
+    "why": "The headless package still defaults to Chrome and never to Edge. Build and validation recorded msedge process IDs before and after, and the full suite ran with no Edge started."
+   },
+   {
+    "id": 947,
+    "verdict": "used",
+    "why": "Design check commands filter with -run, except for one final full-suite run. Builders and validators watched msedge and chrome processes, and the only msedge processes seen were the person's own."
+   },
+   {
+    "id": 935,
+    "verdict": "used",
+    "why": "The second input-driven review pass (go test -overlay probes) found the defect (IN-m1, the blank bodies) and the untested 503 branch. The whole-file part of the lesson was not enforced: 5 of 19 changed files were closed partly opened, and the engine sent the review back for 3 hunks."
+   }
+  ],
+  "filed": [
+   {
+    "key": "SC-035",
+    "title": "Check by hand: Before the first deploy that carries 0004: back up the production database with .backup, then start the new binary on it (production user_version 3) and confirm it reaches user_version 4 with users, sessions, reports and votes intact.",
+    "urgency": "soon",
+    "source": "design"
+   },
+   {
+    "key": "SC-036",
+    "title": "Check by hand: Release order: do not put a build carrying migration 0004 in front of readers on the home server until SC-020 (the author removes a comment) is live, with SC-021 (blocking) after it. Until then the only takedown is a stopgap that has never been run. After a .backup of the database, on the host, run `UPDATE comments SET removed_at=<unix now> WHERE id=?` or `INSERT INTO blocked_accounts(github_id, blocked_at) VALUES(?, <unix now>)`.",
+    "urgency": "soon",
+    "source": "design"
+   }
+  ]
+ }
+}
