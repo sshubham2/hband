@@ -269,3 +269,79 @@ rules:
       merely contains the keyword.
     except_files:
     - '**/*_test.go'
+
+  # settled by SL-006
+  - name: only internal/comments writes SQL on the comments table
+    files: '**/*.go'
+    must_not_match:
+    - \b(FROM|INTO|UPDATE|JOIN)\s+comments\b
+    - \bUPDATE\s+OR\s+[A-Z]+\s+comments\b
+    - \bFROM\b[^"`;]*,\s*comments\b
+    because: 'The redaction of hidden rows (blanked inside Tree''s SELECT) and the same-report,
+      visible-parent, published-report insert live only in internal/comments. A second reader
+      can put removed text or a blocked writer''s login on a public page. A second writer can
+      attach a reply across reports or under a hidden comment, or write parent_id out of id
+      order and break arrange''s post-order. Known holes, as for the votes rule: lower-case
+      SQL, a table name built by concatenation, quoted or schema-qualified names, and views
+      or triggers created in a .sql migration.'
+    except_files:
+    - internal/comments/**
+    - '**/*_test.go'
+  - name: comment writes never open a transaction
+    files: internal/comments/**/*.go
+    must_not_match:
+    - \.Begin(Tx)?\(
+    - (?i)\b(BEGIN|SAVEPOINT)\b
+    - \bsql\.Tx\b
+    because: 'Spike concurrent-vote-upserts-no-busy (lesson #949) measured read-then-write transactions
+      on this store pool failing 215-253 times per run with SQLITE_BUSY or BUSY_SNAPSHOT, returned
+      at once without waiting on busy_timeout, while single statements failed 0 times. A failed
+      comment post would reach a signed-in reader as a 503. Known hole: a transaction opened
+      outside the package and handed in through an interface.'
+    except_files:
+    - '**/*_test.go'
+  - name: the comment write handler resolves the poster with auth.Participant, never ViewerFrom
+    files: internal/server/**/*.go
+    must_not_match:
+    - \bViewerFrom\s*\(
+    because: 'ViewerFrom reports a store outage as an anonymous visitor. A write handler that
+      resolved the poster that way would answer the signed-out 303 and the reader''s write (a
+      comment now, a vote or a feedback message later) would be silently dropped behind a
+      success-looking redirect. Participant turns the outage into a 503 (lesson #949; N-029
+      waived this for votes without a rule). The rule covers every file of internal/server, so
+      a handler that is renamed or moved is still caught. Reader pages (reader.go, which will
+      also hold the branch page of SC-013) and the gated admin (admin.go) are the only files
+      allowed to treat an outage as anonymous. Known gap: a helper placed in reader.go or
+      admin.go, or in internal/auth, that wraps ViewerFrom and is called by a write handler
+      passes this rule. TestCommentStoreFailure (a POST while the session lookup fails answers
+      503 and stores nothing) is the behavioural guard for that, and the next write handler
+      adds the same case.'
+    except_files:
+    - internal/server/reader.go
+    - internal/server/admin.go
+    - '**/*_test.go'
+
+  # settled by SL-006
+  - name: site scripts never build HTML from strings or reach the network
+    files: internal/server/static/**
+    must_not_match:
+    - \.(innerHTML|outerHTML)\s*\+?=
+    - \binsertAdjacentHTML\s*\(
+    - \bdocument\.write(ln)?\s*\(
+    - \beval\s*\(|\bnew\s+Function\s*\(
+    - '\b(setHTML(Unsafe)?|parseHTML(Unsafe)?|createContextualFragment|parseFromString)\s*\(|\.srcdoc\s*=|\bsetAttribute\s*\(\s*[''"]srcdoc'
+    - \bfetch\s*\(
+    - \bXMLHttpRequest\b
+    - \b(sendBeacon|WebSocket\w*|EventSource|WebTransport)\b
+    because: 'Comment text and every login reach the page only through html/template''s contextual
+      escaping (Q-001 forbids user text as HTML). A site script that parses a string into live
+      markup (innerHTML and its siblings) reintroduces markup injection: a forged byline or a
+      forged Author badge, which is the page''s only trust signal. siteCSP does not stop that,
+      though it still blocks script execution: script-src ''self'' carries no unsafe-inline
+      and no unsafe-eval. A script that makes a request of its own (fetch, XHR, a beacon, a
+      WebSocket, an EventSource) would settle open question Q-012, site JavaScript talking to
+      the server, by accident, so none may. The SC-013 toggle is DOM-only on purpose. Known
+      gaps (bounded_by in the corpus): image and link-prefetch beacons, import(), Worker and
+      serviceWorker.register, form.submit() and requestSubmit(), outerHTML reached through a
+      variable or bracket access, and any DOM sink the list does not name. The glob also
+      matches site.css, so the rule is live before thread.js exists.'

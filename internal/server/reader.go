@@ -58,6 +58,8 @@ type readerData struct {
 	Unavailable bool
 	// Votes is the like count and the viewer's own vote for the report shown.
 	Votes votes.PublicView
+	// Thread is the report's comments, pruned for readers and ready to draw.
+	Thread []commentView
 }
 
 // home is the public landing page: the newest published report, laid out
@@ -111,6 +113,18 @@ func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPa
 			state, rep = stateUnavailable, reports.Report{}
 		} else {
 			d.Votes = pub
+		}
+	}
+	if state == stateFound {
+		// The thread under the report, the same on both pages: nothing in it
+		// depends on which page asked. A thread that cannot be read is never
+		// drawn as an empty one: the page says it cannot be shown.
+		nodes, err := a.comments.Tree(r.Context(), rep.ID)
+		if err != nil {
+			slog.Error("reader: read the comments", "error", err)
+			state, rep = stateUnavailable, reports.Report{}
+		} else {
+			d.Thread = buildThread(nodes, rep.Slug, signedIn, a.cfg.OwnerGitHubID, threadDepthCap)
 		}
 	}
 	switch state {

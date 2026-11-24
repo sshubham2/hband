@@ -1,0 +1,287 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-006",
+ "stage": "critique",
+ "attempt": 2,
+ "at": "2026-11-24T01:43:47.649Z",
+ "head": "93e28aadd9a7c2538cf0b3067ce451d570a14cba",
+ "run_id": 11826,
+ "summary": "The rework answers every accepted finding:\n- m1: the Participant fence is widened to internal/server/**/*.go, except reader.go, admin.go and tests. A corpus fire row at internal/server/comments.go makes TestRuleSpellingsCorpus fail if the yaml is not edited by hand, so the widening is enforced rather than remembered. ViewerFrom is still called only at reader.go:100 and admin.go:63, and SC-013's readBranch lands in reader.go.\n- m2: Post calls Normalize itself.\n- m3: spike 197 has now measured NO ACTION at 1,500 and 10,000 levels, and DEFERRABLE is rejected on a measured ground.\n- m4: the finish-line check reads epics.id=42 in place.\n- m5: the migration test now starts from version 2 as well as version 3.\n- M-add-2: `.body` gets overflow: clip.\n- M-add-1: the release order is filed for the person.\nm6 was deferred but is implemented anyway, with every depth decision derived from threadDepthCap. That is harmless.\n\nRe-checked against the tree, with no problem found:\n- safeAvatar exists (internal/auth/github.go:94).\n- No test or CSS rule targets a bare `<header>`, so the byline's `<header class=\"byline\">` collides with nothing.\n- The hand-written yaml loader and globRegexp read the new patterns and `internal/server/static/**` correctly.\n- Every SL-006 corpus row described would fire or stay quiet as stated.\n\nTwo things remain, both minor and both in what the rework added:\n- The new static-script fence's `because` says CSP no longer stops script from an innerHTML sink. siteCSP's script-src 'self', with no unsafe-inline or unsafe-eval, does stop it; the real harm is markup that spoofs bylines and the Author badge. The fence's claim to stop scripts reaching the network also misses sendBeacon, WebSocket and EventSource. That is a CC-001 gap: these are other request mechanisms, not spellings of fetch.\n- The transfer's new must-verify precondition, that a whole report's comments fit in one read per page view, has no case assigned to check it.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The rework answers every accepted finding:\n- m1: the Participant fence is widened to internal/server/**/*.go, except reader.go, admin.go and tests. A corpus fire row at internal/server/comments.go makes TestRuleSpellingsCorpus fail if the yaml is not edited by hand, so the widening is enforced rather than remembered. ViewerFrom is still called only at reader.go:100 and admin.go:63, and SC-013's readBranch lands in reader.go.\n- m2: Post calls Normalize itself.\n- m3: spike 197 has now measured NO ACTION at 1,500 and 10,000 levels, and DEFERRABLE is rejected on a measured ground.\n- m4: the finish-line check reads epics.id=42 in place.\n- m5: the migration test now starts from version 2 as well as version 3.\n- M-add-2: `.body` gets overflow: clip.\n- M-add-1: the release order is filed for the person.\nm6 was deferred but is implemented anyway, with every depth decision derived from threadDepthCap. That is harmless.\n\nRe-checked against the tree, with no problem found:\n- safeAvatar exists (internal/auth/github.go:94).\n- No test or CSS rule targets a bare `<header>`, so the byline's `<header class=\"byline\">` collides with nothing.\n- The hand-written yaml loader and globRegexp read the new patterns and `internal/server/static/**` correctly.\n- Every SL-006 corpus row described would fire or stay quiet as stated.\n\nTwo things remain, both minor and both in what the rework added:\n- The new static-script fence's `because` says CSP no longer stops script from an innerHTML sink. siteCSP's script-src 'self', with no unsafe-inline or unsafe-eval, does stop it; the real harm is markup that spoofs bylines and the Author badge. The fence's claim to stop scripts reaching the network also misses sendBeacon, WebSocket and EventSource. That is a CC-001 gap: these are other request mechanisms, not spellings of fetch.\n- The transfer's new must-verify precondition, that a whole report's comments fit in one read per page view, has no case assigned to check it.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The new rule 'site scripts never build HTML from strings or reach the network' has two problems.\n(a) Its `because` says an innerHTML, insertAdjacentHTML, document.write or eval sink 'reintroduces stored XSS under script-src 'self', where CSP no longer stops it'. That is wrong for this site. siteCSP has script-src 'self' with no 'unsafe-inline' or 'unsafe-eval', so injected inline handlers (the finish test's `<img onerror>`), javascript: URLs, inline `<script>` and eval/new Function are all still refused. What an HTML sink really reintroduces is markup injection: a forged byline or 'Author' badge, which the design itself calls the only trust signal. That is the reason the rule should give.\n(b) The rule promises to stop 'reach the network', but it lists only fetch and XMLHttpRequest. navigator.sendBeacon, new WebSocket and new EventSource are also request mechanisms, and default-src 'self' allows them to the same origin. A toggle script could use one of them and settle Q-012 by accident, which is exactly what the rule exists to prevent. CC-001 asks for these other mechanisms to be checked; they are not spelling variants (lesson #939).",
+    "evidence": "design architecture_rules[1] 'site scripts never build HTML from strings or reach the network' (must_not_match and because); siteCSP at internal/server/router.go:30-32",
+    "file": "internal/server/router.go",
+    "line": 30,
+    "quote": {
+     "path": "internal/server/router.go",
+     "line": 30,
+     "text": "const siteCSP = \"default-src 'self'; script-src 'self'; style-src 'self'; \" +"
+    },
+    "fix": "Add one pattern, `\\b(sendBeacon|WebSocket|EventSource)\\b`, with a fire row at internal/server/static/thread.js. Rewrite the because to say that HTML sinks reintroduce markup injection (a forged byline or badge), which siteCSP does not stop, and that siteCSP still blocks script execution. Add any further request mechanisms to bounded_by and stop there."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "The cross-domain transfer marks 'A whole report's comments fit in one read per page view' as must-verify and says 'nobody has timed Tree's SELECT plus arrange at 10,000 rows. TestArrangeDeepChain covers only correctness.' No case checks it. If the precondition fails, every GET of '/' (for the newest report) and of /reports/<slug> grows linearly with the stored thread, hidden rows included, because Tree selects every row before pruning. Nothing in the build would show it; it would first surface on the home server. The 72.6 ms render and 44 ms delete figures are from other operations.",
+    "evidence": "design cross_domain_transfer.invariants, the 'must-verify' row; the cases list has no timed Tree or page case",
+    "fix": "Add a measured check: seed 10,000 comments on one report through the store pool (a mix of visible and hidden). Time Tree, then buildThread, then the report.html render once each in a test, log the milliseconds, and assert a generous bound such as under 1 s. Record the number as the precondition's evidence. The rate limit stays deferred (m10)."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "none new. The earlier recalled SQLite claims are now measured by spike 197. Production version is now 'unknown, Q-015', and the test covers v2 and v3. parent.id < child.id is correctly restated as holding by construction."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "none new. Checked:\n- query-only parent: stored as top-level, by design, with a case;\n- Find on a new hidden post (a blocked writer): it returns nil, so the 303 goes to #comment-<id>, never a 5xx;\n- the SC-013 formula at cap 5: it gives branch roots 5, 9, 13."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "none: Normalize is now inside Post (the earlier m2). The depth cap has one copy, and every SC-013 use is derived from it."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "none: the static-script fence guards a file that does not exist in SC-011, but it costs one yaml entry and a few corpus rows, and it is live now over site.css. blocked_accounts and the composite FK are justified as before."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "none material. Post's error contract now includes ErrBadBody, and the handler maps it to 400. The POST, Tree, Find and markup contracts agree with each other and with vote.go's order."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "none new. A Tree error still produces a whole-page 503 (m7, deferred by decision, not re-filed). The SC-013 redirect falls back to #comments when the read fails, so a successful write is never answered with a 5xx."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "none: C1-C7 each have a component and a case. The placeholder uses the brief's own wording. SC-011 ships no JavaScript, and the toggle explicitly leaves Q-012 open."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "m1: the new static-script fence. Its because overstates what CSP fails to stop, and it misses sendBeacon, WebSocket and EventSource. The widened Participant fence holds on today's tree (only reader.go and admin.go call ViewerFrom), and its fire row at comments.go makes the hand edit to the yaml enforced rather than remembered."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "m2: the must-verify per-view read precondition has no check. The rest is covered: the finish-line check now reads the ledger in place, the migration runs from v2 and v3, the deep delete goes through Library.Delete, and every -run filter avoids TestReportScriptsNeverRun except the declared final full run."
+   },
+   {
+    "dimension": "security",
+    "result": "none new in SC-011. The body is clipped with overflow: clip, against combining-mark overlay. Avatars pass through safeAvatar (https only, 512 bytes) and then html/template's URL filter. The 404 gives no oracle. cop's 403 is tested with 0 rows written. Per-account volume (m10) stays deferred."
+   }
+  ]
+ },
+ "prescribed": {
+  "host": 691,
+  "at": "2026-11-24T01:51:15.065Z",
+  "runs": [
+   {
+    "run_id": 11830,
+    "resumed_from": "273f1321-d428-40ed-8d06-68631831cc13",
+    "ending": "completed",
+    "cost_usd": 1.5933384,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 1992,
+    "key": "M-add-1",
+    "digest": "c875956499db23f1"
+   },
+   {
+    "finding_id": 1993,
+    "key": "M-add-2#1993",
+    "digest": "c786b2e7428a6a99"
+   },
+   {
+    "finding_id": 1995,
+    "key": "M-add-4",
+    "digest": "7201bf41c8679df3"
+   },
+   {
+    "finding_id": 1990,
+    "key": "m1#1990",
+    "digest": "c593f9fc7e1ff030"
+   },
+   {
+    "finding_id": 1991,
+    "key": "m2#1991",
+    "digest": "601406a2110c4794"
+   },
+   {
+    "finding_id": 1989,
+    "key": "M-add-2#1989",
+    "digest": "0dd65bf7e8ecf8f9"
+   },
+   {
+    "finding_id": 1978,
+    "key": "m1#1978",
+    "digest": "5550dee465cd67f3"
+   },
+   {
+    "finding_id": 1979,
+    "key": "m2#1979",
+    "digest": "f6c8941c8f986044"
+   },
+   {
+    "finding_id": 1980,
+    "key": "m3",
+    "digest": "5e94c0e686c20ea7"
+   },
+   {
+    "finding_id": 1981,
+    "key": "m4",
+    "digest": "e687fcf02e160bdf"
+   },
+   {
+    "finding_id": 1982,
+    "key": "m5",
+    "digest": "6b9e578610f5934f"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 1992,
+    "key": "M-add-1",
+    "digest": "c875956499db23f1",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read internal/store/migrate.go whole: lines 90-92 refuse a database newer than the binary, and line 101 applies all[current:] in one start. Read reports.go sweep (153-210): it removes files with no row and clears tmp/ on every start. Compared the fix's wording with the design's other filed_for_later item: 'do not put a build carrying migration 0004 in front of readers ... until SC-020 ... is live'.",
+    "why": "The restored item tells the person to 'start the new binary on' the production database. Starting the binary on the live data directory is the deploy that the release-order item next to it forbids until SC-020 is live. Once it has migrated the database to version 4, the previous binary refuses that file (migrate.go:90-92), so the only way back is restoring the .backup. The item also says 'confirm every row intact' but gives no before/after counts to compare against. On a version-2 file there is no votes table before the start, so 'votes rows intact' means nothing for that starting point.",
+    "instead": "Word the item as a rehearsal on a copy:\n1. `.backup` the production database.\n2. Restore it into a new scratch data directory on the host.\n3. Record `SELECT count(*)` for users, sessions, reports, and votes if the file holds version 3, plus `PRAGMA user_version`.\n4. Start the new binary against that copy with HBAND_ADDR on a loopback port that is not proxied.\n5. Confirm user_version 4, the same counts, and an empty `PRAGMA foreign_key_check`.\n6. Stop it and discard the copy.\nThe live database is migrated only at the real deploy, which the release-order item gates."
+   },
+   {
+    "finding_id": 1993,
+    "key": "M-add-2#1993",
+    "digest": "c786b2e7428a6a99",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read the frame rule at .taad/fitness.yaml:184-187. Its only pattern is `(?i)<(iframe|frame|fencedframe|object|embed)\\b`, so `document.createElement('iframe')` in a .js file passes it. Searched for the Sanitizer API: MDN's setHTML page says it is 'recommended ... as a drop-in replacement for Element.innerHTML', and Chrome's guide (https://developer.chrome.com/docs/modern-web-guidance/guides/security/sanitize-untrusted-html) shows `container.setHTML(untrustedHTML, { sanitizer: mySanitizer })` with `attributes: [\"class\"]`.",
+    "why": "The rule's stated harm, after m1#1990's rewrite, is markup injection: a forged byline or a `<span class=\"badge\">Author</span>`. Neither CSP nor a script-only sanitizer stops that. The new pattern lists only the *Unsafe variants. `el.setHTML(s, {sanitizer:{attributes:['class']}})` and `Document.parseHTML(s)` still parse a string into live markup and keep class, and they match none of the patterns: `\\bsetHTMLUnsafe` does not match `setHTML(`. `iframe.setAttribute('srcdoc', s)` is the CC-001 accessor-instead-of-property form of `.srcdoc =`, and the frame rule does not catch the iframe it needs when the script creates it.",
+    "instead": "Use the pattern `\\b(setHTML(Unsafe)?|parseHTML(Unsafe)?|createContextualFragment|parseFromString)\\s*\\(|\\.srcdoc\\s*=|\\bsetAttribute\\s*\\(\\s*['\"]srcdoc`. Add fire rows at internal/server/static/thread.js for `el.setHTML(s)` and `f.setAttribute(\"srcdoc\", s)`, and keep the textContent quiet row. Name `outerHTML` reached through a variable and bracket access in bounded_by, and stop there."
+   },
+   {
+    "finding_id": 1995,
+    "key": "M-add-4",
+    "digest": "7201bf41c8679df3",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Compared the design case 'show the Author badge' with the fix. The case's setup includes 'the owner's own comment once it is removed and has a visible reply'. Walked the fix's two assertions over that setup, and checked that a non-owner comment's own text holds only the login, the date, the body and 'Reply'/'Your reply'/'Post reply'.",
+    "why": "Removing the login fixes the 'report-author' false match, and it is correct for every non-owner comment. But the exact form loops only over non-owner comments, plus a positive check that the owner-ID comment's byline holds the badge. The owner's removed comment is an owner-ID row drawn as a placeholder, so it falls between the two checks. Nothing in this test then asserts that the owner's placeholder carries no badge and no 'author' word, which is the reason it is in the setup. TestCommentPlaceholders does not cover it either: its non-owner placeholders could never carry a badge, so they do not exercise the `!Placeholder` guard.",
+    "instead": "Keep the fix and add two assertions:\n- the owner's placeholder article has no span.badge, and its own text has no `(?i)\\bauthor\\b`;\n- the page's total count of `<span class=\"badge\">` equals the number of visible owner-ID comments, for both the anonymous viewer and the owner."
+   },
+   {
+    "finding_id": 1990,
+    "key": "m1#1990",
+    "digest": "c593f9fc7e1ff030",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Applied `\\b(sendBeacon|WebSocket|EventSource)\\b` under Go regexp semantics to the alternative spellings. Read siteCSP at internal/server/router.go:30-32: default-src 'self', no connect-src, img-src 'self' plus GitHub avatars.",
+    "why": "The rewritten `because` is correct: script-src 'self' without unsafe-inline or unsafe-eval still blocks script execution, and markup injection is the real harm. The network half of my own fix leaves gaps:\n- `new WebSocketStream(url)` does not match `\\bWebSocket\\b`, because there is no word boundary between 't' and 'S'.\n- `new Image().src = '/x'` is a same-origin request beacon that img-src 'self' allows, and it is not named anywhere.\nEither could settle Q-012 by accident, which is the thing the rule exists to stop.",
+    "instead": "Use `\\b(sendBeacon|WebSocket\\w*|EventSource|WebTransport)\\b`, with fire rows for `new WebSocketStream(u)` and `navigator.sendBeacon(u)` at internal/server/static/thread.js. In bounded_by, name image and link-prefetch beacons, `import()`, Worker and serviceWorker.register, and `form.submit()`/`requestSubmit()`, and stop there."
+   },
+   {
+    "finding_id": 1991,
+    "key": "m2#1991",
+    "digest": "601406a2110c4794",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read store.go:68: servingPragmas sets WAL, busy_timeout and foreign_keys, but not synchronous, so every autocommit write is a full commit. Read the design's buildThread (cut at threadDepthCap = 100) and the template, where the reply forms appear only when CanReply is true, which needs a signed-in viewer. Checked the fences: the comments-SQL and no-transaction rules both except **/*_test.go.",
+    "why": "The fix gives neither the thread's shape nor the viewer. If the builder seeds a 10,000-deep chain, as TestArrangeDeepChain and the spikes did, buildThread and the render touch only 100 nodes, and the measured time is far below a real page's. If the viewer is anonymous, the per-comment reply forms, the heaviest markup, are never drawn. 'Through the store pool' also suggests 10,000 separate Post calls, which are 10,000 full commits on Windows and make the test slow enough that someone is tempted to skip it. No test name or `-run` filter is given either, so the check command could run all of ./internal/server/ and start Chrome (lesson #947).",
+    "instead": "Name the test TestThreadTenThousandTiming in internal/server and run it with `-run '^TestThreadTenThousandTiming$'`. Seed with raw SQL inside one test transaction, which the fences allow in _test.go: a wide thread with every node at depth ≤ 3 (for example 2,500 top-level comments with 3 replies each) and about a quarter hidden through removed_at and blocked_accounts. Time Tree, then buildThread, then rendering report.html for a signed-in viewer, one call each. Log the milliseconds and page bytes, and assert under 1 s."
+   },
+   {
+    "finding_id": 1989,
+    "key": "M-add-2#1989",
+    "digest": "0dd65bf7e8ecf8f9",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Read internal/server/static/site.css whole: no existing `.body` rule, and nothing else uses that class. body has a line-height of 1.5, a number, so a fallback font for combining marks cannot grow the line box by the height of the stack. The byline is a sibling `<header class=\"byline\">` placed before `p.body`. Considered `overflow: clip` against `pre-wrap` and `overflow-wrap: anywhere`.",
+    "why": "`overflow: clip` clips descendant ink overflow at the p's padding box, above and below. A stack of thousands of marks cannot paint over its own byline, the next comment's byline or the badge, and long words still wrap. `p.body` holds no focusable element, so no focus ring is clipped, and clip, unlike hidden, creates no scroll container. Ordinary diacritics fit within the 1.5 line height. The extra Normalize cap on Mn runs was correctly left out.",
+    "instead": ""
+   },
+   {
+    "finding_id": 1978,
+    "key": "m1#1978",
+    "digest": "5550dee465cd67f3",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Grep of `ViewerFrom\\s*\\(` in internal/: in internal/server the only calls are reader.go:100 and admin.go:63. owner.go:58 is in internal/auth, which the rule does not scope. Read rules_test.go globRegexp and applies(): `internal/server/**/*.go` minus the exceptions works as intended, and a fire row at internal/server/comments.go would fire.",
+    "why": "Widening the scope closes the renamed-file case and covers the next write handler. But the hole my own claim named, a helper in another file that calls ViewerFrom, comes back for the two files most likely to hold such a helper. A shared `viewer(r)` helper added to reader.go next to renderReader, and called from comment.go, passes the rule. Through it a store outage again gets the signed-out 303 and the comment is silently dropped. The same goes for an auth-package wrapper around ViewerFrom, which is outside the rule's files entirely.",
+    "instead": "Keep the widened scope. In the rule's `because`/bounded_by, name the gap: a helper placed in reader.go or admin.go, or in internal/auth. Keep TestCommentStoreFailure's POST-with-session-lookup-failing → 503 with 0 rows as the behavioural guard that catches it, and have SC-016's write handler add the same case."
+   },
+   {
+    "finding_id": 1979,
+    "key": "m2#1979",
+    "digest": "f6c8941c8f986044",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Walked the design's Post (it calls Normalize and returns ErrBadBody before any SQL) and postComment (ErrBadBody → 400). Checked that Normalize gives the same result applied twice: CR→LF, the control checks, TrimSpace and the rune cap. Checked for other writers: the comments-SQL fence leaves internal/comments as the only writer, and SC-020 sets only removed_at.",
+    "why": "Every body that reaches the table goes through Post, and Post now enforces the body rules itself. A handler that also calls Normalize first gets the same result. No later caller outside the package can store an unnormalised body. The only way left is a second writer of `body` inside internal/comments, and no planned slice adds an edit path.",
+    "instead": ""
+   },
+   {
+    "finding_id": 1980,
+    "key": "m3",
+    "digest": "5e94c0e686c20ea7",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read internal/reports/reports.go:415-439: Library.Delete calls `l.db.BeginTx` at line 427 and then runs `DELETE FROM reports WHERE id = ?`. Compared this with the rework's measured facts. Spike 197 found that variant N (NO ACTION) clears chains 1,500 and 10,000 deep through Library.Delete, and that variant D (deferred) accepts a cross-report row inside an explicit transaction until COMMIT (step X). Also compared it with the design's TestSchema case, which expects a raw cross-report insert to fail with 787.",
+    "why": "My fix's reasoning is wrong for this tree:\n- 'under autocommit the check runs at that statement's end': the report delete is not autocommit. It runs in Library.Delete's transaction, so a deferred check would run at COMMIT. That still works, but not for the reason given.\n- 'deepest-first is ruled out because it needs a transaction across the reports package': Delete already has that transaction. What actually rules deepest-first out is the comments-SQL fence, which bars internal/reports from naming the comments table.\n- The fallback is not a drop-in replacement. Under DEFERRED, TestSchema's raw cross-report insert inside a test transaction would succeed at the INSERT and fail only at COMMIT, so that case's expectation would break. Since spike 197 measured NO ACTION directly, the fallback will not be used.",
+    "instead": "Record that spike 197 settled the question: NO ACTION, measured at 1,500 and 10,000 through Library.Delete, with no fallback planned. If one is ever needed, it is DEFERRABLE INITIALLY DEFERRED, and TestSchema's cross-report case must then assert refusal in autocommit or at COMMIT. Give the comments-SQL fence as the reason deepest-first is out."
+   },
+   {
+    "finding_id": 1981,
+    "key": "m4",
+    "digest": "e687fcf02e160bdf",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Glob of tests/** in the worktree found nothing. Compared the invocation with the build-check's proof rows for test_e004_1 ('exit 1' on the empty tree, 'exit 2 without the file'). Exit 2 for a missing script is `python`'s code (pytest's would be 4), and exit 1 means the body runs its assertions when executed as a script. The spike says line 1 launches no browser and defines its own helpers, so `-I` dropping the script directory from sys.path imports nothing.",
+    "why": "The check reads the body from epics.id=42 in place, writes it to scratch, points ROOT at the worktree and runs it with `python -I`. That is how the body was proven and how SL-004 ran its finish test (lesson #951), and a failure exits non-zero. One small point: the ledger has to be opened at the live engine home's absolute path, not one derived from the scratch TAAD3_HOME. Getting that wrong fails loudly (mode=ro cannot create a file), not silently.",
+    "instead": ""
+   },
+   {
+    "finding_id": 1982,
+    "key": "m5",
+    "digest": "6b9e578610f5934f",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Read internal/store/votes_migration_test.go: TestVotesMigrationOnAnExistingDatabase builds `upToReports := fstest.MapFS{}`, asserts user_version 2 at line 35, then opens the full set at line 45. Read migrate.go:22-50: loadMigrations accepts versions {1,2} with no gap. Read migrate.go:101: all[current:] means one start runs 0003 and then 0004.",
+    "why": "The version-2 start can be built exactly as the existing votes test does it, followed by store.Open on the full embedded set, which runs 0003 and 0004 in one start. That is the production path the fix targets. Q-015's own premise is version 2, so starting from version 1 is not needed. The fix's other half, rewording filed_for_later, has nothing to apply to in the current design; M-add-1 restores that item, and my rehearsal-on-a-copy rewording there keeps the 'whatever user_version it holds (see Q-015)' wording.",
+    "instead": ""
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:1992",
+   "finding:1993",
+   "finding:1995",
+   "finding:1990",
+   "finding:1991",
+   "finding:1978",
+   "finding:1980"
+  ],
+  "counts": {
+   "holds": 4,
+   "hole": 7,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "Of the 11 prescriptions, 4 hold and 7 have minor holes. None is unworkable.\n\nHolds:\n- **M-add-2#1989:** the `overflow: clip` on `.body` does what it says.\n- **m2#1979:** Post calls Normalize itself; running Normalize twice gives the same result.\n- **m4:** reading the finish test from the ledger matches how its proof rows ran it (`python`, exit 1 on the empty tree, exit 2 when the file is missing).\n- **m5:** the version-2 migration start has a pattern to copy in `votes_migration_test.go` (an `fstest.MapFS` holding only the first two migrations).\n\nHoles, all minor:\n- **M-add-1:** \"start the new binary on it\" is the production deploy itself. That contradicts the release-order item next to it, and it cannot be undone except by restoring the backup, because the old binary refuses a newer database.\n- **M-add-2#1993:** the pattern misses two string-to-markup routes: `setHTML()` / `Document.parseHTML()` with a sanitizer that allows `class`, and `setAttribute('srcdoc', …)`. The frame rule only matches `<iframe` tags, so it does not catch an iframe built by script either.\n- **M-add-4:** the exact assertion only goes over non-owner comments. The owner's own removed comment, which is in the test's own setup, is no longer checked for a badge.\n- **m1#1990** (my own fix): `\\bWebSocket\\b` does not match `WebSocketStream`. Image beacons such as `new Image().src` should be listed in `bounded_by`.\n- **m2#1991:** the shape and viewer of the timed thread are not given, so the timing can come out low. A 10,000-deep chain draws only 100 nodes, and an anonymous viewer gets no reply forms. Seeding through 10,000 separate Post calls on a pool with default `synchronous` would also take a long time.\n- **m1#1978** (my own fix): a helper placed in an exempted file (`reader.go` or `admin.go`) can still call ViewerFrom. That is the same bypass the fix was meant to close.\n- **m3** (my own fix): its reasoning is wrong for this tree. `Library.Delete` already runs in a transaction (`reports.go:427`), and spike 197 has since measured NO ACTION directly. Switching to DEFERRED as a fallback would also break TestSchema's expectation that a cross-report insert is refused at the INSERT.",
+  "why": "",
+  "round": "landed"
+ }
+}

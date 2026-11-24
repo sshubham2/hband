@@ -1,0 +1,64 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-006",
+ "stage": "critique-review",
+ "attempt": 2,
+ "at": "2026-11-24T01:46:57.260Z",
+ "head": "93e28aadd9a7c2538cf0b3067ce451d570a14cba",
+ "run_id": 11828,
+ "summary": "The rework answers most of what was owed:\n- **m1:** the Participant rule is widened to internal/server/**/*.go, except reader.go, admin.go and tests, with a fire row at comments.go.\n- **m2:** Post calls Normalize and returns ErrBadBody.\n- **m3:** spike 197 replaces recalled SQLite behaviour with measurements. NO ACTION clears chains 1,500 and 10,000 deep. DEFERRABLE was measured and rejected because it accepts a cross-report row until COMMIT. That is a better answer than the fallback the review proposed.\n- **m4:** the finish check reads epics.id=42 in place.\n- **m5:** the test half is done (TestCommentsMigrationFromV2AndV3).\n- **M-add-2:** `.body` now has `overflow:clip`.\n- **M-add-1:** the release-order item is in filed_for_later.\n\nThe two attempt-2 findings both hold at minor: the site-script rule's reason and its network list, and the 10,000-row timing check. Neither is in the design yet, and both are recorded as owed.\n\nThe rework also broke or missed four smaller things:\n1. It removed the only person-facing pre-deploy migration item. m5's accepted rewording has nothing to land on, M-add-1's disposition points at an item that no longer exists, and the production half of the migration, which no test can reach, is filed nowhere.\n2. The new site-script rule blocks innerHTML-style sinks but misses other APIs that also parse a string into live markup (CC-001).\n3. The byline changed from `<p>` to `<header>` with no reason given, so any `header` styling or test scan meant for the site header now also matches every comment.\n4. The badge test's wording contradicts its own seeded data: the non-owner login 'report-author' contains the word 'author'.\n\nThe frame still holds.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "The rework answers most of what was owed:\n- **m1:** the Participant rule is widened to internal/server/**/*.go, except reader.go, admin.go and tests, with a fire row at comments.go.\n- **m2:** Post calls Normalize and returns ErrBadBody.\n- **m3:** spike 197 replaces recalled SQLite behaviour with measurements. NO ACTION clears chains 1,500 and 10,000 deep. DEFERRABLE was measured and rejected because it accepts a cross-report row until COMMIT. That is a better answer than the fallback the review proposed.\n- **m4:** the finish check reads epics.id=42 in place.\n- **m5:** the test half is done (TestCommentsMigrationFromV2AndV3).\n- **M-add-2:** `.body` now has `overflow:clip`.\n- **M-add-1:** the release-order item is in filed_for_later.\n\nThe two attempt-2 findings both hold at minor: the site-script rule's reason and its network list, and the 10,000-row timing check. Neither is in the design yet, and both are recorded as owed.\n\nThe rework also broke or missed four smaller things:\n1. It removed the only person-facing pre-deploy migration item. m5's accepted rewording has nothing to land on, M-add-1's disposition points at an item that no longer exists, and the production half of the migration, which no test can reach, is filed nowhere.\n2. The new site-script rule blocks innerHTML-style sinks but misses other APIs that also parse a string into live markup (CC-001).\n3. The byline changed from `<p>` to `<header>` with no reason given, so any `header` styling or test scan meant for the site header now also matches every comment.\n4. The badge test's wording contradicts its own seeded data: the non-owner login 'report-author' contains the word 'author'.\n\nThe frame still holds.",
+  "assessments": [
+   {
+    "finding": "m1",
+    "classification": "valid",
+    "note": "This is the attempt-2 m1 (the 'site scripts never build HTML from strings or reach the network' rule), not the earlier Participant-scope m1, which the rework has answered. Both halves hold against the design.\n(a) Per the design's own siteCSP code claim, the policy is script-src 'self' with no 'unsafe-inline' or 'unsafe-eval'. Injected onerror handlers, inline script and eval are therefore still refused. A string-to-markup sink really buys forged bylines and a forged 'Author' badge, which the design calls the only trust signal, so the `because` overstates the harm.\n(b) connect-src falls back to default-src 'self', so sendBeacon, WebSocket and EventSource reach the same origin and slip past a list that names only fetch and XHR.\nThe design as given has neither fix yet; it is correctly recorded as owed. Minor is right: thread.js is SC-013 work and does none of this. The same CC-001 gap also exists on the HTML-sink half of the rule, filed separately below."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "This is the attempt-2 m2. The cross_domain_transfer marks 'A whole report's comments fit in one read per page view' as must-verify, and no case checks it. TestArrangeDeepChain is correctness only, and the 72.6 ms and 44 ms figures time other operations. With the rate limit deferred (m10), nothing bounds the stored thread, and Tree reads hidden rows too before pruning. A single timed test with a generous bound is proportionate. Minor."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "drift-from-design",
+    "severity": "minor",
+    "route": "re-derivation",
+    "claim": "The rework removed attempt 1's only person-facing pre-deploy migration item: back up production with .backup, start the new binary on it, and confirm it reaches user_version 4 with users, sessions, reports and votes intact. filed_for_later now holds only the release-order and takedown item, whose '.backup' guards the takedown SQL, not the migration. Two decisions now point at nothing. m5's accepted fix was to reword that item to 'at whatever user_version it holds (see Q-015)'. M-add-1's disposition says release order is 'recorded beside that pre-deploy item'. Production data is unreachable from here (Q-015), so the production half of the migration is exactly the part no test can reach, and after this rework it is filed nowhere.",
+    "evidence": "Design filed_for_later: one item ('Release order: do not put a build carrying migration 0004 in front of readers …'). Attempt-1 filed_for_later item 1 ('Before the first deploy that carries 0004: back up the production database with .backup, then start the new binary on it … confirm it reaches user_version 4'). Decision m5 (accepted-pending, filed_for_later wording). Decision M-add-1 ('recorded beside that pre-deploy item'). Open Q-015.",
+    "fix": "Restore the item next to the release-order item, for the person. Before the first deploy carrying 0004: .backup the production database, then start the new binary on it at whatever user_version it holds (see Q-015). A version-2 file runs 0003 and 0004 in one start. Confirm user_version 4, every users, sessions, reports and votes row intact, and an empty foreign_key_check."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "severity": "minor",
+    "route": "re-derivation",
+    "claim": "CC-001, the half of the new site-script rule that covers equivalent mechanisms. The rule lists innerHTML/outerHTML assignment, insertAdjacentHTML, document.write and eval/new Function as ways to build HTML from strings. It misses other APIs that parse a string into live markup: Element.setHTMLUnsafe and Document.parseHTMLUnsafe, Range.createContextualFragment, DOMParser.parseFromString followed by an append, and assigning iframe.srcdoc. A toggle script using any of them could forge a byline or an 'Author' badge exactly as innerHTML would, and would pass the rule. These are separate APIs, not spelling variants, so lesson #939 does not exclude them. The attempt-2 m1 covered the network half only.",
+    "evidence": "Design architecture_rules 'site scripts never build HTML from strings or reach the network', must_not_match list (innerHTML|outerHTML, insertAdjacentHTML, document.write(ln), fetch, XMLHttpRequest, eval|new Function). Project check CC-001 ('equivalent protocol mechanisms').",
+    "fix": "Add the pattern `\\b(setHTMLUnsafe|parseHTMLUnsafe|createContextualFragment|parseFromString)\\s*\\(|\\.srcdoc\\s*=`, with a fire row at internal/server/static/thread.js and the existing textContent quiet row. Name any further sinks in bounded_by and stop there."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "severity": "minor",
+    "route": "re-derivation",
+    "claim": "The rework changed the comment byline from attempt 1's `<p class=\"byline\">` to `<header class=\"byline\">` and gave no reason. The site header, layout.html's \"header\" define, already draws the viewer's `<img class=\"avatar\">`. Any rule in site.css written as an element selector for that header (`header {…}`, `header img`, `header .avatar`, or anything sticky, flex or bordered) now also applies to every comment's byline. Any reader or browser test that finds the site header by scanning for the `<header` substring now finds one per comment. The design's code_claims cover layout.html's avatar but say nothing about how site.css or the tests select the header.",
+    "evidence": "Design 'Comment templates': `<header class=\"byline\">`. Attempt-1 design: `<p class=\"byline\">`. Code claim layout.html Viewer.AvatarURL (the site header's avatar img). The spike notes that layout.html defines \"header\".",
+    "fix": "Keep the byline a `<p>` or `<div>` as in attempt 1. Otherwise the build must first confirm that site.css has no bare `header` element selector and that no test under internal/server locates the site header by the `<header` substring."
+   },
+   {
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "route": "premortem",
+    "claim": "The badge case contradicts its own seeded data. TestCommentAuthorBadge seeds a non-owner account whose login is 'report-author' and asserts 'the word author appears in no other comment's own text'. That comment's own text must contain its login (C3 and the finish test). Under the usual word boundary the hyphen is a non-word character, so 'report-author' contains the word 'author'. Implemented literally, the assertion fails on correct markup. The builder is then pushed either to weaken the test or to change the login display. The finish test passes this same shape (the spike's toy probe with account 4243, 'report-author'), so it must exclude the login somehow, and the Go case does not say how.",
+    "evidence": "Design case 'show the Author badge': shape 'an account with the owner's login 'report-author' but a different ID'; check '… the word 'author' appears in no other comment's own text'. Spike e003-finish-line-comment-contract (d): 'an account with id 4243 and the same login 'report-author' must not get it'.",
+    "fix": "Make the assertion exact. For every non-owner comment, viewed by an anonymous visitor and by the owner: its own part contains no span.badge, and its own text with the login removed has no (?i)\\bauthor\\b. Only the owner-ID comment's own byline holds `<span class=\"badge\">Author</span>`."
+   }
+  ],
+  "notes": "On the reworked design, the first reviewer's attempt-2 pass looked at the two seams the rework added, the new static-script rule and the transfer's must-verify invariant. Both findings are real and filed at the right severity, with checkable evidence (siteCSP at router.go:30-32 and the invariant's own status). It did not compare the rework against the earlier decisions, which is how the dropped pre-deploy item slipped through: two accepted or deferred dispositions (m5, M-add-1) depend on an item the rework deleted. On CC-001 it checked the network mechanisms but not the equivalent HTML-parsing APIs on the same rule. Earlier dispositions are not reopened here. m6 was deferred, and the design now derives the SC-013 redirect, branch page and continue links from threadDepthCap anyway, with no harm. m7, m8, m9 and m10 remain as deferred. The measured spike 197 now settles every SQLite behaviour the schema depends on, so the decidable disagreements are correctly gone. The ids m1 and m2 in the assessments are the attempt-2 findings; the earlier m1 and m2 are answered in the design.",
+  "frame_challenged": false,
+  "reason": "Judged from the reworked design and the recorded dispositions. No stage left a gap that blocked this review, and no elevated operation was needed. The byline finding cannot be settled without reading internal/server/static/site.css and the reader and browser tests, which this review has no shell to open, so it is filed as a check the build must make first."
+ }
+}

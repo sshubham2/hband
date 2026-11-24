@@ -477,6 +477,14 @@ func newDislikeWorld(t *testing.T) *dislikeWorld {
 	w.upvoter = h.mint(8, "upvoter")
 	h.mustVote(w.upvoter, "x", "up")
 	h.mustVote(w.upvoter, "y", "up")
+	// A thread on x: a comment, a reply and a comment by the owner. None of the
+	// text says "dislike", so the page-wide check below stays meaningful.
+	first := h.say(w.nonvoter, "x", "a comment from a reader", 0)
+	h.say(w.upvoter, "x", "a reply from another reader", first)
+	h.say(w.owner, "x", "a comment from the owner", 0)
+	if page := h.serve("GET", "/reports/x"); !strings.Contains(page.Body, "a reply from another reader") || !strings.Contains(page.Body, badgeMarkup) {
+		t.Fatalf("INVALID: the seeded thread is not on the page, so the comparison would test nothing:\n%s", page.Body)
+	}
 	return w
 }
 
@@ -493,10 +501,15 @@ func (w *dislikeWorld) observe(t *testing.T) observation {
 	t.Helper()
 	h, obs := w.h, observation{}
 	reads := []string{"/", "/reports/x", "/reports/y", "/reports", "/admin", "/admin/reports/x"}
+	// Each observer also sends a comment POST that writes nothing: a visitor's is
+	// answered with the 303 back to the report, and a signed-in reader's empty
+	// body with a 400.
 	for _, who := range []struct {
-		name, sid, own string
+		name, sid, own, comment string
 	}{
-		{"anonymous", "", "vote=up"}, {"nonvoter", w.nonvoter, "vote=none"}, {"upvoter", w.upvoter, "vote=up"},
+		{"anonymous", "", "vote=up", "body=nothing+is+stored"},
+		{"nonvoter", w.nonvoter, "vote=none", "body="},
+		{"upvoter", w.upvoter, "vote=up", "body="},
 	} {
 		var opts []func(*http.Request)
 		if who.sid != "" {
@@ -506,6 +519,7 @@ func (w *dislikeWorld) observe(t *testing.T) observation {
 			obs[who.name+" GET "+p] = h.serve("GET", p, opts...)
 		}
 		obs[who.name+" POST /reports/x/vote"] = h.postVote(who.sid, "x", who.own)
+		obs[who.name+" POST /reports/x/comments"] = h.postComment(who.sid, "x", who.comment)
 	}
 	for _, p := range []string{"/", "/reports/x", "/reports/y"} {
 		res := h.serve("GET", p, h.withSID(w.owner))
