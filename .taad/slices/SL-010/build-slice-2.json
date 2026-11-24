@@ -1,0 +1,431 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-010",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-24T11:29:02.820Z",
+ "head": "acd006366136a5ecbf5579f80f0eadde9231a8b2",
+ "run_id": 11992,
+ "summary": "Finished the three things the engine named. First, internal/fitnessrules/yaml_scalar_test.go is the reviewer's test again: logic unchanged, with a trailing newline added so it is gofmt-clean. It passes on the fixed .taad/fitness.yaml and fails on the attempt-1 file at lines 421 and 423. My wider scanner and its tests moved to yaml_scalar_scan_test.go; the corpus is internal/fitnessrules/testdata/yaml_scalars.json. Second, C-005's command was a multi-test `-run` with `|` inside a slash pattern, which go splits per subtest level and the engine could not take as one test. It is now the single test TestCommentRemove/already-hidden. Third, C-013's command exited 1 by design, so the engine read it as failing. It now runs tests/acceptance/check_e006_1_stops_at_block.py, which exits 0 only when the planted E-006 line-1 body passes outright or stops solely at the block press (404 on /admin/users/<id>/block). Checked on both paths: with the body planted in the tree, and with it read from the ledger read-only into a scratch copy. It fails (exit 1) when the removal route is broken and exits 2 when there is no body. Full suite and go vet pass; each case command passes as written.",
+ "payload": {
+  "status": "complete",
+  "summary": "Finished the three things the engine named. First, internal/fitnessrules/yaml_scalar_test.go is the reviewer's test again: logic unchanged, with a trailing newline added so it is gofmt-clean. It passes on the fixed .taad/fitness.yaml and fails on the attempt-1 file at lines 421 and 423. My wider scanner and its tests moved to yaml_scalar_scan_test.go; the corpus is internal/fitnessrules/testdata/yaml_scalars.json. Second, C-005's command was a multi-test `-run` with `|` inside a slash pattern, which go splits per subtest level and the engine could not take as one test. It is now the single test TestCommentRemove/already-hidden. Third, C-013's command exited 1 by design, so the engine read it as failing. It now runs tests/acceptance/check_e006_1_stops_at_block.py, which exits 0 only when the planted E-006 line-1 body passes outright or stops solely at the block press (404 on /admin/users/<id>/block). Checked on both paths: with the body planted in the tree, and with it read from the ledger read-only into a scratch copy. It fails (exit 1) when the removal route is broken and exits 2 when there is no body. Full suite and go vet pass; each case command passes as written.",
+  "files": [
+   {
+    "path": "internal/comments/comments.go",
+    "change": "modified",
+    "why": "Book.RemoveTarget (one SELECT) and Book.Remove (one COALESCE UPDATE of removed_at); package comment says Remove is the only write of removed_at"
+   },
+   {
+    "path": "internal/comments/tree.go",
+    "change": "modified",
+    "why": "comments.Visible(forest): pure, explicit-stack count of non-placeholder nodes at every depth"
+   },
+   {
+    "path": "internal/server/thread.go",
+    "change": "modified",
+    "why": "threadViewer struct, commentView.CanRemove, modItem and moderationList"
+   },
+   {
+    "path": "internal/server/reader.go",
+    "change": "modified",
+    "why": "threadOf takes a threadViewer and returns the visible count taken before branch narrowing; readerData.CommentCount"
+   },
+   {
+    "path": "internal/server/admin.go",
+    "change": "modified",
+    "why": "adminRoutes row POST /admin/comments/{n}/remove, adminCommentRemove, removeFrom (urlencoded and multipart read, file parts refused, rest of the body read through the 1 KiB cap, non-empty non-form body refused); adminReport reads a.tree into adminData.Moderation"
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "change": "modified",
+    "why": "N comments line directly after the likes paragraph"
+   },
+   {
+    "path": "internal/server/templates/comments.html",
+    "change": "modified",
+    "why": "owner-only details remove control on shown comments"
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "change": "modified",
+    "why": "moderation section id=comments with a remove form (from=admin) per visible comment"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "neutral-colour rules for the count, the control and the moderation list"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "the two design rules, the second pattern removed_at = NULL, and the because of 'removal never deletes a comment row' as a single-quoted scalar with apostrophes doubled"
+   },
+   {
+    "path": "internal/fitnessrules/yaml_scalar_test.go",
+    "change": "added",
+    "why": "the reviewer's TestFitnessYAMLPlainScalarsParse, its logic exactly as given"
+   },
+   {
+    "path": "internal/fitnessrules/yaml_scalar_scan_test.go",
+    "change": "added",
+    "why": "yamlScalarRefusals, the wider scanner (quoted scalars, list items, start characters, continuation lines, tabs), and TestFitnessYAMLFileHasNoRefusedScalars over the real file"
+   },
+   {
+    "path": "internal/fitnessrules/yaml_scalar_corpus_test.go",
+    "change": "added",
+    "why": "TestFitnessYAMLScalarCorpus and the carrier census TestFitnessYAMLCorpusCoversEveryCarrier"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/yaml_scalars.json",
+    "change": "added",
+    "why": "the corpus of the YAML class: 54 refuse and accept rows by who writes the text, with spelling aliases and CRLF forms"
+   },
+   {
+    "path": "internal/comments/remove_test.go",
+    "change": "added",
+    "why": "TestRemove, TestRemoveTarget, TestVisible, TestCountReconciles"
+   },
+   {
+    "path": "internal/server/remove_test.go",
+    "change": "added",
+    "why": "TestCommentRemove, TestRemoveControl, TestCommentCount, TestAdminCommentList, TestRemoveReadFailure, TestThreadViewerCanRemove"
+   },
+   {
+    "path": "internal/server/remove_body_shapes_test.go",
+    "change": "added",
+    "why": "the review's TestCommentRemoveRefusesBodiesItDoesNotRead"
+   },
+   {
+    "path": "internal/server/remove_body_corpus_test.go",
+    "change": "added",
+    "why": "33 request-body shapes with Content-Type aliases, a family-coverage check, and the census of owner POST routes"
+   },
+   {
+    "path": "internal/server/storefault_test.go",
+    "change": "modified",
+    "why": "census extended with adminCommentRemove and adminReport; fresh targets; writeFault kind"
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "change": "modified",
+    "why": "observe() gains POST /admin/comments/<first>/remove for the three non-owners"
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "change": "modified",
+    "why": "TestReaderPagesShareOneLayout asserts the owner's remove forms and the non-owner's none"
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "change": "modified",
+    "why": "buildThread callers take a threadViewer"
+   },
+   {
+    "path": "internal/server/feedback_test.go",
+    "change": "modified",
+    "why": "TestFeedbackReplyMarkup pins exactly the new comment count 0"
+   },
+   {
+    "path": "tests/acceptance/check_e006_1_stops_at_block.py",
+    "change": "added",
+    "why": "C-013: runs the planted E-006 line-1 body (or reads it read-only from the ledger into a scratch copy) and passes when it passes or stops only at the block press"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "TestCommentRemove/leaf feeds a lone writer's only top-level comment through the owner POST: 303, login, text and id gone for anonymous, reader and owner, count 2 comments to 1 comment. TestRemove/leaf covers the store."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "TestCommentRemove/held: the reply three levels deep with a visible reply, then the reply above it, each a bare nested placeholder with no form, login or body; count 4, 3, 2. TestRemove/held covers the store."
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "TestCommentRemove/chain-collapses: the last visible reply under two placeholders; three nodes collapse, count drops 2 to 1, ids 2-4 absent from the source."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "TestCommentRemove/below-cap: a 300-deep chain over HTTP; depth 7 and the end of the chain are removed through the branch-page control, count 300 to 298. TestRemove/deep-300 covers the store."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "TestCommentRemove/already-hidden (blocked then removed, block lifted, still hidden; removed twice keeps the first removed_at) plus TestRemove/already-removed, TestRemove/blocked-writer-commutes and TestCountReconciles in internal/comments. Case command is now the single test TestCommentRemove/already-hidden."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "TestCommentRemove/ids: x, 0, 01, +1, -1, an overflow, an unknown id and a deleted report's comment, each with no body, a form and an oversize body: 404, nothing removed."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "TestCommentRemove/refused: anonymous, signed-in reader, reader with the owner's login on id 999 and cross-site POSTs get 403; the owner's GET and HEAD get 405; removed_at stays NULL; observe() in TestDislikesDoNotInterfere has the route for the three non-owners."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "TestCommentRemove/landing: from absent, from=admin, another or repeated or empty value, a body over 1 KiB, and a comment on a published-then-unpublished report and on a never-published draft."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "TestRemoveControl, TestThreadViewerCanRemove and the added assertions in TestReaderPagesShareOneLayout: one control per shown comment for the owner on /, /reports/x and a branch page, none on placeholders, none for a reader or a visitor, the owner's two pages the same bytes."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "TestCommentCount: 0, 1 ('1 comment') and many, placeholders, a blocked writer's comments, comments below the cap; count equals the database's COUNT under the visibility predicate, exactly one number beside a comments label, none on the branch page."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "TestAdminCommentList: flat pre-order list through 12 levels, a reply under a placeholder, no removed text, forms with from=admin, a draft report's list and removal."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "TestRemoveReadFailure: with the a.tree seam failing, reader pages are 503 with no count line, the admin report page is 500, and the removal still answers 303."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "Case command is now `python -I tests/acceptance/check_e006_1_stops_at_block.py`, which exits 0 when the planted line-1 body (planted in the tree, or read read-only from the ledger into a scratch copy) either passes or fails with exactly one failure, the press helper's status assertion on POST /admin/users/<id>/block answering 404. Observed on this tree on both paths: exit 0 with `AssertionError: 404 not less than 400 : the owner's POST /admin/users/8003/block answered 404`. With the removal route renamed it exits 1 on `POST /admin/comments/9/remove answered 404`; with no body available it exits 2. look() runs after posting and after each of the three removals (L410, L413, L416, L419) before the block press (L420), so the stop proves they passed."
+   },
+   {
+    "key": "O-015",
+    "done": true,
+    "how": "TestStoreFaultSteps covers adminCommentRemove (identify, look up by renaming reports, remove by a BEFORE UPDATE OF removed_at trigger) and adminReport (identify, report, votes, feedback, feedback replies, comments via the seam), with fresh targets, a writeFault kind and the widened doc comment; 26 subtests.",
+    "mutation": {
+     "file": "internal/server/admin.go",
+     "find": "slog.Error(\"admin: remove the comment\", \"error\", err)",
+     "replace": "auth.SeeOther(w, \"/reports/\"+slug+\"#comments\"); return",
+     "test_command": "go test -count=1 -run TestStoreFaultSteps ./internal/server/"
+    }
+   },
+   {
+    "key": "O-016",
+    "done": true,
+    "how": "Added `(?i)\\bremoved_at\\s*=\\s*NULL\\b` to 'removal never deletes a comment row' and named the known holes in its because; a throwaway test showed it fires on `SET removed_at = NULL` in any case or spacing and stays quiet on the COALESCE UPDATE, IS NULL and = 0.",
+    "not_mutable": "A tripwire in .taad/fitness.yaml; no committed test exercises it because a corpus row was waived (O-018)."
+   },
+   {
+    "key": "O-017",
+    "done": true,
+    "how": "Read epic 44 finish[0].body in place: look() runs after posting and after each of the three removals, all before the block press; the pass condition is structural (one failure, the press helper's status assertion on the block POST, 404), and that is what check_e006_1_stops_at_block.py tests.",
+    "not_mutable": "A measurement run of a planted body, not a code change."
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "how": "Baseline measured on a git archive copy of e64753c, then this tree: e003_1, e004_1 and e005_1 exit 0 on both; e006_1 exit 1 at L405 on baseline and only at the block press on this tree. Re-run after the attempt-2 body-handling change: unchanged. No finish body parses the owner's remove control, so its markup is proven by TestRemoveControl and the Chrome render.",
+    "not_mutable": "A measurement run of planted bodies, not a code change."
+   },
+   {
+    "key": "O-021",
+    "done": true,
+    "how": "The because of 'removal never deletes a comment row' is a single-quoted scalar with apostrophes doubled. internal/fitnessrules/yaml_scalar_test.go is the reviewer's TestFitnessYAMLPlainScalarsParse with its logic unchanged (only a trailing newline added); it passes on the fixed file and fails on the attempt-1 file at fitness.yaml:421 and :423. The class 'fitness.yaml text that a YAML reader refuses and the lenient loader accepts' is enumerated in internal/fitnessrules/testdata/yaml_scalars.json: 54 rows by who writes the text (prose, pattern and glob authors), covering ': ', a trailing ':', ' #', continuation lines that read as keys, single-quote apostrophes, double-quote escapes, leading * & [ { @ and backtick, list items that read as mappings, tabs, and CRLF aliases. TestFitnessYAMLScalarCorpus runs every row through yamlScalarRefusals in yaml_scalar_scan_test.go; TestFitnessYAMLCorpusCoversEveryCarrier is the census (every key the real fitness.yaml uses must be a named carrier with a refuse and an accept row); TestFitnessYAMLFileHasNoRefusedScalars runs the scanner over the real file. Removing each scanner check fails the rows that pin it. The engine's Fitness op=check was not available to me and no YAML parser is installed; the corpus oracle is the YAML spec and the engine's own quoted error.",
+    "corpus": "internal/fitnessrules/testdata/yaml_scalars.json",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "    because: 'Removal is the one UPDATE of removed_at.",
+     "replace": "    because: Removal is the one UPDATE of removed_at.",
+     "test_command": "go test -count=1 -run TestFitnessYAMLPlainScalarsParse ./internal/fitnessrules/"
+    }
+   },
+   {
+    "key": "O-022",
+    "done": true,
+    "how": "removeFrom replaces ParseForm: ParseForm, then ParseMultipartForm with only ErrNotMultipart tolerated, file parts refused, the rest of the body read through the 1 KiB cap, and any non-empty non-form body refused; an empty body of any type still removes. The review's TestCommentRemoveRefusesBodiesItDoesNotRead is at internal/server/remove_body_shapes_test.go (failed before, passes now). Corpus: remove_body_corpus_test.go, 33 body shapes across urlencoded, multipart, text/plain, JSON, octet-stream, no type and an unparseable type, with Content-Type aliases, the cap boundary, and a census over the owner's POST routes. Before the change 20 of 33 rows failed; dropping each part fails its rows.",
+    "corpus": "internal/server/remove_body_corpus_test.go",
+    "mutation": {
+     "file": "internal/server/admin.go",
+     "find": "if r.MultipartForm != nil && len(r.MultipartForm.File) > 0 {",
+     "replace": "if false {",
+     "test_command": "go test -count=1 -run TestCommentRemoveBodyShapes ./internal/server/"
+    }
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "server.TestCommentRemove/leaf",
+    "test_command": "go test -count=1 -run TestCommentRemove/leaf ./internal/server/"
+   },
+   {
+    "key": "C-002",
+    "test_name": "server.TestCommentRemove/held",
+    "test_command": "go test -count=1 -run TestCommentRemove/held ./internal/server/"
+   },
+   {
+    "key": "C-003",
+    "test_name": "server.TestCommentRemove/chain-collapses",
+    "test_command": "go test -count=1 -run TestCommentRemove/chain-collapses ./internal/server/"
+   },
+   {
+    "key": "C-004",
+    "test_name": "server.TestCommentRemove/below-cap",
+    "test_command": "go test -count=1 -run TestCommentRemove/below-cap ./internal/server/"
+   },
+   {
+    "key": "C-005",
+    "test_name": "server.TestCommentRemove/already-hidden",
+    "test_command": "go test -count=1 -run TestCommentRemove/already-hidden ./internal/server/"
+   },
+   {
+    "key": "C-006",
+    "test_name": "server.TestCommentRemove/ids",
+    "test_command": "go test -count=1 -run TestCommentRemove/ids ./internal/server/"
+   },
+   {
+    "key": "C-007",
+    "test_name": "server.TestCommentRemove/refused",
+    "test_command": "go test -count=1 -run TestCommentRemove/refused ./internal/server/"
+   },
+   {
+    "key": "C-008",
+    "test_name": "server.TestCommentRemove/landing",
+    "test_command": "go test -count=1 -run TestCommentRemove/landing ./internal/server/"
+   },
+   {
+    "key": "C-009",
+    "test_name": "server.TestRemoveControl",
+    "test_command": "go test -count=1 -run TestRemoveControl ./internal/server/"
+   },
+   {
+    "key": "C-010",
+    "test_name": "server.TestCommentCount",
+    "test_command": "go test -count=1 -run TestCommentCount ./internal/server/"
+   },
+   {
+    "key": "C-011",
+    "test_name": "server.TestAdminCommentList",
+    "test_command": "go test -count=1 -run TestAdminCommentList ./internal/server/"
+   },
+   {
+    "key": "C-012",
+    "test_name": "server.TestRemoveReadFailure",
+    "test_command": "go test -count=1 -run TestRemoveReadFailure ./internal/server/"
+   },
+   {
+    "key": "C-013",
+    "test_name": "tests/acceptance/check_e006_1_stops_at_block.py: E-006 finish line 1 passes or stops only at the block press",
+    "test_command": "python -I tests/acceptance/check_e006_1_stops_at_block.py"
+   }
+  ],
+  "mandatory": [
+   {
+    "id": "C1",
+    "met": "yes",
+    "where": "comments.Book.RemoveTarget/Remove (comments.go) and adminCommentRemove behind RequireOwner/OwnerRoute (admin.go); TestCommentRemove/* and /refused"
+   },
+   {
+    "id": "C2",
+    "met": "yes",
+    "where": "commentView.CanRemove and the details remove control in comments.html on the report, home and branch pages; TestRemoveControl, TestThreadViewerCanRemove"
+   },
+   {
+    "id": "C3",
+    "met": "yes",
+    "where": "moderationList and the moderation section in admin_report.html, fed by adminReport via a.tree; TestAdminCommentList"
+   },
+   {
+    "id": "C4",
+    "met": "yes",
+    "where": "removal sets removed_at, which the existing visibleSQL/treeSQL redaction hides from everyone; checked for anonymous, reader and owner in TestCommentRemove/leaf, /held, /chain-collapses, /below-cap and on the admin page in TestAdminCommentList"
+   },
+   {
+    "id": "C7",
+    "met": "yes",
+    "where": "comments.Visible (tree.go), readerData.CommentCount and the comment-count paragraph in report.html; TestVisible, TestCountReconciles, TestCommentCount"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -run TestFitnessYAMLPlainScalarsParse ./internal/fitnessrules/",
+    "outcome": "passed",
+    "note": "the reviewer's test, logic unchanged; fails on the attempt-1 fitness.yaml at lines 421 and 423 (file swapped in and restored)"
+   },
+   {
+    "command": "go test -count=1 -run TestCommentRemoveRefusesBodiesItDoesNotRead ./internal/server/",
+    "outcome": "passed",
+    "note": "the review's test for O-022; it failed on all three planted bodies before the handler change"
+   },
+   {
+    "command": "python -I tests/acceptance/check_e006_1_stops_at_block.py",
+    "outcome": "passed",
+    "note": "exit 0 with the body planted in the tree and with it read from the ledger; exit 1 with the removal route renamed; exit 2 with no body. The planted file was removed from the tree afterwards."
+   },
+   {
+    "command": "go test -count=1 -run TestCommentRemove/already-hidden ./internal/server/",
+    "outcome": "passed",
+    "note": "the new single-test C-005 command"
+   },
+   {
+    "command": "every case command C-001 to C-012 as listed, one at a time",
+    "outcome": "passed",
+    "note": "each prints ok"
+   },
+   {
+    "command": "go vet ./... ; go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "all packages ok, including internal/server with the engine-given Chrome through TestReportScriptsNeverRun, fitnessrules and comments"
+   },
+   {
+    "command": "python -I <planted finish bodies from the ledger> on a copy of this tree: e003_1, e004_1, e005_1, e006_1 (each builds ./cmd/hband and runs the real binary against a stand-in GitHub)",
+    "outcome": "passed",
+    "note": "e003_1, e004_1 and e005_1 exit 0; e006_1 exits 1 only at the block press, as at attempt 1 (run before this attempt's test-file changes; no product code changed since)"
+   }
+  ],
+  "deviations": [
+   "O-021: the reviewer's test is back in yaml_scalar_test.go with its logic exactly as given; my wider scanner and its tests moved to yaml_scalar_scan_test.go, so the corpus and the census use the wider scan and the review's test stays as written.",
+   "O-022: a non-empty body that is not a form is refused (400) even within 1 KiB. The review's prescription let a small JSON or text body through to a removal; the contract's 'an unreadable body: 400' and the class say refuse it. Empty bodies of any type still remove.",
+   "C-013: the case command is a checker that accepts the planted body passing or stopping only at the block press, not the planted body itself, because the planted body exits 1 by design until SC-021 builds the block route. It reads the ledger read-only only when the body is not planted in the tree.",
+   "modItem omits GitHubID and ParentID: only SC-021's Block form would read them, so they would be dead fields here."
+  ],
+  "not_built": [
+   "All [SC-021] components (block store, blocked refusals, feedback blocked mark, block and unblock routes, the Blocked users page, Block forms). E-006 lines 1 and 2 cannot exit 0 until they land.",
+   "Case 14, a removal racing 20 concurrent Posts: the design marked it material:false.",
+   "Deferred findings m4, m5 and m7 (decided deferrals); waived m3 and m6 (O-018, O-019).",
+   "No screens or app are declared: internal/config refuses to start without five HBAND_* variables and the app command allows no environment (#961). The owner's pages were rendered in Chrome from the test harness instead, in attempt 1."
+  ],
+  "follow_ups": [
+   "Run the engine's Fitness op=check on this tree to confirm it reads .taad/fitness.yaml now; I had no such tool and no YAML parser here.",
+   "Make loadRules in internal/fitnessrules/rules_test.go reject what a YAML parser rejects, or read the file with a real parser, so the lenient loader stops hiding this class (and its skip of must_not_import on files that open with a doc comment, #931).",
+   "SC-021 must build POST /admin/users/{u}/block and /unblock, GET /admin/blocked, the blocked refusals and a remove form on the Blocked users page (m5). Until then E-006 lines 1 and 2 stop at a 404 on the block route.",
+   "Arrange a signed-in session for Chrome on this project (#961): the owner's controls have been rendered only from harness-produced HTML."
+  ],
+  "architecture": [
+   {
+    "block": "C-009",
+    "kind": "line",
+    "find": "where the owner answers each message through a reply form (POST /admin/feedback/{n}/reply, adminFeedbackReply) and sees each reply under the message it answers.",
+    "replace": "where the owner answers each message through a reply form (POST /admin/feedback/{n}/reply, adminFeedbackReply) and sees each reply under the message it answers. The same page lists every comment a reader can see under the report, at any depth and drafts included, in one flat list with a Remove form on each (POST /admin/comments/{n}/remove, adminCommentRemove; it reads the form's one optional field, from, in either form encoding and refuses any other body; removed text is shown to nobody).",
+    "why": "admin.go: adminRoutes row, adminCommentRemove and removeFrom; adminReport reads a.tree into adminData.Moderation; admin_report.html section.moderation id=comments"
+   },
+   {
+    "block": "C-009",
+    "kind": "depends",
+    "add": [
+     "C-005"
+    ],
+    "why": "internal/server/admin.go imports internal/comments for RemoveTarget and Remove, and calls moderationList from thread.go"
+   },
+   {
+    "block": "C-001",
+    "kind": "paths",
+    "add": [
+     "internal/fitnessrules/**",
+     "tests/**"
+    ],
+    "why": "internal/fitnessrules holds the architecture-rule tests and the YAML corpus (yaml_scalar_scan_test.go, yaml_scalar_corpus_test.go, testdata/yaml_scalars.json); tests/acceptance/check_e006_1_stops_at_block.py is the new finish-line checker; no block's globs match either"
+   }
+  ]
+ }
+}
