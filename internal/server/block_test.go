@@ -308,7 +308,7 @@ func TestBlockedRefusals(t *testing.T) {
 	h.mustVote(w.other, "x", "up")
 	h.sendFeedback(w.reader, "x", "from the reader")
 
-	// Unblocked, each of the six goes through.
+	// Unblocked, it comments, sends feedback and votes again.
 	h.mustUnblock(w.owner, 8)
 	h.say(w.bad, "x", "back again", w.top)
 	h.sendFeedback(w.bad, "x", "back again, privately")

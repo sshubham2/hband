@@ -53,9 +53,9 @@ var (
 	// not see. RemoveTarget and Remove return it too, when no comment has the id
 	// (never stored, or deleted with its report).
 	ErrNoTarget = errors.New("comments: nothing to comment on")
-	// ErrBlocked is returned by Post when the writer's account is blocked. Votes
-	// and feedback return this same value for their own writes (feedback.ErrBlocked
-	// is it), so a caller tests for one error.
+	// ErrBlocked is returned by Post when the writer's account is blocked. Feedback
+	// returns this same value for its writes (feedback.ErrBlocked is it); votes has
+	// its own, votes.ErrBlocked.
 	ErrBlocked = errors.New("comments: this account is blocked")
 )
 

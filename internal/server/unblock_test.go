@@ -161,7 +161,7 @@ func TestUnblockRestores(t *testing.T) {
 	}
 	tallyIs("after the unblock", 1, 1)
 
-	// It takes part again, in all six ways.
+	// It takes part again: it comments, sends feedback, votes and withdraws.
 	h.say(bad, "x", "bad-eight is back", ra)
 	h.sendFeedback(bad, "x", "bad-eight is back, privately")
 	h.mustVote(bad, "x", "down")
