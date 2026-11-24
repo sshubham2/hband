@@ -49,8 +49,10 @@ func yamlScalarRefusals(src string) []string {
 	parent, parentCol := "", -1
 	// ruleDash is the column of the '- ' that opens a rule, ruleKeyCol the column of the
 	// keys of the rule being read (where its first key, after the '- ', begins). A key
-	// of that rule written at another column ends its block mapping for a YAML parser,
-	// and the line loader in rules_test.go, which reads only column 4, drops it silently.
+	// of that rule written at a smaller column ends its block mapping for a YAML parser;
+	// at a larger one straight after a scalar it is read as more of that scalar, which
+	// the continuation check below refuses. The line loader in rules_test.go, which
+	// reads only column 4, drops either silently.
 	ruleDash, ruleKeyCol := -1, -1
 	for i := 0; i < len(lines); {
 		line := lines[i]

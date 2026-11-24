@@ -132,8 +132,8 @@ func TestFitnessYAMLCorpusCoversEveryCarrier(t *testing.T) {
 // each column from 1 to 8 beside a sibling at 4, and the scan must refuse it at
 // that line, while the same text with the key at 4 must pass. Columns below 4 end
 // the rule's mapping for a YAML parser; columns above 4 after a scalar are read as
-// more of that scalar, which holds ": ". The line loader in rules_test.go reads
-// only column 4 and drops either without a word.
+// more of that scalar, which then holds ": " or ends with ":". The line loader in
+// rules_test.go reads only column 4 and drops either without a word.
 func TestFitnessYAMLMisindentedKeyCensus(t *testing.T) {
 	c := loadYAMLCorpus(t)
 	value := map[string]string{
