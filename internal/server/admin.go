@@ -153,7 +153,7 @@ func (a *app) adminReport(w http.ResponseWriter, r *http.Request, o auth.Owner) 
 // adminFeedbackReply handles POST /admin/feedback/{n}/reply: the owner answers
 // one feedback message. The form carries exactly one field, body.
 //
-// The order is the comment handler's, report-first: the message id is checked
+// The order is the comment handler's, target-first: the message id is checked
 // and the message looked up before the body is read, so a malformed or unknown
 // id is the same 404 whatever the body is, and the owner's POST to the access
 // matrix's placeholder id ("x") is a 404. A reply is stored whatever the

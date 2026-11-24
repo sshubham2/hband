@@ -1124,7 +1124,7 @@ func TestFeedbackReply(t *testing.T) {
 
 	// The author's page: both replies under the message they answer, oldest first,
 	// each with the badge and its time, and a reply form on every message. The other
-	// message has none of them.
+	// message has none of those replies, only its own form.
 	admin := h.adminPageOf(owner, "x")
 	one, two := articleOf(t, admin, 1), articleOf(t, admin, 2)
 	stamp := func(at time.Time) string {
@@ -1451,7 +1451,7 @@ func TestFeedbackReplyMarkup(t *testing.T) {
 	}
 
 	// The reader's thread comes after the box's form and the sent note, outside
-	// every comment, with the viewer's own message and no id on it.
+	// every comment, with the viewer's own message and no count beside any label.
 	page := h.page(reader, "/reports/x")
 	inOrder(t, "the reader's page", page, `id="votes"`, `<section class="feedback" id="feedback">`, `</form>`,
 		`<p id="feedback-sent" class="feedback-sent" hidden>Sent to the author.</p>`, `<ol class="own-feedback">`, `<li class="feedback-message">`,
@@ -1465,7 +1465,8 @@ func TestFeedbackReplyMarkup(t *testing.T) {
 		t.Errorf("numbers beside a label on the reader's page: %q", labelled)
 	}
 
-	// The stylesheet: the reply and the list are styled in neutral colours only.
+	// The stylesheet has a rule for the reply, for the sender's list and for the
+	// owner's reply form.
 	css := h.serve("GET", "/static/site.css")
 	for _, sel := range []string{".feedback-reply {", ".own-feedback {", ".feedback-inbox form {"} {
 		if !strings.Contains(css.Body, sel) {

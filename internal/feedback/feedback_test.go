@@ -387,7 +387,7 @@ func TestInboxCarriesTheReplies(t *testing.T) {
 	if got := r.When.Format("2006-01-02 15:04 UTC"); got != "2027-01-16 01:45 UTC" {
 		t.Errorf("drawn as %q", got)
 	}
-	// A message nobody answered has no replies, and a report with none has no messages.
+	// With every reply deleted the messages are still listed, each with no replies.
 	if _, err := w.db.Exec(`DELETE FROM feedback_replies`); err != nil {
 		t.Fatal(err)
 	}
@@ -486,8 +486,8 @@ func TestSenderThreadsAskNothingForNoAccount(t *testing.T) {
 	}
 }
 
-// Sent and the replies it carries have no id of any kind: the compile-time view
-// of the rule that no feedback row id reaches a reader's page.
+// Sent and the replies it carries have no id of any kind: the check, on the
+// types themselves, of the rule that no feedback row id reaches a reader's page.
 func TestReaderTypesCarryNoID(t *testing.T) {
 	for name, v := range map[string]any{"Sent": Sent{}, "Reply": Reply{}} {
 		typ := reflect.TypeOf(v)
