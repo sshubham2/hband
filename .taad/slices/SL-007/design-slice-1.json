@@ -1,0 +1,705 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-007",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-24T05:06:30.169Z",
+ "head": "ebacc8d1f9debb5192b83db6bb0f8f03c56c4572",
+ "run_id": 11872,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "selection_rationale": "The practice proposal is the core and the crossdomain proposal supplies four pieces. Every choice below was made against code read in this tree. Both proposals already agree on the shape the code dictates:\n- a separate feedback table and package;\n- a postComment-shaped handler on auth.Participant (comment.go:29-95);\n- a single INSERT…SELECT with the published check inside it (the comments.postSQL pattern, lesson #949);\n- the owner's list on the existing adminReport page, right after the Votes tally (admin.go:107-129, admin_report.html:21-23);\n- privacy proved by extending the dislike noninterference harness (vote_test.go:500-559).\n\nWhere the proposals differ, the choices are:\n(1) Schema. Practice wins: feedback_replies goes into the same 0005 as feedback. SC-017 is built from this design with no design, critique or spike of its own. So crossdomain's plan, a 0006 whose two-hop cascade 'SC-017's spike must verify', points at a spike that will not exist. With one migration, this slice's lifecycle test pins reports→feedback→feedback_replies with raw-inserted reply rows. That is the measurement lesson #958 asks for, made before anything depends on it. It also removes crossdomain's own migration-collision risk. The store tests already follow a new file through newestVersion (store_test.go:57-64), so practice's 'pinned user_version 4' risk is moot.\n(2) Names of the owner-only read and the reply write. Crossdomain's Owner* prefix wins (OwnerInbox, OwnerReplyTarget, OwnerReply). The fence `\\.\\s*Owner(Inbox|Reply)\\w*\\b` describes itself, and practice's `\\.\\s*(ForOwner|Reply)\\b` would fence any `.Reply` in the codebase.\n(3) Name of the reader-side read. Practice's SenderThreads wins over crossdomain's Mine. A `\\.\\s*Mine\\b` fence would fire on votes.PublicView's Mine field, which report.html:14-19 already reads.\n(4) From crossdomain: no feedback row id ever reaches a non-owner. The reader-side type Sent has no ID field, and the success fragment is fixed. Also from crossdomain: the two-world comment-id subtest, which pins the separate-sequence claim the separate-table decision rests on.\n(5) Fragment. Practice's #feedback, for success and for signed out alike, wins over crossdomain's #feedback-sent with a CSS :target confirmation. The finish test pins neither (spike e005-finish-feedback-interface). SC-017's own-thread list is the real confirmation, and the :target note adds a site.css rule and a misleading 'Sent' on bookmarks.\n\nThe practice designer's over_engineering_flag was honoured. There is no status column, no notifications, no paging, no rate limiter and no new admin GET route. The one forward reach, the replies table, is kept because SC-017 has no design lap in which to add it safely.\n\nThe crossdomain designer's transfer_found=true was checked against reality. Its useful outputs are AUTOINCREMENT, no ids to readers and a separate sequence, and all three cost nothing to build. Its 'observation coverage' invariant fails, as it says itself. The mitigation is the name fences, not more observations.",
+  "components": [
+   {
+    "name": "Migration 0005_feedback.sql (the whole epic's schema)",
+    "lives_at": "internal/store/migrations/0005_feedback.sql (new; the loader requires the next file to be 0005_*.sql, migrate.go:44-48)",
+    "responsibility": "Creates two tables and two indexes.\n\nTable feedback:\n- id INTEGER PRIMARY KEY AUTOINCREMENT\n- report_id INTEGER NOT NULL REFERENCES reports (id) ON DELETE CASCADE\n- github_id INTEGER NOT NULL REFERENCES users (github_id), with no action clause\n- body TEXT NOT NULL CHECK (length(body) > 0)\n- created_at INTEGER NOT NULL\n- STRICT\n\nIndex feedback_report ON feedback (report_id, id).\n\nTable feedback_replies, written only by SC-017:\n- id INTEGER PRIMARY KEY AUTOINCREMENT\n- feedback_id INTEGER NOT NULL REFERENCES feedback (id) ON DELETE CASCADE\n- body TEXT NOT NULL CHECK (length(body) > 0)\n- created_at INTEGER NOT NULL\n- STRICT\n\nIndex feedback_replies_by_feedback ON feedback_replies (feedback_id, id). It also serves the cascade's child lookup.\n\nThere is no author, owner or role column: every reply is the pinned owner's by construction, and the existing rule 'being the owner is never stored in the database' applies.\n\nThe header comment, in 0004's style, gives the reasons:\n- the FK clauses are 0004's, word for word, and spike feedback-fk-survives-replace-delete-upsert measured them;\n- AUTOINCREMENT means a deleted message's id is never handed out again, so a stale reply form cannot land on another reader's message;\n- the column is named github_id so that SC-021's blocked_accounts join reads like comments'.",
+    "key_interactions": "Applied by the unchanged loader in internal/store/migrate.go. Treat that file as security-adjacent and do not edit it (lesson #930). Library.Delete cascades reports → feedback → feedback_replies. Library.SaveUpload's replace and store.SignIn's upsert leave the rows alone (measured by the spike)."
+   },
+   {
+    "name": "internal/feedback package (Book)",
+    "lives_at": "internal/feedback/feedback.go (new)",
+    "responsibility": "The only code that names the feedback tables in SQL. Every write is one statement and the package never opens a transaction (lesson #949; fitness rule).\n\nSC-016 builds:\n- New(db *sql.DB, now func() time.Time) *Book.\n- var ErrBadBody = comments.ErrBadBody, one sentinel for both packages.\n- ErrNoTarget.\n- Send(ctx, reportID, githubID int64, body string) (int64, error). It runs comments.Normalize first; a refusal returns ErrBadBody and no SQL runs. Then it runs `INSERT INTO feedback (report_id, github_id, body, created_at) SELECT r.id, ?, ?, ? FROM reports r WHERE r.id = ? AND r.status = 'published'`. RowsAffected 0 returns ErrNoTarget. Any other error is wrapped as 'feedback: send: %w'. On success it returns LastInsertId.\n- OwnerInbox(ctx, reportID int64) ([]Message, error). One SELECT f.id, f.github_id, u.login, u.avatar_url, f.body, f.created_at FROM feedback f JOIN users u ON u.github_id = f.github_id WHERE f.report_id = ? ORDER BY f.id DESC. No limit.\n- Message{ID, GitHubID int64; Login, AvatarURL, Body string; When time.Time; Replies []Reply}. Replies stays empty until SC-017.\n\nSC-017 adds:\n- Reply{Body string; When time.Time}.\n- OwnerReplyTarget(ctx, feedbackID) (slug string, err error): SELECT r.slug FROM feedback f JOIN reports r ON r.id = f.report_id WHERE f.id = ?. No row returns ErrNoTarget.\n- OwnerReply(ctx, feedbackID, body) (int64, error): Normalize, then `INSERT INTO feedback_replies (feedback_id, body, created_at) SELECT f.id, ?, ? FROM feedback f WHERE f.id = ?`. RowsAffected 0 returns ErrNoTarget.\n- OwnerInbox fills Message.Replies with a second SELECT over feedback_replies JOIN feedback WHERE f.report_id = ? ORDER BY p.id, grouped in Go.\n- Sent{Body string; When time.Time; Replies []Reply}. It deliberately has no ID field.\n- SenderThreads(ctx, reportID, githubID int64) ([]Sent, error). githubID <= 0 returns nil with no query. It returns that account's messages on that report, oldest first, each with its replies.",
+    "key_interactions": "Imports internal/comments only for Normalize and ErrBadBody, so feedback and comments follow one set of plain-text rules. Built in server.New on st.DB() with the shared clock, next to votes and comments."
+   },
+   {
+    "name": "postFeedback write handler",
+    "lives_at": "internal/server/feedback.go (new)",
+    "responsibility": "POST /reports/{slug}/feedback, in postComment's exact order:\n1. Sets Cache-Control: no-store.\n2. auth.Participant. ErrIdentityUnavailable answers 503.\n3. a.reports.PublishedBySlug. ErrNotFound answers http.NotFound; any other error answers 503.\n4. ErrSignedOut answers auth.SeeOther(w, \"/reports/\"+rep.Slug+\"#feedback\"). Nothing is parsed or stored.\n5. r.Body = http.MaxBytesReader(w, r.Body, maxCommentBody). A ParseForm error answers 400.\n6. r.PostForm[\"body\"] must hold exactly one value, or the answer is 400. A body in the query string does not count, and other fields are ignored.\n7. a.feedback.Send(ctx, rep.ID, viewer.GitHubID, bodies[0]). ErrBadBody answers 400. ErrNoTarget (the report was unpublished or deleted since the lookup) answers http.NotFound. Any other error answers 503.\n8. Success answers auth.SeeOther(w, \"/reports/\"+rep.Slug+\"#feedback\").\n\nThe row id never reaches the sender. The handler never calls ViewerFrom: the existing fence covers this file, and corpus row cmt-vf-f004 already targets it.",
+    "key_interactions": "Registered on the main mux, behind CrossOriginProtection and Identify like every route. Any signed-in account may send, the owner included."
+   },
+   {
+    "name": "Router and app wiring",
+    "lives_at": "internal/server/router.go",
+    "responsibility": "The app struct gains `feedback *feedback.Book`, built in New as feedback.New(st.DB(), clock). New registers mux.HandleFunc(\"POST /reports/{slug}/feedback\", a.postFeedback), next to the comment route, and the route comment is updated to name it as the third public reader POST. SC-016 adds no admin route.",
+    "key_interactions": "SC-017 adds one adminRoutes row in admin.go. The router's adminRoutes loop mounts it behind RequireOwner and OwnerRoute with no router edit."
+   },
+   {
+    "name": "Reader-page 'Feedback for the author' box",
+    "lives_at": "internal/server/templates/feedback.html (new, {{define \"feedback\"}}), included as {{template \"feedback\" .}} in internal/server/templates/report.html between </section> of #votes and {{template \"comments\" .}}; internal/server/static/site.css",
+    "responsibility": "Draws `<section class=\"feedback\" id=\"feedback\"><h2>Feedback for the author</h2>` and then one of three branches:\n- Owner (.Viewer.IsOwner): `<p class=\"feedback-hint\">Readers' feedback on this report is on <a href=\"/admin/reports/{{.Report.Slug}}#feedback\">its admin page</a>.</p>`, with no form.\n- Signed-in non-owner: `<p class=\"feedback-note\">Only the author reads this. It is not posted as a comment.</p>`, then `<form method=\"post\" action=\"/reports/{{.Report.Slug}}/feedback\"><label>Your message to the author <textarea name=\"body\" required maxlength=\"5000\" rows=\"4\"></textarea></label><button type=\"submit\">Send to the author</button></form>`.\n- Anonymous: `<p class=\"feedback-hint\">Sign in to send the author private feedback.</p>`, with no textarea, which TestReaderPagesShareOneLayout requires.\n\nThe section reads only SignedIn, Viewer.IsOwner and Report.Slug, so / and /reports/<newest> stay identical bytes (lesson #950). No number sits beside any word in the finish test's label lists (comment, like, dislike, view, open). SC-016 draws no stored feedback on any reader page.\n\nsite.css widens two existing selectors in neutral colours only (lesson #941): `.comments, .feedback, .feedback-inbox {…}` and `.comments textarea, .feedback textarea, .feedback-inbox textarea {…}`. It adds `.feedback-message { margin: .75rem 0; }`. Bodies reuse `.body`, which already sets white-space: pre-wrap and overflow-wrap: anywhere.",
+    "key_interactions": "Rendered through renderReader for both reader pages. readerData gains no field in SC-016. SC-017 adds OwnFeedback and the own-thread list after </form>."
+   },
+   {
+    "name": "Owner's feedback inbox on the report admin page",
+    "lives_at": "internal/server/admin.go (adminReport, adminData) and internal/server/templates/admin_report.html",
+    "responsibility": "adminData gains `Feedback []feedback.Message`. After OwnerTally, adminReport calls a.feedback.OwnerInbox(r.Context(), rep.ID). An error logs and answers 500, as the tally does, and the page is never drawn with an empty list standing in for one that could not be read. Drafts and unpublished reports still list their feedback.\n\nDirectly after the two `<p class=\"tally\">` lines, admin_report.html draws `<section class=\"feedback-inbox\" id=\"feedback\"><h2>Feedback for the author</h2>`. Each message becomes `<article class=\"feedback-message\" id=\"feedback-{{.ID}}\">` holding:\n- `<header class=\"byline\">`: an avatar `<img class=\"avatar\" src=\"{{.AvatarURL}}\" alt=\"\" width=\"24\" height=\"24\">` only when AvatarURL is set, then `<span class=\"login\">{{.Login}}</span>`, then `<time datetime=\"…\">{{.When.Format \"2006-01-02 15:04 UTC\"}}</time>`;\n- `<p class=\"body\">{{.Body}}</p>`, escaped by html/template and never template.HTML.\n\nWith no messages the section shows `<p>No feedback on this report yet.</p>`. Messages run newest first. It shows no message count, so the page keeps exactly one number beside a dislike label. The Votes markup that TestDislikesDoNotInterfere matches is unchanged.",
+    "key_interactions": "Behind RequireOwner and OwnerRoute through the existing GET /admin/reports/{slug} row. SC-017 adds each message's replies and its reply form inside the article."
+   },
+   {
+    "name": "Fitness rules and corpus rows",
+    "lives_at": ".taad/fitness.yaml (appended from architecture_rules) and internal/fitnessrules/testdata/rule_spellings.json",
+    "responsibility": "The four architecture_rules of this design, each with at least one fire row and one quiet row in the corpus and a bounded_by naming the same holes as the comments and votes rules: lower-case SQL, names built by concatenation, quoted or schema-qualified names, views or triggers in a .sql migration, and a method value reached through an interface. There is no spelling-variant hunt (lessons #939, #957).",
+    "key_interactions": "The existing ViewerFrom rule (fitness.yaml:303-322) already covers internal/server/feedback.go and needs no edit. Checked by TestRulesHoldOnTheTree and the corpus test in internal/fitnessrules."
+   },
+   {
+    "name": "Server tests (SC-016)",
+    "lives_at": "internal/server/feedback_test.go (new); edits to internal/server/vote_test.go (observe), internal/server/reader_test.go (TestReaderPathVariants, TestReaderPagesShareOneLayout)",
+    "responsibility": "A harness helper `func (h *harness) postFeedback(sid, slug, body string, extra ...func(*http.Request)) result`, a mirror of h.postComment. The new tests are TestFeedbackSend, TestFeedbackRefusedSenders, TestFeedbackBodies, TestFeedbackHiddenReports, TestFeedbackStoreFailure, TestFeedbackDoesNotInterfere (subtests: other readers' feedback, the sender's own pages, comment ids), TestFeedbackFollowsReportLifecycle, TestFeedbackBox and TestFeedbackOwnerList, as listed in `cases`. All run at httptest level and launch no browser.\n\nobserve() gains, per observer, a 'POST /reports/x/feedback' that writes nothing: the anonymous observer sends 'body=nothing+is+stored' and gets the 303; the signed-in observers send 'body=' and get 400. That extends TestDislikesDoNotInterfere to the new route (lessons #948, #959).\n\nTestReaderPathVariants gains the comment rows mirrored for /feedback.",
+    "key_interactions": "Reuses newHarness, mint, mustUpload, mustVote, say, exec, newDislikeWorld, observe, sameObservation, sameResponse. A store-breaking case uses the existing techniques: DROP TABLE sessions, and ALTER TABLE … RENAME."
+   },
+   {
+    "name": "Package and migration tests (SC-016)",
+    "lives_at": "internal/feedback/feedback_test.go (new); internal/store/feedback_migration_test.go (new)",
+    "responsibility": "Package tests:\n- the Send/OwnerInbox round trip;\n- Send to a draft report's id returns ErrNoTarget and writes 0 rows;\n- Send with a refused body returns ErrBadBody and runs no SQL;\n- OwnerInbox order is newest first, and it returns only that report's rows.\n\nMigration test: copy TestCommentsMigrationFromV2AndV3's shape. A database populated at user_version 4 (a user, a published report, a comment, a vote) is opened by the current binary. The result must be user_version == newestVersion, PRAGMA foreign_key_check empty, and the v4 rows intact. Then a fresh database opened at each earlier version from 1 to 4 must reach the same state.",
+    "key_interactions": "Runs without a browser: `go test -count=1 ./internal/feedback/ ./internal/store/`."
+   },
+   {
+    "name": "SC-017 reply route (built later from this design)",
+    "lives_at": "internal/server/admin.go (new adminRoutes row and handler adminFeedbackReply; it must live in admin.go, the only server file the OwnerReply fence allows)",
+    "responsibility": "A new row: {Method: \"POST\", Pattern: \"/admin/feedback/{n}/reply\", Handler: a.adminFeedbackReply}. The handler:\n1. n, ok := canonicalID([]string{r.PathValue(\"n\")}). !ok answers http.NotFound.\n2. slug, err := a.feedback.OwnerReplyTarget. ErrNoTarget answers http.NotFound; any other error answers 500.\n3. MaxBytesReader(maxCommentBody). A ParseForm error, or a PostForm[\"body\"] count other than 1, answers 400.\n4. a.feedback.OwnerReply(ctx, n, body). ErrBadBody answers 400. ErrNoTarget (the message was deleted in between) answers 404. Any other error answers 500.\n5. Success answers auth.SeeOther(w, \"/admin/reports/\"+slug+\"#feedback-\"+strconv.FormatInt(n, 10)).\nA reply is allowed whatever the report's publish state.\n\nadmin_report.html, inside each feedback-<n> article after the body:\n- each reply as `<div class=\"feedback-reply\"><header class=\"byline\"><span class=\"badge\">Author</span> <time>…</time></header><p class=\"body\">{{.Body}}</p></div>`, oldest first;\n- then `<form method=\"post\" action=\"/admin/feedback/{{.ID}}/reply\"><textarea name=\"body\" required maxlength=\"5000\" rows=\"3\" aria-label=\"Reply to @{{.Login}}\"></textarea><button type=\"submit\">Send reply</button></form>`.",
+    "key_interactions": "Joins TestAdminAccessMatrix automatically. adminPaths substitutes every {param} with 'x', and the owner's POST to /admin/feedback/x/reply answers 404 through canonicalID, which is what the matrix expects of a parameterised row."
+   },
+   {
+    "name": "SC-017 sender's own thread beneath the box (built later from this design)",
+    "lives_at": "internal/server/reader.go (renderReader, readerData) and internal/server/templates/feedback.html",
+    "responsibility": "readerData gains `OwnFeedback []feedback.Sent`. renderReader calls a.feedback.SenderThreads(r.Context(), rep.ID, v.GitHubID) only when state == stateFound && signedIn && !v.IsOwner, after the Tree read. An error logs and sets stateUnavailable, as a Tree error does. The key is the session's GitHub ID only, never a request value.\n\nfeedback.html draws, after </form> and only in the signed-in non-owner branch, `{{if .OwnFeedback}}<ol class=\"own-feedback\">`. Each item is `<li class=\"feedback-message\">` holding:\n- `<header class=\"byline\">You wrote <time>…</time></header>` and `<p class=\"body\">{{.Body}}</p>`;\n- each reply as `<div class=\"feedback-reply\"><header class=\"byline\"><span class=\"badge\">Author</span> <time>…</time></header><p class=\"body\">{{.Body}}</p></div>`.\nNo element carries a row id. The form's action text therefore comes before any thread text in the bytes, as the finish test requires.",
+    "key_interactions": "The sender's thread is the same on / and /reports/<newest>, because it is keyed by rep.ID and the viewer. The owner's reader pages are untouched, so observe()'s owner observations stay valid. Cache-Control stays 'private, no-cache'."
+   }
+  ],
+  "contracts": [
+   {
+    "name": "POST /reports/{slug}/feedback",
+    "kind": "rest",
+    "auth_model": "A public route. The sender is resolved with auth.Participant, never ViewerFrom. Any signed-in GitHub account may send, the owner included. CrossOriginProtection applies, with trusted origin = HBAND_BASE_URL's origin, plus SameSite=Lax cookies. There is no CSRF token field, as the stack decided.",
+    "error_cases": "- Session lookup fails: 503, nothing stored.\n- Draft, unpublished, deleted or unknown slug: http.NotFound, the same bytes whoever asks, decided before anything is said about the visitor.\n- Report lookup error: 503.\n- Signed out: 303 to /reports/<stored slug>#feedback, nothing parsed or stored.\n- Form over 64 KiB, or a ParseForm failure: 400.\n- A 'body' count in the POST body other than 1 (missing, repeated, or only in the query string): 400.\n- Normalize refuses the body (empty or whitespace only, over 5000 runes, invalid UTF-8, a C0 control other than \\n or \\t, DEL, a C1 control): 400.\n- Report unpublished or deleted between the lookup and the write: 404.\n- Write error: 503.\n- Cross-site Origin: 403 from CrossOriginProtection before the handler runs.\n- GET, HEAD or PUT on the exact path: the mux's 405 with Allow: POST.",
+    "notes": "Success answers 303 to /reports/<stored slug>#feedback through auth.SeeOther; the Location is built only from the stored slug and never carries the row id. The body is stored as Normalize returns it: CRLF and lone CR become LF, the text is trimmed, and markup is stored as typed and escaped where drawn. This matches the finish test: the path, the single 'body' field, status <400 on success, and <500 with nothing stored when signed out."
+   },
+   {
+    "name": "Reader layout 'Feedback for the author' section (GET / and GET /reports/{slug})",
+    "kind": "ui",
+    "auth_model": "A public page. The content depends only on SignedIn, Viewer.IsOwner and Report.Slug: the owner gets a link to the admin page, a signed-in reader gets the form, and an anonymous visitor gets a sign-in hint with no textarea.",
+    "error_cases": "No new error states in SC-016. In SC-017, a SenderThreads failure makes the page unavailable (503), as a Tree failure already does.",
+    "notes": "`<section class=\"feedback\" id=\"feedback\">` sits between #votes and #comments, outside every comment-<n> element. It is byte-identical on / and /reports/<newest> for the same viewer. SC-016 draws no stored feedback. In SC-017 the signed-in non-owner's own messages and the author's replies follow </form>, and no reader-page element carries a feedback row id."
+   },
+   {
+    "name": "GET /admin/reports/{slug}: feedback inbox",
+    "kind": "ui",
+    "auth_model": "Owner only, through RequireOwner then OwnerRoute (the pinned HBAND_OWNER_GITHUB_ID). An anonymous GET gets a 303 to sign-in. A signed-in non-owner, including an account with the owner's login but another id, gets 403 with no admin content.",
+    "error_cases": "- BySlug ErrNotFound: 404.\n- BySlug, OwnerTally or OwnerInbox error: 500, never a page with an empty list in place of an unreadable one.",
+    "notes": "`<section class=\"feedback-inbox\" id=\"feedback\">` comes directly after the Votes tally. Each message is `<article class=\"feedback-message\" id=\"feedback-<n>\">`, where n is the global feedback row id (SC-017's {n}). It holds the body, the sender's current GitHub login, the avatar when one is stored, and a UTC time. Messages run newest first and cover this report's id only. There is no count. SC-017 adds the replies and a form posting to /admin/feedback/<n>/reply inside each article."
+   },
+   {
+    "name": "feedback.Book (SC-016 surface)",
+    "kind": "function",
+    "auth_model": "In-process. OwnerInbox may be called only from internal/server/admin.go (fitness rule).",
+    "error_cases": "- Send: ErrBadBody (== comments.ErrBadBody) before any SQL runs; ErrNoTarget when no published report has that id at write time; any other error wrapped as 'feedback: send: …'.\n- OwnerInbox: errors wrapped as 'feedback: inbox: …'.",
+    "notes": "New(db, now); Send(ctx, reportID, githubID, body) (int64, error), a single INSERT…SELECT with no transaction; OwnerInbox(ctx, reportID) ([]Message, error), one SELECT joining users, ORDER BY id DESC. For SC-021 later, OwnerInbox gains an EXISTS on blocked_accounts and Message gains a Blocked bool, with no schema or write change."
+   },
+   {
+    "name": "feedback.Book (SC-017 surface)",
+    "kind": "function",
+    "auth_model": "OwnerReplyTarget and OwnerReply may be called only from admin.go. SenderThreads may be called only from reader.go, with the session's own GitHub ID (fitness rules).",
+    "error_cases": "- OwnerReplyTarget: ErrNoTarget for an unknown id.\n- OwnerReply: ErrBadBody, then ErrNoTarget when the message is gone at write time.\n- SenderThreads: githubID <= 0 returns nil with no query; read errors are wrapped.",
+    "notes": "Each write is one statement. Reply has no ID field and Sent has none either, so no reader template can print a row id. OwnerInbox fills Message.Replies, oldest first."
+   },
+   {
+    "name": "POST /admin/feedback/{n}/reply (SC-017)",
+    "kind": "rest",
+    "auth_model": "An adminRoutes row behind RequireOwner and OwnerRoute. It joins TestAdminAccessMatrix automatically: anonymous gets 403 (not a GET), a signed-in non-owner gets 403, and the owner at n=x gets 404.",
+    "error_cases": "- n not canonical ('x', '0', '-1', '+1', '01'): 404.\n- No such feedback, including one deleted with its report: 404, nothing written.\n- Form over 64 KiB, a 'body' count other than 1, or a Normalize refusal: 400.\n- Store error: 500.",
+    "notes": "Exactly one 'body' field, which is what the E-005 finish test sends. Success answers 303 to /admin/reports/<slug>#feedback-<n>. Writes one feedback_replies row."
+   },
+   {
+    "name": "Build and validation check commands",
+    "kind": "cli",
+    "notes": "Run with TAAD3_HOME set to a new empty scratch folder.\n\nNo browser:\n- `go vet ./...`\n- `go test -count=1 ./internal/feedback/ ./internal/comments/ ./internal/store/ ./internal/fitnessrules/`\n- `go test -count=1 -run \"Feedback|ReaderPathVariants|DislikesDoNotInterfere|ReaderPagesShareOneLayout|CommentStoreFailure|AdminAccessMatrix\" ./internal/server/`. The -run filter keeps TestReportScriptsNeverRun, and with it Chrome, out of the run (lesson #947).\n\nOne `go test -count=1 ./...` at the end. It starts the installed Chrome through TestReportScriptsNeverRun, never Edge (lesson #946), as the build check measured.\n\nAny signed-in real-browser look uses the recipe measured by spike headless-chrome-signed-in-via-standin-oauth: the built binary, HBAND_BASE_URL=http://localhost:<port>, a stand-in GitHub, and one `chrome --headless=new --dump-dom --user-data-dir=<fresh> http://localhost:<port>/auth/github/login?next=<target>` per target. No committed harness."
+   },
+   {
+    "name": "E-005 finish line",
+    "kind": "cli",
+    "notes": "`python tests/acceptance/test_e005_1_private_feedback.py` stays red after SC-016 by construction: spike e005-finish-feedback-interface returned no-go, because the test also POSTs /admin/feedback/<n>/reply (SC-017). It is not reopened.\n\nSC-016's progress is checked on a scratch copy (lesson #951): read in place with SELECT finish FROM epics WHERE id=43 on file:<engine.db>?mode=ro, write the body with ROOT pointed at the worktree, and run it with python -I. It must fail with exactly one failure, and that failure's message must contain 'the admin view offers no reply to the feedback'.\n\nHBAND_TRUSTED_PROXIES is ignored by config.Load, which is harmless (config_test.go pins it). It passes end to end once SC-017 lands."
+   }
+  ],
+  "key_decisions": [
+   {
+    "decision": "Feedback is a separate table, feedback, owned by a separate package, internal/feedback. It is never a private or kind flag on comments, and it does not reuse comments.Post.",
+    "reversibility": "expensive",
+    "rationale": "With a flag, every current and future comment read (Tree, comment counts, SC-013's branch page) must remember to filter it out, and one forgotten filter publishes a private message. With its own table, the comments code cannot read feedback at all, and the fence rule (only internal/feedback names the tables) enforces that. A separate table also has its own AUTOINCREMENT counter, so public comment ids (comment-<n>, #comment-<n>) cannot reveal how much feedback exists. This is the split the BookStack request argues for."
+   },
+   {
+    "decision": "Migration 0005 lands the epic's whole schema:\n- feedback: id AUTOINCREMENT; report_id → reports(id) ON DELETE CASCADE; github_id → users(github_id) with no action; body CHECK(length>0); created_at; STRICT;\n- feedback_replies: id AUTOINCREMENT; feedback_id → feedback(id) ON DELETE CASCADE; body; created_at; STRICT; with no author column;\n- the indexes (report_id, id) and (feedback_id, id).",
+    "reversibility": "irreversible",
+    "rationale": "Migrations are forward-only on the production database. The two FK clauses are 0004's, word for word, and the spike measured them: v4→v5 clean, Replace and the SignIn upsert keep the rows, Delete returns nil and cascades. AUTOINCREMENT matters because the reply route is keyed by the feedback id: a reused max(rowid)+1 would let a reply form left open in an old tab attach the author's reply to a different reader's message, which that reader would then be shown. The replies table goes in now because SC-017 has no design or spike lap of its own. This slice's lifecycle test pins the two-hop cascade with raw-inserted reply rows before SC-017 depends on it (lesson #958). Nothing writes feedback_replies until SC-017, so a later 0006 could rebuild a table that is guaranteed empty if its shape proves wrong."
+   },
+   {
+    "decision": "Wire contract: POST /reports/{slug}/feedback with exactly one 'body' field. The answer is 303 to /reports/<stored slug>#feedback both on success and when signed out, through auth.SeeOther. The sender is resolved by auth.Participant.",
+    "reversibility": "expensive",
+    "rationale": "The finish test pins the path and the field. The spike confirmed that it pins neither the 303 nor the fragment, so these copy the vote and comment routes. Lesson #950 applies: one same-target 303, never a redirect into GitHub, which form-action 'self' would block. Participant turns a store outage into a 503 instead of a silently dropped message (lesson #949), and the existing ViewerFrom fence already covers the file."
+   },
+   {
+    "decision": "No feedback row id ever reaches a non-owner. The sender's 303 goes to the fixed #feedback, the reader-side types Sent and Reply have no ID field, and reader markup carries no feedback-<digit> id.",
+    "reversibility": "cheap",
+    "rationale": "Ids are global across reports and readers. A sender who saw their own id twice would learn how much feedback others sent in between, which is a storage channel (Lampson). A type without the field, like votes.PublicView without dislikes, stops any template from printing it."
+   },
+   {
+    "decision": "Body rules are comments.Normalize with its 5000-rune cap and the 64 KiB form cap (maxCommentBody), shared by feedback and replies. feedback.ErrBadBody is the same value as comments.ErrBadBody.",
+    "reversibility": "cheap",
+    "rationale": "Plain text with the same refusals, one implementation that has already been probed (lesson #957: the real defects came from inputs), and one sentinel for handlers to test. The rules live in Go, so changing them needs no migration."
+   },
+   {
+    "decision": "The owner reads feedback on the existing adminReport page, in a section placed directly after the Votes tally. Each message is article id=\"feedback-<n>\" with login, avatar, time and body, newest first, with no paging and no count. A failed read answers 500. SC-016 adds no admin route.",
+    "reversibility": "cheap",
+    "rationale": "E-005 puts the list 'in that report's admin view next to its dislike count', and the finish test reads /admin/reports/<slug>, requiring exactly one number beside a dislike label. The page is already owner-gated and in the access matrix. Paging is a later lever for a single-author site."
+   },
+   {
+    "decision": "The reader box sits between votes and comments. A signed-in non-owner gets the form, the owner gets a link to the admin page, and an anonymous visitor gets a hint with no textarea. SC-016 shows no stored feedback on any reader page and has no confirmation element.",
+    "reversibility": "cheap",
+    "rationale": "The box stays outside every comment-<n> element and keeps / and /reports/<newest> byte-identical (lesson #950). TestReaderPagesShareOneLayout forbids a textarea for anonymous visitors. SC-017's own-thread list (the merged SC-018) is the confirmation. A :target note or a flash cookie would add CSS or cookie surface to a slice that is not releasable alone anyway."
+   },
+   {
+    "decision": "Privacy is proved by noninterference on the existing dislike harness. observe() gains a feedback POST that writes nothing per observer. The senders are accounts distinct from every observer. In SC-016, the sender's own pages are asserted unchanged by a separate check that SC-017 replaces. A two-world subtest shows comment ids are not shifted by feedback.",
+    "reversibility": "cheap",
+    "rationale": "Byte-identical observations across worlds that differ only in secret data catch leaks a string grep misses: counts, classes, Location headers, id gaps. The harness is already proven on dislikes. Keeping the senders outside observe() means SC-017's permitted sink (the sender's own page) does not force a rewrite of observe."
+   },
+   {
+    "decision": "Four name fences, the only seams this design adds:\n- only internal/feedback names the feedback tables in SQL;\n- only admin.go calls Owner(Inbox|Reply)*;\n- only reader.go calls SenderThreads;\n- internal/feedback never opens a transaction.\nEach gets one fire row and one quiet row in the corpus, and nothing more.",
+    "reversibility": "cheap",
+    "rationale": "These are the declassifying sinks of the label model. Routes the hand-written observation list misses (/raw, /healthz, /static, /auth/*) then have no path to feedback data by construction. The rules copy shapes already in .taad/fitness.yaml (OwnerTally, the comments SQL fence, no-transaction). The SenderThreads fence is written now because SC-017 has no design lap in which to add it. Bounded_by names the known holes, and stops there (lessons #939, #957)."
+   },
+   {
+    "decision": "SC-017's shape is settled here:\n- the reply route is an adminRoutes row whose handler, in admin.go, checks canonicalID, then OwnerReplyTarget, then parses the body, then calls OwnerReply;\n- SenderThreads is read in renderReader only for a signed-in non-owner on stateFound, and a read error becomes stateUnavailable;\n- the sender's thread is drawn after the form's action.\nBlocked senders are left to SC-021: Send stores them, and nothing marks them yet.",
+    "reversibility": "cheap",
+    "rationale": "Looking up the target first mirrors postComment's report-first order, and makes the owner's POST to /admin/feedback/x/reply a 404, which is what the access matrix expects of a parameterised row. Skipping the owner keeps observe()'s owner observations stable. The brief moves the 'blocked' marking to SC-021, and OwnerInbox leaves room for an EXISTS on blocked_accounts with no schema change."
+   }
+  ],
+  "proposals": [
+   {
+    "designer": "practice",
+    "selected": "core",
+    "note": "Adopted from practice:\n- the separate table and package;\n- the single 0005 that includes feedback_replies;\n- the #feedback fragment for success and signed out alike;\n- the postFeedback and SenderThreads names;\n- senders kept distinct from the observers;\n- TestFeedbackFollowsReportLifecycle pinning the two-hop cascade;\n- running the finish test on a scratch copy and expecting exactly the reply failure.\nIts over_engineering_flag was honoured: no workflow states, notifications, paging or rate limit. Its risk about tests pinning user_version 4 was checked and does not apply: the store tests derive the version through newestVersion."
+   },
+   {
+    "designer": "crossdomain",
+    "selected": "partial",
+    "note": "Adopted from crossdomain:\n- the Owner* names for the owner-only read and the reply write, with their fence;\n- no row id to non-owners (the Sent and Reply types have no ID);\n- the two-world comment-id storage-channel subtest;\n- reply-target lookup before the body is parsed;\n- SenderThreads skipped for the owner.\nRejected:\n- the 0006 replies migration, which leaned on an SC-017 spike that will not exist and risked a number collision;\n- the #feedback-sent :target confirmation;\n- the name Mine, because a `.Mine` fence would hit votes.PublicView.Mine;\n- making the nonvoter observer a sender, which SC-017's permitted sink would break."
+   }
+  ],
+  "coherence_check": "Two proposals were composed. These are the seams checked and the changes made at each.\n\n(1) Ownership of the schema. Crossdomain put feedback_replies in 0006 and gave its two-hop cascade to an SC-017 spike. Practice put it in 0005 and pins it with a test in this slice. These cannot both stand, because SC-017 has no design or spike of its own. I kept 0005. The must-verify invariant from crossdomain (reports→feedback→feedback_replies) moves into this slice's TestFeedbackFollowsReportLifecycle, using raw-inserted reply rows, which tests are allowed to write.\n\n(2) Naming against the fences. Practice's fence `(ForOwner|Reply)` and crossdomain's reader read `Mine` would each fire on correct code, or fence a generic word. Mine collides with votes.PublicView.Mine, which report.html:14-19 already reads. I took crossdomain's Owner* names and practice's SenderThreads, so each fence matches only its own method.\n\n(3) Privacy test versus the SC-017 sink. Crossdomain's SC-016 test had the nonvoter observer send feedback and required its pages to be byte-identical. SC-017 deliberately changes exactly that page, which would force a rewrite of observe(). I redesigned the seam. The senders are accounts 20 and 21, outside observe(). SC-016 has a separate 'sender's own pages unchanged' subtest, and SC-017 replaces it with 'shows exactly its own thread'. TestDislikesDoNotInterfere and TestFeedbackDoesNotInterfere then survive SC-017 unedited apart from that subtest.\n\n(4) Error contract. There is one ErrBadBody sentinel (feedback.ErrBadBody == comments.ErrBadBody), and ErrNoTarget is feedback's own. The public route maps store errors to 503, as postComment does. The admin pages map them to 500, as adminReport does. This keeps the split the code already has.\n\n(5) Identifiers. Practice's design exposed no id to readers by accident; crossdomain's makes it a contract. It holds together because the success fragment is fixed, and only owner-side types (Message) carry ID.\n\n(6) Consistency model. Every write is one autocommit statement on the store.Open pool, as votes and comments are, and no piece assumes a transaction. SC-017's target-then-write pair treats a message deleted in between as ErrNoTarget, so it needs none.\n\n(7) The access matrix. adminPaths (admin_test.go:15-22) substitutes 'x' for {n}. The reply handler's canonicalID check answers 404 there, which is what the matrix expects.\n\n(8) The finish test's parser. It splits pages into pieces and reads aria-label and alt as text. No new markup puts a number beside a comment, like, dislike, view or open word, and each feedback-<n> element holds only its own sender's login.\n\nThe workaround-setting rule does not apply: this design steps around no outside defect. HBAND_TRUSTED_PROXIES being ignored is config behaviour, not a workaround. No documentation is planned. Nothing here has survived an empirical disagreement: the two proposals disagreed only on taste and packaging. The schema forks were settled by the measured spike (FK clauses) and by tests this slice owes (the two-hop cascade, a separate id sequence).",
+  "architecture_rules": [
+   {
+    "name": "only internal/feedback names the feedback tables in SQL",
+    "files": "**/*.go",
+    "must_not_match": [
+     "\\b(FROM|INTO|UPDATE|JOIN)\\s+feedback(_replies)?\\b",
+     "\\bUPDATE\\s+OR\\s+[A-Z]+\\s+feedback(_replies)?\\b",
+     "\\bFROM\\b[^\"`;]*,\\s*feedback(_replies)?\\b"
+    ],
+    "except_files": [
+     "internal/feedback/**",
+     "**/*_test.go"
+    ],
+    "because": "A second reader of the feedback tables can put a private message, or the fact that one exists, on a page that is not the owner's admin page or the sender's own view. The comments code is the likeliest place for such a read to creep in. A second writer bypasses Send's published-only check and its single-statement discipline. Known holes, as for the comments and votes rules: lower-case SQL, a table name built by concatenation, quoted or schema-qualified names, and views or triggers created in a .sql migration."
+   },
+   {
+    "name": "only the owner's admin page reads feedback with its senders or replies to it",
+    "files": "**/*.go",
+    "must_not_match": [
+     "\\.\\s*Owner(Inbox|Reply)\\w*\\b"
+    ],
+    "except_files": [
+     "internal/server/admin.go",
+     "internal/feedback/**",
+     "**/*_test.go"
+    ],
+    "because": "OwnerInbox returns every message on a report with each sender's login, and OwnerReply writes text that the sender alone will be shown. A reader handler, a template helper or a new endpoint that calls either one, or takes its method value, serves private feedback to readers or lets a non-owner answer as the author. Known hole: a method reached through an interface value, or a wrapper inside internal/feedback. TestFeedbackDoesNotInterfere catches those, and this rule does not."
+   },
+   {
+    "name": "only the reader page reads a sender's own feedback thread",
+    "files": "**/*.go",
+    "must_not_match": [
+     "\\.\\s*SenderThreads\\b"
+    ],
+    "except_files": [
+     "internal/server/reader.go",
+     "internal/feedback/**",
+     "**/*_test.go"
+    ],
+    "because": "SenderThreads returns one account's private messages and the author's replies, and it is safe only when keyed by the signed-in viewer's own GitHub ID, which renderReader takes from the session. Any other caller can key it with a request value and show one reader's thread to another. Quiet until SC-017 adds the method. Known hole: a call in reader.go keyed by something other than v.GitHubID. SC-017's per-label noninterference test is the guard for that."
+   },
+   {
+    "name": "feedback writes never open a transaction",
+    "files": "internal/feedback/**/*.go",
+    "must_not_match": [
+     "\\.Begin(Tx)?\\(",
+     "(?i)\\b(BEGIN|SAVEPOINT)\\b",
+     "\\bsql\\.Tx\\b"
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "Spike concurrent-vote-upserts-no-busy (lesson #949) measured read-then-write transactions on this store pool failing 215-253 times per run with SQLITE_BUSY or BUSY_SNAPSHOT, returned at once without waiting on busy_timeout, while single statements failed 0 times. A failed feedback send reaches the reader as a 503 and the message is lost. Known hole: a transaction opened outside the package and handed in through an interface."
+   }
+  ],
+  "cases": [
+   {
+    "behaviour": "send private feedback from a report",
+    "shape": "a signed-in non-owner sends a valid body on a published report",
+    "why": "This is the happy path. It needs the 303 to /reports/<stored slug>#feedback with no row id in the Location. It needs one feedback row with that report's id, the sender's github_id and the normalized body, and no comments row. The owner's /admin/reports/<slug> must then show an article id=feedback-<n> holding the text and the sender's login.",
+    "check": "go test -count=1 -run \"^TestFeedbackSend$\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "send private feedback from a report",
+    "shape": "the sender is not a signed-in same-site reader: signed out (with a normal, a garbage or an oversize body), or a cross-site Origin with a live session",
+    "why": "Signed out must answer 303 to #feedback and store nothing without parsing the form; the finish test requires the ghost message to be absent from the admin view. A cross-site POST must be refused with 403 by CrossOriginProtection before the handler runs. In both cases the feedback count stays 0.",
+    "check": "go test -count=1 -run \"^TestFeedbackRefusedSenders$\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "send private feedback from a report",
+    "shape": "body shapes:\n- refused: empty, whitespace only, 5001 runes, a NUL, DEL, U+0085, invalid UTF-8, no body field, two body fields, body only in the query string, form over 64 KiB;\n- accepted: exactly 5000 runes, CRLF and lone CR, multi-line text, literal <script>x</script>",
+    "why": "Each refused shape is a separate branch in Normalize or the handler, and each must answer 400 and store nothing. The accepted shapes pin the boundary (5000 is accepted), the stored form (line endings become LF, text is trimmed) and escaping: the markup must appear on the admin page as &lt;script&gt;. Lesson #957 says the real defects on the comments slice came from exactly these inputs.",
+    "check": "go test -count=1 -run \"^TestFeedbackBodies$\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "send private feedback from a report",
+    "shape": "the report is not published: draft, unpublished, deleted or unknown slug, or unpublished between the handler's lookup and the write",
+    "why": "The first four must give the same http.NotFound bytes to signed-in and signed-out visitors, so the route is no oracle for drafts. The race is the in-statement published check: Send on a draft report's id must return ErrNoTarget and write 0 rows.",
+    "check": "go test -count=1 -run \"^TestFeedbackHiddenReports$\" ./internal/server/ ; go test -count=1 -run \"^TestSendNeedsPublishedReport$\" ./internal/feedback/",
+    "material": true
+   },
+   {
+    "behaviour": "send and read feedback while the store is failing",
+    "shape": "three failures:\n- the session lookup fails (DROP TABLE sessions), with a live cookie and with an unknown 43-character cookie;\n- the feedback write fails (ALTER TABLE feedback RENAME TO feedback_gone);\n- the owner's inbox read fails",
+    "why": "Participant must turn the lookup outage into a 503 with nothing stored, not a signed-out 303 that silently drops the message (lesson #949). A write error must answer 503. An inbox read error must answer 500 on /admin/reports/x with no feedback- markup, never a page with an empty list.",
+    "check": "go test -count=1 -run \"^TestFeedbackStoreFailure$\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "keep feedback private",
+    "shape": "other readers (20 and 21) send feedback on x and on y while the anonymous, nonvoter, upvoter and owner-reader observers are recorded, including each observer's own feedback POST that writes nothing",
+    "why": "Every non-owner observation must be byte-identical before and after, and so must the owner's reader pages, across /, /reports/x, /reports/y, /reports, /admin and /admin/reports/x and the vote, comment and feedback POSTs. For sensitivity, /admin/reports/x must change and hold one feedback-<n> per x message with exactly its sender's login, and /admin/reports/y must hold only y's. A two-world subtest (feedback sent in one world, none in the other) must give an equal #comment-<n> Location when reader 40 then posts a real comment, so feedback does not shift public comment ids. TestDislikesDoNotInterfere must stay green with the extended observe().",
+    "check": "go test -count=1 -run \"^(TestFeedbackDoesNotInterfere|TestDislikesDoNotInterfere)$\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "keep feedback private",
+    "shape": "the observer is the sender: reader 20's own / and /reports/x before and after its own send",
+    "why": "In SC-016 only the author sees a message (build-check C3), so the sender's own pages must be byte-identical before and after. This is the one assertion SC-017 deliberately replaces with 'shows exactly its own thread', and recording it here makes that transition explicit instead of accidental.",
+    "check": "go test -count=1 -run \"^TestFeedbackDoesNotInterfere$/sender\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "feedback follows its report through the report's life",
+    "shape": "a report with feedback, plus raw-inserted feedback_replies rows, goes through Replace, unpublish, a second sign-in of the sender under a new login, and Delete",
+    "why": "After Replace, reports.id and the feedback count must be unchanged. After unpublishing, the POST must answer 404 while the admin page still lists the messages. After the re-sign-in, the admin page must show the new login with the count unchanged. After Delete, Library.Delete must return nil and leave 0 feedback and 0 feedback_replies rows, with foreign_key_check empty. This pins the spike's FK measurement in the suite and the recalled two-hop cascade before SC-017 depends on it (lesson #958).",
+    "check": "go test -count=1 -run \"^TestFeedbackFollowsReportLifecycle$\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "upgrade an existing database",
+    "shape": "a populated user_version-4 database (user, published report, comment, vote) opened by the new binary, and fresh databases at versions 1 to 4",
+    "why": "0005 runs through the hot migrate path (lesson #930). The result must be user_version == newestVersion, an empty foreign_key_check and the v4 rows intact. A failure here would be met first on the production file.",
+    "check": "go test -count=1 -run \"^TestFeedbackMigration\" ./internal/store/",
+    "material": true
+   },
+   {
+    "behaviour": "route the feedback POST",
+    "shape": "odd spellings and methods:\n- GET, HEAD and PUT on /reports/x/feedback;\n- a trailing slash and /extra;\n- POST /reports/feedback (a report slugged 'feedback');\n- //reports/x/feedback and /reports/x/../y/feedback;\n- an anonymous POST to a draft x against an unknown x",
+    "why": "Reader routes do not join the access matrix automatically (lesson #944), so the mux's 405 with Allow: POST, the 404s, the 307 cleanups and the identical NotFound must be pinned by hand rows mirroring the comment rows.",
+    "check": "go test -count=1 -run \"^TestReaderPathVariants$\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "show the feedback box on the shared reader layout",
+    "shape": "each kind of viewer: anonymous, signed-in non-owner, owner; on / and on /reports/<newest>; and the anonymous found-state blank in Chrome",
+    "why": "Anonymous must get the hint and no <textarea. The non-owner must get a form whose action is /reports/<slug>/feedback, with the box between #votes and #comments and outside every comment-<n>. The owner must get the admin link and no form. / and /reports/<newest> must be identical for each signed-in viewer (lesson #950). The new chrome must not carry a signal colour, or the found-state blank assay reports a script run (lesson #941). That assay launches the installed Chrome.",
+    "check": "go test -count=1 -run \"^(TestFeedbackBox|TestReaderPagesShareOneLayout)$\" ./internal/server/ ; go test -count=1 -run \"^TestReportScriptsNeverRun$\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "the owner reads feedback with its sender",
+    "shape": "list shapes:\n- a report with no feedback;\n- one with several messages from two senders;\n- a sender with an avatar and one without;\n- feedback on another report;\n- a draft report with feedback;\n- 2 dislikes cast",
+    "why": "The cases are: 'No feedback on this report yet.'; newest-first order with each article holding only its own sender's login; an img only when AvatarURL is set; another report's messages absent; a draft's feedback still listed; and exactly one number beside a dislike label on the page, which is what the finish test's count() requires.",
+    "check": "go test -count=1 -run \"^TestFeedbackOwnerList$\" ./internal/server/",
+    "material": true
+   },
+   {
+    "behaviour": "meet the E-005 finish line as far as SC-016 reaches",
+    "shape": "the planted finish test run against this slice's tree, which has no reply route yet",
+    "why": "Every assertion before the reply route is SC-016's: the form on the page, the sends, the anonymous refusal, the privacy sweeps, the feedback-<n> elements with their logins, the dislike count of 2 and the non-owner refusals. Any failure message other than the reply one is an SC-016 defect (lesson #951).",
+    "check": "With TAAD3_HOME set to an empty scratch folder: read `SELECT finish FROM epics WHERE id=43` in place on file:<engine home>/engine.db?mode=ro. Write finish[0].body to <scratch>/tests/acceptance/test_e005_1_private_feedback.py with ROOT replaced by the worktree path, and run `python -I <that file>`. It must exit 1, report exactly one failure, and that failure's message must contain 'the admin view offers no reply to the feedback'.",
+    "material": true
+   },
+   {
+    "behaviour": "show the feedback box and the inbox to a signed-in person in a real browser",
+    "shape": "a signed-in reader's /reports/<slug> and the owner's /admin/reports/<slug> rendered in headless Chrome",
+    "why": "Judged not worth a test. These pages run no script, so the DOM Chrome builds is the server HTML the httptest cases already check. The new CSS only widens the existing .comments selectors and reuses .body, which already wraps long text. The spike headless-chrome-signed-in-via-standin-oauth measured a recipe (http://localhost, stand-in GitHub, --dump-dom, under 1 s) that validation may use for a look. Its https/__Host- gap is open question Q-014's, which is not re-raised.",
+    "check": "none: judged not material (validation may use the spike's --dump-dom recipe)",
+    "material": false
+   }
+  ],
+  "code_claims": [
+   {
+    "path": "internal/server/router.go",
+    "symbol": "postComment",
+    "claim": "New registers POST /reports/{slug}/comments to a.postComment on the main mux, which is wrapped by Identify and then CrossOriginProtection, so a route registered next to it gets the same protection."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "app",
+    "claim": "The app struct holds votes *votes.Book and comments *comments.Book, both built in New from st.DB() and the clock."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "adminRoutes",
+    "claim": "Every adminRoutes row is registered on adminMux wrapped in auth.OwnerRoute, and adminMux is mounted only at /admin and /admin/ behind auth.RequireOwner."
+   },
+   {
+    "path": "internal/server/comment.go",
+    "symbol": "postComment",
+    "claim": "postComment sets Cache-Control: no-store, resolves the writer with auth.Participant (an identity outage answers 503), looks up PublishedBySlug before saying anything about the visitor (ErrNotFound answers http.NotFound), sends a signed-out visitor to /reports/<stored slug>#comments through auth.SeeOther without parsing, and requires exactly one PostForm body value."
+   },
+   {
+    "path": "internal/server/comment.go",
+    "symbol": "maxCommentBody",
+    "claim": "maxCommentBody is 64 << 10 and is applied with http.MaxBytesReader before ParseForm."
+   },
+   {
+    "path": "internal/server/comment.go",
+    "symbol": "canonicalID",
+    "claim": "canonicalID accepts exactly one value that is a positive decimal with no sign and no leading zero, and rejects anything else."
+   },
+   {
+    "path": "internal/comments/comments.go",
+    "symbol": "Normalize",
+    "claim": "Normalize refuses invalid UTF-8, C0 controls other than newline and tab, DEL and C1 controls, turns CRLF and lone CR into LF, trims, and refuses an empty result or more than MaxRunes (5000) runes, returning ErrBadBody."
+   },
+   {
+    "path": "internal/comments/comments.go",
+    "symbol": "postSQL",
+    "claim": "postSQL is a single INSERT … SELECT FROM reports r WHERE r.id = ? AND r.status = 'published', and Post turns RowsAffected 0 into ErrNoTarget."
+   },
+   {
+    "path": "internal/comments/comments.go",
+    "symbol": "visibleSQL",
+    "claim": "Comment visibility is decided at read time by removed_at and a NOT EXISTS lookup in blocked_accounts on github_id, the join SC-021 can reuse to mark feedback senders."
+   },
+   {
+    "path": "internal/store/migrations/0004_comments.sql",
+    "symbol": "AUTOINCREMENT",
+    "claim": "The comments table uses INTEGER PRIMARY KEY AUTOINCREMENT, with report_id REFERENCES reports (id) ON DELETE CASCADE and github_id REFERENCES users (github_id) with no action clause."
+   },
+   {
+    "path": "internal/store/migrations/0004_comments.sql",
+    "symbol": "trigger depth",
+    "claim": "The 0004 header records the measurement that SQLite carries a cascade through parent links and stops past its trigger depth of 1000, so cascades do chain."
+   },
+   {
+    "path": "internal/store/migrations/0001_identity.sql",
+    "symbol": "avatar_url",
+    "claim": "users has github_id as its INTEGER PRIMARY KEY, a login column and avatar_url with default '', and no owner or role column."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminRoutes",
+    "claim": "adminRoutes maps GET /admin/reports/{slug} to a.adminReport and has no feedback row."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminReport",
+    "claim": "adminReport looks the report up with BySlug (404 on ErrNotFound, 500 on any other error), reads votes.OwnerTally (500 on error), and renders admin_report.html with Report, Tally and Form."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminData",
+    "claim": "adminData embeds pageData and has the fields Error, Form, Reports, Report and Tally, with no feedback field."
+   },
+   {
+    "path": "internal/server/admin_test.go",
+    "symbol": "adminPaths",
+    "claim": "adminPaths enumerates adminRoutes(nil) and replaces every route parameter with 'x', so a new parameterised admin row joins the access matrix with no test edits."
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "symbol": "tally",
+    "claim": "Under <h2>Votes</h2> the page draws the like count and the dislike count as two <p class=\"tally\"> lines, followed by the Preview section."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "renderReader",
+    "claim": "renderReader resolves the viewer with auth.ViewerFrom, turns a votes or comments Tree read error into stateUnavailable (503), and sets Cache-Control: private, no-cache."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "readerData",
+    "claim": "readerData has pageData, Report, HasReport, Unavailable, Votes (votes.PublicView) and Thread, and no feedback field."
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "symbol": "votes",
+    "claim": "Inside the HasReport branch, report.html draws <section class=\"votes\" id=\"votes\">, then {{template \"comments\" .}}."
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "symbol": ".body",
+    "claim": ".body already sets white-space: pre-wrap and overflow-wrap: anywhere, and the section borders use the neutral #8884."
+   },
+   {
+    "path": "internal/auth/session.go",
+    "symbol": "Participant",
+    "claim": "Participant returns ErrIdentityUnavailable wrapping the store error when the session lookup failed, ErrSignedOut for an anonymous visitor, and the Viewer otherwise."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "ViewerFrom",
+    "claim": "A rule bans ViewerFrom( in every internal/server Go file except reader.go, admin.go and tests, so a new internal/server/feedback.go is covered with no edit."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "OwnerTally",
+    "claim": "A rule forbids `\\.\\s*OwnerTally\\b` outside internal/server/admin.go, internal/votes and tests, the shape the Owner(Inbox|Reply) fence copies."
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "symbol": "cmt-vf-f004",
+    "claim": "Corpus row cmt-vf-f004 expects the ViewerFrom rule to fire on internal/server/feedback.go."
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "symbol": "observe",
+    "claim": "observe records the anonymous, nonvoter and upvoter GETs of /, /reports/x, /reports/y, /reports, /admin and /admin/reports/x, each observer's vote and comment POSTs that write nothing, and the owner's reader pages."
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "symbol": "TestReaderPagesShareOneLayout",
+    "claim": "TestReaderPagesShareOneLayout requires / and /reports/newest to be the same response for owner and non-owner sessions, and requires that the anonymous page contain no <textarea."
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "symbol": "TestReaderPathVariants",
+    "claim": "TestReaderPathVariants pins the comment route's variants by hand: GET, HEAD and PUT, a trailing slash, an extra segment, POST /reports/comments, and the // and /../ spellings."
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "symbol": "TestCommentStoreFailure",
+    "claim": "TestCommentStoreFailure breaks the store by renaming the comments table and by dropping the sessions table, the techniques the feedback store-failure test copies."
+   },
+   {
+    "path": "internal/store/store_test.go",
+    "symbol": "newestVersion",
+    "claim": "newestVersion derives the newest user_version from the number of embedded migrations, so the store tests follow a new 0005 without edits."
+   }
+  ],
+  "outside_claims": [
+   {
+    "claim": "SQLite AUTOINCREMENT keeps a separate counter per table in sqlite_sequence and never hands out a rowid again, even after the largest row is deleted. A plain INTEGER PRIMARY KEY may reuse max(rowid)+1.",
+    "evidence": "recalled",
+    "source": "memory (SQLite documentation, 'SQLite Autoincrement')",
+    "if_wrong": "A stale reply form could attach the author's reply to another reader's message, and feedback could shift public comment ids. The two-world comment-id subtest catches the second; the first would need a different key for the reply route."
+   },
+   {
+    "claim": "With foreign_keys=ON, one DELETE of a reports row cascades through feedback to feedback_replies (two hops of ON DELETE CASCADE) and returns no error.",
+    "evidence": "recalled",
+    "source": "memory, supported by 0004_comments.sql's header recording that cascades chain up to trigger depth 1000",
+    "if_wrong": "Library.Delete fails with FOREIGN KEY constraint failed (787) once replies exist, and feedback_replies' FK clause must change. TestFeedbackFollowsReportLifecycle settles it in this slice, before SC-017 writes any reply."
+   },
+   {
+    "claim": "0004's report and user FK clauses, copied word for word into a feedback table, migrate a populated v4 database to v5 with an empty foreign_key_check. Replace and the SignIn upsert keep the feedback rows, and Library.Delete returns nil and cascades them.",
+    "evidence": "measured",
+    "source": "spike feedback-fk-survives-replace-delete-upsert (go)",
+    "if_wrong": "The schema's FK clauses would have to change."
+   },
+   {
+    "claim": "The E-005 finish test does the following:\n- sends feedback as POST /reports/<slug>/feedback with one 'body' field;\n- reads messages only from elements whose id fully matches feedback-\\d+;\n- requires the raw text '/reports/<slug>/feedback' before the sender's own message and the reply text;\n- requires exactly one number beside a dislike label on the admin page;\n- follows only same-host redirects and pins neither the 303 nor any fragment;\n- also POSTs /admin/feedback/<n>/reply with one 'body' field;\n- sets HBAND_TRUSTED_PROXIES, which config ignores.",
+    "evidence": "measured",
+    "source": "spike e005-finish-feedback-interface (no-go only on the SC-017 reply route), and the finish test body in this brief",
+    "if_wrong": "The markup or route contract would have to change to meet the planted test."
+   },
+   {
+    "claim": "A single headless Chrome 158 run against the built binary with HBAND_BASE_URL=http://localhost:<port> and a stand-in GitHub ends signed in on the target page. It was not tested over https with __Host- or Secure cookies.",
+    "evidence": "measured",
+    "source": "spike headless-chrome-signed-in-via-standin-oauth (go)",
+    "if_wrong": "Any signed-in real-browser look at validation would need lesson #936's TLS front. No case in this slice depends on it."
+   },
+   {
+    "claim": "net/http's CrossOriginProtection answers 403 to a non-safe request whose Origin is not the trusted origin (or whose Sec-Fetch-Site is cross-site), before the wrapped handler runs.",
+    "evidence": "recalled",
+    "source": "memory (Go 1.25 net/http documentation); a decided project stack",
+    "if_wrong": "A cross-site feedback POST could store a message in a signed-in reader's name. TestFeedbackRefusedSenders would go red."
+   },
+   {
+    "claim": "On go1.27.4, ServeMux answers 405 with Allow: POST for GET, HEAD and PUT on a POST-only pattern, and 307 for cleaned path spellings.",
+    "evidence": "measured",
+    "source": "the comment rows of TestReaderPathVariants pass in the build check's go test -count=1 ./... (exit 0); lesson #934",
+    "if_wrong": "Only the expected outcomes in the new path-variant rows would change, never the routing."
+   },
+   {
+    "claim": "html/template escapes {{.Body}} and {{.Login}} for their context, in element text and in attribute values such as aria-label.",
+    "evidence": "recalled",
+    "source": "memory (Go html/template documentation)",
+    "if_wrong": "A reader could inject markup into the owner's admin page. The <script> body shape in TestFeedbackBodies would go red."
+   }
+  ],
+  "decidable_disagreements": [],
+  "taste_disagreements": [
+   "Where feedback_replies is created. Practice puts it in 0005 now; crossdomain puts it in a 0006 owned by SC-017. Chosen: 0005, because SC-017 has no design or spike lap. A reviewer who prefers this slice's schema strictly minimal can move it, at the cost of an unpinned two-hop cascade.",
+   "The success fragment and confirmation. Practice uses #feedback and no confirmation; crossdomain uses #feedback-sent with a CSS :target 'Sent to the author.' note. Chosen: #feedback.",
+   "Method names: ForOwner/Reply/SenderThreads (practice) against OwnerInbox/OwnerReply/OwnerReplyTarget/Mine (crossdomain). Chosen: Owner* for the owner side and SenderThreads for the reader side, because each fence then matches only its own method.",
+   "Admin markup: <article id=feedback-n> (practice) against <li id=feedback-n> in an <ol> (crossdomain). Chosen: article. The finish test's parser handles both.",
+   "Reply handler order: practice parses the body before the target lookup, crossdomain looks the target up first. Chosen: lookup first.",
+   "Whether SenderThreads is read for the owner's own reader page. Chosen: not, because the owner's box shows the admin link."
+  ],
+  "epic_parts": [
+   {
+    "key": "SC-016",
+    "builds": "This slice builds:\n- migration 0005, both tables and indexes;\n- internal/feedback with New, Send, OwnerInbox, Message, ErrBadBody and ErrNoTarget;\n- postFeedback and its router line, and the app field;\n- feedback.html with three branches, included in report.html, plus the site.css selector widening;\n- the inbox section in admin_report.html, with adminData.Feedback and the OwnerInbox call in adminReport;\n- the four architecture rules with their corpus rows;\n- the tests listed in `cases`.\n\nTests show it: TestFeedbackSend, TestFeedbackRefusedSenders, TestFeedbackBodies, TestFeedbackHiddenReports, TestFeedbackStoreFailure, TestFeedbackDoesNotInterfere (other readers, sender's own pages, comment ids), TestFeedbackFollowsReportLifecycle, TestFeedbackMigration*, TestReaderPathVariants, TestFeedbackBox, TestReaderPagesShareOneLayout and TestFeedbackOwnerList all pass. The scratch run of the E-005 finish test fails only with 'the admin view offers no reply to the feedback'."
+   },
+   {
+    "key": "SC-017",
+    "builds": "Built from this design with no design of its own.\n\nComponents and contracts:\n- 'SC-017 reply route': the adminRoutes row POST /admin/feedback/{n}/reply and adminFeedbackReply in admin.go, in the order canonicalID → OwnerReplyTarget → parse exactly one body under maxCommentBody → OwnerReply → 303 to /admin/reports/<slug>#feedback-<n>;\n- feedback.Reply, OwnerReplyTarget and OwnerReply (single INSERT…SELECT), and Message.Replies filled by OwnerInbox;\n- feedback.Sent (no ID) and SenderThreads;\n- readerData.OwnFeedback, filled in renderReader only for a signed-in non-owner on stateFound, with an error becoming stateUnavailable;\n- the replies plus a reply form inside each admin feedback-<n> article, and the own-thread <ol class=\"own-feedback\"> after </form> in feedback.html.\nThe schema is already in 0005 (no new migration), and the OwnerReply and SenderThreads fences already exist.\n\nCases its tests must cover, each a test in internal/server/feedback_test.go unless named:\n(a) The owner replies with a valid body: 303 to #feedback-<n>, one feedback_replies row, the reply under its message on the admin page, and on the sender's /reports/<slug> the message and the reply after the form's action text.\n(b) n is 'x', '0', '-1', '+1' or '01': 404, nothing written. The automatic TestAdminAccessMatrix row stays green.\n(c) An unknown n, or the n of a message deleted with its report: 404, nothing written.\n(d) Reply body shapes, the same refused and accepted table as TestFeedbackBodies: 400, or stored normalized.\n(e) A reply to a draft report's feedback is stored, and the reader sees it only once the report is published.\n(f) Non-owner and anonymous POSTs: 403, through the access matrix.\n(g) Per-label noninterference. Two worlds differ only in reader B's message and the owner's reply to it. Every observe() observation, and reader A's own pages (A has their own feedback), are byte-identical. B's page shows exactly B's thread and nothing of A's. This replaces SC-016's 'sender's own pages unchanged' subtest.\n(h) The sender sees only their own messages on that report: not their message on another report, not another reader's.\n(i) TestReaderPagesShareOneLayout, seeded with the sender's feedback and a reply, keeps / and /reports/newest identical for that sender.\n(j) A SenderThreads read failure gives the reader page 503 (rename feedback_replies). A reply write failure gives 500.\n(k) No reader page contains 'feedback-' followed by a digit or '/admin/feedback/'.\n(l) TestFeedbackFollowsReportLifecycle repeated with replies written through OwnerReply.\n(m) `python tests/acceptance/test_e005_1_private_feedback.py` exits 0."
+   }
+  ],
+  "filed_for_later": [],
+  "cross_domain_transfer": {
+   "source_domain": "Language-based information-flow security: Goguen–Meseguer noninterference, the decentralized label model (Myers and Liskov), and Lampson's covert storage channels",
+   "pattern": "Each feedback message carries the label {its sender, the pinned owner} from the moment it is written, and a reply inherits its message's label through feedback_id. Data leaves the store only through named declassifying sinks: OwnerInbox and OwnerReply* (the owner's admin page) and SenderThreads (the sender's own reader page, from SC-017). Correctness means that for every observer, what they can see is identical across worlds that differ only in data whose label excludes them. Any counter shared between labelled and public state is a storage channel and must be cut.",
+   "transfer_found": true,
+   "rationale": "The repo already proves dislike privacy as the single-secret case: TestDislikesDoNotInterfere's adminTally is called 'the declassifying sink'. Generalising it to one label per message produced three choices that cost nothing to build and are in this design: a separate table with its own AUTOINCREMENT sequence (so comment ids do not reveal feedback volume), no row id in any reader-facing type or Location, and name fences on the sinks. The label idea was not taken further; there is no label runtime and no per-row ACL.",
+   "invariants": [
+    {
+     "precondition": "For a fixed harness clock and fixed state, every observed response is deterministic.",
+     "status": "holds",
+     "evidence": "TestDislikesDoNotInterfere compares whole responses byte for byte with sameObservation and passes in the build check's go test -count=1 ./... (exit 0)."
+    },
+    {
+     "precondition": "The observation set covers every route a non-owner can reach.",
+     "status": "fails",
+     "evidence": "observe()'s list is hand-written (lesson #948: a validator needed 78 extra observations). The mitigation is structural, not more observations: only internal/feedback may name the tables, only admin.go may call Owner*, and only reader.go may call SenderThreads. Unlisted routes (/raw, /healthz, /static, /auth/*) therefore have no path to feedback data. The new POST is added to observe()."
+    },
+    {
+     "precondition": "A message's label is fixed when it is written: one sender identity and one owner.",
+     "status": "holds",
+     "evidence": "The sender is auth.Participant's GitHubID, stored as github_id, which a login rename does not change (the spike measured the SignIn upsert updating in place). The owner is the pinned HBAND_OWNER_GITHUB_ID checked by auth.IsOwner."
+    },
+    {
+     "precondition": "Feedback shares no counter with public output, in particular not the comment id sequence or the sender's Location header.",
+     "status": "must-verify",
+     "evidence": "Separate per-table sqlite_sequence counters are recalled SQLite behaviour. They are pinned by the comment-ids subtest of TestFeedbackDoesNotInterfere in this slice. The Location is the fixed #feedback by contract."
+    },
+    {
+     "precondition": "A reply's label is its message's label, so deleting a report deletes its messages and their replies.",
+     "status": "must-verify",
+     "evidence": "The two-hop ON DELETE CASCADE is recalled. It is pinned in this slice by TestFeedbackFollowsReportLifecycle with raw-inserted feedback_replies rows: Library.Delete must return nil, leave 0 rows, and leave foreign_key_check empty."
+    }
+   ]
+  },
+  "channeled_experts": [
+   "Joseph Goguen and José Meseguer (noninterference)",
+   "Andrew Myers (decentralized label model)",
+   "Butler Lampson (confinement and covert storage channels)",
+   "SQLite rowid/AUTOINCREMENT semantics"
+  ],
+  "prior_art": [
+   {
+    "pattern": "Private feedback is a separate request type from comments, attached to the page and seen only by its author or admin. The requester argues it should not be a comment at all.",
+    "where": "https://github.com/BookStackApp/BookStack/issues/4988",
+    "authority": "oss",
+    "basis": "cited",
+    "source_date": "2024-05-08 (updated 2026-04-28)"
+   },
+   {
+    "pattern": "'Submit private feedback to the author' is a separate action beside the comment UI, and only authors and admins see what is sent.",
+    "where": "https://help.showpad.com/hc/en-us/articles/360019441259-Provide-private-feedback-on-assets",
+    "authority": "official",
+    "basis": "cited",
+    "source_date": "2026-04-16"
+   },
+   {
+    "pattern": "Feedback is its own POST action on the report resource, separate from discussion, and it never changes the report's state.",
+    "where": "https://github.com/PostHog/posthog/pull/76974",
+    "authority": "oss",
+    "basis": "cited",
+    "source_date": "2026-08-03"
+   },
+   {
+    "pattern": "Post/Redirect/Get: answer a form POST with a 303 to a GET of the page, so a reload never resubmits.",
+    "where": "Common web practice; already the convention for vote and comment in this repo",
+    "authority": "community",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "SQLite AUTOINCREMENT never reuses a rowid after the largest row is deleted, and keeps a per-table counter in sqlite_sequence.",
+    "where": "SQLite documentation, 'SQLite Autoincrement'",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Noninterference: a low observer's view is unchanged by high inputs, tested by comparing observations across worlds that differ only in secrets, with a sensitivity check on the permitted sink.",
+    "where": "Goguen and Meseguer, 'Security Policies and Security Models' (1982); already applied in this repo's TestDislikesDoNotInterfere",
+    "authority": "community",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Covert storage channels through shared counters and identifiers.",
+    "where": "Lampson, 'A Note on the Confinement Problem' (1973)",
+    "authority": "community",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Per-datum labels naming the readers allowed, with release only at explicit declassification points.",
+    "where": "Jif and Myers and Liskov's decentralized label model",
+    "authority": "oss",
+    "basis": "recalled"
+   }
+  ],
+  "whats_new": [
+   "internal/store/migrations/0005_feedback.sql: the feedback and feedback_replies tables (STRICT, AUTOINCREMENT, 0004's FK clauses word for word) and their two indexes",
+   "internal/feedback/feedback.go: Book, New, Send, OwnerInbox, Message, ErrBadBody (== comments.ErrBadBody) and ErrNoTarget; SC-017 adds Reply, OwnerReplyTarget, OwnerReply, Sent and SenderThreads",
+   "internal/server/feedback.go: postFeedback for POST /reports/{slug}/feedback",
+   "router.go: the feedback *feedback.Book app field and the route registration",
+   "internal/server/templates/feedback.html: the 'Feedback for the author' section with owner, reader and anonymous branches, included in report.html between the votes and comments",
+   "admin_report.html: the feedback inbox section after the Votes tally (article id=feedback-<n>); adminData.Feedback, filled by adminReport through OwnerInbox",
+   "site.css: .feedback and .feedback-inbox added to the existing section and textarea selectors, plus .feedback-message, all in neutral colours",
+   "Four fitness rules (feedback-table SQL fence, Owner* call fence, SenderThreads call fence, no transactions in internal/feedback), with fire and quiet corpus rows",
+   "internal/server/feedback_test.go: the harness helper h.postFeedback and nine test functions, including the noninterference test with its sender and comment-id subtests",
+   "internal/feedback/feedback_test.go and internal/store/feedback_migration_test.go",
+   "Edits: observe() gains a feedback POST per observer; TestReaderPathVariants gains the /feedback rows",
+   "SC-017 later: the adminRoutes reply row and adminFeedbackReply in admin.go, readerData.OwnFeedback in renderReader, the reply forms on the admin page and the own-thread list"
+  ],
+  "whats_reused": [
+   "auth.Participant for the sender, and auth.SeeOther for every redirect",
+   "postComment's handler order, maxCommentBody, and canonicalID (canonicalID for SC-017's {n})",
+   "comments.Normalize, comments.MaxRunes and comments.ErrBadBody for feedback and reply bodies",
+   "The single-statement INSERT…SELECT with the published check inside it (the comments.postSQL and votes.Cast pattern)",
+   "0004_comments.sql's report and user FK clauses and its AUTOINCREMENT, word for word, as the spike measured",
+   "The users join for the current login and avatar (the treeSQL pattern)",
+   "adminReport, admin_report.html and the RequireOwner/OwnerRoute gate; adminRoutes' automatic enrolment in the access matrix for SC-017's row",
+   "The .body CSS (pre-wrap, overflow-wrap: anywhere) and the byline, login, avatar and badge classes",
+   "newDislikeWorld, observe, sameObservation and sameResponse as the noninterference harness",
+   "The OwnerTally-style name fence, the comments SQL fence and the no-transaction rule shapes in .taad/fitness.yaml; the existing ViewerFrom fence already covers feedback.go",
+   "TestCommentStoreFailure's store-breaking techniques and TestCommentsMigrationFromV2AndV3's migration-test shape",
+   "The migration loader unchanged; store tests follow the new file through newestVersion",
+   "Spike headless-chrome-signed-in-via-standin-oauth's measured recipe, for any signed-in look at validation"
+  ],
+  "stack_chosen": [],
+  "open_questions": [],
+  "retier": {
+   "tier": "high",
+   "why": "Four reasons:\n- The design adds a forward-only migration (0005, two tables) through internal/store/migrate.go, which lesson #930 calls security-adjacent. Once deployed, its schema cannot be undone on the production database.\n- It creates a new privacy boundary under a project constraint: only the author sees feedback.\n- It is the whole epic's design. SC-017's owner-only write route, and the reader-side release of private replies, are built from it with no design or critique of their own, so this critique is the only review those seams get.\n- Lesson #952 records that, on this project, slices adding a table plus a public endpoint needed large-slice review."
+  }
+ }
+}

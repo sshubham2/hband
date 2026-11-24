@@ -1,0 +1,133 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-007",
+ "title": "Signed-in reader sends private feedback from a report, and the owner reads it with its sender in that report's admin view",
+ "status": "active",
+ "branch": "slice/SL-007",
+ "opened_at": "2026-11-24T04:55:09.626Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C1: A signed-in reader can send a private feedback message from a report page (form on /reports/<slug>, a public POST handler that takes it only from a signed-in reader, and storage for it): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C2: The feedback box is separate from public comments: its own form and its own write, and a message never appears in the comment thread: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C3: Only the author can see feedback messages: not on any reader page, including the sender's own view of the report, and not through any route a non-owner can reach: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4: The owner reads each report's feedback, each message with its sender (GitHub login/avatar), on that report's admin page next to its dislike count: missing"
+  },
+  {
+   "stage": "risk-spike",
+   "issue": "e005-finish-feedback-interface: not measurable on any machine here: Whether the E-005 finish test passes against a built binary [N-059] -- needs first: The one finish test walks the whole E-005 scenario, so it cannot pass until the reply route exists: an adminRoutes row POST /admin/feedback/{n}/reply taking one 'body' field (SC-017). That row has to join the owner access matrix. The send/read half (SC-016) can be built to the assumed interface, but its finish check stays red until SC-017 lands."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Where feedback_replies is created. Practice puts it in 0005 now; crossdomain puts it in a 0006 owned by SC-017. Chosen: 0005, because SC-017 has no design or spike lap. A reviewer who prefers this slice's schema strictly minimal can move it, at the cost of an unpinned two-hop cascade."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "The success fragment and confirmation. Practice uses #feedback and no confirmation; crossdomain uses #feedback-sent with a CSS :target 'Sent to the author.' note. Chosen: #feedback."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Method names: ForOwner/Reply/SenderThreads (practice) against OwnerInbox/OwnerReply/OwnerReplyTarget/Mine (crossdomain). Chosen: Owner* for the owner side and SenderThreads for the reader side, because each fence then matches only its own method."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Admin markup: <article id=feedback-n> (practice) against <li id=feedback-n> in an <ol> (crossdomain). Chosen: article. The finish test's parser handles both."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Reply handler order: practice parses the body before the target lookup, crossdomain looks the target up first. Chosen: lookup first."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Whether SenderThreads is read for the owner's own reader page. Chosen: not, because the owner's box shows the admin link."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T05:06:30.169Z",
+     "head": "ebacc8d1f9debb5192b83db6bb0f8f03c56c4572",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T05:33:50.944Z",
+     "head": "ebacc8d1f9debb5192b83db6bb0f8f03c56c4572",
+     "summary": "The design holds up against the tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T05:45:21.364Z",
+     "head": "ebacc8d1f9debb5192b83db6bb0f8f03c56c4572",
+     "summary": "All five first-pass findings are real and correctly filed as minor.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}

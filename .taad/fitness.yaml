@@ -345,3 +345,61 @@ rules:
       serviceWorker.register, form.submit() and requestSubmit(), outerHTML reached through a
       variable or bracket access, and any DOM sink the list does not name. The glob also
       matches site.css, so the rule is live before thread.js exists.'
+
+  # settled by SL-007
+  - name: only internal/feedback names the feedback tables in SQL
+    files: '**/*.go'
+    must_not_match:
+    - \b(FROM|INTO|UPDATE|JOIN)\s+feedback(_replies)?\b
+    - \bUPDATE\s+OR\s+[A-Z]+\s+feedback(_replies)?\b
+    - \bFROM\b[^"`;]*,\s*feedback(_replies)?\b
+    because: 'A second reader of the feedback tables can put a private message, or the fact
+      that one exists, on a page that is not the owner''s admin page or the sender''s own view.
+      The comments code is the likeliest place for such a read to creep in. A second writer
+      bypasses Send''s published-only check and its single-statement discipline. Known holes,
+      as for the comments and votes rules: lower-case SQL, a table name built by concatenation,
+      quoted or schema-qualified names, and views or triggers created in a .sql migration.'
+    except_files:
+    - internal/feedback/**
+    - '**/*_test.go'
+  - name: only the owner's admin page reads feedback with its senders or replies to it
+    files: '**/*.go'
+    must_not_match:
+    - \.\s*Owner(Inbox|Reply)\w*\b
+    because: 'OwnerInbox returns every message on a report with each sender''s login, and OwnerReply
+      writes text that the sender alone will be shown. A reader handler, a template helper or
+      a new endpoint that calls either one, or takes its method value, serves private feedback
+      to readers or lets a non-owner answer as the author. Known hole: a method reached through
+      an interface value, or a wrapper inside internal/feedback. TestFeedbackDoesNotInterfere
+      catches those, and this rule does not.'
+    except_files:
+    - internal/server/admin.go
+    - internal/feedback/**
+    - '**/*_test.go'
+  - name: only the reader page reads a sender's own feedback thread
+    files: '**/*.go'
+    must_not_match:
+    - \.\s*SenderThreads\b
+    because: 'SenderThreads returns one account''s private messages and the author''s replies,
+      and it is safe only when keyed by the signed-in viewer''s own GitHub ID, which renderReader
+      takes from the session. Any other caller can key it with a request value and show one
+      reader''s thread to another. Quiet until SC-017 adds the method. Known hole: a call in
+      reader.go keyed by something other than v.GitHubID. SC-017''s per-label noninterference
+      test is the guard for that.'
+    except_files:
+    - internal/server/reader.go
+    - internal/feedback/**
+    - '**/*_test.go'
+  - name: feedback writes never open a transaction
+    files: internal/feedback/**/*.go
+    must_not_match:
+    - \.Begin(Tx)?\(
+    - (?i)\b(BEGIN|SAVEPOINT)\b
+    - \bsql\.Tx\b
+    because: 'Spike concurrent-vote-upserts-no-busy (lesson #949) measured read-then-write transactions
+      on this store pool failing 215-253 times per run with SQLITE_BUSY or BUSY_SNAPSHOT, returned
+      at once without waiting on busy_timeout, while single statements failed 0 times. A failed
+      feedback send reaches the reader as a 503 and the message is lost. Known hole: a transaction
+      opened outside the package and handed in through an interface.'
+    except_files:
+    - '**/*_test.go'

@@ -1,0 +1,134 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-007",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-24T05:33:50.944Z",
+ "head": "ebacc8d1f9debb5192b83db6bb0f8f03c56c4572",
+ "run_id": 11877,
+ "summary": "The design holds up against the tree. I found no blocker or major defect. These claims check out in the code:\n- the separate table and package;\n- a handler shaped like postComment that resolves the sender with auth.Participant;\n- a single INSERT…SELECT with the published check inside it;\n- the inbox on the existing owner-gated adminReport page;\n- the observe() extension.\n\nI read them in router.go, admin.go, comment.go, comments.go, 0004_comments.sql, vote_test.go:458-627, reader_test.go:210-264, admin_test.go:12-101 and fitness.yaml. siteCSP's img-src already allows avatars.githubusercontent.com, so the admin avatars will load. RequireOwner makes the inbox no-store. The owner-column rule in migrations is not tripped by the planned 0005 columns. The `.BySlug` fence does not fire on PublishedBySlug.\n\nThe two unproven preconditions are low risk:\n- **Separate counter.** Separate tables already have separate rowid spaces. If they did not, public comment-<n> ids would reveal how much feedback exists. The two-world comment-id subtest catches that.\n- **Two-hop cascade.** If it failed, Library.Delete would return 787 once any reply exists. TestFeedbackFollowsReportLifecycle catches that with raw reply rows before SC-017 writes any.\n\nThe cited BookStack #4988 says what the design says it does. It also asks for resolve/reject states, which the design leaves out on purpose.\n\nFive findings, all minor:\n1. Send returns the row id to the public handler, so \"no id reaches a non-owner\" depends on nobody copying postComment's `#comment-<id>` line.\n2. The 404 for a report unpublished between lookup and write is never exercised over HTTP, and the handler's sentinel can be copied wrong.\n3. Message.When is never said to be UTC, though the page prints a literal \"UTC\".\n4. SC-016's Message embeds a Reply type that the design only introduces in SC-017.\n5. (Backlog only.) A reader can flood an unbounded inbox that sits above the owner's Publish, Replace and Delete controls.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The design holds up against the tree. I found no blocker or major defect. These claims check out in the code:\n- the separate table and package;\n- a handler shaped like postComment that resolves the sender with auth.Participant;\n- a single INSERT…SELECT with the published check inside it;\n- the inbox on the existing owner-gated adminReport page;\n- the observe() extension.\n\nI read them in router.go, admin.go, comment.go, comments.go, 0004_comments.sql, vote_test.go:458-627, reader_test.go:210-264, admin_test.go:12-101 and fitness.yaml. siteCSP's img-src already allows avatars.githubusercontent.com, so the admin avatars will load. RequireOwner makes the inbox no-store. The owner-column rule in migrations is not tripped by the planned 0005 columns. The `.BySlug` fence does not fire on PublishedBySlug.\n\nThe two unproven preconditions are low risk:\n- **Separate counter.** Separate tables already have separate rowid spaces. If they did not, public comment-<n> ids would reveal how much feedback exists. The two-world comment-id subtest catches that.\n- **Two-hop cascade.** If it failed, Library.Delete would return 787 once any reply exists. TestFeedbackFollowsReportLifecycle catches that with raw reply rows before SC-017 writes any.\n\nThe cited BookStack #4988 says what the design says it does. It also asks for resolve/reject states, which the design leaves out on purpose.\n\nFive findings, all minor:\n1. Send returns the row id to the public handler, so \"no id reaches a non-owner\" depends on nobody copying postComment's `#comment-<id>` line.\n2. The 404 for a report unpublished between lookup and write is never exercised over HTTP, and the handler's sentinel can be copied wrong.\n3. Message.When is never said to be UTC, though the page prints a literal \"UTC\".\n4. SC-016's Message embeds a Reply type that the design only introduces in SC-017.\n5. (Backlog only.) A reader can flood an unbounded inbox that sits above the owner's Publish, Replace and Delete controls.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "defect",
+    "claim": "The design decides that no feedback row id ever reaches a non-owner. It enforces that with types: Sent and Reply have no ID field. But it still has Send(ctx, reportID, githubID, body) return (int64, error) with LastInsertId, straight into the one public handler. So the invariant holds at postFeedback only because the builder remembers to throw the id away. The obvious template is postComment, whose success line puts the id into the Location, and copying it compiles. TestFeedbackSend would catch it, but the leak stays writeable, and the design's own principle ('a type without the field … stops any template from printing it') applies here just as well.",
+    "file": "internal/server/comment.go",
+    "line": 93,
+    "evidence": "Design component 'internal/feedback package (Book)': 'Send(ctx, reportID, githubID int64, body string) (int64, error) … On success it returns LastInsertId.' Handler step 8: 'Success answers … \"#feedback\". The row id never reaches the sender.' Copy source: comment.go:93.",
+    "quote": {
+     "path": "internal/server/comment.go",
+     "line": 93,
+     "text": "auth.SeeOther(w, \"/reports/\"+rep.Slug+\"#comment-\"+strconv.FormatInt(id, 10))"
+    },
+    "fix": "Make Send return only error, keeping the single INSERT…SELECT and RowsAffected 0 → ErrNoTarget. Tests and the admin markup read ids through SQL or OwnerInbox. The public handler then never holds an id it could leak."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "In postFeedback, ErrNoTarget is reachable only by a race: the report passed PublishedBySlug, then was unpublished or deleted before Send. The planned case says it covers this, but its check runs only at package level (TestSendNeedsPublishedReport). So the contract line 'unpublished or deleted between the lookup and the write: 404' is never exercised over HTTP. ErrBadBody is aliased to comments.ErrBadBody, but ErrNoTarget is a new, separate sentinel. A handler copied from comment.go that still tests `comments.ErrNoTarget` compiles and passes every planned test, then answers 503 instead of 404 in that race.",
+    "file": "internal/server/comment.go",
+    "line": 84,
+    "end_line": 88,
+    "evidence": "Design case 'the report is not published … or unpublished between the handler's lookup and the write'. Its check is `TestFeedbackHiddenReports` (the four static states) plus `TestSendNeedsPublishedReport` in ./internal/feedback/. The design defines 'var ErrBadBody = comments.ErrBadBody' but gives 'ErrNoTarget' as feedback's own.",
+    "quote": {
+     "path": "internal/server/comment.go",
+     "line": 84,
+     "text": "case errors.Is(err, comments.ErrNoTarget):"
+    },
+    "fix": "Drive the branch over HTTP in TestFeedbackHiddenReports. In the test database only, create `CREATE TRIGGER fb_skip BEFORE INSERT ON feedback BEGIN SELECT RAISE(IGNORE); END;`, so PublishedBySlug succeeds but Send sees RowsAffected 0. Then assert a 404 with NotFound bytes and 0 rows. Simpler still: alias ErrNoTarget the way ErrBadBody is aliased, so either spelling is correct."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "claim": "The inbox prints `{{.When.Format \"2006-01-02 15:04 UTC\"}}`, and the contract promises 'a UTC time'. But Message.When is never specified as UTC, and the timestamp is stored as unix seconds. Every existing reader converts explicitly (comments tree.go:138, and reports.go:297-300 for the 'First published' line on the same page). A scan written as time.Unix(created, 0) prints local time with a false 'UTC' label. The planned cases never assert the drawn time. A production container running in UTC hides the bug, while the Windows build machine shows it.",
+    "file": "internal/comments/tree.go",
+    "line": 138,
+    "evidence": "Design: 'Message{…; When time.Time; …}' and the admin markup `<time datetime=\"…\">{{.When.Format \"2006-01-02 15:04 UTC\"}}</time>`. TestFeedbackOwnerList's listed checks cover order, login, avatar, other-report absence, drafts and the dislike number, but not the time.",
+    "quote": {
+     "path": "internal/comments/tree.go",
+     "line": 138,
+     "text": "Posted: time.Unix(r.created, 0).UTC(), Placeholder: !r.shown,"
+    },
+    "fix": "State in the feedback.Book contract that When is time.Unix(created_at, 0).UTC(). Give the datetime attribute a concrete layout, \"2006-01-02T15:04:05Z\" as comments.html uses. Add one assertion to TestFeedbackOwnerList for the formatted time from the harness's fixed clock."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "claim": "The SC-016 surface defines Message with a `Replies []Reply` field. But Reply is listed under 'SC-017 adds', and epic_parts SC-016 builds 'New, Send, OwnerInbox, Message, ErrBadBody and ErrNoTarget', with no Reply. As written, the SC-016 package does not compile. The builder has to guess: define Reply early, or drop the field. Either guess is a forward reach this slice does not need.",
+    "evidence": "Design component 'internal/feedback package (Book)': 'Message{ID, GitHubID int64; Login, AvatarURL, Body string; When time.Time; Replies []Reply}. Replies stays empty until SC-017.' then 'SC-017 adds: Reply{Body string; When time.Time}.'",
+    "fix": "Leave Replies out of Message in SC-016, and have SC-017 add the field and the Reply type together. Alternatively, move Reply into SC-016's list explicitly."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "OwnerInbox has no limit, and the inbox section goes directly after the Votes tally, which sits above Preview, Publish state, Replace and Delete. Until SC-021 (blocking) or E-006 (post rate) exists, one signed-in account can post thousands of 5000-rune messages. That makes the owner's only management page for the report megabytes long, with its controls below an unbounded list. Lesson #960 already measured that bytes, not queries, are the cost on this site.",
+    "file": "internal/server/templates/admin_report.html",
+    "line": 21,
+    "end_line": 25,
+    "evidence": "Design: 'Messages run newest first … with no paging and no count', placed 'Directly after the two <p class=\"tally\"> lines'. The existing page order is below.",
+    "quote": {
+     "path": "internal/server/templates/admin_report.html",
+     "line": 21,
+     "text": "<h2>Votes</h2>"
+    },
+    "fix": "For the backlog: put the inbox after the Delete section, or put an in-page link to #feedback beside the tally and the list at the end. Alternatively, cap OwnerInbox at the newest N with a stated note. Either way the dislike count stays the only number beside a dislike label."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "Checked the load-bearing premises.\n- **Cited BookStack #4988.** It supports the design's use of it: 'feedback in a private way, so that its not visible for the other users beside the author / admin … I don't think feedback should be a comment necessarily' (https://github.com/BookStackApp/BookStack/issues/4988). It also asks for resolve/reject states, which the design leaves out on purpose.\n- **Recalled SQLite behaviour.** AUTOINCREMENT's per-table sqlite_sequence and no-reuse, and the two-hop cascade, are standard SQLite. Both are pinned by tests in this slice.\n- **Separate-counter precondition.** If it were false, public comment ids would reveal feedback volume; the two-world subtest catches that. Separate tables have separate rowid spaces regardless of AUTOINCREMENT.\n- **Cascade precondition.** If it were false, Library.Delete would return 787 once any reply exists; the lifecycle test catches that before SC-017.\n- **'SC-017 has no design lap'.** The engine's epic_parts mechanism is consistent with it, and nothing in the repo contradicts it.\n- **The finish-test failure message** comes from the brief's test body, which I could not open. I searched %TEMP%\\taad3-runs and .taad/slices/SL-007; the spike's scratch copy is not there. So I filed nothing on it."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "The design names these input shapes, and they are covered in TestFeedbackBodies, RefusedSenders and HiddenReports:\n- empty, whitespace-only, 5000 and 5001 runes;\n- NUL, DEL, U+0085, invalid UTF-8;\n- repeated, missing or query-only body, and a form over 64 KiB;\n- CRLF, and a `<script>` body.\n\nThe layout holds at narrow widths: `.body` pre-wrap with overflow-wrap anywhere, a flex-wrap byline, and a textarea at width 100% with border-box. One gap, filed as an extra: an unbounded inbox placed above the admin controls, with no rate limit or block yet (m5)."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "Send returns the row id to the public handler. The 'no id to non-owners' invariant then depends on not copying postComment's Location line (m1).\n\nThe other invariants are already held structurally:\n- Participant is enforced by the existing ViewerFrom fence, and corpus row cmt-vf-f004 already targets internal/server/feedback.go.\n- The Owner* and table fences copy the OwnerTally and comments shapes.\n- Reader-side types carry no ID field.\n\nSenderThreads keyed by a raw githubID is a named hole for SC-017, with a noninterference test planned as its guard."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "Three forward reaches, none filed:\n- feedback_replies in 0005;\n- a fence for SenderThreads, a method that does not exist until SC-017. That cuts against lesson #957, but the cost is about 2 corpus rows, and the rule is already appended at fitness.yaml:379-392;\n- the full SC-017 specification.\n\nAll three are justified by SC-017 being built from this design. An empty replies table can be rebuilt by a 0006 if its shape is wrong. No status column, paging, notifications or rate limiter was added. Message.Replies in SC-016 is a needless reach (folded into m4)."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "Two gaps:\n- Message.When is never stated as UTC, though the page prints a literal 'UTC' (m3).\n- The Reply type is used by SC-016's Message but defined only in SC-017 (m4).\n\nThe wire contract matches the route and handler order in comment.go:29-95. That is: Participant, then PublishedBySlug, then the signed-out 303, then MaxBytesReader and ParseForm, then exactly one PostForm body."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "The ErrNoTarget→404 race branch can only be reached between lookup and write. Its sentinel is not aliased the way ErrBadBody is (m2).\n\nThe other paths match existing precedent:\n- a Participant outage gives 503, and so does a write error;\n- an OwnerInbox error gives 500, never an empty list (as with OwnerTally at admin.go:118-123);\n- the store-breaking techniques (DROP sessions, RENAME table) are the ones TestCommentStoreFailure already uses."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "None.\n- The design stays inside the decided stack: net/http mux patterns, CrossOriginProtection without tokens, html/template with no template.HTML, forward-only NNNN migrations, and no JS.\n- The browser checks correctly follow lesson #946 (Chrome, never Edge), not the stale Edge line in the stack text.\n- It follows lesson #950: the same 303 to /reports/<slug>#feedback through auth.SeeOther, and no page-dependent field."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "The four new rules are already appended in fitness.yaml:349-405. Checked against the planned code:\n- `\\.BySlug\\b` does not fire on PublishedBySlug.\n- `\\.\\s*Owner(Inbox|Reply)\\w*\\b` does not fire on auth.OwnerRoute.\n- The owner-column migration rule is not tripped by any 0005 column.\n- The 'no sign-in control is a form' rule holds: the anonymous branch is plain text.\n- 'Nothing a reader page says mentions a dislike' (vote_test.go:595-603) holds for the new box text.\n\nOne note for the builder: TestRuleSpellingsCorpus enforces fire/quiet coverage only for names listed in the corpus's own rules array (rules_test.go:254). The new rule names must be added there, as well as their rows. The CC-001 spelling variants are named in bounded_by, so I did not chase them (lessons #939, #957)."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "The planned cases are thorough:\n- noninterference on the existing harness, plus a sensitivity check on the sink and a two-world comment-id subtest;\n- the lifecycle test with raw reply rows;\n- the v4→v5 migration;\n- hand rows in TestReaderPathVariants (lesson #944);\n- the observe() extension (lessons #948, #959);\n- the Chrome found-state assay, run only when named (lesson #947).\n\nGaps: no HTTP-level test of the race 404 (m2), and no assertion on the drawn UTC time (m3)."
+   },
+   {
+    "dimension": "security",
+    "result": "No finding.\n- **Cross-site POST:** refused by CrossOriginProtection, whose trusted origin is cfg.Origin (router.go:96-103).\n- **The sender's identity:** taken from the session through Participant.\n- **Admin page:** no-store through RequireOwner. Bodies and logins are escaped by html/template. Avatars are https-only through safeAvatar and allowed by siteCSP img-src. Referrer-Policy same-origin keeps the admin URL from GitHub's avatar CDN.\n- **Other routes:** /raw, /healthz, /static and /auth/* never touch feedback, and the name fences keep it that way.\n- **Drafts and unknown slugs:** they answer identical 404s, so the route is no oracle."
+   }
+  ]
+ }
+}
