@@ -1,0 +1,89 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-011",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-24T12:15:51.571Z",
+ "head": "69e4dae3bf62a95c2bbffbda1c7d9971aaf51930",
+ "run_id": 12023,
+ "summary": "yamlScalarRefusals now tracks the column of each rule's first key and the column of the '- ' that opens rules. It refuses a later key at a different column, a rule item at a different column from the other rules, and a list item left of the key it belongs to. A key at column 0 resets the tracking. The required test sits at internal/fitnessrules/yaml_indent_test.go and passes. The class is closed with 28 new rows in testdata/yaml_scalars.json and a generated census (5 carrier keys × columns 1–8) in TestFitnessYAMLMisindentedKeyCensus. Before the scanner change the required test and 18 new rows failed, and so did the census at columns 1–3 for every carrier (15 cases). The real .taad/fitness.yaml still passes the widened scan, and the full suite is green.",
+ "payload": {
+  "status": "complete",
+  "summary": "yamlScalarRefusals now tracks the column of each rule's first key and the column of the '- ' that opens rules. It refuses a later key at a different column, a rule item at a different column from the other rules, and a list item left of the key it belongs to. A key at column 0 resets the tracking. The required test sits at internal/fitnessrules/yaml_indent_test.go and passes. The class is closed with 28 new rows in testdata/yaml_scalars.json and a generated census (5 carrier keys × columns 1–8) in TestFitnessYAMLMisindentedKeyCensus. Before the scanner change the required test and 18 new rows failed, and so did the census at columns 1–3 for every carrier (15 cases). The real .taad/fitness.yaml still passes the widened scan, and the full suite is green.",
+  "files": [
+   {
+    "path": "internal/fitnessrules/yaml_indent_test.go",
+    "change": "added",
+    "why": "the engine's failing test, TestYAMLScanRefusesMisindentedRuleKey, as given"
+   },
+   {
+    "path": "internal/fitnessrules/yaml_scalar_scan_test.go",
+    "change": "modified",
+    "why": "yamlScalarRefusals remembers ruleDash and ruleKeyCol; refuses a rule key at another column, a rule item at another column, a list item left of its key; a key at column 0 resets"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/yaml_scalars.json",
+    "change": "modified",
+    "why": "28 rows added (19 refuse, 9 accept: all keys at four spaces, two rules, key order, comments at any column, key-shaped text in a block scalar, a top-level key after rules)"
+   },
+   {
+    "path": "internal/fitnessrules/yaml_scalar_corpus_test.go",
+    "change": "modified",
+    "why": "TestFitnessYAMLMisindentedKeyCensus: every carrier key except name planted at columns 1-8 beside a sibling at 4 (refused at its line), and the same text at column 4 (accepted)"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "SC-037",
+    "done": true,
+    "how": "The upkeep row's class demand: column check added to yamlScalarRefusals, with the corpus and generated census at internal/fitnessrules/testdata/yaml_scalars.json. Before the scanner change, go test ./internal/fitnessrules/ failed TestYAMLScanRefusesMisindentedRuleKey, 18 corpus rows (key-misindented-less/-two/-one/-less-crlf/-after-scalar/-after-quoted/-after-block-scalar/-after-comment/-because/-empty-list-key/-must-not-import/-except-files, item-misindented-less/-less-after-ok-item/-import/-except, rule-start-misindented-more, rule-start-second-rule-key-misindented) and 15 census cases. After it, all pass.",
+    "corpus": "internal/fitnessrules/testdata/yaml_scalars.json",
+    "mutation": {
+     "file": "internal/fitnessrules/yaml_scalar_scan_test.go",
+     "find": "case ruleKeyCol >= 0 && col != ruleKeyCol:",
+     "replace": "case false && ruleKeyCol >= 0 && col != ruleKeyCol:",
+     "test_command": "go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/"
+    }
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 ./internal/fitnessrules/ (after adding the test and rows, before the scanner change)",
+    "outcome": "failed",
+    "note": "TestYAMLScanRefusesMisindentedRuleKey, 18 corpus rows and 15 census cases failed; columns above 4 already refused through the plain-scalar rule"
+   },
+   {
+    "command": "go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/",
+    "outcome": "passed",
+    "note": "after the scanner change"
+   },
+   {
+    "command": "go test -count=1 -v -run 'TestYAMLScanRefusesMisindentedRuleKey|TestFitnessYAML' ./internal/fitnessrules/",
+    "outcome": "passed",
+    "note": "corpus, carrier census, misindented-key census, real-file scan and the review's plain-scalar test all pass; the real .taad/fitness.yaml is not falsely refused"
+   },
+   {
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "all 12 packages ok, including internal/server (13 s, launches Chrome via CHROME_BIN) and internal/testutil/headless"
+   },
+   {
+    "command": "mutation: replace 'case ruleKeyCol >= 0 && col != ruleKeyCol:' with 'case false && ...' then go test -count=1 -run TestYAMLScanRefusesMisindentedRuleKey ./internal/fitnessrules/",
+    "outcome": "failed",
+    "note": "fails with 'a rule key at three spaces under a mapping at four is not refused'; fix restored, test passes again"
+   },
+   {
+    "command": "gofmt -l on LF copies of internal/fitnessrules/*.go; go vet ./internal/fitnessrules/",
+    "outcome": "passed",
+    "note": "no gofmt differences, vet clean. The slice only touches test code and corpus, so the entry point is go test itself; the engine's Fitness op=check was not available to me."
+   }
+  ],
+  "deviations": [],
+  "not_built": [
+   "Valid-YAML layouts the line loader still drops (list items indented deeper than their key; '-   name:' with extra spaces after the dash) are not refused. YAML accepts them, so they are outside the class 'YAML refuses, loader accepts'."
+  ],
+  "follow_ups": [
+   "Optionally make loadRules in rules_test.go refuse any line it cannot place (a key not at column 4, an item not at column 4) instead of skipping it. That would close the 'loader drops a line silently' outcome structurally, including the valid-but-unread layouts (lesson #974)."
+  ]
+ }
+}

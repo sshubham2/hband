@@ -7,7 +7,24 @@
  "opened_at": "2026-11-24T12:15:00.349Z",
  "merge_commit": null,
  "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
- "open": [],
+ "open": [
+  {
+   "stage": "build-slice",
+   "issue": "Valid-YAML layouts the line loader still drops (list items indented deeper than their key; '- name:' with extra spaces after the dash) are not refused. YAML accepts them, so they are outside the class 'YAML refuses, loader accepts'."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Optionally make loadRules in rules_test.go refuse any line it cannot place (a key not at column 4, an item not at column 4) instead of skipping it. That would close the 'loader drops a line silently' outcome structurally, including the valid-but-unread layouts (lesson #974)."
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/fitnessrules/yaml_scalar_scan_test.go:12 -- the comment calls the scanner the one 'behind TestFitnessYAMLScalarCorpus and TestFitnessYAMLFileHasNoRefusedScalars'. TestFitnessYAMLMisindentedKeyCensus and TestYAMLScanRefusesMisindentedRuleKey now use it too. The list is incomplete but not false, so I left it."
+  },
+  {
+   "stage": "code-review",
+   "issue": "the comment fixer left: internal/fitnessrules/yaml_scalar_scan_test.go:249 -- the docstring of TestFitnessYAMLFileHasNoRefusedScalars lists quoted scalars, list items and start characters. It does not mention the column checks the scan now also runs over the real file. It is true as written, so I left it."
+  }
+ ],
  "stages": [
   {
    "stage": "repro",
@@ -83,6 +100,54 @@
      "details": "critique-review-1.json"
     }
    ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T12:15:51.571Z",
+     "head": "69e4dae3bf62a95c2bbffbda1c7d9971aaf51930",
+     "summary": "yamlScalarRefusals now tracks the column of each rule's first key and the column of the '- ' that opens rules.",
+     "caused_by": null,
+     "changed": {
+      "src": 3,
+      "tests": 1,
+      "listed": 4,
+      "measured_by_git": 8
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T12:20:08.106Z",
+     "head": "69e4dae3bf62a95c2bbffbda1c7d9971aaf51930",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "failed",
+   "attempts": []
   }
  ]
 }
