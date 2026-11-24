@@ -1,0 +1,703 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-010",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-24T10:17:24.507Z",
+ "head": "e64753c60c57cc40daa3c98168b8f6acb1853f3a",
+ "run_id": 11979,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "reason": "Both proposals share the skeleton the survey measured as the only one that fits the tree: one idempotent UPDATE of removed_at, a row in adminRoutes at the path the finish test pins, a count taken from the forest the page already reads, the spike-measured 'N comments' line, a no-JavaScript confirm step on shown comments, and a flat admin list. The contested pieces were all taste. Each was settled by how the existing code is shaped. One seam needed redesign: removed text on the Blocked users page.",
+  "selection_rationale": "The survey measured that half of this slice already exists. removed_at is in the schema. The NO ACTION self-foreign-key refuses a DELETE of a comment with replies (787). visibleSQL, the redaction in treeSQL and the keep-or-drop pass in arrange already turn the flag into a placeholder or into nothing. Both proposals build only on that, and neither redesigns C5 or C6, which is correct. Both also take the count from the forest (Visible) instead of a stored counter or a second query, and both use the spike's F1 markup, so nothing about the count was contested.\n\nEach contested piece was decided by fit to the existing code:\n\n- **Handler file:** admin.go (practice). The only owner-write handler today, adminFeedbackReply, lives there. SC-021's Blocked users page must call an Owner* feedback method, which the existing fence lets only admin.go call. So the admin handlers stay in one file.\n- **Lookup shape:** RemoveTarget returns (slug, published, err), as feedback.OwnerReplyTarget does (practice).\n- **Viewer flag:** a threadViewer struct (crossdomain) rather than a second bool beside signedIn. Two adjacent bools in buildLevel invite a swap the compiler cannot catch.\n- **Landing field:** strict (practice). Every existing handler answers 400 to a repeated or unknown field. The field is named `from`.\n- **No count line on the admin page** (crossdomain). It keeps the admin view's one-number-beside-dislike readers on the ground the spike measured.\n- **Block statement:** a plain INSERT … ON CONFLICT DO NOTHING keyed by github_id (crossdomain). The migration says a block is a fact about an account, not a users row. This form also does not rely on the recalled same-value RowsAffected behaviour.\n- **Refusal error:** one ErrBlocked mapped to 403 (crossdomain). Withdraw already treats 0 rows as success, so without a follow-up read it cannot tell a refusal from a no-op.\n- **Block forms:** on the admin moderation list only (crossdomain). No GitHub id or block markup reaches a reader page, and the owner's reader pages carry less weight (#960).\n- **Write fence:** blocked_accounts is written only by internal/comments (practice). It fences the one place that refuses blocking the author.\n\nPractice raised over_engineering_flag against the popular, larger answer, not against either proposal. I did not take its offered trim (drop `from`): a draft or unpublished report has no reader page to land on. Crossdomain reported transfer_found true. Its control-total framing adds two cheap things that were kept: the branch page shows no count, and a reconcile test. Its one 'fails' invariant (a future show-all row against the report page under concurrent writes) is outside this epic.",
+  "components": [
+   {
+    "name": "comments.Book.RemoveTarget and Book.Remove (SC-020)",
+    "lives_at": "internal/comments/comments.go",
+    "responsibility": "RemoveTarget(ctx, id int64) (slug string, published bool, err error) is one SELECT: `SELECT r.slug, r.status = 'published' FROM comments c JOIN reports r ON r.id = c.report_id WHERE c.id = ?`.\n- No row: ErrNoTarget.\n- Any other failure: a wrapped error.\n\nRemove(ctx, id int64) error is one Exec: `UPDATE comments SET removed_at = COALESCE(removed_at, ?) WHERE id = ?` with b.now().Unix().\n- RowsAffected 0: ErrNoTarget (the comment went with its report after the lookup).\n- An Exec or RowsAffected error: wrapped.\n\nWhat it never does:\n- It never DELETEs.\n- It opens no transaction.\n- It writes nothing to the replies or to blocked_accounts.\n- It does not touch Tree or visibleSQL.\n\nIt is keyed by id alone, so it works at any depth, on a draft or unpublished report, and on a comment already hidden by a block. The first removal time is kept, so a repeat is a no-op success.\n\nThe package comment gains one sentence: 'Remove is the only write of removed_at; nothing un-removes.' ErrNoTarget's doc names Remove too.",
+    "key_interactions": "Called only by adminCommentRemove. Once removed_at is set, visibleSQL hides the row everywhere with no further code:\n- treeSQL blanks it;\n- arrange keeps it as a placeholder or drops it;\n- Post refuses replies under it;\n- Visible stops counting it."
+   },
+   {
+    "name": "comments.Visible (the public visible-comment count)",
+    "lives_at": "internal/comments/tree.go",
+    "responsibility": "func Visible(forest []*Node) int. It is pure and uses an explicit stack, like Find, so a 10,000-deep chain is safe. It counts the nodes with Placeholder false, at every depth.\n\narrange keeps every shown row and makes a placeholder of exactly a hidden row. Tree's inner JOIN on users loses nothing, because github_id REFERENCES users and no program path deletes a users row. So Visible equals COUNT(*) of the report's rows that pass fmtVisible. A placeholder is not counted; the visible replies beneath it are.",
+    "key_interactions": "Called by threadOf on the whole forest before any branch narrowing. SC-021 needs no change here: a blocked writer's rows are already shown=false."
+   },
+   {
+    "name": "Thread shaping: threadViewer, CanRemove, moderationList",
+    "lives_at": "internal/server/thread.go",
+    "responsibility": "- `type threadViewer struct{ SignedIn, Owner bool }` replaces the signedIn bool in buildThread and buildLevel.\n- commentView gains CanRemove = tv.Owner && !n.Placeholder. It is a display hint only; the gate is the authority. A placeholder never carries a form.\n- New modItem {ID, GitHubID int64; Login, AvatarURL, Body string; When time.Time; Author bool; ParentID int64; ParentLogin string; ParentRemoved bool}.\n- New moderationList(forest []*comments.Node, ownerID int64) []modItem is a pure pre-order walk with an explicit stack. It pushes children newest-first, so each level comes out oldest first. It walks through placeholders but emits only shown nodes.\n  - ParentLogin is set when the parent is shown.\n  - ParentRemoved is set when the parent is a placeholder.\n  - ParentID is 0 at top level.\n  - Author uses auth.IsOwner.\n- GitHubID is carried for SC-021's Block form on the admin page only and is never put on a reader page.",
+    "key_interactions": "threadOf passes the threadViewer, and adminReport calls moderationList. branchRoot and the cut rule are unchanged. Existing direct callers of buildThread in tests are updated mechanically."
+   },
+   {
+    "name": "Reader wiring: threadOf, renderReader, readBranch",
+    "lives_at": "internal/server/reader.go",
+    "responsibility": "- threadOf(ctx, rep, tv threadViewer, branch int64) (views []commentView, visible int, found bool, err error). visible = comments.Visible(nodes), taken on the whole forest before narrowing to a branch.\n- renderReader builds tv = threadViewer{SignedIn: signedIn, Owner: signedIn && v.IsOwner}. readerData gains CommentCount int, set from visible.\n- readBranch passes the same tv and discards visible. The branch page shows no count, because it draws only part of the forest.\n- A thread read error stays stateUnavailable (503). It is never shown as '0 comments'.",
+    "key_interactions": "/ and /reports/<newest> stay one code path, so they remain byte-identical for every viewer, the owner included, whose two pages now carry the same remove forms. reader.go keeps its ViewerFrom exemption; nothing here writes."
+   },
+   {
+    "name": "Reader templates: count line and owner remove control",
+    "lives_at": "internal/server/templates/comments.html",
+    "responsibility": "**report.html:** add `<p class=\"comment-count\">{{.CommentCount}} {{if eq .CommentCount 1}}comment{{else}}comments{{end}}</p>` directly after `<p class=\"likes\">…</p>` inside section#votes. This is spike placement F1, number first, in its own block.\n\n**comments.html:** in the 'comment' template's non-placeholder branch, after the Reply details, add `{{if .CanRemove}}<details class=\"remove\"><summary>Remove</summary><form method=\"post\" action=\"/admin/comments/{{.ID}}/remove\"><button type=\"submit\">Remove for everyone</button></form></details>{{end}}`. The control:\n- carries no hidden field, because reader pages carry no page-dependent field (#950);\n- has no digit in any text, aria-label or alt;\n- does not use the word 'comment' in its labels, because the finish readers fold aria-label and alt into the pieces they count.\n\nAny CSS added to site.css for .remove or .comment-count avoids pure #ff0000 or #00ff00 ±8 (#941).",
+    "key_interactions": "branch.html draws the same 'comment' template, so a comment below the depth cap gets the control on its branch page. The form posts same-origin to /admin, which form-action 'self' allows, and CrossOriginProtection and RequireOwner gate it."
+   },
+   {
+    "name": "adminCommentRemove handler and its adminRoutes row",
+    "lives_at": "internal/server/admin.go",
+    "responsibility": "New row `{Method: \"POST\", Pattern: \"/admin/comments/{n}/remove\", Handler: a.adminCommentRemove}`, with a row comment like the feedback row's. The handler is target-first, in adminFeedbackReply's order:\n1. canonicalID(PathValue(\"n\")) fails: 404. This is what makes the access matrix's owner POST to 'x' a 404.\n2. RemoveTarget: ErrNoTarget gives 404; any other error gives 500.\n3. MaxBytesReader with a 1 KiB cap (a new const maxRemoveBody = 1 << 10), then ParseForm. An error gives 400.\n4. from := r.PostForm[\"from\"]:\n   - absent: reader landing;\n   - exactly [\"admin\"]: admin landing;\n   - any other value, or repeated: 400, before any write.\n5. Remove: ErrNoTarget gives 404; any other error gives 500.\n6. auth.SeeOther to \"/admin/reports/\"+slug+\"#comments\" when from=admin or the report is not published, otherwise to \"/reports/\"+slug+\"#comments\". The path is built from the stored slug only.\n\nIt never calls ViewerFrom or auth.Participant. The Owner proof comes from OwnerRoute, and RequireOwner already answers 503 when identification fails.",
+    "key_interactions": "Gated by RequireOwner and OwnerRoute. It joins TestAdminAccessMatrix automatically through adminPaths and ownerRouteStatus, and CrossOriginProtection refuses cross-site requests before the gate."
+   },
+   {
+    "name": "Admin report page: moderation list",
+    "lives_at": "internal/server/templates/admin_report.html",
+    "responsibility": "adminReport (admin.go) reads nodes through a.tree(ctx, rep.ID) after OwnerInbox. An error gives 500, never an empty list. adminData gains Moderation []modItem = moderationList(nodes, a.cfg.OwnerGitHubID). Drafts and unpublished reports are listed, because treeSQL filters only on report_id.\n\nThe template gains `<section class=\"moderation\" id=\"comments\"><h2>Comments</h2>` directly after the feedback inbox. Each item is an `<article class=\"mod\">` holding:\n- `<header class=\"byline\">` with avatar, login, Author badge and time in the admin format;\n- `<p class=\"reply-to\">` reading 'top level', 'in reply to @login' or 'in reply to a removed comment', in its own block so no date digit sits beside 'comment';\n- `<p class=\"body\">`;\n- the same remove details, whose form also carries `<input type=\"hidden\" name=\"from\" value=\"admin\">`.\n\nWhen nothing is visible it shows `<p>Nothing visible on this report.</p>`. The section has no count line, no element whose id is comment-<n> or feedback-<n>, and no number beside a dislike label. Removed text is shown to nobody, the owner included.",
+    "key_interactions": "It is separate from the feedback-<n> articles, so the per-article form checks in feedback_test and the one-dislike-number readers are untouched. SC-021 adds a Block form to each item not written by the owner."
+   },
+   {
+    "name": "SC-020 tests",
+    "lives_at": "internal/server/remove_test.go",
+    "responsibility": "**New internal/comments/remove_test.go:**\n- TestRemove, with subtests:\n  - leaf;\n  - held (3 deep with a visible reply, then the reply above it);\n  - chain-collapses;\n  - deep-300;\n  - already-removed (removed_at unchanged, nil error);\n  - blocked-writer-commutes (block row by test SQL, remove, delete the block row: still hidden);\n  - unknown;\n  - report-deleted.\n- TestRemoveTarget (published, draft, unpublished, unknown).\n- TestVisible (empty, placeholders, a 10,000-deep chain).\n- TestCountReconciles: random forests and random removals plus block rows. After each step, Visible(Tree) equals a test-side COUNT(*) using fmtVisible.\n\n**New internal/server/remove_test.go:**\n- TestCommentRemove: landings, `from` shapes, id shapes, refusals, oversize body, GET 405.\n- TestRemoveControl.\n- TestCommentCount.\n- TestAdminCommentList.\n- TestRemoveReadFailure, which uses the a.tree seam.\n\n**Edits to existing tests:**\n- vote_test.go observe() gains `obs[who.name+\" POST /admin/comments/<first>/remove\"]` for anonymous, nonvoter and upvoter (#948, #959).\n- TestReaderPagesShareOneLayout asserts that the owner's page has the remove form and the non-owner's has none.\n- Exact-markup tests rendered as the owner are updated to the observed new markup, never loosened.",
+    "key_interactions": "Run the server tests with -run filters. A bare `go test ./internal/server/` also launches Chrome through TestReportScriptsNeverRun (#947)."
+   },
+   {
+    "name": "[SC-021] Block store",
+    "lives_at": "internal/comments/block.go",
+    "responsibility": "Each of these is one statement, and none opens a transaction:\n- Block(ctx, u): `INSERT INTO blocked_accounts (github_id, blocked_at) VALUES (?, ?) ON CONFLICT (github_id) DO NOTHING`. It is idempotent, keeps the first blocked_at, and does not check rows.\n- Unblock(ctx, u): `DELETE FROM blocked_accounts WHERE github_id = ?`. It is idempotent.\n- Blocked(ctx) ([]BlockedAccount, error): one read of blocked_accounts b LEFT JOIN users LEFT JOIN comments ON c.github_id = b.github_id LEFT JOIN reports, ordered by blocked_at, github_id, then comment id, and grouped in Go. Each BlockedAccount is {GitHubID, Login, AvatarURL, BlockedAt, Comments []{ID, ParentID, Body, Posted, Slug, Title, Removed}}. A removed comment's body is blanked inside the SQL with `CASE WHEN c.removed_at IS NULL THEN c.body ELSE '' END`.\n- isBlocked(ctx, u): a one-row EXISTS read, used only to pick the refusal error.\n- ErrBlocked is new.",
+    "key_interactions": "Hiding and restoring need no code: visibleSQL already reads blocked_accounts, so Tree, Visible and the counts follow. This is the only writer of blocked_accounts (architecture rule)."
+   },
+   {
+    "name": "[SC-021] Refusal at the point of use",
+    "lives_at": "internal/votes/votes.go",
+    "responsibility": "Each participation write adds `AND NOT EXISTS (SELECT 1 FROM blocked_accounts k WHERE k.github_id = ?)` inside its own single statement:\n- comments postSQL;\n- votes Cast's INSERT…SELECT;\n- votes Withdraw's DELETE;\n- feedback sendSQL.\n\nWhen 0 rows are written, a follow-up read in the same package (`SELECT EXISTS (SELECT 1 FROM blocked_accounts WHERE github_id = ?)`) picks the error:\n- blocked: ErrBlocked (comments.ErrBlocked; feedback.ErrBlocked = comments.ErrBlocked, as ErrBadBody already is; votes.ErrBlocked of its own);\n- otherwise: the existing answer (ErrNoTarget, ErrNotOpen, or nil for a no-op Withdraw).\n\nThe write was already refused atomically; the read only chooses the wording. postComment, vote and postFeedback map ErrBlocked to 403 'Your account cannot take part here.' and store nothing. Public and OwnerTally are unchanged, so the account's existing vote keeps counting. landing()'s comment about a blocked post being 'stored, never drawn' is rewritten.",
+    "key_interactions": "Also touches internal/comments/comments.go (Post), internal/feedback/feedback.go (Send), and internal/server/comment.go, vote.go and feedback.go. votes and feedback only read blocked_accounts."
+   },
+   {
+    "name": "[SC-021] Feedback: the blocked mark and the per-sender listing",
+    "lives_at": "internal/feedback/feedback.go",
+    "responsibility": "- inboxSQL gains an `EXISTS (SELECT 1 FROM blocked_accounts k WHERE k.github_id = f.github_id)` column, and Message gains Blocked bool.\n- admin_report.html draws `<span class=\"badge\">blocked</span>` in the byline inside that article id=feedback-<n> only when Blocked is set. The word 'blocked' appears nowhere else inside a feedback-<n> article.\n- New OwnerInboxBySender(ctx, githubID) ([]SenderMessage, error): one SELECT of feedback JOIN reports, oldest first. SenderMessage is {ID, Body, When via unixUTC, Slug, Title}.",
+    "key_interactions": "The name OwnerInboxBySender falls under the existing `\\.\\s*Owner(Inbox|Reply)\\w*\\b` fence, which only admin.go may cross, so no new rule is needed for it."
+   },
+   {
+    "name": "[SC-021] Block routes and the Blocked users page",
+    "lives_at": "internal/server/admin.go",
+    "responsibility": "New adminRoutes rows:\n- POST /admin/users/{u}/block:\n  - canonicalID fails: 404;\n  - auth.IsOwner(a.cfg.OwnerGitHubID, u): 400 'The author cannot be blocked.';\n  - Block error: 500;\n  - otherwise: 303 to /admin/blocked#blocked-<u>.\n- POST /admin/users/{u}/unblock: canonicalID fails: 404; Unblock error: 500; otherwise 303 to /admin/blocked.\n- GET /admin/blocked: Blocked(ctx), then OwnerInboxBySender for each account. Any error gives 500, never an empty page. It renders the new templates/admin_blocked.html.\n\nadmin_blocked.html is `<main data-hband-admin>`, with one `<section class=\"blocked-account\" id=\"blocked-<u>\">` per account. Each section holds:\n- an h2 with `<span class=\"login\">` (or 'GitHub user <u>' when there is no users row);\n- an Unblock form posting to /admin/users/<u>/unblock;\n- a `<ul>` with one `<li>` per comment: its body (or 'removed' with no text), ' on <a href=\"/reports/<slug>\">Title</a>', and for a reply `<a href=\"/reports/<slug>#comment-<parent>\">the one it answered</a>`;\n- a `<ul>` of its feedback, each item with its body and report link.\n\nadmin.html gains a 'Blocked users' link. The moderation list gains `<details class=\"block\"><summary>Block</summary><form … action=\"/admin/users/<GitHubID>/block\"><button>Block @login</button></form></details>` on items not written by the owner.",
+    "key_interactions": "The rows join the access matrix automatically. ownerRouteStatus needs a 200 case for the owner's GET and HEAD of /admin/blocked, quoting the observed response (#934). observe() gains the block and unblock POSTs and GET /admin/blocked for non-owners, and so does TestFeedbackDoesNotInterfere."
+   }
+  ],
+  "contracts": [
+   {
+    "name": "POST /admin/comments/{n}/remove",
+    "kind": "rest",
+    "auth_model": "The pinned owner only: an adminRoutes row behind auth.RequireOwner and then auth.OwnerRoute (the Owner proof). http.CrossOriginProtection refuses cross-site requests before the gate. The handler never reads the viewer.",
+    "error_cases": "From the gate:\n- identify failure: 503;\n- anonymous POST: 403;\n- signed-in non-owner, including one with the owner's login and another id: a 403 forbidden page;\n- cross-site: 403;\n- GET or HEAD: 405 from the mux.\n\nFrom the handler:\n- n not canonical, unknown, or the comment was deleted with its report: 404;\n- an unreadable body or one over 1 KiB: 400;\n- `from` present with a value other than exactly 'admin', or repeated: 400;\n- a store error: 500.\n\nEvery refusal changes nothing.",
+    "notes": "- The form has one optional field, from=admin. The finish test sends no fields.\n- Success is a 303 through auth.SeeOther: to /reports/<slug>#comments when the report is published and `from` is absent, otherwise to /admin/reports/<slug>#comments.\n- It is idempotent: removing a removed comment, or one hidden by a block, gives a 303 and keeps the first removed_at.\n- E-006 finish line 1 pins this path."
+   },
+   {
+    "name": "comments.Book.RemoveTarget / Book.Remove",
+    "kind": "function",
+    "error_cases": "RemoveTarget: ErrNoTarget when no comment has the id; otherwise a wrapped error. Remove: ErrNoTarget when 0 rows match; a wrapped error on an Exec or RowsAffected failure.",
+    "notes": "- RemoveTarget(ctx, id int64) (slug string, published bool, err error).\n- Remove(ctx, id int64) error.\n- Each is exactly one statement, with no transaction and no DELETE.\n- Removal commutes with Block and Unblock: unblocking never restores a removed comment."
+   },
+   {
+    "name": "comments.Visible(forest []*Node) int",
+    "kind": "function",
+    "error_cases": "None; it is pure.",
+    "notes": "- Counts the non-placeholder nodes at every depth, and is the only producer of the public visible-comment count.\n- A future show-all page, which belongs to another epic, must count with fmtVisible in one statement. Each row there shows either no count or the same number (spike constraint 3)."
+   },
+   {
+    "name": "Public visible-comment count markup",
+    "kind": "ui",
+    "auth_model": "Public; the same for every viewer.",
+    "notes": "- `<p class=\"comment-count\">N comments</p>`, or '1 comment', directly after `<p class=\"likes\">` on / and /reports/<slug>.\n- Not drawn on the branch page, the 503 page or the admin pages.\n- No other number may sit beside a comments label on a reader page: no ids in text, aria-label or alt.\n- Read by the E-003, E-004, E-005 and E-006 finish readers."
+   },
+   {
+    "name": "Owner remove control",
+    "kind": "ui",
+    "auth_model": "Drawn only when threadViewer.Owner is set, which means signed in with IsOwner. It is display only; the route's gate is the authority.",
+    "notes": "- `<details class=\"remove\"><summary>Remove</summary><form method=\"post\" action=\"/admin/comments/<id>/remove\"><button type=\"submit\">Remove for everyone</button></form></details>`.\n- Appears on every shown comment of /, /reports/<slug> and the branch pages, and on every moderation-list item, where it adds the hidden from=admin field.\n- Never drawn on a placeholder. Uses no JavaScript (Q-012 stays open)."
+   },
+   {
+    "name": "Admin moderation list on /admin/reports/{slug}",
+    "kind": "ui",
+    "auth_model": "Owner only, behind the gate.",
+    "error_cases": "A tree read error gives 500, never an empty list.",
+    "notes": "- `<section class=\"moderation\" id=\"comments\">`, placed after the feedback inbox.\n- Lists every visible comment at any depth in flat pre-order, drafts included.\n- No count line, and no comment-<n> or feedback-<n> ids.\n- SC-021 adds a Block form to each item not written by the owner."
+   },
+   {
+    "name": "[SC-021] POST /admin/users/{u}/block and /unblock",
+    "kind": "rest",
+    "auth_model": "The pinned owner only, as adminRoutes rows behind RequireOwner and OwnerRoute.",
+    "error_cases": "- The same gate answers as remove.\n- u not canonical: 404.\n- Block of the pinned owner's id: 400.\n- A store error: 500.\n- A repeated block or unblock: 303 (idempotent).",
+    "notes": "- No fields.\n- Block answers a 303 to /admin/blocked#blocked-<u>; unblock answers a 303 to /admin/blocked.\n- Keyed by the GitHub id alone; the account need not have signed in.\n- Pinned by both E-006 finish lines."
+   },
+   {
+    "name": "[SC-021] GET /admin/blocked (Blocked users page)",
+    "kind": "ui",
+    "auth_model": "Owner only. An anonymous GET gets a 303 to sign-in; a non-owner gets the 403 forbidden page with no content.",
+    "error_cases": "A store error gives 500, never an empty page.",
+    "notes": "- One section per account: login, the Unblock form (its action text contains /admin/users/<u>/unblock) and one li per comment it ever posted.\n- Each comment li holds the comment's report title and link, a #comment-<parent> link for a reply, and no text for a removed comment.\n- Its feedback is listed with the report it was sent on.\n- Sections are disjoint per account, and entries per comment, as finish line 2's part() needs."
+   },
+   {
+    "name": "[SC-021] ErrBlocked refusal",
+    "kind": "function",
+    "error_cases": "comments.Post, votes.Cast, votes.Withdraw and feedback.Send return ErrBlocked. The handlers answer 403 and nothing is stored.",
+    "notes": "- The refusal sits in each write statement's own WHERE, so a block that lands between identification and the write still refuses it.\n- The follow-up read only picks which error to return.\n- Existing votes keep counting."
+   },
+   {
+    "name": "[SC-021] Feedback marked blocked",
+    "kind": "ui",
+    "auth_model": "Owner's admin view only.",
+    "notes": "- Message.Blocked comes from an EXISTS on blocked_accounts. It is drawn as `<span class=\"badge\">blocked</span>` inside article id=feedback-<n>, only for a blocked sender.\n- OwnerInboxBySender(ctx, githubID) feeds the Blocked users page and is fenced to admin.go by the existing Owner(Inbox|Reply) rule."
+   }
+  ],
+  "key_decisions": [
+   {
+    "decision": "Removal is `UPDATE comments SET removed_at = COALESCE(removed_at, ?) WHERE id = ?`: one statement keyed by id, with no DELETE, no transaction, no write to the replies and no un-remove in this epic.",
+    "reversibility": "cheap",
+    "rationale": "The NO ACTION self-FK refuses a hard delete of a comment with replies (787), and the read side already turns the flag into a placeholder or into nothing. Keeping the first time makes removal commute with block and unblock, because the two facts are stored apart. Read-then-write transactions measured 215-253 BUSY errors per run on this pool (#949), and a fitness rule already forbids them in internal/comments. Replyke's recursive parentDeletedAt (cited) is the fan-out this avoids. A later restore would be one UPDATE back to NULL."
+   },
+   {
+    "decision": "The route is POST /admin/comments/{n}/remove as an adminRoutes row, with adminCommentRemove in admin.go in adminFeedbackReply's target-first order. It takes the Owner proof and calls neither auth.Participant nor ViewerFrom.",
+    "reversibility": "expensive",
+    "rationale": "E-006 finish line 1 pins this path, and two templates post to it. As an adminRoutes row it joins TestAdminAccessMatrix with no edits, and canonicalID-first keeps the owner's 'x' POST at the expected 404. Lesson #959 asks new handlers for auth.Participant, but that is for public writes. Here RequireOwner already answers 503 on an identity outage, and admin.go is exempt from the ViewerFrom rule."
+   },
+   {
+    "decision": "The landing comes from a fixed enum. With no `from` and a published report it is /reports/<slug>#comments. With from=admin, or a report that is not published, it is /admin/reports/<slug>#comments. Any other or repeated `from` is 400 before the write.",
+    "reversibility": "cheap",
+    "rationale": "Reader forms carry no page-dependent field, so / and /reports/<newest> stay byte-identical (#950). Drafts have no reader page to land on. Nothing taken from the request reaches a Location, and the strict parse matches every existing handler's refusal of an ambiguous field."
+   },
+   {
+    "decision": "The public count is comments.Visible over the same forest the page draws, taken before branch narrowing. There is no stored counter and no second query. The branch page and the admin pages show no count.",
+    "reversibility": "cheap",
+    "rationale": "Tree is one SELECT, so the count and the thread come from one snapshot and agree by construction, through SC-021's block and unblock as well. Visibility is per row, so removing one shown comment lowers the count by exactly one while its replies stay counted. It costs one O(n) walk against 16-21 ms for Tree at 10,000 comments (#960). A branch page draws only part of the forest, so it shows no number rather than a misleading one."
+   },
+   {
+    "decision": "The count is written 'N comments' or '1 comment' in its own `<p class=\"comment-count\">` directly after the likes paragraph on / and /reports/<slug>.",
+    "reversibility": "expensive",
+    "rationale": "Spike comment-count-format-fits-all-finish-readers measured this exact format and placement (F1) clean across 2064 checks of every epic's readers. Spike e006-line1-needs-no-show-all-page measured that, with /reports answering 404, line 1 reads the count from the report page alone. Moving it re-opens four epics' finish readers."
+   },
+   {
+    "decision": "The owner's remove control is a native `<details>` two-step on shown comments only, drawn when threadViewer.Owner is set. It is never drawn on placeholders, carries no hidden field and no digit, does not use the word 'comment' in its labels, and is styled in a neutral colour.",
+    "reversibility": "cheap",
+    "rationale": "There is no undo, and with Q-012 open there is no JavaScript, so a disclosure is the only guard against a misclick. The finish readers fold aria-label and alt text into what they count, so a label like 'Remove comment 12' would show up as a second count. A pure red would trip the found-state blank assay (#941). The branch page reuses the template, so reader-side 'any depth' holds: lesson #954's cap of 100 is stale, and the cap is now 5 with branch pages. A signed-in Chrome render was never possible here (#961), so the control is proven by markup tests and the HTTP-level finish run."
+   },
+   {
+    "decision": "The admin side is a flat, pre-order list of every visible comment on /admin/reports/<slug>, drafts included, built from the same a.tree read. Removed text is shown to nobody, the owner included, here and on the Blocked users page, where it is blanked in SQL.",
+    "reversibility": "cheap",
+    "rationale": "A flat list reaches every depth from one page without nesting or the depth cap, and it covers reports that have no public page. 'It disappears for everyone' includes the author. The page grows with the thread, as the feedback inbox already does (#966). Paging is not part of E-006."
+   },
+   {
+    "decision": "[SC-021] blocked_accounts is written only by internal/comments. Block is `INSERT … VALUES … ON CONFLICT (github_id) DO NOTHING`, keyed by id alone. Blocking the pinned owner's id is 400. Unblock is one DELETE. Both are idempotent.",
+    "reversibility": "expensive",
+    "rationale": "The migration states that a block is a fact about an account, with deliberately no FK to users. DO NOTHING needs no RowsAffected check, so it does not rest on the recalled same-value semantics. Blocking the author would hide every Author comment on the site. Both finish lines and the Blocked users page read this contract."
+   },
+   {
+    "decision": "[SC-021] A blocked account's write is refused inside each write's own statement (comments.Post, votes.Cast, votes.Withdraw, feedback.Send). On 0 rows, a follow-up read returns ErrBlocked, which the handlers answer with 403.",
+    "reversibility": "expensive",
+    "rationale": "This is complete mediation: a block that lands mid-request cannot leak one last write, and the single-statement discipline holds (#949). Without the follow-up read, Withdraw cannot tell a refusal from 'held no vote'. A blocked account gets 403 whatever the parent is, so ErrNoTarget's one-answer property for hidden parents is not reopened. This settles lesson #959's open question: a blocked post is refused and stored nowhere."
+   },
+   {
+    "decision": "[SC-021] Block forms appear only on the admin moderation list. The Blocked users page reads comments.Book.Blocked and feedback.OwnerInboxBySender, both called only from admin.go.",
+    "reversibility": "cheap",
+    "rationale": "No GitHub id or block markup reaches a reader page, and the owner's reader pages carry less weight (#960). The Owner* name puts the new feedback read under the existing fence, so no new rule is needed for it (#957). A reply is linked by an href containing comment-<parent> rather than by the parent's text, which may be removed or written by another blocked account."
+   }
+  ],
+  "proposals": [
+   {
+    "designer": "practice",
+    "selected": "core",
+    "note": "Took from practice:\n- the handler in admin.go beside adminFeedbackReply, with its target-first order;\n- the RemoveTarget name and its (slug, published, err) shape, mirroring OwnerReplyTarget;\n- Remove in comments.go;\n- the strict `from` (its `back`) enum, with 400 on other values;\n- the blocked_accounts write fence.\n\nSet aside:\n- the count line on the admin page;\n- the Block form on reader pages;\n- Block via INSERT…SELECT FROM users returning 404 for never-seen accounts;\n- per-package 404/403 refusals;\n- the name SentBy, which is unfenced.\n\nIts over_engineering_flag was about the popular larger build. Its offered trim (drop `back`) was rejected because drafts have no reader page."
+   },
+   {
+    "designer": "crossdomain",
+    "selected": "partial",
+    "note": "Took from crossdomain:\n- the threadViewer struct;\n- the modItem/moderationList list, with no count line;\n- the branch page showing no count;\n- the TestCountReconciles invariant test and the separate test files;\n- Block as ON CONFLICT DO NOTHING keyed by id;\n- ErrBlocked mapped to 403 with a follow-up read;\n- the name OwnerInboxBySender under the existing fence;\n- Block forms on the admin list only.\n\nIts control-total transfer is carried. Set aside: the handler in comment.go, the Locate/Target naming, the lenient `from`, and showing removed comments' text on the Blocked users page."
+   }
+  ],
+  "coherence_check": "There were two proposals, so there was a composition to check. They agreed on the skeleton, and these seams were checked where the pieces came from different sides:\n\n1. **Removed text.** Practice's admin list shows removed text to nobody, the owner included. Crossdomain's Blocked users page listed removed comments 'marked' with their text. Shipping both breaks 'it disappears for everyone'. Redesigned: Blocked() blanks the body inside its SQL when removed_at is set (`CASE WHEN c.removed_at IS NULL …`), the same way treeSQL redacts. The page lists the entry as removed, with its report link and no text.\n2. **Landing.** Reader-page forms carry no field, which keeps / and /reports/<newest> byte-identical (#950). Admin forms carry a fixed from=admin. The parse is strict, which matches every existing handler.\n3. **Refusal error.** ErrBlocked could conflict with ErrNoTarget's 'one answer, no oracle for hidden parents' rule. It does not: a blocked account gets ErrBlocked for every shape, so the hidden parent stays unrevealed. Withdraw's old 'no vote held is success' now needs a follow-up read to tell a refusal from a no-op; that read is in the design.\n4. **Idempotency.** Block uses DO NOTHING with no row check, so it does not depend on the recalled same-value RowsAffected behaviour. Remove's COALESCE does depend on it, and TestRemove/already-removed settles it. If it is wrong, the fix is local (a 404 on a repeat), not a redesign.\n5. **Count scope.** Visible is taken before threadOf narrows to a branch, and the branch page shows no count, so no page shows a number from a cut it does not draw.\n6. **Access matrix.** The admin rows join the matrix automatically. Two remaining test edits are named: SC-021's parameterless GET /admin/blocked answers 200 against ownerRouteStatus's default 404, so the table gets an observed case (#934); and observe() is hand-written, so it gets rows (#948).\n7. **Lesson #959's Participant advice.** It does not apply to an owner route. RequireOwner gives the 503, and admin.go is exempt from the ViewerFrom rule.\n8. **Lesson #954 is stale against the code.** thread.go caps the depth at 5 and serves branch pages, so reader-side 'any depth' rests on the control appearing on branch pages, and admin-side on the flat list.\n9. **Admin page count.** It is omitted, so the admin view keeps only the measured one-number-beside-dislike layout.\n10. **Lesson #946.** The project stack text about Edge being the default browser is stale; TestReportScriptsNeverRun uses the installed or engine-given Chrome.\n\n**Not contested by anyone** (so nothing here has survived a disagreement): the 'N comments' format and placement (both took spike F1), the route path (pinned by the finish test), the single UPDATE, Visible as the count's source, and the `<details>` confirm.\n\n**Known limit:** the owner's signed-in controls have never been rendered in a real browser on this project (#961). They are proven by httptest markup assertions and by the HTTP-level finish run.\n\n**Architecture rules:** two, each over files that exist and quiet on today's tree (grep: DELETE FROM comments and blocked_accounts writes appear only in _test.go files).",
+  "architecture_rules": [
+   {
+    "name": "removal never deletes a comment row",
+    "files": "internal/comments/**/*.go",
+    "must_not_match": [
+     "(?i)\\bDELETE\\s+FROM\\s+\\S*comments\\b"
+    ],
+    "except_files": [
+     "**/*_test.go"
+    ],
+    "because": "Removal is the one UPDATE of removed_at. A DELETE of a removed leaf would make it 'vanish' just as the prune does, but it would lose the row that the Blocked users page lists, and break the guarantee that unblocking never restores a removed comment. With replies, a DELETE fails with 787 (NO ACTION self-FK), which would surface as a 500. The existing schema tests that DELETE on purpose are _test.go files. The rule that only internal/comments writes the comments table already covers every file outside internal/comments; this one covers the inside."
+   },
+   {
+    "name": "only internal/comments writes the blocked_accounts table",
+    "files": "**/*.go",
+    "must_not_match": [
+     "(?i)\\b(INTO|UPDATE(\\s+OR\\s+\\w+)?|DELETE\\s+FROM)\\s+\\S*blocked_accounts\\b"
+    ],
+    "except_files": [
+     "internal/comments/**",
+     "**/*_test.go"
+    ],
+    "because": "Block and Unblock in internal/comments are where the pinned owner's own id is refused, and they sit inside the no-transaction fence. A second writer in votes, feedback or server could block the author, hiding every Author comment on the site, or could write inside a transaction. votes and feedback may only READ the table, inside their own write statements (NOT EXISTS), and this pattern leaves those reads alone."
+   }
+  ],
+  "cases": [
+   {
+    "behaviour": "the owner removes a comment",
+    "shape": "a top-level comment with no replies",
+    "why": "arrange drops a hidden row with nothing kept below it. The count must fall by exactly one, and the writer's login must leave the page when this was their last visible comment (finish line 1, 'Lone').",
+    "check": "go test -count=1 -run 'TestRemove/leaf' ./internal/comments/ ; go test -count=1 -run 'TestCommentRemove/leaf|TestCommentCount/leaf-removed' ./internal/server/"
+   },
+   {
+    "behaviour": "the owner removes a comment",
+    "shape": "a reply three levels deep that has a visible reply beneath it, and then the reply above it",
+    "why": "Each becomes a placeholder held in place, nested, carrying no login, body or remove form. The count must drop by one each time while the visible replies under the placeholders stay counted. A count of drawn nodes would not drop at all.",
+    "check": "go test -count=1 -run 'TestRemove/held' ./internal/comments/ ; go test -count=1 -run 'TestCommentRemove/held|TestCommentCount/placeholder' ./internal/server/"
+   },
+   {
+    "behaviour": "the owner removes a comment",
+    "shape": "the last visible reply beneath a chain of two placeholders",
+    "why": "Removing one shown comment collapses three nodes. The count must drop by exactly one, not three, and all three ids must be absent from the page source.",
+    "check": "go test -count=1 -run 'TestRemove/chain-collapses' ./internal/comments/ ; go test -count=1 -run 'TestCommentRemove/chain-collapses' ./internal/server/"
+   },
+   {
+    "behaviour": "the owner removes a comment",
+    "shape": "a comment below threadDepthCap (depth 7, drawn only on its branch page) and the end of a 300-deep chain",
+    "why": "The report page cuts at depth 5, so reader-side reach rests on the branch page drawing the control. Remove is keyed by id, so depth must not matter to the write.",
+    "check": "go test -count=1 -run 'TestRemove/deep-300' ./internal/comments/ ; go test -count=1 -run 'TestRemoveControl/branch|TestCommentRemove/below-cap' ./internal/server/"
+   },
+   {
+    "behaviour": "the owner removes a comment",
+    "shape": "the comment is already hidden: removed before, or its writer has a blocked_accounts row",
+    "why": "Idempotency rests on RowsAffected being 1 for a same-value UPDATE (recalled). Removing an already-hidden comment must not lower the count again. Removal must commute with unblocking: deleting the block row afterwards leaves the comment hidden, and the first removed_at is kept.",
+    "check": "go test -count=1 -run 'TestRemove/already-removed|TestRemove/blocked-writer-commutes|TestCountReconciles' ./internal/comments/"
+   },
+   {
+    "behaviour": "the owner removes a comment",
+    "shape": "the path id is not canonical (x, 0, 01, +1, -1), is unknown, or names a comment deleted with its report",
+    "why": "canonicalID-first gives one 404 for every shape before the body is read, keeping the access matrix's owner POST to 'x' at 404. RemoveTarget and Remove must each map no row to ErrNoTarget, and nothing may be written.",
+    "check": "go test -count=1 -run 'TestRemove/unknown|TestRemove/report-deleted|TestRemoveTarget' ./internal/comments/ ; go test -count=1 -run 'TestCommentRemove/ids|TestAdminAccessMatrix' ./internal/server/"
+   },
+   {
+    "behaviour": "someone other than the owner tries to remove a comment",
+    "shape": "an anonymous visitor, a signed-in reader, a reader with the owner's login and another id, a cross-site POST, and the owner sending GET",
+    "why": "The gate answers 403, 403, 403, 403 and 405. removed_at must stay NULL, and the dislike-privacy observation must cover the new route (#948).",
+    "check": "go test -count=1 -run 'TestCommentRemove/refused|TestDislikesDoNotInterfere|TestAdminAccessMatrix' ./internal/server/"
+   },
+   {
+    "behaviour": "the owner lands after a removal",
+    "shape": "`from` absent, exactly 'admin', another value, or repeated; a body over 1 KiB; and a comment on a draft or unpublished report",
+    "why": "The landing is a fixed enum built from the stored slug. An ambiguous field must be a 400 before any write. A report that is not published has no reader page, so it must land in admin.",
+    "check": "go test -count=1 -run 'TestCommentRemove/landing|TestCommentRemove/from|TestCommentRemove/oversize' ./internal/server/"
+   },
+   {
+    "behaviour": "the owner's remove control is drawn",
+    "shape": "the owner, a signed-in reader and an anonymous visitor on /, /reports/<slug> and a branch page, with a placeholder in the thread",
+    "why": "CanRemove = Owner && !Placeholder. A non-owner's page must contain no /admin/comments/, a placeholder must carry no form, and / and /reports/<newest> must stay byte-identical for the owner as well.",
+    "check": "go test -count=1 -run 'TestRemoveControl|TestReaderPagesShareOneLayout|TestCommentPlaceholders' ./internal/server/"
+   },
+   {
+    "behaviour": "readers see the public visible-comment count",
+    "shape": "0, 1 and many comments, with placeholders, with a blocked writer's comments, and with comments below the depth cap",
+    "why": "- The singular form must be used for 1.\n- Visible must count shown comments, not kept nodes, and must equal COUNT(*) under fmtVisible.\n- The page must show exactly one number beside a comments label, as the finish readers read it, with no id in any label.\n- The new anonymous chrome must keep the found-state blank assay clean (#941).",
+    "check": "go test -count=1 -run 'TestVisible|TestCountReconciles' ./internal/comments/ ; go test -count=1 -run 'TestCommentCount|TestReportScriptsNeverRun' ./internal/server/ (the second launches the engine-given Chrome, #947)"
+   },
+   {
+    "behaviour": "the owner removes a comment from the admin page",
+    "shape": "a draft report's comments, a comment 12 levels deep, a reply under a placeholder, and a removed comment",
+    "why": "The flat list must reach every depth and unpublished reports. A reply under a placeholder reads 'in reply to a removed comment'. Removed text appears nowhere on the admin page. Forms carry from=admin and land back at #comments.",
+    "check": "go test -count=1 -run 'TestAdminCommentList' ./internal/server/"
+   },
+   {
+    "behaviour": "pages that draw the thread",
+    "shape": "the thread cannot be read (the a.tree seam fails while every other lookup works)",
+    "why": "The reader page must be a 503 with no count line, never '0 comments'. The admin report page must be a 500, never an empty list. The remove handler does not read the tree, so it is unaffected.",
+    "check": "go test -count=1 -run 'TestRemoveReadFailure' ./internal/server/"
+   },
+   {
+    "behaviour": "E-006 finish line 1 against SC-020's tree",
+    "shape": "the planted line-1 body run before SC-021 exists",
+    "why": "Line 1 also blocks an account, so it cannot exit 0 on SC-020 alone. Its only failure must come at the block press, which proves that posting and the three removal look() steps (count, placeholders, nesting, absence) passed on the real binary.",
+    "check": "Plant the line-1 body at tests/acceptance/test_e006_1_removal_and_placeholders.py. The engine's copy will do, or finish[0].body of epics id 44, read in place with file:<engine.db>?mode=ro using SELECT only, written to a scratch copy whose ROOT resolves to the worktree. Set TAAD3_HOME to an empty scratch folder and run `python -I tests/acceptance/test_e006_1_removal_and_placeholders.py`. It passes when it exits 1 and its only failure is `AssertionError: the owner's POST /admin/users/8003/block answered 404`."
+   },
+   {
+    "behaviour": "the owner removes a comment",
+    "shape": "a removal racing 20 concurrent Posts on the same report",
+    "why": "Judged not worth a test. Remove is one statement, which waits on busy_timeout. The pattern measured 0 BUSY for votes under load (#949), and the fitness rule already forbids the transaction that would cause BUSY. The test would add runtime and could not fail without breaking that rule.",
+    "material": false
+   }
+  ],
+  "channeled_experts": [
+   "Comment-moderation tombstone designs (Reddit [removed], Coral 'tombstoning', Postype placeholder pruning)",
+   "SQLite single-statement write discipline on a WAL pool (lesson #949)",
+   "Jerome Saltzer (complete mediation at the point of use)",
+   "Luca Pacioli (control totals derived from the ledger)"
+  ],
+  "code_claims": [
+   {
+    "path": "internal/comments/comments.go",
+    "symbol": "visibleSQL",
+    "claim": "visibleSQL defines a visible comment as removed_at IS NULL with no blocked_accounts row for its github_id, and postSQL's parent check and treeSQL both use it through fmtVisible."
+   },
+   {
+    "path": "internal/comments/comments.go",
+    "symbol": "postSQL",
+    "claim": "postSQL is one INSERT…SELECT FROM reports that checks status = 'published' and, for a reply, a visible same-report parent inside the statement."
+   },
+   {
+    "path": "internal/comments/comments.go",
+    "symbol": "Post",
+    "claim": "Post returns ErrBadBody before any SQL and ErrNoTarget when its single statement affects 0 rows; the package has no Remove method."
+   },
+   {
+    "path": "internal/comments/tree.go",
+    "symbol": "treeSQL",
+    "claim": "treeSQL blanks github_id, login, avatar_url and body with CASE WHEN shown inside the query and filters only on c.report_id, so a draft's thread is read too."
+   },
+   {
+    "path": "internal/comments/tree.go",
+    "symbol": "arrange",
+    "claim": "arrange keeps a row when it is shown or a kept row below names it as parent, and sets Placeholder to !shown, so every shown row is kept and every placeholder is a hidden row."
+   },
+   {
+    "path": "internal/comments/tree.go",
+    "symbol": "Find",
+    "claim": "Find walks the forest with an explicit stack and no recursion, and returns nil for an id that is not in the pruned forest."
+   },
+   {
+    "path": "internal/store/migrations/0004_comments.sql",
+    "symbol": "removed_at",
+    "claim": "comments has a nullable removed_at INTEGER column and a self-referencing composite foreign key with no action clause, so deleting a comment that has replies fails."
+   },
+   {
+    "path": "internal/store/migrations/0004_comments.sql",
+    "symbol": "blocked_accounts",
+    "claim": "blocked_accounts has github_id as primary key with CHECK (github_id > 0), a NOT NULL blocked_at, and deliberately no foreign key to users."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminRoutes",
+    "claim": "adminRoutes is the owner-only route table, has no comment or user row, and its last row is POST /admin/feedback/{n}/reply."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminFeedbackReply",
+    "claim": "adminFeedbackReply checks canonicalID, looks the target up before reading the body, caps the body with MaxBytesReader, reads only PostForm, and answers auth.SeeOther with a path built from the stored slug."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminReport",
+    "claim": "adminReport reads BySlug, OwnerTally and OwnerInbox, answers 500 on their errors, never reads the comment tree, and adminData has no comments field."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "OwnerRoute",
+    "claim": "handler wraps every adminRoutes row in auth.OwnerRoute and mounts the admin mux only behind auth.RequireOwner at /admin and /admin/."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "siteCSP",
+    "claim": "siteCSP includes form-action 'self', so a reader-page form may post to an /admin path."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "tree",
+    "claim": "app.tree is the one seam through which pages and handlers read a report's pruned forest, kept as a field so a test can make that read fail."
+   },
+   {
+    "path": "internal/auth/owner.go",
+    "symbol": "RequireOwner",
+    "claim": "RequireOwner answers 503 on an identify error, 303 to sign-in for an anonymous GET or HEAD, 403 for an anonymous request with any other method, a 403 forbidden page for a signed-in non-owner, and otherwise attaches the Owner proof."
+   },
+   {
+    "path": "internal/server/thread.go",
+    "symbol": "buildLevel",
+    "claim": "buildLevel sets Author to !Placeholder && auth.IsOwner(ownerID, n.GitHubID) and CanReply to signedIn && !Placeholder, and takes no viewer-is-owner flag."
+   },
+   {
+    "path": "internal/server/thread.go",
+    "symbol": "threadDepthCap",
+    "claim": "threadDepthCap is 5, and comments below it are drawn on the branch page /reports/<slug>/comments/<id>."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "threadOf",
+    "claim": "threadOf reads a.tree, narrows to the last element of comments.Find's path for a branch, and calls buildThread with a.cfg.OwnerGitHubID and threadDepthCap."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "renderReader",
+    "claim": "renderReader resolves the viewer with auth.ViewerFrom, turns a votes, thread or own-feedback read error into stateUnavailable (503), and fills readerData with no comment count."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "readBranch",
+    "claim": "readBranch draws one branch through threadOf, renders branch.html, and answers 404 when the id is not in the pruned forest."
+   },
+   {
+    "path": "internal/server/templates/comments.html",
+    "symbol": "comment removed",
+    "claim": "The 'comment' template gives every comment an article with id comment-{{.ID}}, draws a placeholder as only <p class=\"removed\">comment removed</p>, and nests replies in div.replies."
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "symbol": "class=\"likes\"",
+    "claim": "report.html draws the like count in <p class=\"likes\"> inside section id votes, then includes the feedback and comments templates, and shows no comment count."
+   },
+   {
+    "path": "internal/server/comment.go",
+    "symbol": "landing",
+    "claim": "landing's comment says a blocked writer's comment is stored and never drawn, the behaviour SC-021 replaces with a refusal."
+   },
+   {
+    "path": "internal/server/comment.go",
+    "symbol": "canonicalID",
+    "claim": "canonicalID accepts exactly one value that is a positive decimal with no sign and no leading zero."
+   },
+   {
+    "path": "internal/server/admin_test.go",
+    "symbol": "ownerRouteStatus",
+    "claim": "ownerRouteStatus expects the owner's request to a row with its own method on placeholder id x to answer 404 (400 for POST /admin/reports) and another method 405, so a parameterless GET row that answers 200 needs a new case."
+   },
+   {
+    "path": "internal/server/vote_test.go",
+    "symbol": "observe",
+    "claim": "observe is a hand-written list of reads and POSTs for anonymous, nonvoter and upvoter observers that includes POST /admin/feedback/1/reply and no comment-removal or block route."
+   },
+   {
+    "path": "internal/server/reader_test.go",
+    "symbol": "TestReaderPagesShareOneLayout",
+    "claim": "TestReaderPagesShareOneLayout requires / and /reports/newest to be the same response for the owner and a non-owner, with a placeholder made by a direct removed_at UPDATE in the thread."
+   },
+   {
+    "path": "internal/votes/votes.go",
+    "symbol": "Withdraw",
+    "claim": "Withdraw is one DELETE that treats holding no vote as success and does not read RowsAffected, so on its own it cannot tell a refusal from a no-op."
+   },
+   {
+    "path": "internal/feedback/feedback.go",
+    "symbol": "sendSQL",
+    "claim": "sendSQL is one INSERT…SELECT FROM reports that checks status = 'published', and Send returns ErrNoTarget when it affects 0 rows."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "only the owner's admin page reads feedback with its senders or replies to it",
+    "claim": "A fitness rule forbids calls matching \\.\\s*Owner(Inbox|Reply)\\w* everywhere except internal/server/admin.go, internal/feedback and tests."
+   }
+  ],
+  "outside_claims": [
+   {
+    "claim": "SQLite's change count, which modernc.org/sqlite reports as RowsAffected, counts every row an UPDATE's WHERE matched even when SET writes the same value. So `UPDATE comments SET removed_at = COALESCE(removed_at, ?) WHERE id = ?` reports 1 on a repeat removal.",
+    "evidence": "recalled",
+    "source": "memory (sqlite3_changes semantics); lesson #949 measured the analogous same-value upsert reporting 1",
+    "if_wrong": "A repeat removal would answer 404 instead of 303. The fix is local, with no change to any boundary or contract: on 0 rows, look the id up again. TestRemove/already-removed settles it."
+   },
+   {
+    "claim": "A native <details>/<summary> element is closed by default and opens and closes with no script in Chromium, Firefox and Safari, so the two-step confirm works under script-src 'self' with no site JavaScript.",
+    "evidence": "recalled",
+    "source": "memory (HTML living standard, details element)",
+    "if_wrong": "The control would degrade to a one-click button, or would show open by default. The removal still works and is still owner-gated; only the misclick guard is lost."
+   },
+   {
+    "claim": "net/http CrossOriginProtection (Go 1.25+) refuses a state-changing request whose Sec-Fetch-Site is cross-site, or whose Origin is neither the request's own host nor a trusted origin, with 403 before the wrapped handler runs.",
+    "evidence": "recalled",
+    "source": "memory; the project's decided stack names it",
+    "if_wrong": "A cross-site removal would still need the owner's session, which the SameSite=Lax cookie does not send on a cross-site POST, so it would still reach RequireOwner as anonymous and get 403. TestCommentRemove/refused checks the cross-site case."
+   },
+   {
+    "claim": "go1.27.4's ServeMux answers 405 to a GET or HEAD on a POST-only pattern, and redirects cleaned paths with 307.",
+    "evidence": "measured",
+    "source": "internal/server/admin_test.go ownerRouteStatus and muxCleanStatus comments record the observed responses; the build-check suite passed (exit 0)",
+    "if_wrong": "Only the expected status in the access matrix would change; routing does not."
+   },
+   {
+    "claim": "Under SQLite WAL a single SELECT reads one consistent snapshot, so the count taken from Tree's one query and the thread drawn from it cannot disagree on a page.",
+    "evidence": "recalled",
+    "source": "memory (sqlite.org WAL documentation)",
+    "if_wrong": "A concurrent write could make a page's count differ from its drawn thread by one. The finish scenarios have no concurrent writer, and nothing structural changes."
+   },
+   {
+    "claim": "E-006 finish line 1 passes with GET /reports answering 404 when /reports/<slug> shows exactly one number beside a comments label, and the existing placeholder markup meets its 'held' and 'gone' checks. Its only other new need is the block route.",
+    "evidence": "measured",
+    "source": "spike e006-line1-needs-no-show-all-page (spikes#199)",
+    "if_wrong": "A show-all page would have to be built in this epic."
+   },
+   {
+    "claim": "'N comments' or '1 comment' in its own <p> directly after the likes paragraph passes every epic's finish count reader (E-003, E-004, E-005, E-006) on each scenario's own data.",
+    "evidence": "measured",
+    "source": "spike comment-count-format-fits-all-finish-readers (2064 checks, F1 0 failures)",
+    "if_wrong": "The count markup contract would have to change, re-opening four epics' readers."
+   },
+   {
+    "claim": "The finish count reader folds aria-label and alt text into the pieces it reads. It splits pieces at its BLOCKS elements (summary, button, form, p, header and others, but not details or span) and at , ; | and middle dots.",
+    "evidence": "measured",
+    "source": "pieces() and BLOCKS in the planted E-006 line-1 and line-2 bodies quoted in this brief",
+    "if_wrong": "A digit in a control's label could be read as a second comments count. The design already keeps all digits out of labels."
+   },
+   {
+    "claim": "Single-statement writes on the store.Open pool wait on busy_timeout and returned 0 BUSY errors under concurrent load, where a deferred read-then-write transaction failed 215-253 times per run.",
+    "evidence": "measured",
+    "source": "lesson #949, spikes#195 (TestConcurrentVotesNoBusy)",
+    "if_wrong": "Remove, Block and the blocked-refusal writes would need a retry. The fitness rule forbidding transactions would still stand."
+   },
+   {
+    "claim": "[SC-021] SQLite's INSERT … SELECT … ON CONFLICT upsert parses only when the SELECT has a WHERE clause. votes.Cast already has one, so adding AND NOT EXISTS keeps it valid. INSERT … ON CONFLICT (github_id) DO NOTHING leaves the existing row, with its first blocked_at, and returns no error.",
+    "evidence": "recalled",
+    "source": "memory (sqlite.org lang_upsert parsing-ambiguity note)",
+    "if_wrong": "Either statement would fail at once in its own unit test. The fix is a statement rewrite with no contract change."
+   }
+  ],
+  "cross_domain_transfer": {
+   "source_domain": "Accounting control totals, and consistent cuts in distributed snapshots (Chandy–Lamport)",
+   "pattern": "A summary figure is recomputed from the records it summarises, in the same cut, and never kept as a running balance beside them. The visible-comment count is a control total over the forest's shown records.",
+   "transfer_found": true,
+   "rationale": "'Public counts drop by one' and 'counts always match what readers see' are one consistency requirement between a number and the thread drawn beside it. Deriving the count from the drawn forest answers four things:\n- where the count comes from: Visible;\n- why it drops by exactly one when a placeholder stays;\n- why block and unblock need no count upkeep;\n- why a page cannot contradict itself.\nIt also says where the guarantee ends: across pages that cannot share one cut, which is why the branch page shows no count.",
+   "invariants": [
+    {
+     "precondition": "The forest is read in one statement, so the count and the drawn thread come from one SQLite read snapshot.",
+     "status": "holds",
+     "evidence": "Tree issues a single QueryContext and scans every row before arrange. renderReader would take both the views and the count from one threadOf call."
+    },
+    {
+     "precondition": "Every row that passes visibleSQL appears in the forest as a non-placeholder node: none is lost to the prune or to the users JOIN.",
+     "status": "holds",
+     "evidence": "arrange's keep rule keeps every shown row, and Placeholder is !shown. comments.github_id REFERENCES users with no action, and 0004 says no program path deletes a users row."
+    },
+    {
+     "precondition": "Visibility is local to each row, so removing one shown comment lowers the count by exactly one and its replies stay counted.",
+     "status": "holds",
+     "evidence": "visibleSQL refers only to the row's own removed_at and github_id."
+    },
+    {
+     "precondition": "Removal and blocking are separate facts that commute: a second removal changes nothing, and unblocking never undoes a removal.",
+     "status": "must-verify",
+     "evidence": "By construction (COALESCE on removed_at, and a separate blocked_accounts row). TestRemove/blocked-writer-commutes and TestCountReconciles settle it."
+    },
+    {
+     "precondition": "Every page that shows the count draws the whole forest the count came from.",
+     "status": "holds",
+     "evidence": "True for / and /reports/<slug> (renderReader). The branch page narrows the forest, so by decision it shows no count."
+    },
+    {
+     "precondition": "Two different pages, a future show-all row and the report page, show the same number.",
+     "status": "fails",
+     "evidence": "They are two requests and so two snapshots; a concurrent write can make them differ briefly. No show-all page is in this epic, and the finish readers read with no writer between. Sharing fmtVisible is the mitigation, recorded in the Visible contract."
+    }
+   ]
+  },
+  "prior_art": [
+   {
+    "pattern": "Deleting a comment that has replies replaces it with a 'This comment has been deleted.' placeholder. Once all its replies are deleted too, the placeholder is removed as well. This is the keep-or-prune rule arrange already implements.",
+    "where": "https://help.postype.com/hc/en-us/articles/6178335988761",
+    "authority": "official",
+    "basis": "cited"
+   },
+   {
+    "pattern": "Moderator removal 'tombstones' a comment: it stays in the stream as an anchor for its replies, with its content overwritten.",
+    "where": "https://github.com/coralproject/talk/issues/1534",
+    "authority": "oss",
+    "basis": "cited",
+    "source_date": "2018-04-18"
+   },
+   {
+    "pattern": "The failure mode avoided: deleted comments with no placeholder make replies look nested under the wrong parent, or float as orphaned 'show parent' tops.",
+    "where": "https://classic.communick.news/comment/113630",
+    "authority": "community",
+    "basis": "cited",
+    "source_date": "2023-08-05"
+   },
+   {
+    "pattern": "Delete is gated to the author or a master client and recursively marks every reply (parentDeletedAt). hband avoids that write fan-out by deriving visibility per row at read time.",
+    "where": "https://v5.docs.replyke.com/api-endpoints/comments/delete-comment",
+    "authority": "official",
+    "basis": "cited"
+   },
+   {
+    "pattern": "Soft-deleting without orphaning replies is one of the four hard problems of a comment box.",
+    "where": "https://www.nazarboyko.com/articles/building-a-comments-and-moderation-system",
+    "authority": "community",
+    "basis": "cited",
+    "source_date": "2025-01-15"
+   },
+   {
+    "pattern": "Consistent cut: a global figure is valid only when it is taken from one consistent snapshot of the states it summarises.",
+    "where": "Chandy & Lamport, 'Distributed Snapshots' (1985)",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Complete mediation: authority is checked at every access, at the point of use (applied to SC-021's in-statement blocked refusal).",
+    "where": "Saltzer & Schroeder, 'The Protection of Information in Computer Systems' (1975)",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Stored per-parent counters drift under soft delete and moderation unless every state change updates them, so here the count is derived from the read.",
+    "where": "Ruby on Rails counter_cache",
+    "authority": "oss",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "SQLite's change count includes rows an UPDATE matched even when the value is unchanged, so an idempotent COALESCE update reports 1.",
+    "where": "SQLite documentation, sqlite3_changes",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "A native <details>/<summary> disclosure as a no-JavaScript 'are you sure' step in front of a destructive form button.",
+    "where": "Progressive-enhancement form patterns",
+    "authority": "community",
+    "basis": "recalled"
+   }
+  ],
+  "taste_disagreements": [
+   "Where the code lives: the remove handler in admin.go beside adminFeedbackReply (practice, chosen) or comment.go (crossdomain); SC-021's comments-side code in comments.go (practice) or a new internal/comments/block.go (crossdomain, chosen), with Remove kept in comments.go.",
+   "Lookup naming and shape: RemoveTarget returning (slug, published, err) (practice, chosen, mirroring OwnerReplyTarget) or Locate returning a Target struct (crossdomain).",
+   "The viewer flag through buildThread: a second bool parameter (practice) or a threadViewer{SignedIn, Owner} struct (crossdomain, chosen, so two adjacent bools cannot be swapped).",
+   "The landing field: `back` with a strict 400 on other values (practice) or `from` matched leniently (crossdomain). Chosen: the name `from`, with practice's strict parse.",
+   "Admin page: a 'N comments' line in the moderation section (practice) or none (crossdomain, chosen). Item element ids: mod-<n> (crossdomain) or none (chosen).",
+   "Where the Block form appears: inside the owner's details on reader pages and on the admin list (practice), or on the admin moderation list only (crossdomain, chosen).",
+   "A blocked account's refusal: per-package existing errors (404 for comments and feedback, a new ErrRefused 403 for votes; practice) or one ErrBlocked meaning 403 everywhere through a follow-up read (crossdomain, chosen).",
+   "Blocking an id that never signed in: refused 404 through INSERT…SELECT FROM users (practice) or allowed through INSERT…VALUES ON CONFLICT DO NOTHING (crossdomain, chosen, per the migration's 'a block is a fact about an account')."
+  ],
+  "whats_new": [
+   "comments.Book.RemoveTarget and Book.Remove: one SELECT and one idempotent UPDATE of removed_at (internal/comments/comments.go)",
+   "comments.Visible(forest): the public visible-comment count, pure and iterative (internal/comments/tree.go)",
+   "threadViewer, commentView.CanRemove, modItem and moderationList (internal/server/thread.go)",
+   "threadOf takes a threadViewer and returns the visible count; readerData.CommentCount (internal/server/reader.go)",
+   "<p class=\"comment-count\">N comments</p> after the likes paragraph (report.html)",
+   "The owner-only <details> remove control on shown comments (comments.html: report, home and branch pages)",
+   "adminRoutes row POST /admin/comments/{n}/remove and adminCommentRemove, with the strict from=admin landing enum (admin.go)",
+   "adminReport reads a.tree; adminData.Moderation; the moderation section id=\"comments\" on admin_report.html",
+   "Tests: internal/comments/remove_test.go (TestRemove, TestRemoveTarget, TestVisible, TestCountReconciles) and internal/server/remove_test.go (TestCommentRemove, TestRemoveControl, TestCommentCount, TestAdminCommentList, TestRemoveReadFailure)",
+   "Test edits: observe() rows for POST /admin/comments/<first>/remove; owner and non-owner control assertions in TestReaderPagesShareOneLayout",
+   "Architecture rules: no DELETE FROM comments in internal/comments; blocked_accounts written only by internal/comments",
+   "[SC-021] internal/comments/block.go: Block, Unblock, Blocked, isBlocked and ErrBlocked; the NOT EXISTS predicate in Post, votes Cast and Withdraw, and feedback Send",
+   "[SC-021] feedback Message.Blocked and OwnerInboxBySender; the 'blocked' badge in feedback-<n>",
+   "[SC-021] adminRoutes rows for POST /admin/users/{u}/block and /unblock and GET /admin/blocked; admin_blocked.html; the admin.html link; Block forms on the moderation list"
+  ],
+  "whats_reused": [
+   "removed_at and blocked_accounts from 0004_comments.sql, with no migration",
+   "visibleSQL and fmtVisible as the only visibility predicate, unchanged",
+   "treeSQL's in-query redaction and arrange's placeholder and prune pass (C5 and C6 measured present, not rebuilt)",
+   "comments.html's 'comment removed' markup and comment-<n> anchors, unchanged",
+   "The branch page (readBranch, branch.html) for reach below threadDepthCap",
+   "comments.Find's explicit-stack walk, as the model for Visible and moderationList",
+   "auth.RequireOwner, auth.OwnerRoute and auth.IsOwner; the adminRoutes table and its automatic access matrix (adminPaths, ownerRouteStatus)",
+   "adminFeedbackReply's target-first order and feedback.OwnerReplyTarget's lookup shape",
+   "canonicalID for path ids, and auth.SeeOther for every redirect",
+   "http.CrossOriginProtection and the site CSP's form-action 'self'; no CSRF tokens",
+   "The single-statement, no-transaction discipline and its fitness rules (#949)",
+   "The a.tree seam, for every thread read and for the read-failure tests",
+   "The existing Owner(Inbox|Reply) fence, which covers OwnerInboxBySender with no new rule",
+   "The spike-measured 'N comments' F1 format and placement, and the finding that line 1 needs no show-all page",
+   "The finish-runner recipe: a read-only SELECT of epics id 44, the body written to scratch with ROOT pointed at the worktree, then python -I (#951, #963)"
+  ],
+  "epic_parts": [
+   {
+    "key": "SC-021",
+    "builds": "SC-021 builds the four [SC-021] components: the block store (internal/comments/block.go), the in-statement refusal in comments.Post, votes.Cast/Withdraw and feedback.Send, the feedback blocked mark and OwnerInboxBySender, and the block routes with the Blocked users page (admin.go, admin_blocked.html, the admin.html link, Block forms on the moderation list). It also builds the four [SC-021] contracts. SC-020's Remove, Visible, moderation list and count are used unchanged: hiding and restoring need no count or tree code, because visibleSQL already reads blocked_accounts.\n\nThe shapes its tests must feed:\n1. Block and unblock: the pinned owner's id (400); a non-canonical id (404); a repeated block or unblock (303, idempotent, first blocked_at kept); an id that never signed in (blocked, listed as 'GitHub user <u>'). Non-owners, anonymous and cross-site are refused with nothing changed, and observe() and TestFeedbackDoesNotInterfere gain rows for these routes and for GET /admin/blocked.\n2. A blocked account attempts a top-level comment, a reply, feedback, a vote up, a vote down and a withdraw. Each answers 403 with nothing stored, its existing vote stays counted, and Public and OwnerTally are unchanged. This flips the existing tests that pin a blocked poster's comment as 'stored, never drawn' (the blocked-row cases near comment_test.go:448 and :1082) to refused.\n3. Blocked comments at every depth on every report are hidden from every public page and every count. A blocked top-level comment with a visible reply is held as a placeholder; a blocked reply with none is gone.\n4. The Blocked users page:\n   - one disjoint section per account and one disjoint li per comment, with the report link and, for a reply, a #comment-<parent> link;\n   - a removed comment listed with no text;\n   - the account's feedback listed inside its section.\n5. Feedback is marked 'blocked' on /admin/reports/<slug> only for blocked senders.\n6. Unblock restores the comments and the counts, and the account can comment, send feedback and vote again. A comment removed while its writer was blocked stays hidden after unblock.\n7. The owner's GET and HEAD of /admin/blocked answer 200, added to ownerRouteStatus from the observed response.\n\nHow tests show it: go tests TestBlock, TestBlockedRefusals, TestBlockedPage and TestUnblockRestores, plus TestAdminAccessMatrix, TestDislikesDoNotInterfere and TestFeedbackDoesNotInterfere. Then `python tests/acceptance/test_e006_1_removal_and_placeholders.py` and `python tests/acceptance/test_e006_2_blocking_and_unblocking.py` must both exit 0 from the integration branch root."
+   }
+  ]
+ }
+}

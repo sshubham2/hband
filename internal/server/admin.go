@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/sshubham2/hband/internal/auth"
+	"github.com/sshubham2/hband/internal/comments"
 	"github.com/sshubham2/hband/internal/feedback"
 	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/votes"
@@ -41,8 +42,16 @@ func adminRoutes(a *app) []adminRoute {
 		// Feedback is keyed by the message's row id. The owner answers a message
 		// here; the reader it came from is the only other person who is shown it.
 		{Method: "POST", Pattern: "/admin/feedback/{n}/reply", Handler: a.adminFeedbackReply},
+
+		// Comments are keyed by their row id. The owner removes one here, at any
+		// depth, from a reader page or from the report's admin page.
+		{Method: "POST", Pattern: "/admin/comments/{n}/remove", Handler: a.adminCommentRemove},
 	}
 }
+
+// maxRemoveBody caps the remove form, which carries at most one short field
+// (from): 1 KiB is far over it.
+const maxRemoveBody = 1 << 10
 
 // uploadForm is what the upload form is filled with.
 type uploadForm struct {
@@ -63,6 +72,10 @@ type adminData struct {
 	// first, each with its sender and the author's replies. It is shown on this
 	// page only.
 	Feedback []feedback.Message
+	// Moderation is every comment a reader can see under the report, at any depth,
+	// in one flat list with a remove form on each. Drafts and unpublished reports
+	// list theirs. Removed text is not in it.
+	Moderation []modItem
 }
 
 func (a *app) adminPage(r *http.Request, o auth.Owner, title string) adminData {
@@ -112,7 +125,7 @@ func (a *app) adminSave(w http.ResponseWriter, r *http.Request, o auth.Owner) {
 	}
 }
 
-// adminReport is the edit page: the like and dislike counts, the private
+// adminReport is the edit page: the like and dislike counts, every comment a reader can see under the report with a remove form on each, the private
 // feedback readers sent with the author's replies and a reply form on each
 // message, the sandboxed preview, the publish state, the replace
 // form with the slug filled in, and delete.
@@ -142,10 +155,19 @@ func (a *app) adminReport(w http.ResponseWriter, r *http.Request, o auth.Owner) 
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	// The comments are read the same way: through the one a.tree seam, and an error
+	// page when they cannot be, never an empty list standing in for them.
+	nodes, err := a.tree(r.Context(), rep.ID)
+	if err != nil {
+		slog.Error("admin: read the comments", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	d := a.adminPage(r, o, rep.Title+" - hband admin")
 	d.Report = rep
 	d.Tally = tally
 	d.Feedback = inbox
+	d.Moderation = moderationList(nodes, a.cfg.OwnerGitHubID)
 	d.Form = uploadForm{Title: rep.Title, Slug: rep.Slug, Status: rep.Status}
 	a.render(w, http.StatusOK, "admin_report.html", d)
 }
@@ -202,6 +224,73 @@ func (a *app) adminFeedbackReply(w http.ResponseWriter, r *http.Request, o auth.
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	default:
 		auth.SeeOther(w, "/admin/reports/"+slug+"#feedback-"+strconv.FormatInt(n, 10))
+	}
+}
+
+// adminCommentRemove handles POST /admin/comments/{n}/remove: the owner removes
+// one comment, at any depth, from the reader pages or the admin page. The only
+// field is the optional from, and its only value is "admin".
+//
+// The order is adminFeedbackReply's, target-first: the id is checked and the
+// comment looked up before the body is read, so a malformed or unknown id is the
+// same 404 whatever the body is, and the owner's POST to the access matrix's
+// placeholder id ("x") is a 404. The write is one statement keyed by the id, so
+// it reaches a comment of a draft or unpublished report, and one that is already
+// hidden by a block. Removing a removed comment is a success.
+//
+// It answers a 303 built from the stored slug and nothing from the request: to the
+// admin page of the report when from=admin, or when the report has no reader page
+// to land on (a draft or an unpublished one), and otherwise to the comments of
+// its reader page. A reader-page form carries no field, so the owner's pages stay
+// one set of bytes whichever page draws them. Any other from, or a repeated one,
+// is a 400 before anything is written. The Owner proof comes from OwnerRoute; the
+// handler asks nothing else about the viewer.
+func (a *app) adminCommentRemove(w http.ResponseWriter, r *http.Request, o auth.Owner) {
+	n, ok := canonicalID([]string{r.PathValue("n")})
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	slug, published, err := a.comments.RemoveTarget(r.Context(), n)
+	switch {
+	case errors.Is(err, comments.ErrNoTarget):
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		slog.Error("admin: look up the comment to remove", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxRemoveBody)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	// Only the body of the request counts: a field in the query string is not the
+	// form, and a repeated one is ambiguous.
+	toAdmin := false
+	switch from := r.PostForm["from"]; {
+	case len(from) == 0:
+	case len(from) == 1 && from[0] == "admin":
+		toAdmin = true
+	default:
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	err = a.comments.Remove(r.Context(), n)
+	switch {
+	case errors.Is(err, comments.ErrNoTarget):
+		// The comment was deleted with its report since the lookup.
+		http.NotFound(w, r)
+	case err != nil:
+		slog.Error("admin: remove the comment", "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	case toAdmin || !published:
+		auth.SeeOther(w, "/admin/reports/"+slug+"#comments")
+	default:
+		auth.SeeOther(w, "/reports/"+slug+"#comments")
 	}
 }
 

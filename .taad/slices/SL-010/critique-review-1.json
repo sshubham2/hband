@@ -1,0 +1,69 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-010",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-24T10:52:22.723Z",
+ "head": "e64753c60c57cc40daa3c98168b8f6acb1853f3a",
+ "run_id": 11982,
+ "summary": "The approach holds up. The design is the smallest one that fits the measured tree: one COALESCE UPDATE of removed_at, an adminRoutes row at the path the finish test pins, and Visible taken from the same single-query forest. The two structurally different options are ruled out by measurement. A hard delete is refused by the NO ACTION self-foreign-key (787). A stored counter would drift under block and unblock. No simpler design was missed.\n\nSix of the first reviewer's eight findings are valid at their filed severity, and M1 is rightly major under CC-002. m1 is suspicious. SC-021's planned test 6 already drives a real Unblock against a removed comment, which is the gap m1 says nothing covers.\n\nOne gap was missed. The new count line goes onto pages that the E-003, E-004 line 1 and E-005 finish readers read. The spike checked those readers only against template copies with stub data, and it marked the end-to-end run as not yet measurable (N-117). The design re-runs only the E-006 line-1 body.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "The approach holds up. The design is the smallest one that fits the measured tree: one COALESCE UPDATE of removed_at, an adminRoutes row at the path the finish test pins, and Visible taken from the same single-query forest. The two structurally different options are ruled out by measurement. A hard delete is refused by the NO ACTION self-foreign-key (787). A stored counter would drift under block and unblock. No simpler design was missed.\n\nSix of the first reviewer's eight findings are valid at their filed severity, and M1 is rightly major under CC-002. m1 is suspicious. SC-021's planned test 6 already drives a real Unblock against a removed comment, which is the gap m1 says nothing covers.\n\nOne gap was missed. The new count line goes onto pages that the E-003, E-004 line 1 and E-005 finish readers read. The spike checked those readers only against template copies with stub data, and it marked the end-to-end run as not yet measurable (N-117). The design re-runs only the E-006 line-1 body.",
+  "assessments": [
+   {
+    "finding": "M1",
+    "classification": "valid",
+    "note": "CC-002 applies. RemoveTarget is a store lookup that runs after RequireOwner's session check, and a generic closed-store fault is shadowed at Identify (503). The design contracts a 500 on both RemoveTarget and Remove but lists no case that reaches either branch. TestRemoveReadFailure fails only a.tree, and the design itself says the handler never reads a.tree. The impact is a little smaller than the finding says: after a failed removal the owner lands on /reports/<slug>#comments, which redraws the comment still in place, so the failure is visible on the next page and not fully silent. It is still major, because the project accepted this exact class from three earlier handlers. Two corrections to the fix: the adminReport entry it proposes duplicates the design's TestRemoveReadFailure ('The admin report page must be a 500'), so only the two handler steps are new. The trigger approach (RAISE(ABORT) on UPDATE OF removed_at, in test SQL) isolates Remove cleanly, with RemoveTarget's SELECT still working."
+   },
+   {
+    "finding": "m1",
+    "classification": "suspicious",
+    "note": "The finding's load-bearing point is that 'TestRemove/blocked-writer-commutes deletes the block row with test SQL, so it cannot catch a real Unblock that clears removed_at'. The design's epic_parts SC-021, shape 6, already requires the real path: 'A comment removed while its writer was blocked stays hidden after unblock' (TestUnblockRestores). Unblock does not exist until SC-021, so nothing in SL-010 can clear removed_at except a builder writing it on purpose, and code review sees that. The extra must_not_match pattern is cheap optional hardening, not a gap in the design."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "Neither spike recorded the literal message or the id 8003. The spike says only that L409 runs assertLess(status, 400) and that L420 posts to /admin/users/<acc[2].id>/block. Whether look() runs between L411, L414 and L417 is also unrecorded; the 3-line spacing suggests it does, but nobody has measured it. The claim that 'posting and the three removal look() steps' passed therefore rests on an unread part of the body. Minor is right: the fix is to restate the pass condition structurally and read the body in place."
+   },
+   {
+    "finding": "m3",
+    "classification": "valid",
+    "note": "CC-001 is applied correctly. String concatenation evades both rules. REPLACE INTO and INSERT OR REPLACE INTO comments delete rows implicitly and evade the DELETE rule. Because the blocked_accounts rule is case-insensitive, it fires on English prose such as 'a row into blocked_accounts' in a Go comment, and SC-021's votes and feedback edits are exactly where such comments will be written. Neither rule is in rules_under_test, so TestRuleSpellingsCorpus pins no fire or quiet row for either. I checked that the votes Withdraw read (DELETE FROM votes … NOT EXISTS (SELECT 1 FROM blocked_accounts …)) stays quiet, because blocked_accounts must follow DELETE FROM directly, so the proposed quiet row is right. Minor."
+   },
+   {
+    "finding": "m4",
+    "classification": "valid",
+    "note": "This is real UX friction on the one reader path the design relies on for 'any depth', and the fix needs no page-dependent field: landing() at comment.go:111-122 already derives the branch page from stored data. It stays minor and optional. The current landing on #comments also avoids a 404 when the removed comment was the branch root with nothing visible below it, and any fix has to keep that fallback, as the finding's 'pruned parent' fallback does."
+   },
+   {
+    "finding": "m5",
+    "classification": "valid",
+    "note": "CanRemove = Owner && !Placeholder, moderationList emits only shown nodes, and admin_blocked.html carries only an Unblock form. So once SC-021 lands, the owner cannot remove a block-hidden comment, even though Remove itself accepts one by design ('works … on a comment already hidden by a block'). The brief's 'any comment' covers such a comment. Minor, and correctly routed to SC-021."
+   },
+   {
+    "finding": "m6",
+    "classification": "valid",
+    "note": "A Node's Placeholder does not record why the comment is hidden, so after SC-021 a block-hidden parent will be called 'removed' on the owner's moderation page, and Unblock can bring it back. The suggested wording still contains 'comment' inside its own <p>, which is already split from neighbouring digits, so the finish readers are unaffected. Minor."
+   },
+   {
+    "finding": "m7",
+    "classification": "valid",
+    "note": "The design applies lesson #960 to the block forms ('the owner's reader pages carry less weight') but not to the per-comment remove details, which adds roughly 150 B per shown comment. That is about 1.5 MB on the measured 5.8 MB 10k-comment owner page. Only the owner pays this cost and the fix is optional, so minor is right."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "claim": "The new '<p class=\"comment-count\">' line is drawn on / and /reports/<slug> for every scenario, and the finish readers of E-003, E-004 line 1 and E-005 read those pages. No planned case runs those epics' finish bodies against the built worktree. The only real-binary finish run in the design is E-006 line 1, which cannot exit 0 until SC-021 exists. The count's safety for the other epics rests entirely on spike comment-count-format-fits-all-finish-readers. That spike states it replayed scenarios as data, using copies of the templates with stub data and hand-written rows. It marked the end-to-end run 'not measurable on any machine here' because SL-010 did not yet have a count (N-117). That condition stops being true the moment this slice is built. The spike also never saw two things the design adds: the owner-only remove control on reader pages, and the moderation list on /admin/reports/<slug>, a page whose dislike number E-003 and E-005 read through count(view.dom, 'dislikes'). The design itself calls the count placement 'expensive', saying 'Moving it re-opens four epics' finish readers', yet it plans no measurement that those four still pass after the change.",
+    "evidence": "Spike comment-count-format-fits-all-finish-readers: 'SUBSTITUTIONS FIRST … I did not run the finish tests against a built binary … Scenario flows were replayed as data' and detail '[N-117]'. Design key_decisions, count markup: 'Moving it re-opens four epics' finish readers'. Design cases list: the only finish-body run is 'E-006 finish line 1 against SC-020's tree', and the count case's checks are Go tests (TestCommentCount, TestReportScriptsNeverRun).",
+    "fix": "Add one case that uses the recipe the design already names (#951, #963): a read-only SELECT of the finish bodies for ledger epic ids 41, 42 (line 1) and 43, each planted into a scratch copy whose ROOT resolves to the worktree, then run with python -I and TAAD3_HOME pointed at an empty folder. Each must keep the finish_proofs status it had on the pre-slice commit. A line that passed before must still exit 0. Any failure that cites a comments or dislikes reader blocks the build.",
+    "route": "premortem"
+   }
+  ],
+  "frame_challenged": false,
+  "notes": "The first reviewer was accurate and well calibrated on this slice. Every finding cites the design component it attacks. It applied CC-001 (m3) and CC-002 (M1) as the project's checks require, and it marked the UX and size items (m4, m7) optional rather than inflating them. There is no severity inflation: one major, grounded in a learned check, and the rest minor. Its one miss in reading the design is m1. It treated the guarantee as untested because the SL-010 test removes the block with direct SQL, and it did not credit the SC-021 epic part's shape 6, which tests the real Unblock path. Its blind spot was the same as the design's: it accepted the spike's count measurement as final, without noticing that the spike itself marked the end-to-end run against a built SL-010 as unmeasured. The reviewer never says this, but the design's imported commute precondition can only break through an explicit write of removed_at back to NULL. If that happened, a removed comment would reappear for everyone on unblock and the public count would rise by one. COALESCE plus the separate blocked_accounts table make that structurally unlikely, and SC-021's shape 6 checks it."
+ }
+}

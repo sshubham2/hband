@@ -1461,8 +1461,11 @@ func TestFeedbackReplyMarkup(t *testing.T) {
 			t.Errorf("a comment carries feedback markup: %s", art.Own)
 		}
 	}
-	if labelled := regexp.MustCompile(`(?i)\b(\d+)\s*(comments?|dislikes?|views?|open)\b`).FindAllStringSubmatch(page, -1); len(labelled) != 0 {
-		t.Errorf("numbers beside a label on the reader's page: %q", labelled)
+	// The one number is the public comment count, and no comment is posted here.
+	// SL-010 added it; the feedback adds nothing to it or to any other label.
+	labelled = regexp.MustCompile(`(?i)\b(\d+)\s*(comments?|dislikes?|views?|open)\b`).FindAllStringSubmatch(page, -1)
+	if len(labelled) != 1 || labelled[0][1] != "0" || !strings.EqualFold(labelled[0][2], "comments") {
+		t.Errorf("numbers beside a label on the reader's page: %q, want just the comment count 0", labelled)
 	}
 
 	// The stylesheet has a rule for the reply, for the sender's list and for the

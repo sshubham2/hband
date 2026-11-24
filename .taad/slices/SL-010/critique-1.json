@@ -1,0 +1,166 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-010",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-24T10:41:36.376Z",
+ "head": "e64753c60c57cc40daa3c98168b8f6acb1853f3a",
+ "run_id": 11980,
+ "summary": "The design's core is sound and fits the tree I read. Removal is one UPDATE of removed_at keyed by id. The route is an adminRoutes row behind RequireOwner/OwnerRoute. The count is Visible over the same single-query forest, taken before branch narrowing. The owner control is a details form on shown comments only. I checked every load-bearing code claim against the files: visibleSQL, postSQL, treeSQL, arrange's keep rule, Find, adminRoutes, adminReport, threadOf/renderReader/readBranch, buildLevel, comments.html, TestReaderPagesShareOneLayout (owner and non-owner) and observe() at vote_test.go:534. All hold. The recalled claim that a same-value UPDATE reports 1 row also holds: SQLite counts matched rows (stackoverflow.com/questions/26372449, 'SQLite changes() counts non-changing UPDATEs'). The two new fitness rules are already in .taad/fitness.yaml and are quiet on non-test files. Neither is in rules_under_test, so they do not break TestRuleSpellingsCorpus.\n\nThe one major gap is error paths. Neither the Remove 500 nor the RemoveTarget 500 is isolated by any planned test. The project's own TestStoreFaultSteps census, which exists for exactly this class (CC-002), is not extended. A rename of the comments table fails RemoveTarget before Remove is ever reached, so a builder who drops the Remove error branch ships a 303 that looks like success after a failed removal.\n\nThe minors and extras:\n- The 'nothing un-removes' invariant, which the must-verify commute precondition rests on, is protected only by a sentence in the package comment.\n- The E-006 case's pass condition quotes a failure message nobody measured.\n- The new rules state no known holes.\n- Landing after a branch-page removal.\n- No UI can remove a blocked writer's comment.\n- 'Removed' wording for a parent that is only blocked.\n- The owner page grows about 1 MB at 10k comments.\n\nNothing blocks the slice.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The design's core is sound and fits the tree I read. Removal is one UPDATE of removed_at keyed by id. The route is an adminRoutes row behind RequireOwner/OwnerRoute. The count is Visible over the same single-query forest, taken before branch narrowing. The owner control is a details form on shown comments only. I checked every load-bearing code claim against the files: visibleSQL, postSQL, treeSQL, arrange's keep rule, Find, adminRoutes, adminReport, threadOf/renderReader/readBranch, buildLevel, comments.html, TestReaderPagesShareOneLayout (owner and non-owner) and observe() at vote_test.go:534. All hold. The recalled claim that a same-value UPDATE reports 1 row also holds: SQLite counts matched rows (stackoverflow.com/questions/26372449, 'SQLite changes() counts non-changing UPDATEs'). The two new fitness rules are already in .taad/fitness.yaml and are quiet on non-test files. Neither is in rules_under_test, so they do not break TestRuleSpellingsCorpus.\n\nThe one major gap is error paths. Neither the Remove 500 nor the RemoveTarget 500 is isolated by any planned test. The project's own TestStoreFaultSteps census, which exists for exactly this class (CC-002), is not extended. A rename of the comments table fails RemoveTarget before Remove is ever reached, so a builder who drops the Remove error branch ships a 303 that looks like success after a failed removal.\n\nThe minors and extras:\n- The 'nothing un-removes' invariant, which the must-verify commute precondition rests on, is protected only by a sentence in the package comment.\n- The E-006 case's pass condition quotes a failure message nobody measured.\n- The new rules state no known holes.\n- Landing after a branch-page removal.\n- No UI can remove a blocked writer's comment.\n- 'Removed' wording for a parent that is only blocked.\n- The owner page grows about 1 MB at 10k comments.\n\nNothing blocks the slice.",
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "major",
+    "dimension": "error-paths",
+    "nature": "required",
+    "claim": "The contract says the remove handler answers 500 on a store error from RemoveTarget or from Remove, but no planned test reaches either branch. TestCommentRemove lists landings, `from` shapes, id shapes, gate refusals, oversize and 405. TestRemoveReadFailure fails only the a.tree seam, and the design itself says the remove handler never reads it. The obvious fault, renaming or dropping `comments`, fails RemoveTarget first, so Remove's error branch can never be reached. A closed store fails earlier still, at RequireOwner's Identify (503). This is exactly the class CC-002 names and TestStoreFaultSteps was written to close: 'a step of a handler that reads or writes the store has a failure path nobody can reach'. That test's census is a closed, hand-written map of four reader handlers, so a new handler is not forced into it, and the design never mentions it. The consequence is not cosmetic. A build that maps ErrNoTarget and forgets the `err != nil` arm falls through to auth.SeeOther. The owner then gets a success redirect for a removal that did not happen, which silently breaks 'it disappears for everyone'.",
+    "evidence": "Design component 'adminCommentRemove handler' steps 2 and 5, and contract 'POST /admin/comments/{n}/remove' ('a store error: 500'). The design's cases list has no store-fault case for the handler. internal/server/storefault_test.go:16-26 and its census at :89-94 cover only postComment, readReport, home and readBranch.",
+    "file": "internal/server/storefault_test.go",
+    "line": 89,
+    "quote": {
+     "path": "internal/server/storefault_test.go",
+     "line": 21,
+     "text": "or answer a thread (the home page, the report page, the branch page and the"
+    },
+    "fix": "Add 'adminCommentRemove' and 'adminReport' entries to TestStoreFaultSteps' census, with one isolated fault each:\n- identify the owner: drop sessions, answers 503 at the gate.\n- look up the comment: rename reports. RemoveTarget's JOIN fails while comments still reads, so the answer is 500 with no Location and removed_at still NULL.\n- remove the comment: in test SQL only, `CREATE TRIGGER t BEFORE UPDATE OF removed_at ON comments BEGIN SELECT RAISE(ABORT,'injected'); END`. RemoveTarget's SELECT still works, so the answer is 500 with no Location and removed_at still NULL.\n- adminReport, read the comments: the a.tree seam, answers 500.\nEach row runs as the owner."
+   },
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "defect",
+    "claim": "The design's imported must-verify precondition is that removal and blocking commute and unblocking never undoes a removal. That guarantee depends on no code ever writing removed_at back to NULL. The design protects it only with a sentence in the package comment ('Remove is the only write of removed_at; nothing un-removes'). The rule it declares for this, 'removal never deletes a comment row', says in its `because` that it protects 'the guarantee that unblocking never restores a removed comment'. Its only pattern forbids DELETE, so an `UPDATE comments SET removed_at = NULL ...` passes it. SC-021's Unblock is designed in the same document and built by a later slice, and it is the likeliest place for a 'restore' to be written. The planned TestRemove/blocked-writer-commutes deletes the block row with test SQL, so it cannot catch a real Unblock that clears removed_at.",
+    "evidence": "Design: Book.Remove responsibility ('nothing un-removes'), the cross_domain_transfer invariant marked must-verify, and the architecture rule's because text.",
+    "file": ".taad/fitness.yaml",
+    "line": 411,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 411,
+     "text": "(?i)\\bDELETE\\s+FROM\\s+\\S*comments\\b"
+    },
+    "fix": "Add a second must_not_match to the same rule, such as `(?i)\\bremoved_at\\s*=\\s*(NULL|0)\\b`, over internal/comments non-test files. It is quiet today, because the tree has only `removed_at IS NULL`. Name the remaining holes (CASE expressions, concatenation) in the rule's text."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "nature": "defect",
+    "claim": "The E-006 line-1 case passes 'when it exits 1 and its only failure is `AssertionError: the owner's POST /admin/users/8003/block answered 404`'. Neither spike recorded that literal message or the account id 8003. The spike records only that the press helper at L408-409 does `assertLess(got.status, 400)` and that L420 posts to /admin/users/<acc[2].id>/block. A validator who matches the literal text could fail a correct build, or pass a wrong one when the ids differ. The case also claims to prove that 'the three removal look() steps' passed. The spike says look() runs at L389-405 and was seen after look('posting'), but it never says look() is called between the removals at L411-417 and the block at L420. If it is not, a stop at the block proves nothing about removal state.",
+    "evidence": "Design cases: 'E-006 finish line 1 against SC-020's tree'. Spike e006-line1-needs-no-show-all-page, evidence (a) and STEP 4.",
+    "fix": "State the pass condition structurally: exit 1 with exactly one failure, raised from the L409 status assertion during the L420 block POST with status 404. First read the body in place and record whether look() runs after each of L411, L414 and L417. If it does not, say the run proves only that the remove POSTs answered below 400."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "extra",
+    "claim": "I checked the two new rules (already written to fitness.yaml) against CC-001's variants.\n\nThe DELETE rule is evaded by:\n- a table name built by concatenation;\n- REPLACE INTO or INSERT OR REPLACE INTO comments, which deletes the conflicting row implicitly.\n\nThe blocked_accounts rule is evaded by concatenation. It also fires on prose, for example a Go comment in internal/votes reading '...puts a row into blocked_accounts'.\n\nUnlike every sibling rule, neither `because` names its known holes (lesson #931: name bounded_by and stop). Neither rule is in rule_spellings.json's rules_under_test, so TestRuleSpellingsCorpus pins no fire or quiet row for either.",
+    "evidence": ".taad/fitness.yaml:408-432. internal/fitnessrules/rules_test.go:254-257 enforces fire and quiet rows only for rules listed in c.Rules.",
+    "file": ".taad/fitness.yaml",
+    "line": 424,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 424,
+     "text": "(?i)\\b(INTO|UPDATE(\\s+OR\\s+\\w+)?|DELETE\\s+FROM)\\s+\\S*blocked_accounts\\b"
+    },
+    "fix": "Add a 'Known holes' sentence to each `because`. Add both rules to rules_under_test with one fire row and one quiet row each. For the blocked_accounts rule, the quiet row is the votes NOT EXISTS read. Do not widen the patterns further (#957)."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "Every reader-side removal lands on /reports/<slug>#comments, including a removal made on a branch page. The design rests reader-side 'any depth' on the branch pages. An owner moderating a comment at depth 40 is sent back to the top of the report and has to follow 'continue this thread' links back down. The byte-identity constraint (#950) binds only / and /reports/<newest>, not the branch page. The server can also compute the right page from stored data without any field, as landing() already does for posts.",
+    "evidence": "Design adminCommentRemove step 6 and the 'Owner remove control' contract. internal/server/comment.go:111-122 already picks the branch page from Find and branchRoot.",
+    "file": "internal/server/comment.go",
+    "line": 118,
+    "quote": {
+     "path": "internal/server/comment.go",
+     "line": 118,
+     "text": "if root := branchRoot(comments.Find(nodes, id)); root != nil {"
+    },
+    "fix": "Optional. After Remove, with no `from`, have RemoveTarget also return parent_id. Land at the parent's anchor on the page that draws it, using a.tree, Find and branchRoot as landing() does, and fall back to #comments on a read error or a pruned parent."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "The owner has no control that removes a blocked writer's comment:\n- On reader pages it is a placeholder or pruned, and CanRemove excludes placeholders.\n- moderationList emits only shown nodes.\n- SC-021's Blocked users page lists the account's comments but carries only an Unblock form.\n\nThe owner therefore cannot remove a specific comment before unblocking. On Unblock it reappears for everyone until it is removed. Remove itself is keyed by id and already supports this. Only the UI is missing.",
+    "evidence": "Design: commentView.CanRemove = Owner && !Placeholder; moderationList 'emits only shown nodes'; [SC-021] admin_blocked.html sections carry only the Unblock form.",
+    "fix": "File for SC-021: give each not-removed comment li on /admin/blocked a remove form with from=admin. Remove already accepts a block-hidden comment."
+   },
+   {
+    "id": "m6",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "extra",
+    "claim": "The admin moderation list writes 'in reply to a removed comment' whenever the parent is a placeholder. A placeholder is either a removed comment or a blocked writer's comment (the Node does not say which). Once SC-021 lands, the owner's own page will call a blocked comment 'removed' when Unblock will bring it back. That is a false statement on the one page meant for moderating.",
+    "evidence": "Design component 'Thread shaping': ParentRemoved is set when the parent is a placeholder. Admin page: 'in reply to a removed comment'.",
+    "file": "internal/comments/comments.go",
+    "line": 12,
+    "quote": {
+     "path": "internal/comments/comments.go",
+     "line": 12,
+     "text": "when it was removed (removed_at is set) or when its writer is blocked (a row"
+    },
+    "fix": "Word it 'in reply to a hidden comment', with no digit and kept in its own block. Alternatively, rename the field ParentHidden."
+   },
+   {
+    "id": "m7",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "extra",
+    "claim": "Lesson #960 was picked for this slice with 'the control should be small or shared'. The design answers it only for SC-021's block forms. The per-comment remove details is about 150 bytes, which adds roughly 1 MB to the owner's reader page at the measured 10,000-comment shape (already 5.8 MB signed in). The admin moderation list carries the same form per item.",
+    "evidence": "Design 'Reader templates' component (the remove details markup) and lesson #960's measurements.",
+    "fix": "Optional. Draw a `<a href=\"/admin/comments/<id>\">Remove</a>` link to a GET confirm page that shows the comment and holds the one POST form. That is a new adminRoutes row, and it gives a stronger confirm step than a details element."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "I verified the recalled same-value RowsAffected claim on the web: SQLite counts matched rows. Sources: https://stackoverflow.com/questions/26372449/sqlite-changes-counts-non-changing-updates and https://dotclear.placeoweb.com/post/SQL-matching-found-rows-vs-affected-rows ('client SQLite : \"found (matched) rows\" uniquement'). So the COALESCE repeat answers 303.\n\nThe CrossOriginProtection and details claims are consistent with known behaviour and their if_wrong fallbacks are harmless.\n\nThese code claims hold in the tree:\n- visibleSQL (comments.go:62);\n- treeSQL filters only on report_id (tree.go:55);\n- arrange's keep rule (tree.go:124);\n- adminReport never reads the tree (admin.go:119-151);\n- threadOf and buildLevel signatures;\n- TestReaderPagesShareOneLayout covers owner and non-owner (reader_test.go:233);\n- observe() has POST /admin/feedback/1/reply (vote_test.go:534).\n\nTwo stale rationale lines change nothing in the spec:\n- 'with Q-012 open there is no JavaScript': static/thread.js already ships under script-src 'self' (router.go:110-113, report.html:5).\n- 'every existing handler answers 400 to a ... unknown field': unknown fields are ignored (comment.go:68-80). The planned handler checks only `from`, which matches the code.\n\nFinding m2: the E-006 case's literal message was never measured."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "Checked:\n- a reply racing a removal (refused inside Post's single statement);\n- the report deleted between RemoveTarget and Remove (0 rows, 404);\n- draft and unpublished reports (admin landing);\n- all comments removed ('0 comments' plus 'No comments yet.');\n- `from` given in the query string (ignored by PostForm);\n- a POST with no Content-Type (ParseForm returns nil).\n\nGaps filed: m4 (branch-page landing) and m5 (no UI removes a blocked writer's comment)."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "m1: the 'nothing un-removes' invariant rests on remembering. m7: the per-comment form bytes (#960).\n\nThe threadViewer struct does not stop a positional-literal swap, and Owner must imply SignedIn at two call sites (renderReader, readBranch). TestRemoveControl covers owner, reader and anonymous on /, /reports/<slug> and the branch page, so a swap at either site fails a planned test. Not filed."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "none: the SC-021 design is carried as epic_parts for a later slice rather than as SL-010 build work. The blocked_accounts rule already in fitness.yaml is quiet on non-test files. modItem.GitHubID is a small field carried ahead for SC-021. TestCountReconciles is cheap. Nothing here costs this slice real work."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "m6: 'removed' wording for a placeholder parent that may only be blocked.\n\nOtherwise the contracts match the code they extend:\n- adminFeedbackReply's target-first order;\n- canonicalID's 404 for the access matrix's 'x';\n- ownerRouteStatus' 404 for own-method and 405 for other-method rows (admin_test.go:82-101);\n- the auth.SeeOther landings built from the stored slug."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "M1: the RemoveTarget and Remove 500 branches have no isolating fault, and TestStoreFaultSteps' census is not extended to adminCommentRemove or to adminReport's new tree read. The thread-read failure on reader pages (503, never '0 comments') and on the admin page (500) is covered through the a.tree seam."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "none:\n- C1-C4 and C7 from the build-check are each met by a named component.\n- C5 and C6 are reused, not rebuilt.\n- The decided stack is respected: forms with no JS, single statements, auth.SeeOther, adminRoutes behind the one gated mount.\n- Lessons #950, #941 and #948 are applied.\n- Lesson #959's Participant advice is correctly set aside for an owner route: RequireOwner already gives 503 on an identify error, and admin.go is exempt from the ViewerFrom rule (fitness.yaml:319-322)."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "m3: CC-001 variants on the two new rules (no known-holes text and no corpus rows). They do not break TestRuleSpellingsCorpus, because neither is in rules_under_test. Both are quiet on today's non-test files: my grep found matches only in *_test.go.\n\nThe access matrix picks up the new row automatically. observe() rows are planned. The TestStoreFaultSteps census omission is filed under M1."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "The planned cases are thorough on shapes: leaf, held, chain-collapse, below the cap, deep-300, already hidden, id spellings, gate refusals, landings, control visibility, count reconciliation, and the admin flat list. The gap is M1.\n\nNo signed-in Chrome render of the details control is a known limit the design states (#961). Settling it would mean a headless screenshot of owner-rendered bytes served on an unauthenticated test path."
+   },
+   {
+    "dimension": "security",
+    "result": "none:\n- Removal is owner-only by construction: an adminRoutes row behind RequireOwner and OwnerRoute, after CrossOriginProtection.\n- SameSite=Lax adds a second barrier.\n- frame-ancestors 'none' blocks framing.\n- Report iframes are sandboxed without allow-forms, so report bytes cannot POST.\n- GitHubID in modItem reaches only the admin page.\n- Removed text is blanked in SQL for every viewer, the owner included."
+   }
+  ]
+ }
+}

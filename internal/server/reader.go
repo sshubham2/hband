@@ -64,6 +64,10 @@ type readerData struct {
 	Votes votes.PublicView
 	// Thread is the report's comments, pruned for readers and ready to draw.
 	Thread []commentView
+	// CommentCount is how many comments a reader sees under the report, at every
+	// depth (comments.Visible): a removed comment is not counted, and the replies
+	// beneath it are. The branch page draws only part of the thread and shows none.
+	CommentCount int
 	// OwnFeedback is the viewer's own private messages on this report with the
 	// author's replies, oldest first. It is set only for a signed-in viewer who is
 	// not the owner, read for that viewer's own id, so it is every other viewer's
@@ -128,12 +132,13 @@ func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPa
 		// The thread under the report, the same on both pages: nothing in it
 		// depends on which page asked. A thread that cannot be read is never
 		// drawn as an empty one: the page says it cannot be shown.
-		views, _, err := a.threadOf(r.Context(), rep, signedIn, 0)
+		tv := threadViewer{SignedIn: signedIn, Owner: signedIn && v.IsOwner}
+		views, visible, _, err := a.threadOf(r.Context(), rep, tv, 0)
 		if err != nil {
 			slog.Error("reader: read the comments", "error", err)
 			state, rep = stateUnavailable, reports.Report{}
 		} else {
-			d.Thread = views
+			d.Thread, d.CommentCount = views, visible
 		}
 	}
 	if state == stateFound && signedIn && !v.IsOwner {
@@ -173,21 +178,26 @@ func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPa
 // root of the page, with what lies below it, and found is false when the pruned
 // forest has no such comment (it never existed, belongs to another report, or has
 // nothing visible in it).
-func (a *app) threadOf(ctx context.Context, rep reports.Report, signedIn bool, branch int64) (views []commentView, found bool, err error) {
+//
+// visible is the public comment count of the whole report, taken from the whole
+// forest before a branch narrows it, so the count and the thread come from one
+// read and cannot disagree. A caller that draws only a branch does not show it.
+func (a *app) threadOf(ctx context.Context, rep reports.Report, tv threadViewer, branch int64) (views []commentView, visible int, found bool, err error) {
 	nodes, err := a.tree(ctx, rep.ID)
 	if err != nil {
-		return nil, false, err
+		return nil, 0, false, err
 	}
+	visible = comments.Visible(nodes)
 	if branch != 0 {
 		path := comments.Find(nodes, branch)
 		if path == nil {
-			return nil, false, nil
+			return nil, visible, false, nil
 		}
 		// The comment itself, not the top-level comment above it: the page begins
 		// where the "continue this thread" link was.
 		nodes = path[len(path)-1:]
 	}
-	return buildThread(nodes, rep.Slug, signedIn, a.cfg.OwnerGitHubID, threadDepthCap), true, nil
+	return buildThread(nodes, rep.Slug, tv, a.cfg.OwnerGitHubID, threadDepthCap), visible, true, nil
 }
 
 // writeReader sends a reader page. Every reader page is personalised (who is
@@ -223,7 +233,8 @@ func (a *app) readBranch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, signedIn := auth.ViewerFrom(r.Context())
-	views, found, err := a.threadOf(r.Context(), rep, signedIn, id)
+	tv := threadViewer{SignedIn: signedIn, Owner: signedIn && v.IsOwner}
+	views, _, found, err := a.threadOf(r.Context(), rep, tv, id)
 	switch {
 	case err != nil:
 		slog.Error("reader: read the comments", "error", err)

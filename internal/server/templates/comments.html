@@ -20,6 +20,12 @@
 <button type="submit">Post reply</button>
 </form>
 </details>
+{{end}}{{if .CanRemove}}<details class="remove">
+<summary>Remove</summary>
+<form method="post" action="/admin/comments/{{.ID}}/remove">
+<button type="submit">Remove for everyone</button>
+</form>
+</details>
 {{end}}{{end}}{{if .Replies}}<button type="button" class="toggle" hidden aria-expanded="true" aria-controls="replies-{{.ID}}">Hide replies</button>
 <div class="replies" id="replies-{{.ID}}">
 {{range .Replies}}{{template "comment" .}}{{end}}</div>

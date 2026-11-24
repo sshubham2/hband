@@ -37,11 +37,26 @@ type commentView struct {
 	// CanReply is true for a signed-in viewer on a comment that is shown. It has
 	// no depth term, so a reply is never a dead end.
 	CanReply bool
-	Slug     string
-	Replies  []commentView
+	// CanRemove is true for the owner on a comment that is shown: the template
+	// draws the remove control. It is a display hint only. The route behind the
+	// control is gated on the owner, whatever a page showed.
+	CanRemove bool
+	Slug      string
+	Replies   []commentView
 	// Cut is true when the comment has replies that this page does not draw
 	// because it is at the depth cap.
 	Cut bool
+}
+
+// threadViewer is who a thread is drawn for. It is a struct, not two bools, so
+// the two flags cannot be handed over in the wrong order.
+type threadViewer struct {
+	// SignedIn is any signed-in account: it is offered the reply form.
+	SignedIn bool
+	// Owner is the pinned owner, signed in: the owner is also offered the remove
+	// control. It only decides what is drawn; the route's gate decides who may
+	// remove.
+	Owner bool
 }
 
 // buildThread turns the pruned forest into what the template draws. Roots are
@@ -50,8 +65,63 @@ type commentView struct {
 // comment is the pinned owner's (auth.IsOwner on the stored GitHub id), never
 // the viewer, and never anything read from the login. A placeholder carries
 // GitHubID 0, and is excluded as well, so it cannot carry the badge.
-func buildThread(nodes []*comments.Node, slug string, signedIn bool, ownerID int64, limit int) []commentView {
-	return buildLevel(nodes, slug, signedIn, ownerID, limit, 1)
+func buildThread(nodes []*comments.Node, slug string, tv threadViewer, ownerID int64, limit int) []commentView {
+	return buildLevel(nodes, slug, tv, ownerID, limit, 1)
+}
+
+// modItem is one visible comment of the owner's moderation list.
+type modItem struct {
+	ID        int64
+	Login     string
+	AvatarURL string
+	Body      string
+	When      time.Time
+	// Author marks a comment written by the pinned owner's GitHub account.
+	Author bool
+	// ParentLogin is the parent's writer, set when the parent is shown.
+	ParentLogin string
+	// ParentRemoved is set when the parent is a placeholder: hidden, and kept only
+	// for the replies below it.
+	ParentRemoved bool
+}
+
+// moderationList flattens a pruned forest into the comments a reader can see,
+// every depth in one list, in pre-order: a comment comes before its replies and
+// each level is oldest first. It walks through placeholders and emits only the
+// shown comments, so removed text is in the list for nobody. It uses an explicit
+// stack, so a thread of any depth is safe, and it has no depth cap: the owner can
+// reach a comment at any depth from one page.
+func moderationList(forest []*comments.Node, ownerID int64) []modItem {
+	type frame struct{ node, parent *comments.Node }
+	// Children are pushed newest first so that they are popped oldest first.
+	stack := make([]frame, 0, len(forest))
+	for i := len(forest) - 1; i >= 0; i-- {
+		stack = append(stack, frame{forest[i], nil})
+	}
+	var out []modItem
+	for len(stack) > 0 {
+		f := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		n := f.node
+		if !n.Placeholder {
+			item := modItem{
+				ID: n.ID, Login: n.Login, AvatarURL: n.AvatarURL, Body: n.Body, When: n.Posted,
+				Author: auth.IsOwner(ownerID, n.GitHubID),
+			}
+			if p := f.parent; p != nil {
+				if p.Placeholder {
+					item.ParentRemoved = true
+				} else {
+					item.ParentLogin = p.Login
+				}
+			}
+			out = append(out, item)
+		}
+		for i := len(n.Replies) - 1; i >= 0; i-- {
+			stack = append(stack, frame{n.Replies[i], n})
+		}
+	}
+	return out
 }
 
 // branchRoot says which page draws a comment. path is the comment's path from a
@@ -79,7 +149,7 @@ func branchRoot(path []*comments.Node) *comments.Node {
 
 // buildLevel draws one level; it recurses at most limit levels deep, whatever
 // the depth of the thread.
-func buildLevel(nodes []*comments.Node, slug string, signedIn bool, ownerID int64, limit, depth int) []commentView {
+func buildLevel(nodes []*comments.Node, slug string, tv threadViewer, ownerID int64, limit, depth int) []commentView {
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -93,13 +163,14 @@ func buildLevel(nodes []*comments.Node, slug string, signedIn bool, ownerID int6
 			When:        n.Posted,
 			Author:      !n.Placeholder && auth.IsOwner(ownerID, n.GitHubID),
 			Placeholder: n.Placeholder,
-			CanReply:    signedIn && !n.Placeholder,
+			CanReply:    tv.SignedIn && !n.Placeholder,
+			CanRemove:   tv.Owner && !n.Placeholder,
 			Slug:        slug,
 		}
 		if depth >= limit {
 			v.Cut = len(n.Replies) > 0
 		} else {
-			v.Replies = buildLevel(n.Replies, slug, signedIn, ownerID, limit, depth+1)
+			v.Replies = buildLevel(n.Replies, slug, tv, ownerID, limit, depth+1)
 		}
 		out = append(out, v)
 	}

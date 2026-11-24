@@ -32,3 +32,9 @@ main.reader { max-width: 72rem; }
 .toggle { margin: .25rem 0; }
 .reply summary { cursor: pointer; min-height: 2.5rem; display: flex; align-items: center; }
 .reply form { margin: .25rem 0 .5rem; }
+.comment-count { margin: .25rem 0; }
+.remove summary { cursor: pointer; min-height: 2.5rem; display: flex; align-items: center; }
+.remove form { margin: .25rem 0 .5rem; }
+.moderation { margin-top: 1rem; padding-top: .5rem; border-top: 1px solid #8884; }
+.mod { margin: .75rem 0; }
+.reply-to { margin: .25rem 0; font-style: italic; }

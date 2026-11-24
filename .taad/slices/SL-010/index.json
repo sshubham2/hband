@@ -1,0 +1,141 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-010",
+ "title": "Author removes any comment or reply at any depth: a 'comment removed' placeholder keeps visible replies in place, empty ones vanish, and public counts drop by one",
+ "status": "active",
+ "branch": "slice/SL-010",
+ "opened_at": "2026-11-24T09:54:07.155Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C1 (derived from 'The author can delete any comment or reply, at any depth'): the pinned owner, and only the owner, can remove any comment or reply at any depth: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C2 (derived from 'from the report page'): the owner has a remove control on each comment drawn on the report page and on the branch page: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C3 (derived from 'or admin'): the owner can remove a comment from the admin side: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4 (derived from 'it disappears for everyone'): once removed, the comment's text and author are shown to nobody (anonymous, reader, owner) on /reports/<slug>, the home page or a branch page: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C7 (derived from 'public comment counts drop by one'): a public visible-comment count exists wherever the report is listed or shown, and after a removal it is exactly one lower. A placeholder is not counted, and the visible replies under it still are: missing"
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Where the code lives: the remove handler in admin.go beside adminFeedbackReply (practice, chosen) or comment.go (crossdomain); SC-021's comments-side code in comments.go (practice) or a new internal/comments/block.go (crossdomain, chosen), with Remove kept in comments.go."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Lookup naming and shape: RemoveTarget returning (slug, published, err) (practice, chosen, mirroring OwnerReplyTarget) or Locate returning a Target struct (crossdomain)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "The viewer flag through buildThread: a second bool parameter (practice) or a threadViewer{SignedIn, Owner} struct (crossdomain, chosen, so two adjacent bools cannot be swapped)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "The landing field: `back` with a strict 400 on other values (practice) or `from` matched leniently (crossdomain). Chosen: the name `from`, with practice's strict parse."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Admin page: a 'N comments' line in the moderation section (practice) or none (crossdomain, chosen). Item element ids: mod-<n> (crossdomain) or none (chosen)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Where the Block form appears: inside the owner's details on reader pages and on the admin list (practice), or on the admin moderation list only (crossdomain, chosen)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "A blocked account's refusal: per-package existing errors (404 for comments and feedback, a new ErrRefused 403 for votes; practice) or one ErrBlocked meaning 403 everywhere through a follow-up read (crossdomain, chosen)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Blocking an id that never signed in: refused 404 through INSERT…SELECT FROM users (practice) or allowed through INSERT…VALUES ON CONFLICT DO NOTHING (crossdomain, chosen, per the migration's 'a block is a fact about an account')."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T10:17:24.507Z",
+     "head": "e64753c60c57cc40daa3c98168b8f6acb1853f3a",
+     "summary": "The survey measured that half of this slice already exists.",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T10:41:36.376Z",
+     "head": "e64753c60c57cc40daa3c98168b8f6acb1853f3a",
+     "summary": "The design's core is sound and fits the tree I read.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T10:52:22.723Z",
+     "head": "e64753c60c57cc40daa3c98168b8f6acb1853f3a",
+     "summary": "The approach holds up.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}

@@ -247,6 +247,22 @@ func TestReaderPagesShareOneLayout(t *testing.T) {
 				t.Errorf("%s: the home page does not show %q", name, want)
 			}
 		}
+		// Only the owner is offered the remove control, on every shown comment and on no
+		// placeholder: the owner's two pages carry the same forms, and the others none.
+		arts := parseThread(t, home.Body)
+		for _, a := range arts {
+			placeholder := strings.Contains(a.Own, "comment removed")
+			form := removeFormRE(a.ID).MatchString(a.Own)
+			if form != (name == "owner" && !placeholder) {
+				t.Errorf("%s: comment %d (placeholder %v) has a remove control = %v", name, a.ID, placeholder, form)
+			}
+		}
+		if name == "non-owner" && strings.Contains(home.Body, "/admin/comments/") {
+			t.Errorf("%s: the page names the removal route", name)
+		}
+		if name == "owner" && strings.Count(home.Body, "/admin/comments/") != len(arts)-1 {
+			t.Errorf("%s: %d remove forms for %d comments of which one is a placeholder", name, strings.Count(home.Body, "/admin/comments/"), len(arts))
+		}
 		// The message and the answer are the sender's alone, after the box's form.
 		shown := name == "non-owner"
 		for _, text := range []string{"a private note to the author", "a private answer from the author"} {

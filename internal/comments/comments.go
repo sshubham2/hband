@@ -16,6 +16,13 @@
 // so the thread still reads; one with nothing visible below it is dropped.
 // Nothing derived is stored, so unblocking an account restores its comments
 // without writing to any of them.
+//
+// Remove is the only write of removed_at; nothing un-removes. A removal is never
+// a row delete: the self-referencing foreign key refuses to delete a comment
+// that has replies, and a deleted row could not be listed or kept apart from a
+// block. Removal and blocking are two separate facts, so they commute: a second
+// removal changes nothing, and lifting a block never brings a removed comment
+// back.
 package comments
 
 import (
@@ -39,7 +46,8 @@ var (
 	// no published report with that id, or the parent is missing, belongs to
 	// another report, was removed or was written by a blocked account. It is one
 	// answer for all of them, so it says nothing about comments the reader may
-	// not see.
+	// not see. RemoveTarget and Remove return it too, when no comment has the id
+	// (never stored, or deleted with its report).
 	ErrNoTarget = errors.New("comments: nothing to comment on")
 )
 
@@ -105,6 +113,57 @@ func (b *Book) Post(ctx context.Context, reportID, githubID, parentID int64, bod
 		return 0, fmt.Errorf("comments: post: %w", err)
 	}
 	return id, nil
+}
+
+// removeTargetSQL finds the report a comment is on and whether that report has a
+// reader page. It reads the comment whatever its visibility: a removed comment,
+// or one hidden by a block, is still a comment that can be removed.
+const removeTargetSQL = `
+SELECT r.slug, r.status = 'published'
+FROM comments c JOIN reports r ON r.id = c.report_id
+WHERE c.id = ?`
+
+// RemoveTarget returns the slug of the report the comment is on and whether
+// that report is published, or ErrNoTarget when no comment has the id. It is one
+// read and writes nothing, so a caller can look the target up before it reads
+// the rest of a request.
+func (b *Book) RemoveTarget(ctx context.Context, id int64) (slug string, published bool, err error) {
+	err = b.db.QueryRowContext(ctx, removeTargetSQL, id).Scan(&slug, &published)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, ErrNoTarget
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("comments: look up a comment to remove: %w", err)
+	}
+	return slug, published, nil
+}
+
+// removeSQL keeps the time of the first removal: removing a comment that is
+// already removed matches the row and writes the same value back.
+const removeSQL = `UPDATE comments SET removed_at = COALESCE(removed_at, ?) WHERE id = ?`
+
+// Remove hides the comment from every reader, at any depth, on any report
+// whatever its publish state. It is one UPDATE keyed by the id: no transaction,
+// no delete, and nothing written to the comment's replies or to blocked_accounts.
+// What readers then see is Tree's business: the comment is a placeholder while
+// something visible lies below it and is dropped otherwise.
+//
+// It is idempotent. Removing a comment that is already removed, or whose writer
+// is blocked, is a success that keeps the first removal time. ErrNoTarget is
+// returned when no comment has the id.
+func (b *Book) Remove(ctx context.Context, id int64) error {
+	res, err := b.db.ExecContext(ctx, removeSQL, b.now().Unix(), id)
+	if err != nil {
+		return fmt.Errorf("comments: remove: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("comments: remove: %w", err)
+	}
+	if n == 0 {
+		return ErrNoTarget
+	}
+	return nil
 }
 
 // Normalize returns the text a comment is stored as, or ErrBadBody. In order:
