@@ -1,0 +1,90 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-004",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-23T23:56:58.562Z",
+ "head": "94486f56abd6ceff69dafb64c8e304317014884d",
+ "run_id": 11769,
+ "summary": "I took Microsoft Edge out of the headless test helper's default browser list in `internal/testutil/headless/headless.go`. With `HBAND_TEST_BROWSER` unset, `Browser` now uses the first installed Chrome (Program Files, then its (x86) twin), or skips if there is none. I added the two review tests as given, `edge_default_test.go` and `default_browser_test.go`. Both pass with the variable unset. Putting an Edge path back at the head of the list fails both. With the variable unset, `TestReportScriptsNeverRun` (case 14) now runs under Chrome and passes. `go vet ./...` and `go test -count=1 ./...` are green with the variable unset, so the whole suite no longer starts Edge. Nothing else in the tree changed.",
+ "payload": {
+  "status": "complete",
+  "summary": "I took Microsoft Edge out of the headless test helper's default browser list in `internal/testutil/headless/headless.go`. With `HBAND_TEST_BROWSER` unset, `Browser` now uses the first installed Chrome (Program Files, then its (x86) twin), or skips if there is none. I added the two review tests as given, `edge_default_test.go` and `default_browser_test.go`. Both pass with the variable unset. Putting an Edge path back at the head of the list fails both. With the variable unset, `TestReportScriptsNeverRun` (case 14) now runs under Chrome and passes. `go vet ./...` and `go test -count=1 ./...` are green with the variable unset, so the whole suite no longer starts Edge. Nothing else in the tree changed.",
+  "files": [
+   {
+    "path": "internal/testutil/headless/headless.go",
+    "change": "modified",
+    "why": "defaultBrowsers lists the Chrome installs instead of Edge; package comment, HBAND_TEST_BROWSER doc and the skip message say Chrome and that Edge is never a default"
+   },
+   {
+    "path": "internal/testutil/headless/edge_default_test.go",
+    "change": "added",
+    "why": "TestBrowserNeverDefaultsToEdge, the code review's test as given"
+   },
+   {
+    "path": "internal/testutil/headless/default_browser_test.go",
+    "change": "added",
+    "why": "TestDefaultBrowserIsNeverEdge, the code review's test as given"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-021",
+    "done": true,
+    "how": "Removed both msedge.exe paths from defaultBrowsers and listed the two Chrome installs, so the unset case runs under Chrome where it exists and skips otherwise. Updated the package comment, the HBAND_TEST_BROWSER doc and the skip message. Added internal/testutil/headless/edge_default_test.go as given. `go test -count=1 -run ^TestBrowserNeverDefaultsToEdge$ ./internal/testutil/headless/` passes with the variable unset (PASS, not SKIP, because Chrome is installed here).",
+    "mutation": {
+     "file": "internal/testutil/headless/headless.go",
+     "find": "`C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe`,",
+     "replace": "`C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe`,",
+     "test_command": "go test -count=1 -run ^TestBrowserNeverDefaultsToEdge$ ./internal/testutil/headless/"
+    }
+   },
+   {
+    "key": "O-022",
+    "done": true,
+    "how": "Same edit closes it: no msedge.exe entry remains in defaultBrowsers, and the doc comment and the skip message (which used to suggest msedge.exe) now name Chrome. Added internal/testutil/headless/default_browser_test.go as given. `go test -count=1 -run ^TestDefaultBrowserIsNeverEdge$ ./internal/testutil/headless/` passes with the variable unset. After the change, `go test -count=1 -run ^TestReportScriptsNeverRun$ ./internal/server/` with the variable unset passed under Chrome (blank-found green=0 red=0), and the whole suite passed with it unset.",
+    "mutation": {
+     "file": "internal/testutil/headless/headless.go",
+     "find": "`C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe`,",
+     "replace": "`C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe`,",
+     "test_command": "go test -count=1 -run ^TestDefaultBrowserIsNeverEdge$ ./internal/testutil/headless/"
+    }
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -v -run '^(TestBrowserNeverDefaultsToEdge|TestDefaultBrowserIsNeverEdge)$' ./internal/testutil/headless/   (HBAND_TEST_BROWSER unset)",
+    "outcome": "passed",
+    "note": "both PASS, neither skipped"
+   },
+   {
+    "command": "same two tests through go test -overlay with the first default path replaced by the Edge install path",
+    "outcome": "passed",
+    "note": "the mutation turns both tests red, naming C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe. The worktree was not touched."
+   },
+   {
+    "command": "go test -count=1 -v -run '^TestReportScriptsNeverRun$' ./internal/server/   (HBAND_TEST_BROWSER unset)",
+    "outcome": "passed",
+    "note": "case 14 runs by default under Chrome; blank-found green=0 red=0, W1/W1s/W2 green, W4/W4b red, W3 green"
+   },
+   {
+    "command": "go vet ./... ; go test -count=1 ./...   (HBAND_TEST_BROWSER unset)",
+    "outcome": "passed",
+    "note": "all packages ok, including the new headless tests (0.36 s) and server (10.3 s); no Edge started"
+   }
+  ],
+  "architecture": [
+   {
+    "block": "C-004",
+    "kind": "paths",
+    "add": [
+     "internal/testutil/headless/**"
+    ],
+    "why": "headless.go and its tests are the browser helper that browser_test.go (C-004's real-browser isolation check) drives; no block's globs match internal/testutil/headless/**"
+   }
+  ],
+  "follow_ups": [
+   "The decided testing stack in the project's record still says the default Edge path is used when HBAND_TEST_BROWSER is unset. The code no longer does that, so the record entry is stale and a person or the architecture owner should update it."
+  ]
+ }
+}

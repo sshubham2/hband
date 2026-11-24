@@ -1,0 +1,149 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-004",
+ "stage": "reflect",
+ "attempt": 1,
+ "at": "2026-11-24T00:08:03.533Z",
+ "head": "d9149c8d403e3360c08417be35b4034b1c3cef93",
+ "run_id": 11775,
+ "summary": "SL-004 built the voting half of the SC-010/SC-009 merge. The build-check found the sign-in button and the return to the report (C1/C2) already shipped by SL-003. The slice therefore added migration 0003_votes.sql, an internal/votes package whose writes are each one SQL statement, and auth.Participant. It also added POST /reports/{slug}/vote, a votes block on both reader pages, an owner-only dislike tally on /admin/reports/<slug>, and three fitness rules. The E-003 finish-line test, read in place from the ledger, passed against a built binary. A second build, code-review #2 and #3 existed only to fix an SL-003 defect: headless.Browser defaulted to Edge, which the engine had measured as harmful on this machine. Real-browser, real-GitHub and deployed contact was not reached.",
+ "payload": {
+  "status": "complete",
+  "summary": "SL-004 built the voting half of the SC-010/SC-009 merge. The build-check found the sign-in button and the return to the report (C1/C2) already shipped by SL-003. The slice therefore added migration 0003_votes.sql, an internal/votes package whose writes are each one SQL statement, and auth.Participant. It also added POST /reports/{slug}/vote, a votes block on both reader pages, an owner-only dislike tally on /admin/reports/<slug>, and three fitness rules. The E-003 finish-line test, read in place from the ledger, passed against a built binary. A second build, code-review #2 and #3 existed only to fix an SL-003 defect: headless.Browser defaulted to Edge, which the engine had measured as harmful on this machine. Real-browser, real-GitHub and deployed contact was not reached.",
+  "estimate_error": "Risk tier was right: high, and the design re-tiered it high on a forward-only migration, the site's first public state-changing endpoint, a new auth seam and a privacy constraint. Size was under: opened medium, but 6 of 8 derived criteria were missing at build-check. Build #1 (cc05875f) changed 22 files across a new table, package, auth seam, handler, two templates and three fitness rules, with 3 spikes, 14 cases and 3 critique passes. That is large, and the size was never revised after build-check (lesson #584 asked for that). Separately, one lap was added by an SL-003 defect that no one sized: build #2 changed 7 files, and there were code-review #2 and #3.",
+  "learned": [
+   {
+    "kind": "codebase",
+    "lesson": "headless.Browser (internal/testutil/headless/headless.go) now defaults to the installed Chrome (two Program Files paths) or skips, and never to Edge. A slice that touches that package must keep TestBrowserNeverDefaultsToEdge and TestDefaultBrowserIsNeverEdge green. The decided testing stack in the project record still says 'otherwise the default Edge path is used'. It is stale, so a designer who cites it is wrong. The code and the engine's measurement outrank it.",
+    "evidence": "builds#428 (build #2, cc05875..94486f56); reviews#684; findings M1 and IN-M1; validations#260 measured 0 msedge processes started during the default-Chrome run."
+   },
+   {
+    "kind": "process",
+    "lesson": "On this project, the first full-suite run on the machine launches a real browser through TestReportScriptsNeverRun, so environment hazards appear at build-check, not at build. Check commands in a design (`go test ... ./internal/server/`, `go test ./...`) are the hazard. Read each one for what it launches before the build starts. In this slice Edge was started at least twice (the builder's first suite and a code-review mutation run). The build-check's 13.8 s TestReportScriptsNeverRun run records no browser variable, so it may have started Edge too; that is unconfirmed.",
+    "evidence": "surveys#189 (TestReportScriptsNeverRun ran 13.8 s, no HBAND_TEST_BROWSER recorded); reviews#684 disclosure that a PowerShell variable did not carry between tool calls; builds#427 'my first full suite run started Edge'."
+   },
+   {
+    "kind": "design",
+    "lesson": "Dislike privacy rests on TestDislikesDoNotInterfere (internal/server/vote_test.go) observing a hand-written route list. The validator had to add a scratch overlay test, TestValO015UnlistedRoutes, with 78 observations to cover /raw, /healthz, /static, /auth/*, the rest of the admin subtree, HEAD and odd spellings. Any slice that adds a public page or route (show-all, SC-011 comments) must extend that list, or the guarantee does not cover the new route. Lesson #944 already says reader routes do not join the access matrix automatically.",
+    "evidence": "validations#260; O-015 discharge; deferred finding m2 (reviews#681)."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "Vote writes are single SQL statements on the store.Open pool: `INSERT…SELECT…ON CONFLICT DO UPDATE` for Cast and one DELETE for Withdraw. A deferred read-then-write transaction got 215-253 SQLITE_BUSY or BUSY_SNAPSHOT errors per run, returned at once without waiting on busy_timeout. The two recalled outside claims the spike did not cover both held under test: RowsAffected is 1 on a same-value conflict update, and the INSERT…SELECT form gave 0 BUSY. The no-transaction fence (rule 3) covers only internal/votes. A comments package gets no fence unless one is added. Nothing stops a public write handler from calling ViewerFrom, so SC-011 must call auth.Participant, which makes a store outage a 503. N-029 records this as a waived note with no rule.",
+    "evidence": "spikes#195; TestCastSameVoteTwice and TestConcurrentVotesNoBusy (O-001, O-013); waived O-017/N-029."
+   },
+   {
+    "kind": "design",
+    "lesson": "Two existing constraints decide the shape of any new reader-page interaction (comments). First, TestReaderPagesShareOneLayout requires / and /reports/<newest> to be identical bytes for signed-in viewers, so a form cannot carry a page-dependent return field. Every POST therefore answers the same 303 to /reports/<stored slug>#fragment through auth.SeeOther, and LocalPath accepts '#'. Second, CSP form-action 'self' blocks a form POST that ends in a redirect to GitHub, so an anonymous POST goes back to the report and never into sign-in. Q-012 (site JavaScript) stays open. Forms plus Post/Redirect/Get met every finish-line check.",
+    "evidence": "designs#222 decisions (1), (4), (6); coherence_check (2) and (5); validations#260 finish-line pass."
+   },
+   {
+    "kind": "process",
+    "lesson": "The planted finish-line tests (tests/acceptance/test_e003_1_*) are not in any worktree. Build and validate confirmed the design's assumptions by running SELECT finish FROM epics WHERE id=41 read-only in place, then running the body from a scratch copy with ROOT pointed at the worktree. Design-slice should do that read first and record each test fact it depends on as a sourced claim. Here critique #1 said it could not check the test and filed nothing, and the second reviewer had to add M-add-2. The next slice under E-003 (comments) should start from that read.",
+    "evidence": "O-020 discharge (facts a-d confirmed); reviews#681 prose versus reviews#682 finding M-add-2; validations#260."
+   },
+   {
+    "kind": "estimate",
+    "lesson": "When build-check marks most of a feature's criteria missing, re-size the slice at that point. SL-004 stayed 'medium' after surveys#189 listed C3-C8 as missing, yet it needed a migration, a package, an auth seam, a handler, two templates, three fitness rules and a two-run privacy test. Build #1 changed 22 files. For slices that add a table plus a public endpoint on this project, expect large, with 3 critique passes and 2 critique-review passes.",
+    "evidence": "surveys#189 (6 of 8 criteria missing); builds cc05875f (22 files); rework line: critique 3x, critique-review 2x, code-review 3x."
+   },
+   {
+    "kind": "process",
+    "lesson": "Triage 'accepted-pending' did not mean built: five accepted-pending minors (m3, m4, and the code-review's m1, m2, t1) were waived to notes N-029, N-028, N-032, N-030 and N-031 because no engine-run test failed on them. The ledger and the tree also disagree: O-018 and the build account say m4's quiet rows were not built, but rule_spellings.json has vote-sql-q004 and vote-sql-q005 for FROM \"votes\" and FROM main.votes, which M-add-1's build added. Before anyone works N-028, they should read rule_spellings.json and the bounded_by entries for those rows. The code-review's round-1 read also left .taad/fitness.yaml and rule_spellings.json, the files holding the privacy fences, only partly read, which lesson #935 asks never to allow.",
+    "evidence": "reviews#684 drift note and 'not reviewed' entries; obligations O-017, O-018, O-023, O-024, O-025; engine measured 5 of 18 changed files not read whole in code-review #1."
+   }
+  ],
+  "candidates": [
+   {
+    "title": "Drive signed-in voting in a real headless Chrome against the built hband (sign in, thumbs up, switch, withdraw), with the stand-in GitHub",
+    "urgency": "soon",
+    "why": "validations#260 lists three checks as not-run: a signed-in reader pressing Thumbs up, Thumbs down and Take back my vote in a real browser; the deployed service; and real GitHub OAuth. Only the first, and the sign-in leg with the stand-in GitHub, can be reached on this machine, because TAAD can drive a headless Chrome of its own in a scratch folder. What it would settle: CSP form-action 'self' letting the 303 to /reports/<slug>#votes through, the SameSite=Lax sid cookie riding the same-site POST, the real Sec-Fetch-Site, and the redirect landing on the votes section. Every vote check so far is HTTP-level (internal/server/vote_test.go, the planted test_e003_1 python test). The existing Chrome helper is internal/testutil/headless (Browser, Shot) and, going by the code review, only takes screenshots, so a click-capable driver is needed. Lesson #936 asked for a reusable harness and none was committed."
+   },
+   {
+    "title": "Register public routes from a table in router.go and commit an all-routes dislike-noninterference sweep",
+    "urgency": "soon",
+    "why": "A person deferred m2 to the slice that adds the next public route, and this candidate gives that work a place on the backlog. The public routes are registered inline: internal/server/router.go:59-76 (/{$}, /reports/{slug}, POST /reports/{slug}/vote, /raw/{slug}, /healthz, /static/) plus handlers.go:20-22 (/auth/github/login, /auth/github/callback, POST /auth/logout). adminRoutes is a table the tests enumerate; the public routes are not. TestDislikesDoNotInterfere's hand-written list omits /raw, /healthz, /static, /auth/* and the rest of the admin subtree. The validator covered them with a scratch overlay test, zz_val_o015_test.go (78 observations, byte-identical, with a sensitivity control), which was not committed. A new public page such as show-all or comments could therefore ship with the dislike privacy guard still green."
+   }
+  ],
+  "unknowns": [
+   "Does a real browser let a signed-in reader's vote POST through, and does the 303 to /reports/<slug>#votes land on the votes section? That needs CSP form-action 'self', the SameSite=Lax sid cookie on a same-site POST, and the real Sec-Fetch-Site header to all behave as the HTTP-level tests assume. Nothing so far has used a real browser for it.",
+   "Does migration 0003_votes.sql apply cleanly to the real production database at user_version 2 (home-server container)? Only a synthetic existing database was tested (TestVotesMigrationOnAnExistingDatabase), and the production data is not reachable from this machine."
+  ],
+  "what_went_wrong": [
+   "Edge was started on the person's machine at least twice despite the engine knowing it must not be: the builder's first full suite run, and a code-review mutation run. The build-check's own 13.8 s TestReportScriptsNeverRun run recorded no browser variable, so it may have started Edge too (unconfirmed). Nothing before code-review round 1 caught it. The design's case-14 check command ran the browser test with no HBAND_TEST_BROWSER, and three critique passes did not notice. The fix (build #2, code-review #2 and #3) was a different slice's defect and cost three extra laps.",
+   "The decided testing stack still says the default Edge path is used when HBAND_TEST_BROWSER is unset. The code no longer does that, so the record is stale. It was the source of the defect and has not been corrected.",
+   "Critique ran 3 times and critique-review 2. The rules were designed with holes that only the second reviewer found. CC-001 was applied to one of three new fitness rules, so rule 2 missed comma joins and UPDATE OR <conflict> votes, and rule 3 missed SAVEPOINT and lowercase begin. The design also leaned on the contents of test_e003_1 without sourcing any of it, and critique #1 said so in prose but filed no finding.",
+   "Five accepted-pending minors were waived to notes (N-028, N-029, N-030, N-031, N-032). The m4 content landed through M-add-1's build anyway, so O-018's 'waived' and the builder's 'not built' contradict the tree (vote-sql-q004 and q005 in rule_spellings.json). The code-review caught the drift.",
+   "Code-review #1 left 5 of 18 changed files not read whole, by the engine's own measurement of its tool record. They included .taad/fitness.yaml and rule_spellings.json, which hold the privacy fences. Round 2 still read only the SL-004 hunk of fitness.yaml and read rule_spellings.json through a JSON parse. That is the thing lesson #935 says never to allow.",
+   "The slice was opened medium and never re-sized after build-check showed 6 of 8 criteria missing. It then touched 22 files in build #1.",
+   "The kind CHECK in 0003 was pinned by no test, and the migration test's 'sideways' row failed on the users foreign key (github_id 8 was never inserted), not on the CHECK. The vote handler's report-lookup 503 branch was untested. Both were found only by code-review mutations and waived (N-032, N-030)."
+  ],
+  "missed": [
+   {
+    "gate": "critique",
+    "severity": "major",
+    "dimension": "cross-cutting-conformance",
+    "what": "Design case 14's check command (`go test -count=1 -run '^TestReportScriptsNeverRun$' ./internal/server/`) and the whole-suite command start headless Edge, because headless.Browser (internal/testutil/headless/headless.go:37-41, 57-61) returns the first msedge.exe path when HBAND_TEST_BROWSER is unset. The engine had measured Edge as not to be started on this machine (the new profile signs in to the Microsoft account and imports old history). None of the three critique passes asked what a design's `check` commands launch. A check could be written from it: for every case `check`, grep the named test for headless.Browser and require the command to set HBAND_TEST_BROWSER or the default to be non-Edge.",
+    "caught_by": "The builder's first full suite run (the harm happened), then code-review round 1 as M1 and IN-M1, with a repro test that failed on cc05875f.",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "what": "The CC-001 check (equivalent mechanisms and syntax variants) was applied only to rule 2's quoting and view holes. Plain uppercase SQL still got past two of the three new rules: rule 2 missed `FROM reports r, votes v` and `UPDATE OR IGNORE votes`, and rule 3 missed SAVEPOINT (a deferred transaction, the pattern the spike measured failing) and lowercase `begin`. Rule 3's `because` also named no known hole, which the design's own Fitness component requires.",
+    "caught_by": "critique-review round 2 (M-add-1); the build then added (?i)\\b(BEGIN|SAVEPOINT)\\b, \\bsql\\.Tx\\b and the keyword-anchored comma-join pattern.",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "what": "Critique #1 said in its prose that it could not check test_e003_1 (not in the tree, lesson #928), but filed no finding. The design therefore stayed unsourced on four facts that decide its privacy architecture: where the owner's dislike count is read (/admin/reports/<slug>), the links[0] sign-in anchor, the button labels and the anonymous-POST expectation. A person had to approve a design whose key facts nobody had read.",
+    "caught_by": "critique-review round 2 (M-add-2); the build read epics id 41 in place and confirmed facts (a) to (d).",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "what": "The design's case matrix named only the identity-lookup and votes-read failures. It left out the vote handler's PublishedBySlug non-ErrNotFound branch (internal/server/vote.go:41-44, 503). A regression there would make every report look deleted, and no case exercised it. TestVoteIdentityUnavailable's closed-store subtest always fails at Participant first.",
+    "caught_by": "code-review round 1 (m2), by a mutation that changed 503 to http.NotFound with the suite still green. Waived to N-030.",
+    "prescribed_fix": ""
+   }
+  ],
+  "lessons_judged": [
+   {
+    "id": 941,
+    "verdict": "used",
+    "why": "The design kept the votes block to inherited colours and the #8884 border. TestReportScriptsNeverRun passed with blank-found green=0 red=0, and the validator opened the blank-found screenshot and saw '0 likes' drawn in inherited colours."
+   },
+   {
+    "id": 944,
+    "verdict": "used",
+    "why": "The votes read hangs off renderReader's state machine, so a failed read becomes stateUnavailable (503), never a defaulted '0 likes' (TestReaderVotesReadFails). The new route's odd spellings were pinned in TestReaderPathVariants from the observed responses."
+   },
+   {
+    "id": 584,
+    "verdict": "used",
+    "why": "The build-check measured instead of trusting the merged brief, found C1/C2 already built by SL-003, and narrowed the slice to C3-C8. The lesson's other advice, re-sizing after build-check, was not followed: the slice stayed medium and the build changed 22 files."
+   },
+   {
+    "id": 930,
+    "verdict": "used",
+    "why": "0003_votes.sql holds only CREATE TABLE, with no ALTER or rebuild that could fire a cascade. migrate.go was left unchanged, and the spike checked foreign_keys=1 on 48 serving connections."
+   },
+   {
+    "id": 935,
+    "verdict": "used",
+    "why": "Code-review round 2 ran 23 crafted requests through the real handler chain with a go test -overlay probe and found the input surface sound. The engine's own measure still shows 5 of 18 changed files not read whole in round 1, which the lesson asks never to allow."
+   },
+   {
+    "id": 936,
+    "verdict": "not relevant",
+    "why": "No stage rebuilt or committed the validation harness. Validation reused only the planted E-003 python acceptance test with its stand-in GitHub and scratch overlay tests. The gap the lesson names, no real-browser or TLS contact, recurred in validations#260, which is why it is raised as a candidate."
+   }
+  ],
+  "filed": []
+ }
+}

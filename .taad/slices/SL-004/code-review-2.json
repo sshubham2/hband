@@ -1,0 +1,273 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-004",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-23T23:59:17.652Z",
+ "head": "94486f56abd6ceff69dafb64c8e304317014884d",
+ "run_id": 11771,
+ "summary": "Stale re-review: the tree moved, so I read the diff from cc05875 to the current tree. The only code change is in internal/testutil/headless. headless.go's defaultBrowsers now lists only the two Chrome install paths. The package comment, the HBAND_TEST_BROWSER doc, the defaultBrowsers comment and the skip message all say Chrome, and that Edge is never a default. I read headless.go whole: every statement in it matches Browser, and no stale Edge wording is left. A grep for msedge and Edge across every .go file, and for HBAND_TEST_BROWSER outside .taad, finds no other comment or doc that still describes the old default. The two new tests, edge_default_test.go and default_browser_test.go, set the variable to empty and assert that Browser does not return msedge.\n\nWhat I ran, with HBAND_TEST_BROWSER explicitly removed from the environment:\n- `go vet ./...`: clean.\n- Both new tests: PASS, not SKIP.\n- The case-14 check `go test -count=1 -v -run '^TestReportScriptsNeverRun$' ./internal/server/`: PASS under the default Chrome, blank-found green=0 red=0.\n- The whole suite `go test -count=1 ./...`: every package ok.\n\nAfterwards no headless msedge process existed. The voting code, its tests and the fitness rules are untouched since my first pass, and they still pass in the runs above.\n\nThe round-one minors m1 (the kind CHECK row in the migration test), m2 (the report-lookup 503 branch) and t1 (the router comment) were not built. The engine waived them to N-032, N-030 and N-031, and I do not re-open them. The builder declared that the decided testing stack still says Edge is the default; that record is outside the slice.\n\nSecond round: Second round, read as an attacker. The only code this lap changed is internal/testutil/headless/headless.go: the default list now holds the two Chrome install paths. Browser, HBAND_TEST_BROWSER and the voting code all held up.\n\n**Browser and the HBAND_TEST_BROWSER variable**\n- Unset or empty, it takes the first Chrome path that exists, or skips.\n- Set to whitespace, a missing path or a relative name, os.Stat fails and the test fails loudly. That is the documented \"set means it must run\" rule.\n- Set to a directory, Shot fails loudly when it tries to run it.\n- Set explicitly to msedge.exe, Edge is used. The package comment says so; it is the person's own choice, not a default.\n- Shot's fresh --user-data-dir with --no-first-run and --no-default-browser-check keeps headless Chrome apart from the person's own Chrome profile.\n- With the variable removed, the case-14 check and the whole suite pass under Chrome, and no headless msedge process exists afterwards.\n\n**Voting code, rechecked for what round one did not cover**\n- **Request path:** a percent-encoded slug decodes before lookup, and the redirect target is always rebuilt from the stored slug.\n- **Redirect length:** slugs match ^[a-z0-9]+(-[a-z0-9]+)*$ and are at most 80 characters, so the target stays far under LocalPath's 512 bytes.\n- **Owner-written forms:** a form inside a report cannot be submitted, because the report frame's sandbox has no allow-forms. A popup that escapes the sandbox can only post cross-site, and CrossOriginProtection refuses that.\n- **Content types:** a multipart body parses to an empty form and gets 400. Mixed-case Content-Type is normalised before parsing.\n- **Races and outages:**\n  - A session revoked between Identify and the write still records a vote from someone who was signed in when the request began. That is harmless.\n  - A users row cannot vanish while its sessions still exist, because sessions are deleted with it.\n  - A report deleted between lookup and read shows 0 likes, or a 0/0 tally on the admin page. Those are the same races these pages already had for any deleted report, not new ones.\n  - A client that disconnects mid-write gets a logged 503. That is benign.\n- **Withdraw racing an unpublish:** a person overrode this as m3. I am not reopening it.\n\nNothing here is new and wrong, so I file no findings. Obligations and cases are unchanged from my previous answer.",
+ "payload": {
+  "status": "complete",
+  "verdict": "clean",
+  "matches_design": true,
+  "summary": "Stale re-review: the tree moved, so I read the diff from cc05875 to the current tree. The only code change is in internal/testutil/headless. headless.go's defaultBrowsers now lists only the two Chrome install paths. The package comment, the HBAND_TEST_BROWSER doc, the defaultBrowsers comment and the skip message all say Chrome, and that Edge is never a default. I read headless.go whole: every statement in it matches Browser, and no stale Edge wording is left. A grep for msedge and Edge across every .go file, and for HBAND_TEST_BROWSER outside .taad, finds no other comment or doc that still describes the old default. The two new tests, edge_default_test.go and default_browser_test.go, set the variable to empty and assert that Browser does not return msedge.\n\nWhat I ran, with HBAND_TEST_BROWSER explicitly removed from the environment:\n- `go vet ./...`: clean.\n- Both new tests: PASS, not SKIP.\n- The case-14 check `go test -count=1 -v -run '^TestReportScriptsNeverRun$' ./internal/server/`: PASS under the default Chrome, blank-found green=0 red=0.\n- The whole suite `go test -count=1 ./...`: every package ok.\n\nAfterwards no headless msedge process existed. The voting code, its tests and the fitness rules are untouched since my first pass, and they still pass in the runs above.\n\nThe round-one minors m1 (the kind CHECK row in the migration test), m2 (the report-lookup 503 branch) and t1 (the router comment) were not built. The engine waived them to N-032, N-030 and N-031, and I do not re-open them. The builder declared that the decided testing stack still says Edge is the default; that record is outside the slice.\n\nSecond round: Second round, read as an attacker. The only code this lap changed is internal/testutil/headless/headless.go: the default list now holds the two Chrome install paths. Browser, HBAND_TEST_BROWSER and the voting code all held up.\n\n**Browser and the HBAND_TEST_BROWSER variable**\n- Unset or empty, it takes the first Chrome path that exists, or skips.\n- Set to whitespace, a missing path or a relative name, os.Stat fails and the test fails loudly. That is the documented \"set means it must run\" rule.\n- Set to a directory, Shot fails loudly when it tries to run it.\n- Set explicitly to msedge.exe, Edge is used. The package comment says so; it is the person's own choice, not a default.\n- Shot's fresh --user-data-dir with --no-first-run and --no-default-browser-check keeps headless Chrome apart from the person's own Chrome profile.\n- With the variable removed, the case-14 check and the whole suite pass under Chrome, and no headless msedge process exists afterwards.\n\n**Voting code, rechecked for what round one did not cover**\n- **Request path:** a percent-encoded slug decodes before lookup, and the redirect target is always rebuilt from the stored slug.\n- **Redirect length:** slugs match ^[a-z0-9]+(-[a-z0-9]+)*$ and are at most 80 characters, so the target stays far under LocalPath's 512 bytes.\n- **Owner-written forms:** a form inside a report cannot be submitted, because the report frame's sandbox has no allow-forms. A popup that escapes the sandbox can only post cross-site, and CrossOriginProtection refuses that.\n- **Content types:** a multipart body parses to an empty form and gets 400. Mixed-case Content-Type is normalised before parsing.\n- **Races and outages:**\n  - A session revoked between Identify and the write still records a vote from someone who was signed in when the request began. That is harmless.\n  - A users row cannot vanish while its sessions still exist, because sessions are deleted with it.\n  - A report deleted between lookup and read shows 0 likes, or a 0/0 tally on the admin page. Those are the same races these pages already had for any deleted report, not new ones.\n  - A client that disconnects mid-write gets a logged 503. That is benign.\n- **Withdraw racing an unpublish:** a person overrode this as m3. I am not reopening it.\n\nNothing here is new and wrong, so I file no findings. Obligations and cases are unchanged from my previous answer.",
+  "findings": [],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/votes/votes_test.go:83-108 TestCastSameVoteTwice (three identical Up casts, then two Down); unchanged since cc05875; the votes package passes in this round's full run"
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "votes_test.go:111-144 TestCastSwitches; unchanged; passes"
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "votes_test.go:148-178 TestWithdrawWithoutVote; unchanged; passes"
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "votes_test.go:182-217 TestVotesScopedPerReaderAndReport; unchanged; passes"
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "internal/server/vote_test.go:131-174 TestVoteAnonymousRefused (no, expired, unknown and malformed sessions; anonymous page has no form); unchanged; passes"
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "vote_test.go:176-209 TestVoteCrossSiteRefused; the route sits inside cop (router.go:66,94); unchanged; passes"
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "vote_test.go:211-242 and reader_test.go:605-613; unchanged; pass"
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "vote_test.go:244-301 TestVoteBadFormRefused; unchanged; passes"
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "vote_test.go:303-389 TestVoteIdentityUnavailable and TestReaderVotesReadFails; unchanged; pass"
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "votes_test.go:237-265 TestCastRefusesUnpublished; unchanged; passes"
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "vote_test.go:391-456 TestVotesFollowReportLifecycle; unchanged; passes"
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "vote_test.go:458-613 TestDislikesDoNotInterfere; unchanged; passes"
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "votes_test.go:336-413 TestConcurrentVotesNoBusy on store.Open's pool; unchanged; passes (votes 8.5 s)"
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "browser_test.go:204-213 'blank-found' at the anonymous /reports/blank, which carries the votes section. With HBAND_TEST_BROWSER unset this round it ran under the default Chrome (headless.go:43-46): PASS, blank-found green=0 red=0."
+   },
+   {
+    "key": "O-015",
+    "discharged": "no",
+    "evidence": "Owed to validate-slice; this is my read only. observe() in vote_test.go:495 still lists routes by hand and leaves out /raw/{slug}, /healthz, /static/, /auth/github/* and POST /auth/logout. None of those reads votes. m2 was deferred by decision."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "vote_test.go:510-516 observes the owner's reader pages and fails as INVALID without the Admin link. Confirmed sensitive in round one by the owner-gated leak mutation. Unchanged."
+   },
+   {
+    "key": "O-017",
+    "discharged": "no",
+    "evidence": "Waived by the engine to N-029; there is no ViewerFrom rule in .taad/fitness.yaml. The waiver's premise still holds: the only public write handler, vote.go:29, uses auth.Participant."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "Waived, but present in substance. Rule 2's because text in fitness.yaml, the 'votes table SQL' bounded_by entry, and quiet rows vote-sql-q004 and vote-sql-q005 name and pin the quoted, schema-qualified and view/trigger holes."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "fitness.yaml rule 2 and rule 3 patterns as the critic prescribed. Corpus fire and quiet rows exist, and every rule-3 row has path internal/votes/votes.go. fitnessrules passes in this round's run."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "In round one I read the E-003 finish line from the ledger in place (epics id 41) and confirmed (a) to (d); test_e003_1 passed against the worktree. The reader, admin and vote code it exercises has not changed since."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "internal/testutil/headless/headless.go:43-46: defaultBrowsers holds only the two Chrome paths. internal/testutil/headless/edge_default_test.go (TestBrowserNeverDefaultsToEdge) is the round-one repro unchanged, and it PASSES with the variable removed from the environment."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "Same edit. The doc at headless.go:1-3 and 14-20, the comment at 41-42, and the skip message at 67 now name Chrome and say Edge is never a default. default_browser_test.go (TestDefaultBrowserIsNeverEdge) passes with the variable unset. The case-14 check and `go test ./...` ran with it unset, and no headless msedge process existed afterwards."
+   },
+   {
+    "key": "O-023",
+    "discharged": "no",
+    "evidence": "Waived by the engine to N-032. internal/store/votes_migration_test.go:64 still has {1, 8, \"sideways\"}, so it does not reach the CHECK. The file is not in this diff."
+   },
+   {
+    "key": "O-024",
+    "discharged": "no",
+    "evidence": "Waived by the engine to N-030. No subtest reaches vote.go:41-44, the report-lookup error answered 503; vote_test.go is not in this diff."
+   },
+   {
+    "key": "O-025",
+    "discharged": "no",
+    "evidence": "Waived to N-031 for the comment fixer. internal/server/router.go:64 still reads 'The one public write'; router.go is not in this diff."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "votes_test.go TestCastSameVoteTwice re-presses a held Up; unchanged"
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "votes_test.go TestCastSwitches: Up then Down; unchanged"
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "votes_test.go TestWithdrawWithoutVote: withdraw with no vote, and twice; unchanged"
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "votes_test.go TestVotesScopedPerReaderAndReport: two readers on one report, one reader on two; unchanged"
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "vote_test.go TestVoteAnonymousRefused: no, expired, unknown and malformed sessions; the page has no form; unchanged"
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "vote_test.go TestVoteCrossSiteRefused: a valid sid with Sec-Fetch-Site cross-site, and Origin evil.example alone; unchanged"
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "TestVoteHiddenReportsAreIndistinguishable and TestReaderPathVariants vote rows; unchanged"
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "TestVoteBadFormRefused: missing, repeated, unknown, query-only and over-1-KiB bodies; unchanged"
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "TestVoteIdentityUnavailable (closed store with a grammar-valid sid) and TestReaderVotesReadFails (votes table dropped); unchanged"
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "TestCastRefusesUnpublished: draft, missing, and unpublished after a vote; unchanged"
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "TestVotesFollowReportLifecycle: replace, unpublish and republish, delete through the admin routes; unchanged"
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "TestDislikesDoNotInterfere: down votes between two observe() rounds, with the owner's reader pages included; unchanged"
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "TestConcurrentVotesNoBusy: 50 voters plus 10 SignIn on store.Open's pool; unchanged"
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "TestReportScriptsNeverRun's blank-found well at the anonymous /reports/blank, which carries the votes section. With HBAND_TEST_BROWSER unset it now runs under the default Chrome: green=0 red=0 this round."
+   }
+  ],
+  "drift": [
+   "The build account for O-018 (m4, waived to N-028) says no quiet rows were added for FROM \"votes\" and FROM main.votes. The tree has them: rule_spellings.json rows vote-sql-q004 and vote-sql-q005 pin exactly those spellings as known-quiet."
+  ],
+  "unreviewed": [
+   "internal/fitnessrules/testdata/rule_spellings.json: read in round one by parsing it with python -I json (lesson #945), not with Read, and limited to the rows, rules_under_test and bounded_by entries of the three SL-004 rules. The file is not in this round's diff.",
+   ".taad/fitness.yaml: only the SL-004 hunk (lines 226-271) was read, through git diff in round one. The file is not in this round's diff."
+  ],
+  "second_round": {
+   "run_id": 11772,
+   "filed": 0
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 3,
+    "changed": 3,
+    "listed": 0
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 3,
+   "read_whole": 3,
+   "deleted": [],
+   "runs": [
+    11766,
+    11771,
+    11772
+   ],
+   "range": {
+    "base": "38e2b223b677051e148f8be4f1c6d20dfcdc20ef",
+    "head": "94486f56abd6ceff69dafb64c8e304317014884d",
+    "source": "commits",
+    "hunk_base": "cc05875fb54e5d35b1dcb87cdf82562991abbb7c",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [],
+   "notes": []
+  }
+ }
+}

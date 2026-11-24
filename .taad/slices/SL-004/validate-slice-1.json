@@ -1,0 +1,195 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-004",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-24T00:02:53.112Z",
+ "head": "d9149c8d403e3360c08417be35b4034b1c3cef93",
+ "run_id": 11774,
+ "summary": "All 14 design acceptance criteria are met on this tree, at code contact. The project's own finish-line test for E-003, read in place from the ledger (epics id 41), built ./cmd/hband from this worktree and ran it against a stand-in GitHub. It passed (1 test, OK). It covered sign-in from a report and the return to that report, rejection of return targets off this site, vote up, repeat up, switch to down, withdraw, one vote per reader per report, refusal of anonymous and cross-site votes, a scan of every non-owner response for a dislike count, and the owner's dislike count on /admin/reports/<slug>. `go vet` and the whole suite (`go test -count=1 ./...`, HBAND_TEST_BROWSER unset) passed. Every named slice test ran and passed with none skipped. The concurrency test passed three more times. Fitness: all 21 rules hold.\n\nCase 14 (`TestReportScriptsNeverRun`) ran under the default Chrome with blank-found green=0 red=0. No msedge process started during it: 0 with a start time after the run began, and the 5 already running were the person's, started earlier. I opened the blank-found screenshot: '0 likes' is drawn under the frame in the site's inherited colours.\n\nTwo mutations of my own, applied through `-overlay` so the worktree was not touched, turned the oracles red:\n- Public's like count changed to COUNT(*): TestDislikesDoNotInterfere and TestVoteSignedInFlow fail.\n- Withdraw made a no-op: TestWithdrawWithoutVote, TestVoteSignedInFlow and the switch-vs-withdraw world fail.\n\nO-015 (does the observed route list cover every route a non-owner can reach?) is discharged. The hand-written list in TestDislikesDoNotInterfere leaves out /raw, /healthz, /static, /auth/github/login, /auth/github/callback, /auth/logout, the rest of the admin subtree, HEAD requests and odd spellings. I added an overlay test that records all of those for the anonymous visitor, the reader who has not voted and the reader who voted up, before and after three dislikes on x and one on y. All 78 observations were byte-identical (status, headers other than Date, body), none mentions 'dislike', and a sensitivity check (an extra like changes /reports/x) holds. By code, a.votes is read only in reader.go (Public), vote.go (Cast/Withdraw) and admin.go (OwnerTally, behind the owner gate).\n\nNot reached: the real deployment (home server, VPS reverse proxy over WireGuard, https with __Host- cookies), real GitHub OAuth, and a signed-in person pressing the buttons in a real browser. Contact is code, not real.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "All 14 design acceptance criteria are met on this tree, at code contact. The project's own finish-line test for E-003, read in place from the ledger (epics id 41), built ./cmd/hband from this worktree and ran it against a stand-in GitHub. It passed (1 test, OK). It covered sign-in from a report and the return to that report, rejection of return targets off this site, vote up, repeat up, switch to down, withdraw, one vote per reader per report, refusal of anonymous and cross-site votes, a scan of every non-owner response for a dislike count, and the owner's dislike count on /admin/reports/<slug>. `go vet` and the whole suite (`go test -count=1 ./...`, HBAND_TEST_BROWSER unset) passed. Every named slice test ran and passed with none skipped. The concurrency test passed three more times. Fitness: all 21 rules hold.\n\nCase 14 (`TestReportScriptsNeverRun`) ran under the default Chrome with blank-found green=0 red=0. No msedge process started during it: 0 with a start time after the run began, and the 5 already running were the person's, started earlier. I opened the blank-found screenshot: '0 likes' is drawn under the frame in the site's inherited colours.\n\nTwo mutations of my own, applied through `-overlay` so the worktree was not touched, turned the oracles red:\n- Public's like count changed to COUNT(*): TestDislikesDoNotInterfere and TestVoteSignedInFlow fail.\n- Withdraw made a no-op: TestWithdrawWithoutVote, TestVoteSignedInFlow and the switch-vs-withdraw world fail.\n\nO-015 (does the observed route list cover every route a non-owner can reach?) is discharged. The hand-written list in TestDislikesDoNotInterfere leaves out /raw, /healthz, /static, /auth/github/login, /auth/github/callback, /auth/logout, the rest of the admin subtree, HEAD requests and odd spellings. I added an overlay test that records all of those for the anonymous visitor, the reader who has not voted and the reader who voted up, before and after three dislikes on x and one on y. All 78 observations were byte-identical (status, headers other than Date, body), none mentions 'dislike', and a sensitivity check (an extra like changes /reports/x) holds. By code, a.votes is read only in reader.go (Public), vote.go (Cast/Withdraw) and admin.go (OwnerTally, behind the owner gate).\n\nNot reached: the real deployment (home server, VPS reverse proxy over WireGuard, https with __Host- cookies), real GitHub OAuth, and a signed-in person pressing the buttons in a real browser. Contact is code, not real.",
+  "checks": [
+   {
+    "what": "go vet over the whole module",
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "evidence": "exit 0, no output"
+   },
+   {
+    "what": "Whole suite as the project runs it, with HBAND_TEST_BROWSER unset and TAAD3_HOME in scratch",
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "every package ok: cmd/hband 2.0s, auth, config, fitnessrules, reports, server 10.1s, store, testutil/headless 0.35s, votes 6.4s. msedge count was 5 before and 5 after; those 5 were started at 01:58:26 by the person, not by this run."
+   },
+   {
+    "what": "E-003 finish-line acceptance test (ledger epics id 41, read read-only), with ROOT pointed at this worktree: builds ./cmd/hband, starts it on loopback with a stand-in GitHub and drives sign-in, voting, the leak scan and the owner tally over HTTP",
+    "command": "python -I <scratch>/acc/tests/acceptance/test_e003_1_sign_in_and_vote.py (body from SELECT finish FROM epics WHERE id=41 on file:engine.db?mode=ro, only the ROOT line replaced)",
+    "outcome": "passed",
+    "evidence": "Ran 1 test in 4.520s, OK, exit 0. No hband process left afterwards."
+   },
+   {
+    "what": "O-015: noninterference over the routes the hand-written observe() list leaves out",
+    "command": "go test -overlay=<scratch>/overlay.json -count=1 -v -run ^TestValO015UnlistedRoutes$ ./internal/server/  (scratch zz_val_o015_test.go reusing newDislikeWorld)",
+    "outcome": "passed",
+    "evidence": "78 observations (3 non-owner observers × 24 requests + login + logout) byte-identical before and after 3 down votes on x and 1 on y; differing=0; none mention 'dislike'. Covered HEAD /, HEAD /reports/x, /raw/x, /raw/y, HEAD /raw/x, /healthz, /static/site.css, /admin/ and admin subtree GET/POST (303 anonymous, 403 readers), /auth/github/callback 400, /auth/github/login 302 (compared on status and Location without the random query), POST /auth/logout 303 from a throwaway session, GET /reports/x/vote 405, PUT 405, POST /reports/x/vote/ 404. Sensitivity: an extra like changes /reports/x. git status unchanged."
+   },
+   {
+    "what": "Case 14: real headless Chrome, anonymous found-state page with the votes section",
+    "command": "go test -count=1 -v -run ^TestReportScriptsNeverRun$ ./internal/server/  (HBAND_TEST_BROWSER unset, HBAND_TEST_ARTIFACTS=<scratch>/art)",
+    "outcome": "passed",
+    "evidence": "blank-empty green=0 red=0; blank-found green=0 red=0; W1/W1s/W2/W3 green; W4/W4b red as designed; PASS 5.98s. msedge processes with StartTime after the run began: 0."
+   },
+   {
+    "what": "Looked at the blank-found screenshot myself",
+    "command": "Read <scratch>/art/blank-found.png",
+    "outcome": "passed",
+    "evidence": "A 'Sign in with GitHub' anchor in the header. The frame is grey with 'A neutral report.'. Under the frame, '0 likes' sits below a thin divider in the inherited light-on-dark colours. The 'Sign in to vote.' line is cut off at the bottom edge of the fixed screenshot viewport, a limit of the capture size and not of the page."
+   },
+   {
+    "what": "The architecture rules (fitness)",
+    "command": "Fitness op=check",
+    "outcome": "passed",
+    "evidence": "21 rules checked against 48 parsed files: every declared rule holds. TestRulesHoldOnTheTree and TestRuleSpellingsCorpus also pass. Its one 'skipped' log line is the existing /admin-mount rule, which Go's regexp cannot express and the engine enforces."
+   },
+   {
+    "what": "Every named slice test, verbose, checked case-sensitively for SKIP and FAIL",
+    "command": "go test -count=1 -v -run 'Vote|Votes|Cast|Withdraw|Dislike|ReaderPathVariants|ReaderVotesReadFails|Participant|Concurrent|Migration|ReaderPagesShareOneLayout|ReportPageSignIn|LoginNextIsLocalOnly|RulesHold|RuleSpellings' ./internal/...",
+    "outcome": "passed",
+    "evidence": "PASS: TestParticipant, TestVoteSignedInFlow, TestVoteAnonymousRefused, TestVoteCrossSiteRefused, TestVoteHiddenReportsAreIndistinguishable, TestVoteBadFormRefused, TestVoteIdentityUnavailable, TestReaderVotesReadFails, TestVotesFollowReportLifecycle, TestDislikesDoNotInterfere, TestReaderPathVariants, TestReaderPagesShareOneLayout, TestReportPageSignInReturnsThere, TestLoginNextIsLocalOnly, TestVotesMigrationOnAnExistingDatabase, TestCastSameVoteTwice, TestCastSwitches, TestWithdrawWithoutVote, TestVotesScopedPerReaderAndReport, TestPublicAnonymousHasNoVote, TestCastRefusesUnpublished, TestCastRefusesUnknownKind, TestVotesCascade, TestConcurrentVotesNoBusy. No '--- SKIP' and no '--- FAIL' lines."
+   },
+   {
+    "what": "Concurrency repeated: 50 voters plus 10 SignIn goroutines on the shipped pool",
+    "command": "go test -count=3 -run TestConcurrentVotesNoBusy ./internal/...",
+    "outcome": "passed",
+    "evidence": "votes ok 18.6s across 3 repetitions, plus one more pass in the verbose run above"
+   },
+   {
+    "what": "Mutation: Public's like count changed to COUNT(*), so dislikes leak into the public number",
+    "command": "go test -overlay=<scratch>/ov_m1.json -count=1 -run '^(TestDislikesDoNotInterfere|TestVoteSignedInFlow)$' ./internal/server/",
+    "outcome": "passed",
+    "evidence": "red as expected: TestVoteSignedInFlow FAIL, and both subtests of TestDislikesDoNotInterfere FAIL. Worktree untouched."
+   },
+   {
+    "what": "Mutation: Withdraw made a no-op (DELETE ... AND 0)",
+    "command": "go test -overlay=<scratch>/ov_m2.json -count=1 -run '^(TestWithdrawWithoutVote|TestCastSwitches|TestVoteSignedInFlow|TestDislikesDoNotInterfere)$' ./internal/votes/ ./internal/server/",
+    "outcome": "passed",
+    "evidence": "red as expected: TestWithdrawWithoutVote FAIL, TestVoteSignedInFlow FAIL, and the switched-vs-withdrawn subtest of TestDislikesDoNotInterfere FAIL"
+   },
+   {
+    "what": "Read the E-003 finish line from the ledger, in place",
+    "command": "python -I <scratch>/q_epic.py (sqlite3 file:C:/Users/sshub/AppData/Roaming/taad3/engine.db?mode=ro, SELECT finish FROM epics WHERE id=41; closed after)",
+    "outcome": "passed",
+    "evidence": "25055 chars. project 14's E-003 is epic id 41, and its one line runs tests/acceptance/test_e003_1_sign_in_and_vote.py"
+   },
+   {
+    "what": "Race detector",
+    "outcome": "not-run",
+    "evidence": "Not attempted: -race needs cgo and a C toolchain, and the project builds with CGO_ENABLED=0. Concurrency is covered by the behavioural test TestConcurrentVotesNoBusy, not by data-race instrumentation."
+   },
+   {
+    "what": "A signed-in reader pressing Thumbs up / Thumbs down / Take back my vote in a real browser (form-action 'self', SameSite=Lax cookie on the POST, real Sec-Fetch-Site from the browser)",
+    "outcome": "not-run",
+    "evidence": "The headless helper drives Chrome only as a command-line screenshot, with no way to carry a session cookie, and the decided stack allows no browser-automation dependency. The same flow was exercised over HTTP by the acceptance test with browser-like headers, not by a browser."
+   },
+   {
+    "what": "The deployed service: home server container behind the VPS reverse proxy over WireGuard, https, real GitHub OAuth",
+    "outcome": "not-run",
+    "evidence": "Not reachable from here. No start command or deployment is configured for this run, and the real GitHub app credentials are not this stage's to use."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "1. give a thumbs up — the reader already holds a thumbs up and presses it again",
+    "met": "yes",
+    "how": "TestCastSameVoteTwice and TestVoteSignedInFlow pass. The E-003 acceptance test against the built binary: vote up gives 1 like on /reports/<slug> and /, and pressing up again leaves 1."
+   },
+   {
+    "criterion": "2. change a vote — a reader holding thumbs up sends thumbs down",
+    "met": "yes",
+    "how": "TestCastSwitches passes. In the acceptance test, switching to down gives likes 0 and an owner dislike count of 1."
+   },
+   {
+    "criterion": "3. withdraw a vote — the reader holds no vote and sends none",
+    "met": "yes",
+    "how": "TestWithdrawWithoutVote passes. In the acceptance test, withdrawing gives (0,0). The Withdraw no-op mutation turns TestWithdrawWithoutVote red."
+   },
+   {
+    "criterion": "4. one vote per reader per report — two readers on one report, one reader on two reports",
+    "met": "yes",
+    "how": "TestVotesScopedPerReaderAndReport passes. In the acceptance test, two readers' likes on one report give 2, and one reader's likes on two reports count once each. The PRIMARY KEY (report_id, github_id) is in 0003_votes.sql."
+   },
+   {
+    "criterion": "5. refuse a vote from someone not signed in (no or expired session); their page has no vote form",
+    "met": "yes",
+    "how": "TestVoteAnonymousRefused passes. In the acceptance test, an anonymous POST answers below 500 and changes no count. My overlay run: anonymous POST /reports/y/vote gives 303. The blank-found screenshot shows '0 likes' and no buttons."
+   },
+   {
+    "criterion": "6. refuse a vote sent from another site (Sec-Fetch-Site cross-site, or Origin evil.example)",
+    "met": "yes",
+    "how": "TestVoteCrossSiteRefused passes. In the acceptance test, a forged cross-site POST carrying r3's session changes no count."
+   },
+   {
+    "criterion": "7. vote on something that is not a published report; odd route spellings",
+    "met": "yes",
+    "how": "TestVoteHiddenReportsAreIndistinguishable and TestReaderPathVariants pass. My overlay run: GET /reports/x/vote gives 405, PUT gives 405, POST /reports/x/vote/ gives 404."
+   },
+   {
+    "criterion": "8. read the vote form: missing, repeated, unknown, query-only, over 1 KiB",
+    "met": "yes",
+    "how": "TestVoteBadFormRefused passes. vote.go uses r.PostForm, requires len(values)==1 and caps the body with MaxBytesReader at 1024."
+   },
+   {
+    "criterion": "9. handle a database failure in Identify on a vote POST, or in the votes read on a reader page",
+    "met": "yes",
+    "how": "TestVoteIdentityUnavailable and TestReaderVotesReadFails pass. The untested report-lookup 503 branch is waived to N-030 and is not part of this criterion."
+   },
+   {
+    "criterion": "10. cast a vote as the report is unpublished (draft or missing id)",
+    "met": "yes",
+    "how": "TestCastRefusesUnpublished passes. Cast's INSERT…SELECT checks status='published' in the same statement and returns ErrNotOpen when it writes 0 rows."
+   },
+   {
+    "criterion": "11. keep votes with their report through replace, unpublish/republish, delete",
+    "met": "yes",
+    "how": "TestVotesFollowReportLifecycle and TestVotesCascade pass through the real admin routes. This agrees with spike replace-keeps-report-id-and-votes (go)."
+   },
+   {
+    "criterion": "12. show dislikes only to the author: non-owner observers on /, /reports/x, /reports/y, /reports, /admin, /admin/reports/x and their own vote POST; owner on /admin/reports/x",
+    "met": "yes",
+    "how": "TestDislikesDoNotInterfere passes, and its oracle is live: the COUNT(*) mutation turns it red. My overlay extended the same comparison to every other non-owner route, with 0 of 78 differing. The acceptance test's beside() scan found no 2 or 3 beside a dislike label for any non-owner, and the owner saw 3 and 2."
+   },
+   {
+    "criterion": "13. vote while others vote and sign in: 50 readers plus 10 SignIn on the shipped pool",
+    "met": "yes",
+    "how": "TestConcurrentVotesNoBusy passed 4 times in total (once in the verbose run, then 3 more with -count=3)."
+   },
+   {
+    "criterion": "14. render the like line in the site chrome on the anonymous found-state page",
+    "met": "yes",
+    "how": "TestReportScriptsNeverRun ran under headless Chrome (HBAND_TEST_BROWSER unset): blank-found green=0 red=0. I opened blank-found.png: '0 likes' is under the frame in the inherited colours. No Edge was started."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-015",
+    "verified": "yes",
+    "evidence": "By code, the routes a non-owner can reach are: GET /{$}, GET /reports/{slug}, POST /reports/{slug}/vote, GET /raw/{slug}, GET /healthz, GET /static/, GET /auth/github/login, GET /auth/github/callback, POST /auth/logout (from router.go:59-76 and handlers.go:20-22), plus the /admin and /admin/ mounts behind RequireOwner. a.votes is read only in reader.go:108 (Public), vote.go (Cast/Withdraw) and admin.go:118 (OwnerTally, owner-gated). The test's list leaves out /raw, /healthz, /static, /auth/*, the rest of the admin subtree, HEAD and odd spellings. I covered them with the overlay test TestValO015UnlistedRoutes: 78 observations from the anonymous visitor, the non-voter and the up-voter, byte-identical before and after 3+1 down votes, none mentioning 'dislike', with the sensitivity control holding. Together with the existing list, every route a non-owner can reach today is now observed. The guarantee still depends on later slices adding new public pages to the list. That forward-looking limit is already recorded and is not a gap in this tree."
+   }
+  ],
+  "not_reached": [
+   "The deployed service: the home-server container behind the VPS reverse proxy over WireGuard. Not checked: real https, __Host- Secure cookies and X-Forwarded-* as the proxy actually sends them; whether the proxy caches the personalised /reports/<slug> or / with the reader's 'Your vote' line (Q-007 is still open; the pages send Cache-Control 'private, no-cache' and the vote POST sends no-store).",
+   "A real GitHub OAuth round trip. Only the stand-in GitHub in the acceptance test and the fakegithub test helper were used.",
+   "A signed-in person pressing Thumbs up / Thumbs down / Take back my vote in a real browser. That would check form-action 'self', a SameSite=Lax cookie on the same-site POST, the Sec-Fetch-Site the browser really sends, and the 303 back to /reports/<slug>#votes landing on the votes section. HTTP-level simulation only.",
+   "Migration 0003 run on the real production database at user_version 2. Tested only on a synthetic existing database (TestVotesMigrationOnAnExistingDatabase).",
+   "Browsers other than Chrome (Firefox, Safari, phones), and narrow or light-scheme layouts of the new votes block.",
+   "foreign_keys on serving connections opened later in a long-running process, after idle expiry or a reconnect (N-026, from the spike). Not measurable here."
+  ],
+  "planned": [],
+  "screens": [],
+  "elevation": []
+ }
+}
