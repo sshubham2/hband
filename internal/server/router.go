@@ -61,8 +61,10 @@ func New(cfg config.Config, st *store.Store, lib *reports.Library, clock func() 
 	// /admin. Identify still runs in front of /raw as on every route, but
 	// readRaw never reads the viewer it resolves.
 	mux.HandleFunc("GET /reports/{slug}", a.readReport)
-	// The one public write: a signed-in reader sets their vote. It is behind
-	// cross-origin protection and Identify like every route.
+	// The public write a reader uses to vote: a signed-in reader sets their
+	// vote. It is behind cross-origin protection and Identify like every route.
+	// POST /auth/logout, registered by a.auth.Routes below, is the other public
+	// POST.
 	mux.HandleFunc("POST /reports/{slug}/vote", a.vote)
 	mux.HandleFunc("GET /raw/{slug}", a.readRaw)
 	mux.HandleFunc("GET /healthz", a.healthz)
