@@ -1,0 +1,335 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-010",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-24T11:20:41.787Z",
+ "head": "6c60c2da8005b91f9ec91d29e6c6152b81e3cf51",
+ "run_id": 11988,
+ "summary": "The SC-020 half is built as designed:\n- Book.RemoveTarget is one SELECT and Book.Remove is one COALESCE UPDATE. Neither deletes or opens a transaction.\n- comments.Visible is taken over the whole forest before any branch narrowing.\n- threadViewer, CanRemove and moderationList are in place.\n- adminCommentRemove is an adminRoutes row, target-first, with a strict `from` and a 1 KiB cap. Its 500 arms are isolated in TestStoreFaultSteps.\n- The count line, the remove control and the moderation section match the design's markup exactly.\n\nThe builder declared all of its departures: no GitHubID or ParentID on modItem, the TestFeedbackReplyMarkup change, the storefault world struct, the NULL-only pattern, and keeping ParentRemoved. I found no undeclared drift.\n\nWhat I ran on HEAD 6c60c2d:\n- `go build`, `go vet` and `go test -count=1 ./...`: all packages ok.\n- The planted E-003, E-004 line 1 and E-005 finish bodies, read from the ledger read-only, on a `git archive HEAD` copy: each exits 0.\n- E-006 line 1: exits 1, with its only failure `404 not less than 400 : the owner's POST /admin/users/8003/block answered 404` at the block press (body L420). I confirmed that look() runs after each of the three removals (L413, L416, L419).\n\nOne defect, major. The `because` text this build added to the 'removal never deletes a comment row' rule makes .taad/fitness.yaml invalid YAML:\n- Line 421 has ': ' inside a plain scalar, and line 423 ends with ':'.\n- The engine's Fitness check cannot read the file at all: `ScannerError: mapping values are not allowed here ... line 421, column 42`.\n- So no architecture rule in the project is evaluated by the engine, including the must_not_import rules that the local Go loader skips (#931).\n- The Go test suite stays green only because rules_test.go parses the file line by line and accepts it. The base file has no such scalar.\n- A repro test fails on HEAD and names both lines.\n\nSide note, not a code defect: Go splits -run patterns at '/'. So several of the design's per-case check commands, for example 'TestRemoveControl/branch|TestCommentRemove/below-cap' and 'TestCommentRemove/refused|TestDislikesDoNotInterfere|TestAdminAccessMatrix', run only the first top-level test. The other named tests run and pass in the full suite.\n\nSecond reader, for inputs: I read for unexpected inputs and found one problem, confirmed by running it. adminCommentRemove (internal/server/admin.go:265-269) reads its body only with r.ParseForm. That reads nothing but an application/x-www-form-urlencoded body, and an absent `from` is a valid reader-page removal. So any other body type gets past the two checks the contract promises: a `from` other than exactly \"admin\" is a 400, and a body over 1 KiB is a 400. I sent these as the owner through a go test -overlay probe:\n- multipart from=bogus: 303 and removed;\n- multipart from=admin: 303 to the reader page, not admin;\n- text/plain 2 KiB: 303 and removed;\n- no Content-Type, 2 KiB: 303 and removed;\n- JSON: 303 and removed;\n- urlencoded from=bogus: 400 (correct).\nThe repro below fails on this tree. With the suggested fix it passes, and so do TestCommentRemove, TestStoreFaultSteps, TestAdminAccessMatrix, TestDislikesDoNotInterfere, TestAdminCommentList and TestRemoveReadFailure.\n\nInputs that held:\n- canonicalID refuses every other path spelling.\n- `from` over urlencoded bodies: empty, other case, repeated, query string only and semicolons all behave as specified.\n- The gap between RemoveTarget and Remove: a report deleted in between gives 0 rows and a 404. Only the landing page can be stale.\n- Comment ids are AUTOINCREMENT, so a stale form cannot hit a reused id.\n- Visible and moderationList use an explicit stack.\n- The new fitness patterns fire on the spellings they target, and their holes are named.\nObligations, cases, design match and drift are left to the other reader.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "The SC-020 half is built as designed:\n- Book.RemoveTarget is one SELECT and Book.Remove is one COALESCE UPDATE. Neither deletes or opens a transaction.\n- comments.Visible is taken over the whole forest before any branch narrowing.\n- threadViewer, CanRemove and moderationList are in place.\n- adminCommentRemove is an adminRoutes row, target-first, with a strict `from` and a 1 KiB cap. Its 500 arms are isolated in TestStoreFaultSteps.\n- The count line, the remove control and the moderation section match the design's markup exactly.\n\nThe builder declared all of its departures: no GitHubID or ParentID on modItem, the TestFeedbackReplyMarkup change, the storefault world struct, the NULL-only pattern, and keeping ParentRemoved. I found no undeclared drift.\n\nWhat I ran on HEAD 6c60c2d:\n- `go build`, `go vet` and `go test -count=1 ./...`: all packages ok.\n- The planted E-003, E-004 line 1 and E-005 finish bodies, read from the ledger read-only, on a `git archive HEAD` copy: each exits 0.\n- E-006 line 1: exits 1, with its only failure `404 not less than 400 : the owner's POST /admin/users/8003/block answered 404` at the block press (body L420). I confirmed that look() runs after each of the three removals (L413, L416, L419).\n\nOne defect, major. The `because` text this build added to the 'removal never deletes a comment row' rule makes .taad/fitness.yaml invalid YAML:\n- Line 421 has ': ' inside a plain scalar, and line 423 ends with ':'.\n- The engine's Fitness check cannot read the file at all: `ScannerError: mapping values are not allowed here ... line 421, column 42`.\n- So no architecture rule in the project is evaluated by the engine, including the must_not_import rules that the local Go loader skips (#931).\n- The Go test suite stays green only because rules_test.go parses the file line by line and accepts it. The base file has no such scalar.\n- A repro test fails on HEAD and names both lines.\n\nSide note, not a code defect: Go splits -run patterns at '/'. So several of the design's per-case check commands, for example 'TestRemoveControl/branch|TestCommentRemove/below-cap' and 'TestCommentRemove/refused|TestDislikesDoNotInterfere|TestAdminAccessMatrix', run only the first top-level test. The other named tests run and pass in the full suite.\n\nSecond reader, for inputs: I read for unexpected inputs and found one problem, confirmed by running it. adminCommentRemove (internal/server/admin.go:265-269) reads its body only with r.ParseForm. That reads nothing but an application/x-www-form-urlencoded body, and an absent `from` is a valid reader-page removal. So any other body type gets past the two checks the contract promises: a `from` other than exactly \"admin\" is a 400, and a body over 1 KiB is a 400. I sent these as the owner through a go test -overlay probe:\n- multipart from=bogus: 303 and removed;\n- multipart from=admin: 303 to the reader page, not admin;\n- text/plain 2 KiB: 303 and removed;\n- no Content-Type, 2 KiB: 303 and removed;\n- JSON: 303 and removed;\n- urlencoded from=bogus: 400 (correct).\nThe repro below fails on this tree. With the suggested fix it passes, and so do TestCommentRemove, TestStoreFaultSteps, TestAdminAccessMatrix, TestDislikesDoNotInterfere, TestAdminCommentList and TestRemoveReadFailure.\n\nInputs that held:\n- canonicalID refuses every other path spelling.\n- `from` over urlencoded bodies: empty, other case, repeated, query string only and semicolons all behave as specified.\n- The gap between RemoveTarget and Remove: a report deleted in between gives 0 rows and a 404. Only the landing page can be stale.\n- Comment ids are AUTOINCREMENT, so a stale form cannot hit a reused id.\n- Visible and moderationList use an explicit stack.\n- The new fitness patterns fire on the spellings they target, and their holes are named.\nObligations, cases, design match and drift are left to the other reader.",
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "major",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The `because` text this build wrote for the rule 'removal never deletes a comment row' (O-016's 'named holes') is an unquoted, plain YAML scalar. It contains ': ' at line 421 ('un-remove: visibleSQL') and ends line 423 with ':' ('...a removed comment):'). YAML reads either as a mapping indicator, so a real YAML parser rejects the whole file. The engine's Fitness op=check on this tree answers `ERROR: .taad\\fitness.yaml could not be read: ScannerError: mapping values are not allowed here in ... line 421, column 42`. So none of the project's architecture rules is evaluated by the engine any more: the privacy fences, the transaction fences, the must_not_import rules, and the two rules this slice adds. internal/fitnessrules/rules_test.go loads the file with a lenient line-by-line regexp reader (loadRules), so `go test` stays green and hides this. That reader also skips must_not_import on files that open with a doc comment (#931), so those import rules are now enforced nowhere. The base file at e64753c has no plain scalar holding ': ', a trailing ':' or ' #' (checked with the same scan: none found). The two offending lines are this build's additions.",
+    "evidence": ".taad/fitness.yaml:419-427, the build's added `because` text. Fitness op=check on this tree gives a ScannerError at line 421, column 42. git diff e64753c HEAD -- .taad/fitness.yaml shows the lines as added. The same scan over the base file and over HEAD found nothing in base and lines 421 and 423 in HEAD.",
+    "file": ".taad/fitness.yaml",
+    "line": 421,
+    "end_line": 423,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 421,
+     "text": "removed_at to 0 would not un-remove: visibleSQL tests IS NULL, so 0 still means removed."
+    },
+    "fix": "Make the `because` a single-quoted scalar, as the sibling rules' are, doubling the apostrophes in 'vanish' and SC-021's. Or reword the two spots: 'un-remove: visibleSQL' becomes 'un-remove, because visibleSQL', and 'a removed comment):' becomes 'a removed comment),'. Then re-run Fitness op=check and confirm it reads the file.",
+    "class_of": "fitness.yaml text that the engine's YAML reader refuses but the lenient Go line loader accepts",
+    "threat": "accident",
+    "repro": {
+     "path": "internal/fitnessrules/yaml_scalar_test.go",
+     "command": "go test -count=1 -run TestFitnessYAMLPlainScalarsParse ./internal/fitnessrules/",
+     "body": "package fitnessrules\n\nimport (\n\t\"os\"\n\t\"path/filepath\"\n\t\"regexp\"\n\t\"strings\"\n\t\"testing\"\n)\n\n// TestFitnessYAMLPlainScalarsParse checks that every unquoted (plain) YAML scalar\n// in .taad/fitness.yaml is one a YAML parser accepts. A plain scalar may not hold\n// \": \" or end a line with \":\" (YAML reads either as a mapping key), nor \" #\" (a\n// comment). The engine reads this file with a real YAML parser: one bad scalar\n// makes the whole file unreadable and no rule in it is enforced.\nfunc TestFitnessYAMLPlainScalarsParse(t *testing.T) {\n\tdata, err := os.ReadFile(filepath.Join(repoRoot(t), \".taad\", \"fitness.yaml\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tlines := strings.Split(strings.ReplaceAll(string(data), \"\\r\\n\", \"\\n\"), \"\\n\")\n\tkey := regexp.MustCompile(`^(\\s*)(?:- )?([a-z_]+):\\s+(.*)$`)\n\titem := regexp.MustCompile(`^\\s*- `)\n\tbare := regexp.MustCompile(`^\\s*[a-z_]+:(\\s|$)`)\n\tindent := func(s string) int { return len(s) - len(strings.TrimLeft(s, \" \")) }\n\tfor i := 0; i < len(lines); {\n\t\tm := key.FindStringSubmatch(lines[i])\n\t\tif m == nil || m[3] == \"\" || strings.ContainsRune(`'\"|>[{&*!`, rune(m[3][0])) {\n\t\t\ti++\n\t\t\tcontinue\n\t\t}\n\t\ttype piece struct {\n\t\t\tn int\n\t\t\tv string\n\t\t}\n\t\tvals := []piece{{i + 1, m[3]}}\n\t\tj := i + 1\n\t\tfor j < len(lines) && strings.TrimSpace(lines[j]) != \"\" && indent(lines[j]) > len(m[1]) &&\n\t\t\t!item.MatchString(lines[j]) && !bare.MatchString(lines[j]) {\n\t\t\tvals = append(vals, piece{j + 1, strings.TrimSpace(lines[j])})\n\t\t\tj++\n\t\t}\n\t\tfor _, p := range vals {\n\t\t\tif strings.Contains(p.v, \": \") || strings.HasSuffix(p.v, \":\") || strings.Contains(p.v, \" #\") {\n\t\t\t\tt.Errorf(\"fitness.yaml:%d: a plain scalar a YAML parser refuses: %q\", p.n, p.v)\n\t\t\t}\n\t\t}\n\t\ti = j\n\t}\n}\n"
+    }
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": "internal/server/admin.go",
+    "line": 265,
+    "end_line": 269,
+    "claim": "adminCommentRemove reads the request body with r.ParseForm only. ParseForm reads nothing from a multipart/form-data, text/plain, JSON or untyped body: it does not touch the body at all, so the MaxBytesReader cap never trips and PostForm[\"from\"] is empty. An absent `from` is the valid reader-page case, so every such body falls through to Remove and a 303.\n\nMeasured as the owner:\n- multipart from=bogus: 303 /reports/x#comments, comment removed;\n- multipart from=admin: 303 to the reader page instead of admin;\n- a 2 KiB text/plain body: 303, removed;\n- a 2 KiB body with no Content-Type: 303, removed;\n- a JSON body: 303, removed.\n\nThe contract says \"an unreadable body or one over 1 KiB: 400; `from` present with a value other than exactly 'admin', or repeated: 400 ... Every refusal changes nothing\". Removal has no undo. The sibling handlers do not have this gap, because each requires a field (body, vote), so a body they do not read is already a 400. The landing test (TestCommentRemove/landing) feeds only urlencoded bodies, so it passes.",
+    "evidence": "internal/server/admin.go:265-280 (ParseForm, then the switch on r.PostForm[\"from\"], where len 0 means a reader landing). Probe via go test -overlay (scratch zz_probe_test.go), output: 'multipart from=bogus -> 303 \"/reports/x#comments\" removed=true', 'text/plain 2KiB -> 303 ... removed=true', 'no ctype 2KiB -> 303 ... removed=true', 'urlencoded bogus -> 400 \"\" removed=false'. Contract 'POST /admin/comments/{n}/remove' error_cases in the design.",
+    "fix": "After the MaxBytesReader line, replace r.ParseForm() with r.ParseMultipartForm(maxRemoveBody), and answer 400 on any error that is not http.ErrNotMultipart. That way `from` is read, and checked strictly, in either form encoding. Then read the rest of the body through the cap with io.Copy(io.Discard, r.Body), answering 400 on error, so a body over 1 KiB is refused whatever its type. An empty body of any type still removes. I verified this exact change through an overlay: the repro passes, and TestCommentRemove, TestStoreFaultSteps, TestAdminAccessMatrix, TestDislikesDoNotInterfere, TestAdminCommentList and TestRemoveReadFailure stay green.",
+    "class_of": "request body encodings a form handler with an all-optional field set does not read (multipart, text/plain, untyped, JSON)",
+    "threat": "accident",
+    "quote": {
+     "path": "internal/server/admin.go",
+     "line": 265,
+     "text": "\tr.Body = http.MaxBytesReader(w, r.Body, maxRemoveBody)\n\tif err := r.ParseForm(); err != nil {\n\t\thttp.Error(w, \"Bad request\", http.StatusBadRequest)\n\t\treturn\n\t}"
+    },
+    "repro": {
+     "path": "internal/server/remove_body_shapes_test.go",
+     "command": "go test -count=1 -run TestCommentRemoveRefusesBodiesItDoesNotRead ./internal/server/",
+     "body": "package server\n\nimport (\n\t\"net/http\"\n\t\"strings\"\n\t\"testing\"\n)\n\n// The remove form's contract: a from other than exactly \"admin\", and a body over\n// 1 KiB, are refused with 400 before anything is written, whatever the encoding.\nfunc TestCommentRemoveRefusesBodiesItDoesNotRead(t *testing.T) {\n\th, owner, reader := commentWorld(t)\n\tfor _, c := range []struct{ name, ctype, body string }{\n\t\t{\"multipart with another from\", \"multipart/form-data; boundary=b\", \"--b\\r\\nContent-Disposition: form-data; name=\\\"from\\\"\\r\\n\\r\\nbogus\\r\\n--b--\\r\\n\"},\n\t\t{\"a plain-text body over 1 KiB\", \"text/plain\", strings.Repeat(\"a\", 2<<10)},\n\t\t{\"a body over 1 KiB with no type\", \"\", strings.Repeat(\"a\", 2<<10)},\n\t} {\n\t\tid := h.say(reader, \"x\", \"a comment for \"+c.name, 0)\n\t\tres := h.serve(\"POST\", \"/admin/comments/\"+itoa(id)+\"/remove\", h.withSID(owner), withBody(c.ctype, []byte(c.body)))\n\t\tif res.Status != http.StatusBadRequest || res.Location() != \"\" {\n\t\t\tt.Errorf(\"%s: %d %q, want 400 and no Location\", c.name, res.Status, res.Location())\n\t\t}\n\t\tif h.commentCount(\"id = ? AND removed_at IS NOT NULL\", id) != 0 {\n\t\t\tt.Errorf(\"%s: the comment was removed by a request the contract refuses\", c.name)\n\t\t}\n\t}\n\t// Control: the reader page's form, with no field, still removes.\n\tid := h.say(reader, \"x\", \"a comment the plain form removes\", 0)\n\tif res := h.serve(\"POST\", \"/admin/comments/\"+itoa(id)+\"/remove\", h.withSID(owner), withBody(formType, nil)); res.Status != http.StatusSeeOther {\n\t\tt.Fatalf(\"control: %d %q\", res.Status, res.Body)\n\t}\n}\n"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:85-119 (TestCommentRemove/leaf): the lone writer's only top-level comment is removed through the owner's POST. The answer is a 303 to /reports/x#comments with Cache-Control no-store. The login, the text and id=comment-N are absent on / and /reports/x for all three viewers, and the count reads 1 comment. internal/comments/remove_test.go:59-77 (TestRemove/leaf) covers the store side. Both pass in the full suite."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:121-175 (held): c3, at depth 3 with a visible reply c4, is removed, then c2. Each stays as a bare placeholder nested under its parent, with no form, login, body or time. The count goes 4, 3, 2 for anonymous, reader and owner, and no row is deleted. The store side is internal/comments/remove_test.go:79-105."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:177-212 (chain-collapses): after c2 and c3 are removed, removing c4 leaves only c1. The comment-N and replies-N ids of c2, c3 and c4 are absent, no 'comment removed' is drawn, and the count goes 2 to 1. The store side is TestRemove/chain-collapses."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:214-257 (below-cap): a 300-deep chain is posted over HTTP. Depth 7 and the end of the chain are shown to be drawn only on branch pages, each branch page carries removeFormRE, and both are removed. The count reads 298, and depth 7 is a bare placeholder on its branch page. The store side is TestRemove/deep-300. TestRemoveControl also checks the control on a branch page that has a placeholder."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "internal/comments/remove_test.go:157-211: in already-removed, a later clock leaves removed_at and the count unchanged. In blocked-writer-commutes, the comment stays hidden after the block row is deleted, and a control comment that was only blocked returns. TestCountReconciles (L331-394) covers 5 seeds × 120 random steps. The server side is internal/server/remove_test.go:259-291. The code: removeSQL uses COALESCE (comments.go:143)."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:293-322 (ids): x, 0, 01, +1, -1, an overflow, an unknown id and a deleted report's comment, each with no body, with from=admin and with an oversize body. Every one answers 404 with no Location and nothing is removed. The handler checks canonicalID first (admin.go:249). The store side is TestRemove/unknown, TestRemove/report-deleted and TestRemoveTarget. The adminRoutes row joins TestAdminAccessMatrix through adminPaths (admin_test.go:15-22)."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:324-363 (refused): anonymous, a reader, and an impostor with login 'the-owner' on id 999 (the owner is 'the-owner' on 42, comment_test.go:173) each get 403 with no Location and no admin marker. Cross-site, same-site and an evil Origin get 403. The owner's GET and HEAD get 405, and nothing is removed, while the same-origin controls do remove. observe() gains the route for the three non-owners at vote_test.go:537."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:365-421 (landing):\n- No field gives /reports/x#comments and from=admin gives /admin/reports/x#comments.\n- Another value, an empty value, a different case, a repeat, a repeat with another value, and a body over 1 KiB each give 400 with nothing removed.\n- A from in the query string is ignored.\n- The taken-down report and the never-published draft both land on /admin/reports/<slug>#comments.\nThe code is admin.go:265-294."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:424-492 (TestRemoveControl): on /, /reports/x and a branch page, the owner has exactly one control per shown comment and none on a placeholder. The owner's / and /reports/x are identical bytes. The control has no digit, field, aria-label or 'comment'. A reader and a visitor see no /admin/comments/. TestThreadViewerCanRemove (L760-795) pins the flag itself, and reader_test.go:250-265 adds the owner and non-owner assertions. The template is comments.html:23-28, inside the non-placeholder branch."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:498-601 (TestCommentCount): 0-1-many with the singular form, placeholders, blocked-writer (block and unblock done in SQL), below-the-cap (8 counted with 5 drawn) and reconciles. Each case runs for three viewers on / and /reports/x. The page count equals the database's COUNT under the visibility predicate, there is exactly one number beside a comments label, and the count follows the likes paragraph. The branch page shows no count. TestVisible and TestCountReconciles cover the store. TestReportScriptsNeverRun passed in the full suite."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:603-713 (TestAdminCommentList):\n- a flat pre-order list over a 12-level chain;\n- p2 reads 'in reply to a removed comment';\n- removed text appears nowhere on the page;\n- the forms carry from=admin;\n- no comment-N, feedback-N or count in the section, and only the tally sits beside a dislike label;\n- removing at depth 12 lands on /admin/reports/x#comments;\n- an unpublished report's comments are listed and removable;\n- 'Nothing visible on this report.' when there are none.\nThe draft-list shape uses a published-then-unpublished report. A never-published draft goes through the same BySlug and a.tree path, which has no status filter."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "internal/server/remove_test.go:723-754 (TestRemoveReadFailure): with only a.tree failing, /, /reports/x and the branch page are 503 outage pages with no count line. The admin report page is a 500 with no moderation section. The removal still answers 303 and removes. The code is reader.go:136-142 and admin.go:160-165."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "I re-ran it. I planted epics id 44 finish[0].body (read-only SELECT on the ledger) into a `git archive HEAD` copy and ran `python -I tests/acceptance/test_e006_1_removal_and_placeholders.py` with an empty TAAD3_HOME. It exited 1 with one failure, `AssertionError: 404 not less than 400 : the owner's POST /admin/users/8003/block answered 404`, from press() at body L409, during the block press at L420."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "In the code, removal and blocking are kept apart. removeSQL `UPDATE comments SET removed_at = COALESCE(removed_at, ?) WHERE id = ?` (comments.go:143) keeps the first time. visibleSQL (comments.go:70) tests removed_at and blocked_accounts separately. No non-test code writes removed_at = NULL (fitness rule, line 412). TestRemove/blocked-writer-commutes and TestCountReconciles pass. Limit: SC-021's real Unblock does not exist yet, so for now 'unblock' is a test-SQL DELETE of the block row."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "internal/server/storefault_test.go:117-139:\n- adminCommentRemove has rows for identify (drop sessions, 503), the lookup (rename reports, 500) and the remove (a BEFORE UPDATE OF removed_at trigger with writeFault, proved by the probe UPDATE at L198-204).\n- adminReport has six rows: identify, report, votes, feedback, feedback_replies with a message seeded at L164, and the seam.\n- The faulted request is aimed at the spare comment (L172-180), and L235-241 asserts spare stays NULL.\n- The census is at L133-140.\nI did not repeat the engine's proved mutation."
+   },
+   {
+    "key": "O-016",
+    "discharged": "no",
+    "evidence": "The pattern `(?i)\\bremoved_at\\s*=\\s*NULL\\b` is at .taad/fitness.yaml:412, and the `because` names the holes (L419-427). That same `because` text is invalid YAML: ': ' at L421 col 42 and a trailing ':' at L423. The engine's Fitness op=check cannot read the file (ScannerError), so the engine enforces neither this rule nor any other. Only the lenient Go loader in rules_test.go still applies it. See M1."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "The planted body I read (lines 386-435): look('posting') at L410, then press and look after each removal at L411/413, L414/416 and L417/419, then the block press at L420. Each look() asserts the gone, held and nesting states and the count at L405. The run on HEAD stopped at L409 during L420 with a 404, as claimed."
+   },
+   {
+    "key": "O-018",
+    "discharged": "no",
+    "evidence": "Waived to N-122 and not built: internal/fitnessrules/testdata/rule_spellings.json has no rows for 'removal never deletes a comment row' or for blocked_accounts. The rule texts do now name their holes. The waiver is a decision, so I am not re-opening it."
+   },
+   {
+    "key": "O-019",
+    "discharged": "no",
+    "evidence": "Waived to N-123. admin_report.html:46 still says 'in reply to a removed comment', and the field is thread.go:85 ParentRemoved. Until SC-021 lands, no product path creates a block, so in production a placeholder is always a removed comment, and the waiver's reason holds."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "I re-ran it on a `git archive HEAD` copy with an empty TAAD3_HOME. The bodies of epics 41 and 43 (each has only line 0) and epic 42 line 0 all exit 0: test_e003_1_sign_in_and_vote.py, test_e004_1_comments_and_replies.py and test_e005_1_private_feedback.py. Since each exits 0 now, none can have got worse than baseline. I did not re-run the baseline myself."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "internal/server/remove_test.go TestCommentRemove/leaf: the lone writer's only top-level comment, with no replies, removed over HTTP; login, text and id absent; count 2 to 1. internal/comments/remove_test.go TestRemove/leaf: two top-level comments, one removed."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/held and TestRemove/held build c1>c2>c3>c4, remove c3 (depth 3, visible reply c4) and then c2, and check placeholders, nesting and the count 4, 3, 2. The design's command 'TestCommentRemove/held|TestCommentCount/placeholder' runs only TestCommentRemove/held, because -run splits at '/'. TestCommentCount/placeholders also feeds the shape and runs in the full suite."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/chain-collapses and TestRemove/chain-collapses: two placeholders over the last visible reply. Removing it collapses three nodes, the count drops by one, and the ids are absent from the source."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/below-cap posts a 300-deep chain and checks that depth 7 and depth 300 are drawn only on branch pages, which carry the control. Both are removed. TestRemove/deep-300 covers the store. The design's command 'TestRemoveControl/branch|TestCommentRemove/below-cap' runs only TestRemoveControl, since -run splits at '/'. below-cap runs and passes in the full suite."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "TestRemove/already-removed (a later clock, removed_at kept), TestRemove/blocked-writer-commutes (block row inserted, removed, block row deleted, still hidden) and TestCountReconciles (random removals, repeats, blocks and unblocks). The server side is TestCommentRemove/already-hidden."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/ids feeds x, 0, 01, +1, -1, an overflow, an unknown id and a deleted report's comment, each with three body shapes: 404, no Location, nothing removed. TestRemove/unknown (0, -1, 2, 999), report-deleted and TestRemoveTarget cover the store."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/refused: anonymous, a reader, and an impostor with login the-owner on id 999 get 403. Sec-Fetch-Site cross-site and same-site and an evil Origin get 403. The owner's GET and HEAD get 405. removed_at stays NULL and the controls are taken. observe() row at vote_test.go:537."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "TestCommentRemove/landing feeds from absent, admin, another value, empty, Admin, repeated, repeated with another value, the query string only, an unknown field, and a body over 1 KiB. A taken-down report and a never-published draft land on the admin page."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "TestRemoveControl draws /, /reports/x and a branch page for the owner, a reader and a visitor. The thread holds placeholders, one on the report page and one at depth 6 on the branch page. TestReaderPagesShareOneLayout and TestThreadViewerCanRemove add the owner and non-owner checks and the flag."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "TestCommentCount subtests 0-1-many ('1 comment' singular), placeholders, blocked-writer (blocked_accounts row inserted and deleted by SQL), below-the-cap (8 counted, 5 drawn) and reconciles. TestVisible and TestCountReconciles cover the store. TestReportScriptsNeverRun passed in the full suite."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "TestAdminCommentList: a 12-level chain, p2 under the placeholder p1, a removed leaf whose text is absent, from=admin forms, the depth-12 removal landing on admin, and an unpublished report ('drafty', published then unpublished) listed and removed. A never-published draft takes the same code path (BySlug, then a.tree with no status filter)."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "TestRemoveReadFailure replaces h.app.tree with a failing seam and checks the calls counter. The reader pages are 503 with no count, the admin page is a 500 with no list, and the removal still answers 303."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "I re-ran the planted epic 44 line-1 body on a HEAD copy. It exits 1, and the only failure is press() at L409 during the block POST at L420: 404."
+   },
+   {
+    "key": "C-014",
+    "exercised": "no",
+    "evidence": "Deferred as material:false. The reason still holds against the code: Remove is a single ExecContext (comments.go:154-167), and the rule 'comment writes never open a transaction' (fitness.yaml:290) forbids the read-then-write transaction that caused BUSY (#949). Caveat: the engine cannot evaluate that rule right now (M1)."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [
+   ".taad/fitness.yaml:1-379 -- I read only lines 380-442 (the SL-010 additions and the rule before them), and the earlier unchanged rules only by grep."
+  ],
+  "second_round": {
+   "run_id": 11989,
+   "filed": 1,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 12,
+    "changed": 17,
+    "listed": 5
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 17,
+   "read_whole": 12,
+   "deleted": [],
+   "runs": [
+    11988,
+    11989
+   ],
+   "range": {
+    "base": "e64753c60c57cc40daa3c98168b8f6acb1853f3a",
+    "head": "6c60c2da8005b91f9ec91d29e6c6152b81e3cf51",
+    "source": "commits",
+    "hunk_base": "e64753c60c57cc40daa3c98168b8f6acb1853f3a",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "partly-opened",
+     "section": "lines 1-379 of 441",
+     "reason": "a Read returned only part of it; seen only as 7 Grep lines; seen only through a shell command: $s, git diff; 1 returned line differ from the reviewed file (read before it changed)",
+     "size_lines": 441,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-384, 430-1194 of 1194",
+     "reason": "a Read returned only part of it; seen only as 73 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 1194,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/feedback_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-1479 of 1479",
+     "reason": "seen only as 31 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 1479,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-742 of 742",
+     "reason": "seen only as 3 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 742,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/vote_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-439, 630-642 of 642",
+     "reason": "a Read returned only part of it; seen only as 4 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 642,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

@@ -59,6 +59,82 @@
   {
    "stage": "design-slice",
    "issue": "Blocking an id that never signed in: refused 404 through INSERT…SELECT FROM users (practice) or allowed through INSERT…VALUES ON CONFLICT DO NOTHING (crossdomain, chosen, per the migration's 'a block is a fact about an account')."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "All [SC-021] components: block.go (Block, Unblock, Blocked, ErrBlocked), the blocked refusal in Post, Cast, Withdraw and Send, the feedback 'blocked' mark and OwnerInboxBySender, the block, unblock and /admin/blocked routes with admin_blocked.html, and the Block forms. They belong to SC-021 (epic_parts). E-006 lines 1 and 2 cannot exit 0 until it lands."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Case 14, a removal racing 20 concurrent Posts. The design marked it material:false: Remove is one statement and the fitness rule already forbids the transaction that would cause BUSY."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Deferred findings m4 (landing at the parent's anchor), m5 (a remove form on the Blocked users page) and m7 (a shared or linked confirm page). They are decided deferrals."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No screens or app are declared. internal/config refuses to start without five HBAND_* variables, and the app command allows no environment, so the engine cannot open the app bare (#961). I rendered the owner's pages in Chrome myself instead."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "SC-021 must build POST /admin/users/{u}/block and /unblock, GET /admin/blocked, the blocked refusal, and a remove form on each comment of the Blocked users page (m5, with a from=blocked landing). Until then E-006 lines 1 and 2 stop at a 404 on the block route."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Arrange a signed-in session for Chrome on this project (#961, #970): the owner's remove controls, summary disclosure and phone layout have only been rendered from harness-produced HTML, never as a signed-in browser session."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No planted finish body parses the owner's remove control; E-006 line 1 presses it by a hard-coded path. If E-006 should prove the control exists on the page, that is a change to that planted test, not to this slice."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Owner page weight at 10k comments (m7, #960): each shown comment now carries one more details/form for the owner."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: modItem omits GitHubID and ParentID. The design lists both, but only SC-021's Block form would read them and nothing in this slice does, so they would be dead fields. SC-021 adds them with their reader."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: TestFeedbackReplyMarkup (SL-009) pinned 'no number beside a comments label on the reader page'. That is untrue by design now that the reader page carries the count. I changed it to the observed new markup, exactly one count of 0, and did not loosen it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: TestStoreFaultSteps rows now take a world struct instead of (reader, top), and every subtest seeds a second comment and one feedback message. This is what the critic's fix to M1 requires: fresh targets for the removal rows and a message so the inbox's replies read runs."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The second fitness pattern is `removed_at = NULL` without the `|0` arm, per the critic's check (0 still means removed). The `because` names the holes."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Kept 'in reply to a removed comment' and ParentRemoved on the moderation list, as the design and case C-011 say. The m6 rename to ParentHidden was waived (O-019, note N-123), and until SC-021 a placeholder is always a removed comment."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 1-379 of 441) -- partly-opened: a Read returned only part of it; seen only as 7 Grep lines; seen only through a shell command: $s, git diff; 1 returned line differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-384, 430-1194 of 1194) -- partly-opened: a Read returned only part of it; seen only as 73 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/feedback_test.go (not seen: lines 1-1479 of 1479) -- partly-opened: seen only as 31 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/reader_test.go (not seen: lines 1-742 of 742) -- partly-opened: seen only as 3 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/vote_test.go (not seen: lines 1-439, 630-642 of 642) -- partly-opened: a Read returned only part of it; seen only as 4 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: .taad/fitness.yaml:1-379 -- I read only lines 380-442 (the SL-010 additions and the rule before them), and the earlier unchanged rules only by grep."
   }
  ],
  "stages": [
@@ -134,6 +210,47 @@
      "caused_by": null,
      "changed": {},
      "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T11:00:22.262Z",
+     "head": "6c60c2da8005b91f9ec91d29e6c6152b81e3cf51",
+     "summary": "Built the SC-020 half of SL-010.",
+     "caused_by": null,
+     "changed": {
+      "src": 16,
+      "config": 1,
+      "listed": 17,
+      "measured_by_git": 21
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-24T11:20:41.787Z",
+     "head": "6c60c2da8005b91f9ec91d29e6c6152b81e3cf51",
+     "summary": "The SC-020 half is built as designed: - Book.RemoveTarget is one SELECT and Book.Remove is one COALESCE UPDATE.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
     }
    ]
   }

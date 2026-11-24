@@ -162,5 +162,99 @@
     "result": "none:\n- Removal is owner-only by construction: an adminRoutes row behind RequireOwner and OwnerRoute, after CrossOriginProtection.\n- SameSite=Lax adds a second barrier.\n- frame-ancestors 'none' blocks framing.\n- Report iframes are sandboxed without allow-forms, so report bytes cannot POST.\n- GitHubID in modItem reaches only the admin page.\n- Removed text is blanked in SQL for every viewer, the owner included."
    }
   ]
+ },
+ "prescribed": {
+  "host": 705,
+  "at": "2026-11-24T10:56:48.976Z",
+  "runs": [
+   {
+    "run_id": 11984,
+    "resumed_from": "6ac6a1c5-141a-4964-bac5-403a88fcb5a1",
+    "ending": "completed",
+    "cost_usd": 1.2883905999999996,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 2036,
+    "key": "M-add-1",
+    "digest": "fb6f3ad586b7ccef"
+   },
+   {
+    "finding_id": 2028,
+    "key": "M1",
+    "digest": "91d06d72ca23f334"
+   },
+   {
+    "finding_id": 2029,
+    "key": "m1",
+    "digest": "ef80515d9f8c8107"
+   },
+   {
+    "finding_id": 2030,
+    "key": "m2",
+    "digest": "964ae79ea858b23b"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 2036,
+    "key": "M-add-1",
+    "digest": "fb6f3ad586b7ccef",
+    "verdict": "hole",
+    "severity": "major",
+    "checked": "I read the build-check and spike records in the brief:\n- the E-006 finish_proofs row is 'status fails on ba7102d', while HEAD is e64753c;\n- the spike states it replayed scenarios as data;\n- the spike's readers list: E-003 reads beside() and likes, E-004 line 1 reads counts, E-005 reads counts <= {0} plus dislikes on the admin view.\n\nI also read report.html, comments.html, admin_report.html and feedback.go (OwnerInbox). I could not read finish_proofs: no shell, and the ledger was not opened.",
+    "why": "1. **The baseline is not defined by anything that exists.** 'The finish_proofs status it had on the pre-slice commit' assumes the ledger holds a status measured on e64753c. The only row in the record carries the commit it ran on (ba7102d), which is older than HEAD. If E-003's or E-005's row still reads 'fails' from an older commit, a regression this slice causes 'keeps its status' and passes the gate. Lesson #963 expected E-005 to turn green at SC-017 (SL-009, already merged).\n2. **Status equality hides new failures.** Each finish line is one unittest method, which stops at its first failed assertion. For a line that failed before, a new earlier failure caused by the count line leaves the status at 'fails' and is not caught. The blocking clause names only 'comments or dislikes' readers, so a new failure in E-003's likes reader slips through too. The count paragraph sits directly after the likes paragraph.\n3. **The run may say nothing about the remove control.** The finding cites the owner-only control as unseen. The run exercises it only if one of these bodies reads a reader page as the owner. If none does, the evidence must not claim the control was checked.",
+    "instead": "First, measure the baseline. Run each of these bodies against a scratch `git archive e64753c` copy, with ROOT pointed at that copy and TAAD3_HOME set to an empty folder. The bodies are epic 41 (every line), epic 42 (line 1) and epic 43 (every line), each read in place with a read-only SELECT. Record each run's exit code and first failure (message and the body line it was raised from). Do not take the status from finish_proofs.\n\nThen run the same bodies against the built worktree. The build fails if any of these happens:\n- a line that exited 0 on e64753c does not exit 0;\n- a line that failed on e64753c now fails at an earlier body line, or with a different message.\n\nRecord for each body whether it reads /, /reports/<slug> or a branch page as the owner, and claim remove-control coverage only for bodies that do."
+   },
+   {
+    "finding_id": 2028,
+    "key": "M1",
+    "digest": "91d06d72ca23f334",
+    "verdict": "hole",
+    "severity": "major",
+    "checked": "- storefault_test.go read whole. The control step at :118-121 runs r.req once with nothing broken. Isolation is proved only through `SELECT count(*)` readability at :125-138. The rule at :157-158 is: 'a row that breaks no table must break the seam'. The stored-count check at :160-168 applies to postComment only.\n- commentWorld (comment_test.go:170-176) returns the owner sid, so owner closures are possible.\n- owner.go:54-57: an identify error gives 503 before ViewerFrom, so dropping sessions does give 503 at the gate.\n- feedback.go:156-186: OwnerInbox runs two statements, inboxSQL and, only when there is at least one message, inboxRepliesSQL.\n- admin.go:119-151.",
+    "why": "Three parts cannot be built as written, plus one minor gap:\n\n1. **The control step defeats the outcome assertion.** The harness runs each row's request once on a healthy store before the fault. For adminCommentRemove that control removes the very comment the faulted request then targets, so 'removed_at still NULL' is false on every row. A builder who drops the assertion to get green loses the point of the row: proving that no success-looking 303 follows a failed removal.\n2. **The trigger row fails the harness's self-check.** The `BEFORE UPDATE OF removed_at` trigger breaks no read (`broken` is empty) and is not the a.tree seam, so :157-158 reports it as an error. The harness's only proof of isolation is readability, and readability cannot show a write-only fault. The builder will either weaken that check for every row or improvise.\n3. **The adminReport census is incomplete.** The rationale requires 'every one of its store steps', but its list leaves out the owner identify step (drop sessions, 503 at the gate). It also counts OwnerInbox as one step when it is two statements. The replies read is reached only when the report has a feedback message, which commentWorld does not seed. So the census would claim coverage it lacks, which is exactly what the rationale forbids.\n4. **Minor:** the test's doc comment (:16-26) bounds the class to the four reader handlers and must be widened with it.\n\nThe parts that hold: renaming reports does fail RemoveTarget's JOIN alone. The trigger does fire on the COALESCE UPDATE, because removed_at is in the SET list. Test SQL is outside every fitness rule.",
+    "instead": "Change the harness as part of the fix, and state these changes:\n\n1. **Fresh targets.** For adminCommentRemove rows, seed two comments. The control removes the first and the faulted request removes the second. Assert that the second's removed_at is still NULL and that the answer is 500 with no Location. Equivalently, assert that removed_at is unchanged on the faulted target.\n2. **A write-fault kind.** Add a `writeFault` field to row, and replace the :157-158 rule with 'broken, seam or writeFault'. A writeFault row proves isolation in two ways: comments and reports still answer SELECT, and a probe `UPDATE comments SET removed_at = removed_at WHERE id = ?` fails with 'injected'.\n3. **adminReport census.** Its rows are:\n   - identify the owner: drop sessions, 503;\n   - look up the report: rename reports, 500;\n   - read the votes: rename votes, 500;\n   - read the feedback: rename feedback, 500;\n   - read the feedback replies: seed one message, rename feedback_replies, 500;\n   - read the comments: the a.tree seam, 500.\n   All run as the owner.\n4. **adminCommentRemove census.** Its rows are identify, look up the comment and remove the comment.\n5. Update the doc comment's stated bound."
+   },
+   {
+    "finding_id": 2029,
+    "key": "m1",
+    "digest": "ef80515d9f8c8107",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I grepped every non-test file in internal/comments for `removed_at\\s*=`, `\"removed_at\"` and `(removed_at`. The only hit is the prose at comments.go:12 ('removed_at is set'), which does not match. So the pattern is quiet on today's tree. I read the design's Remove statement (`SET removed_at = COALESCE(removed_at, ?)`) and SC-021's Blocked() `CASE WHEN c.removed_at IS NULL`. Neither matches.\n\nvisibleSQL (comments.go:62) hides a row when `removed_at IS NULL` is false. The rule is not in rules_under_test, so TestRuleSpellingsCorpus (rules_test.go:254-257) needs no rows for it. The YAML scalar is safe unquoted, like its sibling at fitness.yaml:411.",
+    "why": "The pattern is buildable and quiet. Two parts of the prescribed text are wrong or incomplete:\n\n1. **The `|0` arm guards nothing.** Setting removed_at to 0 keeps the row hidden, because visibleSQL tests IS NULL and 0 is not NULL. Only NULL un-removes. The arm can only fire on harmless code, and its presence suggests to the next reader that 0 means 'not removed'.\n2. **The named holes miss the restore that is not an UPDATE.** `INSERT OR REPLACE INTO comments` or `REPLACE INTO comments` with the same id and no removed_at deletes the row and inserts it again with removed_at NULL. The NO ACTION self-FK is checked at the end of the statement, when the parent id exists again, so this works even on a comment with replies. It matches neither pattern of this rule. Also missed:\n   - a quoted identifier, `\"removed_at\" = NULL`;\n   - the row-value form `SET (removed_at) = (NULL)`;\n   - `= NULLIF(x, x)`.\n\nThese are tripwire spellings (#939, #957), so they are worth naming, not chasing.",
+    "instead": "Use `(?i)\\bremoved_at\\s*=\\s*NULL\\b`, or keep `|0` but say in the `because` that 0 still means removed. In the `because`, name these known holes:\n- a bound nil (`removed_at = ?`);\n- CASE or NULLIF expressions;\n- concatenation;\n- quoted identifiers and the row-value SET;\n- REPLACE or INSERT OR REPLACE re-inserting a comment row.\n\nKeep SC-021's shape 6 as the behavioural guard."
+   },
+   {
+    "finding_id": 2030,
+    "key": "m2",
+    "digest": "964ae79ea858b23b",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "I tried to break it in four ways:\n- I re-read the spike's line-1 record: the press helper at L408-409 is `assertLess(got.status, 400)`; the removes are at L411, L414, L417 and L434; the block is at L420; the Browser follows redirects on hband.test up to 8 hops and asserts no Location.\n- I checked router.go:120-125: adminMux has rows only from adminRoutes, so after the gate the owner's POST to /admin/users/<id>/block matches no pattern and gets 404. SL-010 adds only /admin/comments/{n}/remove.\n- I checked the planned remove landing for a published report with no `from`: a 303 to /reports/<slug>#comments, followed to 200, which is below 400.\n- I checked that the rationale's wording drops the L-numbers, so a revised ledger body cannot make the condition stale.",
+    "why": "The structural condition identifies the expected stop by step and status: the press helper's status assertion on the block POST, with 404. It does not depend on a message or id nobody measured. A failure at any remove press, or anywhere earlier, has a different step or status, so it cannot satisfy the condition. Reading the body in place and recording whether look() runs after each removal correctly limits what the run can be said to prove. Because the test is a single unittest method, 'exactly one failure' is vacuous, but the identification of the step carries the weight. Nothing here conflicts with a constraint or a decided question.",
+    "instead": ""
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:2036",
+   "finding:2028",
+   "finding:2029"
+  ],
+  "counts": {
+   "holds": 1,
+   "hole": 3,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "I checked all four prescriptions against the tree. I had no shell, so I ran nothing; the ledger was not opened either.\n\n- **M1 (major hole):** as written it cannot pass inside TestStoreFaultSteps. That harness first runs every row's request with nothing broken (storefault_test.go:118-121), so the control removes the target comment and 'removed_at still NULL' can never hold. The trigger row breaks no table and is not the seam, so the harness's own check at :157-158 fails it. The adminReport list also leaves out the identify step and OwnerInbox's second statement.\n- **M-add-1 (major hole):** its baseline is 'the finish_proofs status on the pre-slice commit', but the ledger's rows were recorded on older commits (E-006's on ba7102d, not HEAD e64753c). Comparing only status also lets a new, earlier failure in a line that already failed slip through.\n- **m1 (minor hole):** the pattern is quiet on today's tree, and the suggested 'because' text is mostly right. The `|0` arm protects nothing, because a removed_at of 0 is still hidden by visibleSQL. The holes it names leave out the realistic non-UPDATE restore: INSERT OR REPLACE.\n- **m2 (holds):** the structural pass condition and the look() record are sound and buildable.",
+  "why": "",
+  "round": "landed"
  }
 }

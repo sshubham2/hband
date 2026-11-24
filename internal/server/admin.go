@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
+	"mime"
 	"net/http"
 	"strconv"
 
@@ -263,14 +265,13 @@ func (a *app) adminCommentRemove(w http.ResponseWriter, r *http.Request, o auth.
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxRemoveBody)
-	if err := r.ParseForm(); err != nil {
+	from, ok := removeFrom(r)
+	if !ok {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-	// Only the body of the request counts: a field in the query string is not the
-	// form, and a repeated one is ambiguous.
 	toAdmin := false
-	switch from := r.PostForm["from"]; {
+	switch {
 	case len(from) == 0:
 	case len(from) == 1 && from[0] == "admin":
 		toAdmin = true
@@ -294,6 +295,42 @@ func (a *app) adminCommentRemove(w http.ResponseWriter, r *http.Request, o auth.
 	}
 }
 
+// removeFrom reads the one optional field of the remove form, from, out of a body
+// that r.Body has already capped, and reports whether the request was readable.
+// Every field of the form is optional, so a body the handler did not read would
+// look exactly like "no field", which is the valid reader-page case, and a removal
+// has no undo. So no encoding may go unread:
+//
+//   - a form, urlencoded or multipart, is parsed, and only its own fields count (a
+//     field in the query string is not the form, a repeated one is ambiguous, and a
+//     file part is not a field this form has);
+//   - whatever else is in the body is read to its end through the cap, so a body over
+//     the cap is refused whatever its type;
+//   - a body that is not a form is refused unless it is empty: an empty body of any
+//     type is the plain form with no field.
+func removeFrom(r *http.Request) (from []string, ok bool) {
+	// ParseForm reads a urlencoded body and says so when it is malformed or over the cap;
+	// ParseMultipartForm swallows that error for a body that is not multipart, so it is read
+	// first and its error is not left to the one after it.
+	if err := r.ParseForm(); err != nil {
+		return nil, false
+	}
+	if err := r.ParseMultipartForm(maxRemoveBody); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		return nil, false
+	}
+	if r.MultipartForm != nil && len(r.MultipartForm.File) > 0 {
+		return nil, false
+	}
+	rest, err := io.Copy(io.Discard, r.Body)
+	if err != nil {
+		return nil, false
+	}
+	media, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if rest > 0 && media != "application/x-www-form-urlencoded" && media != "multipart/form-data" {
+		return nil, false
+	}
+	return r.PostForm["from"], true
+}
 // adminRaw is the owner's preview, drafts included. It stays behind the gate
 // and is never cached.
 func (a *app) adminRaw(w http.ResponseWriter, r *http.Request, o auth.Owner) {

@@ -410,8 +410,8 @@ rules:
     must_not_match:
     - (?i)\bDELETE\s+FROM\s+\S*comments\b
     - (?i)\bremoved_at\s*=\s*NULL\b
-    because: Removal is the one UPDATE of removed_at. A DELETE of a removed leaf would make
-      it 'vanish' just as the prune does, but it would lose the row that the Blocked users page
+    because: 'Removal is the one UPDATE of removed_at. A DELETE of a removed leaf would make
+      it ''vanish'' just as the prune does, but it would lose the row that the Blocked users page
       lists, and break the guarantee that unblocking never restores a removed comment. With
       replies, a DELETE fails with 787 (NO ACTION self-FK), which would surface as a 500. The
       existing schema tests that DELETE on purpose are _test.go files. The rule that only internal/comments
@@ -420,11 +420,11 @@ rules:
       write of NULL back into removed_at (the reads say IS NULL, which it leaves alone). Setting
       removed_at to 0 would not un-remove: visibleSQL tests IS NULL, so 0 still means removed.
       Known holes, named and not chased (this is a tripwire over spellings; the behavioural guard
-      is TestRemove/blocked-writer-commutes and SC-021's unblock test over a removed comment):
+      is TestRemove/blocked-writer-commutes and SC-021''s unblock test over a removed comment):
       a bound nil argument (removed_at = ?), CASE or NULLIF expressions, concatenated SQL, a
       quoted identifier ("removed_at" = NULL), the row-value form SET (removed_at) = (NULL),
       and REPLACE INTO or INSERT OR REPLACE INTO comments, which re-inserts the row with
-      removed_at NULL.
+      removed_at NULL.'
     except_files:
     - '**/*_test.go'
   - name: only internal/comments writes the blocked_accounts table
