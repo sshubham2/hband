@@ -1,0 +1,228 @@
+{
+  "rows": [
+    {
+      "name": "chrome: a subtest skips saying CHROME_BIN is not set under a passing parent",
+      "mode": "chrome",
+      "expect": "fire",
+      "want": "skipped saying CHROME_BIN with CHROME_BIN set",
+      "why": "headless.Browser's unset message from a real t.Run subtest, the shape TestBrowserSkipEndsTheCallingTest had before it moved into a child process (code review O-030)",
+      "plant": [
+        {"Action": "output", "Package": "example/fakegithub", "Test": "TestSC042SubtestSkipsForWantOfChromeBin/caller", "Output": "    skip_test.go:7: CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check\n"},
+        {"Action": "output", "Package": "example/fakegithub", "Test": "TestSC042SubtestSkipsForWantOfChromeBin/caller", "Output": "--- SKIP: TestSC042SubtestSkipsForWantOfChromeBin/caller (0.00s)\n"},
+        {"Action": "skip", "Package": "example/fakegithub", "Test": "TestSC042SubtestSkipsForWantOfChromeBin/caller"},
+        {"Action": "pass", "Package": "example/fakegithub", "Test": "TestSC042SubtestSkipsForWantOfChromeBin"}
+      ]
+    },
+    {
+      "name": "chrome: a subtest two levels down skips naming CHROME_BIN",
+      "mode": "chrome",
+      "expect": "fire",
+      "want": "TestNested/rows/edge skipped saying CHROME_BIN",
+      "why": "a t.Run inside a t.Run, as the corpus-driven tests of headless write theirs",
+      "plant": [
+        {"Action": "output", "Package": "example/headless", "Test": "TestNested/rows/edge", "Output": "    x_test.go:3: CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check\n"},
+        {"Action": "skip", "Package": "example/headless", "Test": "TestNested/rows/edge"},
+        {"Action": "pass", "Package": "example/headless", "Test": "TestNested/rows"},
+        {"Action": "pass", "Package": "example/headless", "Test": "TestNested"}
+      ]
+    },
+    {
+      "name": "chrome: a subtest skips with Browser's refusal of Edge",
+      "mode": "chrome",
+      "expect": "fire",
+      "want": "TestEdgeSub/caller skipped saying CHROME_BIN",
+      "why": "headless.Browser's Edge message, which a subtest that sets CHROME_BIN to msedge.exe and calls Browser for real would print",
+      "plant": [
+        {"Action": "output", "Package": "example/headless", "Test": "TestEdgeSub/caller", "Output": "    x_test.go:4: CHROME_BIN=\"C:\\\\x\\\\msedge.exe\" is Microsoft Edge, which is never started\n"},
+        {"Action": "skip", "Package": "example/headless", "Test": "TestEdgeSub/caller"},
+        {"Action": "pass", "Package": "example/headless", "Test": "TestEdgeSub"}
+      ]
+    },
+    {
+      "name": "chrome: a subtest skips with Browser's names-no-file message",
+      "mode": "chrome",
+      "expect": "fire",
+      "want": "TestMissingSub/caller skipped saying CHROME_BIN",
+      "why": "headless.Browser's message for a CHROME_BIN that names no file",
+      "plant": [
+        {"Action": "output", "Package": "example/headless", "Test": "TestMissingSub/caller", "Output": "    x_test.go:4: CHROME_BIN=\"C:\\\\gone\\\\chrome.exe\" names no file\n"},
+        {"Action": "skip", "Package": "example/headless", "Test": "TestMissingSub/caller"},
+        {"Action": "pass", "Package": "example/headless", "Test": "TestMissingSub"}
+      ]
+    },
+    {
+      "name": "chrome: a top-level test skips naming CHROME_BIN",
+      "mode": "chrome",
+      "expect": "fire",
+      "want": "TestTopSkip skipped saying CHROME_BIN",
+      "why": "a top-level test calling headless.Browser for real, which the judge refused before this row was written and must go on refusing",
+      "plant": [
+        {"Action": "output", "Package": "example/server", "Test": "TestTopSkip", "Output": "    x_test.go:4: CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check\n"},
+        {"Action": "skip", "Package": "example/server", "Test": "TestTopSkip"}
+      ]
+    },
+    {
+      "name": "chrome: a subtest of a browser test skips while the browser test passes",
+      "mode": "chrome",
+      "expect": "fire",
+      "want": "TestE004FoldAndFitInBrowser passed with a subtest that skipped",
+      "why": "a browser test that splits its widths or pages into t.Run subtests: its top-level pass would hide a part that never ran in the browser",
+      "plant": [
+        {"Action": "output", "Package": "example/browser", "Test": "TestE004FoldAndFitInBrowser/400", "Output": "    x_test.go:4: not at this width here\n"},
+        {"Action": "skip", "Package": "example/browser", "Test": "TestE004FoldAndFitInBrowser/400"}
+      ]
+    },
+    {
+      "name": "chrome: a browser test skips",
+      "mode": "chrome",
+      "expect": "fire",
+      "want": "TestTabEmulatesNarrowViewport did not pass",
+      "why": "a browser test that skips although CHROME_BIN names Chrome",
+      "plant": [
+        {"Action": "skip", "Package": "example/browser", "Test": "TestTabEmulatesNarrowViewport"}
+      ]
+    },
+    {
+      "name": "chrome: a subtest skips for a reason that is not the browser",
+      "mode": "chrome",
+      "expect": "quiet",
+      "why": "a subtest that skips where a symbolic link cannot be made, which says nothing of CHROME_BIN",
+      "plant": [
+        {"Action": "output", "Package": "example/headless", "Test": "TestLinks/real", "Output": "    x_test.go:4: os.Symlink is not permitted here\n"},
+        {"Action": "skip", "Package": "example/headless", "Test": "TestLinks/real"},
+        {"Action": "pass", "Package": "example/headless", "Test": "TestLinks"}
+      ]
+    },
+    {
+      "name": "chrome: a passing subtest logs a CHROME_BIN value",
+      "mode": "chrome",
+      "expect": "quiet",
+      "why": "the CHROME_BIN spelling corpus logs each value it sets and passes; a log line is not a skip",
+      "plant": [
+        {"Action": "output", "Package": "example/headless", "Test": "TestBrowserIsExactlyChromeBin/row", "Output": "    x_test.go:4: CHROME_BIN=\"C:\\\\a\\\\chrome.exe\"\n"},
+        {"Action": "pass", "Package": "example/headless", "Test": "TestBrowserIsExactlyChromeBin/row"},
+        {"Action": "pass", "Package": "example/headless", "Test": "TestBrowserIsExactlyChromeBin"}
+      ]
+    },
+    {
+      "name": "chrome: a skipped subtest's sibling with a longer name logs CHROME_BIN",
+      "mode": "chrome",
+      "expect": "quiet",
+      "why": "subtests a and ab of one test: what ab printed is not a's own output",
+      "plant": [
+        {"Action": "output", "Package": "example/headless", "Test": "TestSiblings/a", "Output": "    x_test.go:4: not here\n"},
+        {"Action": "skip", "Package": "example/headless", "Test": "TestSiblings/a"},
+        {"Action": "output", "Package": "example/headless", "Test": "TestSiblings/ab", "Output": "    x_test.go:9: CHROME_BIN=\"C:\\\\a\\\\chrome.exe\"\n"},
+        {"Action": "pass", "Package": "example/headless", "Test": "TestSiblings/ab"},
+        {"Action": "pass", "Package": "example/headless", "Test": "TestSiblings"}
+      ]
+    },
+    {
+      "name": "chrome: a top-level test skips for a reason that is not the browser",
+      "mode": "chrome",
+      "expect": "quiet",
+      "why": "TestBrowserRefusesARealSymlinkToEdge where os.Symlink is not permitted; its message does not name CHROME_BIN",
+      "plant": [
+        {"Action": "output", "Package": "example/headless", "Test": "TestBrowserRefusesARealSymlinkToEdge", "Output": "    x_test.go:4: os.Symlink is not permitted here\n"},
+        {"Action": "skip", "Package": "example/headless", "Test": "TestBrowserRefusesARealSymlinkToEdge"}
+      ]
+    },
+    {
+      "name": "without: a subtest of an acceptance test skips under a passing parent",
+      "mode": "without",
+      "expect": "fire",
+      "want": "a subtest of the acceptance test TestE003SignInAndVote",
+      "why": "an acceptance test that splits its checks into t.Run subtests and skips one: C1 says the rest run",
+      "plant": [
+        {"Action": "output", "Package": "example/e003", "Test": "TestE003SignInAndVote/withdraw", "Output": "    x_test.go:4: not here\n"},
+        {"Action": "skip", "Package": "example/e003", "Test": "TestE003SignInAndVote/withdraw"},
+        {"Action": "pass", "Package": "example/e003", "Test": "TestE003SignInAndVote"}
+      ]
+    },
+    {
+      "name": "without: a subtest two levels down in an acceptance test skips",
+      "mode": "without",
+      "expect": "fire",
+      "want": "TestE006BlockingAndUnblocking/block/hidden skipped, a subtest of the acceptance test",
+      "why": "a t.Run inside a t.Run in an acceptance test",
+      "plant": [
+        {"Action": "skip", "Package": "example/e006", "Test": "TestE006BlockingAndUnblocking/block/hidden"},
+        {"Action": "pass", "Package": "example/e006", "Test": "TestE006BlockingAndUnblocking/block"},
+        {"Action": "pass", "Package": "example/e006", "Test": "TestE006BlockingAndUnblocking"}
+      ]
+    },
+    {
+      "name": "without: a subtest of an acceptance test skips saying CHROME_BIN is not set",
+      "mode": "without",
+      "expect": "fire",
+      "want": "a subtest of the acceptance test TestE005PrivateFeedback",
+      "why": "an acceptance test that opens a browser in one subtest; it is not on the browser list, so its skip is not one the run expects",
+      "plant": [
+        {"Action": "output", "Package": "example/e005", "Test": "TestE005PrivateFeedback/in a browser", "Output": "    x_test.go:4: CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check\n"},
+        {"Action": "skip", "Package": "example/e005", "Test": "TestE005PrivateFeedback/in a browser"},
+        {"Action": "pass", "Package": "example/e005", "Test": "TestE005PrivateFeedback"}
+      ]
+    },
+    {
+      "name": "without: an allow-listed subtest of an acceptance test skips",
+      "mode": "without",
+      "expect": "quiet",
+      "allow": ["TestE002ShowAllRowNumbers/link"],
+      "why": "a subtest skip that was measured and listed, by its whole name",
+      "plant": [
+        {"Action": "skip", "Package": "example/e002", "Test": "TestE002ShowAllRowNumbers/link"},
+        {"Action": "pass", "Package": "example/e002", "Test": "TestE002ShowAllRowNumbers"}
+      ]
+    },
+    {
+      "name": "without: a subtest of a test that is not an acceptance test skips",
+      "mode": "without",
+      "expect": "quiet",
+      "why": "a Windows-only spelling row of the fitness corpus skipping on another system (Q-036): not an acceptance check",
+      "plant": [
+        {"Action": "output", "Package": "example/fitnessrules", "Test": "TestRuleSpellings/windows-only", "Output": "    x_test.go:4: a Windows path\n"},
+        {"Action": "skip", "Package": "example/fitnessrules", "Test": "TestRuleSpellings/windows-only"},
+        {"Action": "pass", "Package": "example/fitnessrules", "Test": "TestRuleSpellings"}
+      ]
+    },
+    {
+      "name": "without: a top-level test that is not a browser test skips",
+      "mode": "without",
+      "expect": "fire",
+      "want": "TestUnlisted skipped, and it is not a browser test",
+      "why": "a top-level skip nobody measured",
+      "plant": [
+        {"Action": "skip", "Package": "example/other", "Test": "TestUnlisted"}
+      ]
+    },
+    {
+      "name": "without: an allow-listed top-level test skips",
+      "mode": "without",
+      "expect": "quiet",
+      "why": "TestBrowserRefusesARealSymlinkToEdge where os.Symlink is not permitted, which mayAlsoSkip lists",
+      "plant": [
+        {"Action": "skip", "Package": "example/headless", "Test": "TestBrowserRefusesARealSymlinkToEdge"}
+      ]
+    },
+    {
+      "name": "without: a browser test passes with CHROME_BIN unset",
+      "mode": "without",
+      "expect": "fire",
+      "want": "TestReportScriptsNeverRun did not skip",
+      "why": "a browser test that found a browser of its own",
+      "plant": [
+        {"Action": "pass", "Package": "example/browser", "Test": "TestReportScriptsNeverRun"}
+      ]
+    },
+    {
+      "name": "without: an acceptance test fails",
+      "mode": "without",
+      "expect": "fire",
+      "want": "the acceptance test example/acceptance/TestE001Healthy00 did not pass",
+      "why": "an acceptance test that fails",
+      "plant": [
+        {"Action": "fail", "Package": "example/acceptance", "Test": "TestE001Healthy00"}
+      ]
+    }
+  ]
+}

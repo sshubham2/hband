@@ -55,6 +55,186 @@
   {
    "stage": "design-slice",
    "issue": "Tab method names: Viewport (chosen) against Emulate."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "SC-044, the seeded Go launcher, including serve_show_all's four-report show-all seed (finding m8, deferred). The design files it for later; Options.Port, the fixed-port start, exists for it and has no caller yet."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "SC-045, deleting the Python files, tests/acceptance/__pycache__ and .taad/slices/SL-008/run_finish_e004_2.py. That is the next row, and it is gated on this mapping."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "SC-046, rendering the owner's moderation pages in Chrome. The design files it for later."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Submitting the comment and reply forms from a real signed-in browser. Q-019 notes the old check never did this. The port carries the body's toggle and run_finish_e004_2's signed-in look, and adds no form submissions."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The in-place re-SELECT of epics 39-44 and the agree/disagree record for each Ported row. M2's decision assigns both to code review."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "m5's three-run C1 check, which was deferred."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Retiring the stale '[testing] ... Edge here ... HBAND_TEST_BROWSER' stack constraint, and noting Q-035's limit in the row's record. Both live outside the repository."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Q-030/m5: make TestConcurrentVotesNoBusy stable under whole-suite load. The suite now has 17 more packages that each build and start hband, running in parallel. The four whole-suite runs here passed, but #987 recorded flakes."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "SC-044 must carry serve_show_all.py's show-all seed (12/3/120, 1/1/1, 0/0/0 with a long title, 1000/25/1000), seeded over HTTP, before SC-045 deletes the file (m8)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "A signed-in Chrome test that submits the comment form and a reply form at depth and on the branch page. Q-019 records this as never exercised in a real browser."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Retire the stale '[testing] Real-browser checks drive the locally installed Chromium-family browser (Edge here) ... HBAND_TEST_BROWSER' stack constraint, as Q-034 and Q-035 asked."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "When SC-045 deletes the Python: re-read epics 41-44 in place and compare each body's canonical sha256 (ported.Canonical's form) with its Edition in tests/acceptance/ported/rows_test.go. On a mismatch, stop and re-map."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The ported package is test-only: attempt 1's non-test tests/acceptance/ported/ported.go is renamed ported_test.go, the table is in rows_test.go and the checks in check_test.go. The design named ported_test.go, and the stack line says tests/acceptance holds test-only packages."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: New package internal/testutil/outside, which is not in the design's component list. It is the single mustBeOutsideModule helper that the m4 critic prescribed, used by both program and headless. headless now imports it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: New build-tagged package tests/acceptance/suite (TestSuiteWithoutABrowser, TestSuiteInChrome). The design's C1/C2 check commands were PowerShell text matches, which M-add-3's decision replaced with -json event parsing; this package gives those cases a command with no shell syntax. Rule 4 excepts tests/acceptance/suite/**, because the package removes CHROME_BIN from, or passes it into, the inner go test; it starts and chooses no browser."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Rule 4 bans the words CHROME_BIN and HBAND_TEST_BROWSER anywhere in tests/acceptance, not only inside Getenv(\"...\"), so os.Environ scans and backquotes are caught. A bare 'chrome' cannot be banned, because the verbatim E-001/E-002 bodies use it for their User-Agent; this is a named hole."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The tag-placement rule accepts a tag on the line of, or the line just above, a checking statement, or on the first line of the block that the line below opens (an if, for or case). The critic's text said only 'same line or line just above'; without the extra allowance, a check written as `if cond { t.Fatalf }` could not be tagged."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The def-call propagation the critic prescribed for Sites flags name collisions as sites: in the E-004 line 2 body, built-in open() and read() share names with Chrome.open/Chrome.read, at L58, L118, L181, L207, L208, L318 and L319. Each such line has a row saying so. Those inside the stand-in GitHub are Helper rows to fakegithub; the others are Superseded 'not an assertion', or Ported to headless.Open where they are the DevToolsActivePort read."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: seedBody (the E-004 line 2 body's posting and HTTP checks) runs in both E-004 line 2 tests. The browser test therefore re-makes the HTTP checks on loopback http before its Chrome checks. The production-shaped https run is TestE004DeepThreadsAndBranchPages."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The Go Visitor does not imitate the Python Browser's extras: a Chrome User-Agent, X-Forwarded-For 192.0.2.10, CSRF hidden fields and Origin on every post. hband has no CSRF tokens, CrossOriginProtection accepts requests with no Origin or Sec-Fetch-Site, and no E-003..E-006 assertion depends on User-Agent or forwarded address. Anonymous and blocked-account posts use Post without following, where the Python followed hband's redirects up to the stand-in; those sites assert only status < 500."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: internal/testutil/program grew three files that are not in the design's component list (program.go, visitor.go, thread.go, program_test.go) and not under the build's deviations: - reader.go: the Python prelude's page readers (Count, Vote, Dislikes, Say, Part, Visible, Shown, Own, Depth, Mine), with ported tags; - html.go: a second forgiving HTML tree (Node/Dom), beside internal/testutil/e002row's Node/Dom; - expect.go: Expect, ExpectEq, Mark, Account, Report, Resolve. The two Dom parsers port different readers: e002row strips script and style, while html.go keeps script text as raw text, which E41-393 needs. Keeping both is defensible, but a later reader should know there are two."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e001_2_publish_and_read/e001_2_publish_and_read_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e001_3_hidden_and_deleted/e001_3_hidden_and_deleted_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e001_4_replace_keeps_date/e001_4_replace_keeps_date_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e001_5_upload_refusals/e001_5_upload_refusals_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e001_6_report_isolation/e001_6_report_isolation_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e002_1_show_all_lists_published/e002_1_show_all_lists_published_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e002_2_show_all_row_numbers/e002_2_show_all_row_numbers_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e002_3_opens_counted_once/e002_3_opens_counted_once_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e002_4_proxy_visitors_hashed/e002_4_proxy_visitors_hashed_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 3 listings (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e005_1_private_feedback/e005_1_private_feedback_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e006_1_removal_and_placeholders/e006_1_removal_and_placeholders_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/e006_2_blocking_and_unblocking/e006_2_blocking_and_unblocking_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/ported/testdata/check_run_finish_needs_chrome_bin.txt -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 1-579 of 579) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json (not seen: lines 40-562 of 663) -- partly-opened: a Read returned only part of it; seen only as 9 Grep lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/testutil/program/reader.go:1-189 -- not read (tokens, tally, Pieces, Counts, Numbers). I saw them only through the ported rows and the passing tests."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/testutil/program/html.go:60-158 -- the rest of the Dom parser and Walk/Chain/Text not read."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: tests/acceptance/e005_1_private_feedback/e005_1_private_feedback_test.go, tests/acceptance/e006_1_removal_and_placeholders/e006_1_removal_and_placeholders_test.go, tests/acceptance/e006_2_blocking_and_unblocking/e006_2_blocking_and_unblocking_test.go -- never opened directly. I judged each through the dump that sets every tagged Go statement (with the next two lines) beside its Python site, not as whole files."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: tests/acceptance/e003_1_sign_in_and_vote/e003_1_sign_in_and_vote_test.go:99-179 -- read only through the tag/site dump."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: tests/acceptance/ported/rows_test.go:121-400 -- not read in the Read tool. All 363 rows were parsed and printed by my audit script, and I read that output in full."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/fitnessrules/testdata/rule_spellings.json -- not opened. I relied on internal/fitnessrules passing in my suite run."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: The ten verbatim E-001/E-002 bodies under tests/acceptance/e00[12]_* -- I read only e001_1_owner_only_admin_test.go:60-169. Their content is proved equal to the ledger editions by my in-place sha256 comparison, and they pass."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/testutil/headless/headless.go:125-end (Shot) -- read only through the grep for its MustBeOutside calls at :138-139."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/testutil/fakegithub/fakegithub_test.go:110-175 -- the token/user refusal tests not read."
   }
  ],
  "stages": [
@@ -137,17 +317,50 @@
    "stage": "build-slice",
    "title": "Build",
    "order": 7,
-   "state": "waiting",
+   "state": "sent back",
    "attempts": [
     {
      "n": 1,
-     "state": "waiting",
+     "state": "passed",
      "at": "2026-11-25T14:44:04.746Z",
-     "head": "845585a20063a58ee07c2eed632964af72dada2f",
+     "head": "384f9f6bdb9602ef9b621034ce8aff8d4bbf2a22",
      "summary": "the provider turned this away rather than running it -- You've hit your weekly limit · resets Nov 29, 8:30pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
      "caused_by": null,
      "changed": {},
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T15:39:46.549Z",
+     "head": "384f9f6bdb9602ef9b621034ce8aff8d4bbf2a22",
+     "summary": "Attempt 1 had left the harness (internal/testutil/program), the stdlib DevTools driver in headless, the ten E-001/E-002 ledger bodies, the E-003 and E-004 line 1 ports, the checker core and the Python snapshots.",
+     "caused_by": null,
+     "changed": {
+      "config": 1,
+      "tests": 37,
+      "listed": 38,
+      "measured_by_git": 54
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T16:22:17.125Z",
+     "head": "384f9f6bdb9602ef9b621034ce8aff8d4bbf2a22",
+     "summary": "I reviewed SL-015 at 384f9f6, where the build is committed.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
     }
    ]
   }

@@ -151,15 +151,20 @@ var (
 		regexp.MustCompile(`self\.(?:assert\w*|fail)\(`),
 		regexp.MustCompile(`\braise\b`),
 		regexp.MustCompile(`\b(?:sys|os)\._?exit\(`),
-		regexp.MustCompile(`\breturn\s+[1-9]\b`),
-		regexp.MustCompile(`\breturn\b.*\belse\s+[1-9]\b`),
+		regexp.MustCompile(`(?:^|[^.\w])(?:exit|quit)\(`),
+		// A non-zero code of any number of digits, negative or in parentheses:
+		// return 1, return 124, ..., return (2), return -1. testdata/site_spellings.json
+		// holds every spelling these patterns are held to.
+		regexp.MustCompile(`\breturn(?:\s+|\s*\()\s*(?:-\s*)?[1-9]\d*\b`),
+		regexp.MustCompile(`\breturn\b.*\belse\s*\(?\s*(?:-\s*)?[1-9]\d*\b`),
 	}
 	defRE = regexp.MustCompile(`^(\s*)(?:async\s+)?def\s+(\w+)\s*\(`)
 )
 
 // Sites lists the lines of a Python text where something is asserted, or the
 // program is made to fail or to exit: a line that matches one of the patterns
-// (assert, self.assert*/self.fail, raise, sys/os exit, return of a non-zero code),
+// (assert, self.assert*/self.fail, raise, sys/os exit, the exit and quit builtins,
+// return of a non-zero code),
 // after comments and strings are blanked; and, for every function whose body holds
 // such a line, each line that calls it, by name, wherever it is.
 func Sites(src string) []int {

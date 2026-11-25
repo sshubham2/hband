@@ -1,0 +1,1258 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-015",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-25T16:22:17.125Z",
+ "head": "384f9f6bdb9602ef9b621034ce8aff8d4bbf2a22",
+ "run_id": 12273,
+ "summary": "I reviewed SL-015 at 384f9f6, where the build is committed. Every check I ran passed except one, which shows a weakness in the C2 check.\n\n**What I ran** (scratch TAAD3_HOME each time):\n- `go test -count=1 ./...` with CHROME_BIN=Chrome: exit 0 in 24.9 s. All 17 acceptance packages and ported are ok.\n- The same suite with `-json`: 0 skip events at any level, subtests included, so E-009 line 2's condition holds today.\n- TestSuiteWithoutABrowser: passed in 17.4 s. 276 top-level tests; only the three browser tests skipped; 16 acceptance tests passed.\n- TestBrokenProgramsFailTheirAcceptanceTests: passed in 50.4 s. All seven breaks were installed and fired, and each failed its epic's test for the behaviour: E001 /admin answered 200; E002 0 times opened; E003 got [0 0]; E004 not shown beneath; E005 no feedback-<n>; E006 still shows; E006 blocked posts still shown.\n- No hband process was left behind afterwards.\n\n**In-place ledger read** (M2's duty assigned to code review). I made one `file:...engine.db?mode=ro` connection, ran one SELECT of epics 39-44 and closed it. It returned 16 finish items, none undeclared. For every body, sha256(Canonical(JSON-decoded body)) equals its Edition in rows_test.go, and the raw bodies have no CR and no BOM. The committed snapshot or Go file equals the Edition in all 16 cases. The six in-tree Python files equal theirs too.\n\n**Agree/disagree per Ported row.** I dumped each Ported row's snapshot line At beside the Go statement on its tag, then read all 263 Ported rows and the 2 Amended rows. I found no disagreement. Each Go check tests the same thing as the Python site at the same point. The differences I found are stricter or already declared:\n- Publish requires a 303 where Python accepted < 400.\n- Anonymous and blocked posts are not preceded by a GET with CSRF fields.\n- In E-005, b.Get(/admin/reports) replaces Python's same-host follow, which also stopped at the stand-in.\n\nThe Superseded and Helper reasons I read hold against the code. One example: count(), vote() and dislikes() really are uncalled in the bodies whose rows say so.\n\n**The weakness.** suite() records only top-level go test -json events. So TestSuiteInChrome, the C2 check M-add-3 asked for, passes a whole-suite run in which a subtest skips saying CHROME_BIN under a passing parent. That is the exact shape the design moved TestBrowserSkipEndsTheCallingTest into a child process to remove. I proved it with an overlay-injected subtest skip: 277 top-level tests, TestSuiteInChrome PASS. The repro is below.\n\nApart from that I found one stale doc comment on isEdge.\n\n**Assumed:** the bug report was empty, so I took the slice brief's WHAT and HOW TO TELL IT IS DONE, plus the design, as the requirement.\n\nSecond reader, for inputs: This pass looked only at inputs the slice's code can be handed that it does not expect. I read the site scanner and mapping checker (ported_test.go, check_test.go), the DevTools WebSocket reader and driver, isEdge's new symlink step, outside.Inside, the program harness, Visitor, the HTML and count readers, the breaks and suite tests, and the five new fitness rules.\n\nTwo defects are confirmed by running a test through a go -overlay, so the tree was not touched:\n- **m1.** The site scanner Sites() does not treat `return 124` or `return 10` as a non-zero exit code. Its pattern `\\breturn\\s+[1-9]\\b` needs a word boundary after the first digit. I also checked every snapshot against an independent Python-AST list of assertion sites. Every site has a row except run_finish.py L145 (`return 124`, the runner's timeout verdict) and L184 (the run_body call that inherits it). So the \"complete by construction\" claim fails for this spelling.\n- **m2.** Two of the new SL-015 browser rules miss three spellings: a launch flag that is not the first thing in its string literal (`strings.Fields(\"--no-first-run --headless=new\")`, `fmt.Sprintf(\"%s --user-data-dir=%s\", ...)`), and an environment read through exec.Cmd.Environ() in the DevTools driver. This family was answered as closed (O-021), so these are new members of it.\n\nTwo smaller ones have no repro:\n- **m3.** TestAcceptanceLinksNoneOfTheProduct runs `go list` with no build tags. The tagged tests/acceptance/breaks and tests/acceptance/suite packages, and any later tagged acceptance file, are not covered by its \"whatever the spelling\" guarantee. I confirmed this with `go list`: they appear only with -tags.\n- **m4.** The suite test hands the inherited GOFLAGS, -tags included, to the `go test ./...` it runs. Its sibling, the breaks test, strips -tags for exactly this reason.\n\nProbed and found sound:\n- The WebSocket reader: 7/16/64-bit lengths, continuation frames, a ping between fragments, a close frame, a payload size cap.\n- DevToolsActivePort parsing: CRLF, and a partial file.\n- outside.Inside: a different volume, case, a folder named `..x`, a folder that does not exist yet.\n- childEnv's case-insensitive HBAND_ filtering, including Windows `=C:` entries.\n- Visitor.follow's host-and-port check.\n- Canonical with a BOM and CRLF.\n- Tag parsing, which fails closed on `ported: X` with a space and on two tags in one comment.\n\nEvery ported tag sits above a check or above a harness helper call. A few rest on helpers that check nothing (program.Mark, program.Report). I did not file that, because the M2 fix allows any helper call.\n\nI did not judge whether each Ported row is faithful to its Python line. That belongs to the other reviewer.\n\nReading pass: I read every range the engine listed, in full, and found nothing new to file. A few observations, none of them a new defect:\n- **rule_spellings.json:** I read the bounded_by entry at line 4, rules_under_test at 30-34 and rows 568-661. The acc-link, hlp-link, dt-env, acc-br, key and idp rows pin the SL-015 rules. Their named holes match the because-texts in fitness.yaml.\n- **fakegithub_test.go (1-175):** it covers every authorize refusal (client_id, redirect_uri, response_type, state, PKCE missing or plain, scope), the token-exchange refusals including a reused code, and /user's 401s.\n- **e001_1_owner_only_admin_test.go (1-420):** it is the ledger body verbatim, and my in-place SELECT matched its edition. It builds into an os.MkdirTemp folder and takes os.Environ, so GOFLAGS overlays reach the build, as the gate break confirmed.\n- **e003_1 (1-179) and e004_1 (1-172) against their snapshots:** both make each check at the point the Python did. One difference, which changes nothing: the dislike-leak sweep in e003 uses Get, which never follows, where Python's go() followed same-host redirects. The pages Python reached that way (the anonymous /admin → /auth/github/login hop) carry no counts.\n- **rows_test.go (1-400):** every Helper By I checked exists, including TestBrowserNeverDefaultsToEdge in edge_default_test.go. The Superseded reasons hold against the snapshots: count, vote, dislikes and part are uncalled in the bodies whose rows say so. The check_e006_1 rows match its two outcomes; the transitional stop is Superseded per #976, and the outright pass is Ported.\n- **All twelve snapshots (check_e006_1, e003_1, e004_1, e004_2, e005_1, e006_1, e006_2, run_finish, serve_show_all, test_run_finish_edge_guard, plus run_finish_e004_2 earlier):**\n  - Each body's assertion sites match the rows.\n  - run_finish.txt:145 `return 124` has no row. That is the member of the family IN-m1 already filed, not a new finding.\n  - serve_show_all's two `return 1` exits map to Build and healthy, and its REPORTS seed is deferred to SC-044 (m8).\n\nMy earlier findings stand as filed in the first answer: m1, the top-level-only skip check in tests/acceptance/suite with its repro, and t1, the stale isEdge comment. This reading adds nothing to them.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "I reviewed SL-015 at 384f9f6, where the build is committed. Every check I ran passed except one, which shows a weakness in the C2 check.\n\n**What I ran** (scratch TAAD3_HOME each time):\n- `go test -count=1 ./...` with CHROME_BIN=Chrome: exit 0 in 24.9 s. All 17 acceptance packages and ported are ok.\n- The same suite with `-json`: 0 skip events at any level, subtests included, so E-009 line 2's condition holds today.\n- TestSuiteWithoutABrowser: passed in 17.4 s. 276 top-level tests; only the three browser tests skipped; 16 acceptance tests passed.\n- TestBrokenProgramsFailTheirAcceptanceTests: passed in 50.4 s. All seven breaks were installed and fired, and each failed its epic's test for the behaviour: E001 /admin answered 200; E002 0 times opened; E003 got [0 0]; E004 not shown beneath; E005 no feedback-<n>; E006 still shows; E006 blocked posts still shown.\n- No hband process was left behind afterwards.\n\n**In-place ledger read** (M2's duty assigned to code review). I made one `file:...engine.db?mode=ro` connection, ran one SELECT of epics 39-44 and closed it. It returned 16 finish items, none undeclared. For every body, sha256(Canonical(JSON-decoded body)) equals its Edition in rows_test.go, and the raw bodies have no CR and no BOM. The committed snapshot or Go file equals the Edition in all 16 cases. The six in-tree Python files equal theirs too.\n\n**Agree/disagree per Ported row.** I dumped each Ported row's snapshot line At beside the Go statement on its tag, then read all 263 Ported rows and the 2 Amended rows. I found no disagreement. Each Go check tests the same thing as the Python site at the same point. The differences I found are stricter or already declared:\n- Publish requires a 303 where Python accepted < 400.\n- Anonymous and blocked posts are not preceded by a GET with CSRF fields.\n- In E-005, b.Get(/admin/reports) replaces Python's same-host follow, which also stopped at the stand-in.\n\nThe Superseded and Helper reasons I read hold against the code. One example: count(), vote() and dislikes() really are uncalled in the bodies whose rows say so.\n\n**The weakness.** suite() records only top-level go test -json events. So TestSuiteInChrome, the C2 check M-add-3 asked for, passes a whole-suite run in which a subtest skips saying CHROME_BIN under a passing parent. That is the exact shape the design moved TestBrowserSkipEndsTheCallingTest into a child process to remove. I proved it with an overlay-injected subtest skip: 277 top-level tests, TestSuiteInChrome PASS. The repro is below.\n\nApart from that I found one stale doc comment on isEdge.\n\n**Assumed:** the bug report was empty, so I took the slice brief's WHAT and HOW TO TELL IT IS DONE, plus the design, as the requirement.\n\nSecond reader, for inputs: This pass looked only at inputs the slice's code can be handed that it does not expect. I read the site scanner and mapping checker (ported_test.go, check_test.go), the DevTools WebSocket reader and driver, isEdge's new symlink step, outside.Inside, the program harness, Visitor, the HTML and count readers, the breaks and suite tests, and the five new fitness rules.\n\nTwo defects are confirmed by running a test through a go -overlay, so the tree was not touched:\n- **m1.** The site scanner Sites() does not treat `return 124` or `return 10` as a non-zero exit code. Its pattern `\\breturn\\s+[1-9]\\b` needs a word boundary after the first digit. I also checked every snapshot against an independent Python-AST list of assertion sites. Every site has a row except run_finish.py L145 (`return 124`, the runner's timeout verdict) and L184 (the run_body call that inherits it). So the \"complete by construction\" claim fails for this spelling.\n- **m2.** Two of the new SL-015 browser rules miss three spellings: a launch flag that is not the first thing in its string literal (`strings.Fields(\"--no-first-run --headless=new\")`, `fmt.Sprintf(\"%s --user-data-dir=%s\", ...)`), and an environment read through exec.Cmd.Environ() in the DevTools driver. This family was answered as closed (O-021), so these are new members of it.\n\nTwo smaller ones have no repro:\n- **m3.** TestAcceptanceLinksNoneOfTheProduct runs `go list` with no build tags. The tagged tests/acceptance/breaks and tests/acceptance/suite packages, and any later tagged acceptance file, are not covered by its \"whatever the spelling\" guarantee. I confirmed this with `go list`: they appear only with -tags.\n- **m4.** The suite test hands the inherited GOFLAGS, -tags included, to the `go test ./...` it runs. Its sibling, the breaks test, strips -tags for exactly this reason.\n\nProbed and found sound:\n- The WebSocket reader: 7/16/64-bit lengths, continuation frames, a ping between fragments, a close frame, a payload size cap.\n- DevToolsActivePort parsing: CRLF, and a partial file.\n- outside.Inside: a different volume, case, a folder named `..x`, a folder that does not exist yet.\n- childEnv's case-insensitive HBAND_ filtering, including Windows `=C:` entries.\n- Visitor.follow's host-and-port check.\n- Canonical with a BOM and CRLF.\n- Tag parsing, which fails closed on `ported: X` with a space and on two tags in one comment.\n\nEvery ported tag sits above a check or above a harness helper call. A few rest on helpers that check nothing (program.Mark, program.Report). I did not file that, because the M2 fix allows any helper call.\n\nI did not judge whether each Ported row is faithful to its Python line. That belongs to the other reviewer.\n\nReading pass: I read every range the engine listed, in full, and found nothing new to file. A few observations, none of them a new defect:\n- **rule_spellings.json:** I read the bounded_by entry at line 4, rules_under_test at 30-34 and rows 568-661. The acc-link, hlp-link, dt-env, acc-br, key and idp rows pin the SL-015 rules. Their named holes match the because-texts in fitness.yaml.\n- **fakegithub_test.go (1-175):** it covers every authorize refusal (client_id, redirect_uri, response_type, state, PKCE missing or plain, scope), the token-exchange refusals including a reused code, and /user's 401s.\n- **e001_1_owner_only_admin_test.go (1-420):** it is the ledger body verbatim, and my in-place SELECT matched its edition. It builds into an os.MkdirTemp folder and takes os.Environ, so GOFLAGS overlays reach the build, as the gate break confirmed.\n- **e003_1 (1-179) and e004_1 (1-172) against their snapshots:** both make each check at the point the Python did. One difference, which changes nothing: the dislike-leak sweep in e003 uses Get, which never follows, where Python's go() followed same-host redirects. The pages Python reached that way (the anonymous /admin → /auth/github/login hop) carry no counts.\n- **rows_test.go (1-400):** every Helper By I checked exists, including TestBrowserNeverDefaultsToEdge in edge_default_test.go. The Superseded reasons hold against the snapshots: count, vote, dislikes and part are uncalled in the bodies whose rows say so. The check_e006_1 rows match its two outcomes; the transitional stop is Superseded per #976, and the outright pass is Ported.\n- **All twelve snapshots (check_e006_1, e003_1, e004_1, e004_2, e005_1, e006_1, e006_2, run_finish, serve_show_all, test_run_finish_edge_guard, plus run_finish_e004_2 earlier):**\n  - Each body's assertion sites match the rows.\n  - run_finish.txt:145 `return 124` has no row. That is the member of the family IN-m1 already filed, not a new finding.\n  - serve_show_all's two `return 1` exits map to Build and healthy, and its REPORTS seed is deferred to SC-044 (m8).\n\nMy earlier findings stand as filed in the first answer: m1, the top-level-only skip check in tests/acceptance/suite with its repro, and t1, the stale isEdge comment. This reading adds nothing to them.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "claim": "The whole-suite checks read only top-level go test -json events.\n\nsuite() drops every pass, fail or skip event whose Test contains '/'. TestSuiteInChrome then looks only at top-level skips. So a run with CHROME_BIN naming Chrome, in which a subtest skips saying CHROME_BIN under a passing parent, is reported as clean ('no test that skipped said CHROME_BIN'). That is E-009 line 2's condition, and M-add-3's accepted fix required that 'no skip event's own Output contains CHROME_BIN'. A subtest's skip is a skip event.\n\nThe missed shape is exactly the old TestBrowserSkipEndsTheCallingTest (a real t.Run('caller') that skipped naming CHROME_BIN). The design moved that test into a child process for this reason, so a regression to it would pass C2's only check.\n\nMeasured:\n- I added, through a GOFLAGS overlay only, a fakegithub test whose subtest calls t.Skip(\"CHROME_BIN is not set: ...\").\n- `go test -tags sc042suite -run ^TestSuiteInChrome$` then logged '277 top-level tests, skipped: []' and PASSED.\n\nTestSuiteWithoutABrowser has the same blind spot: a subtest skip inside an acceptance test whose parent passes is neither allow-listed nor refused, though C1 says 'the rest run'.",
+    "evidence": "tests/acceptance/suite/suite_test.go:83-87 (only `!strings.Contains(e.Test, \"/\")` events reach r.action) and :190-201 (TestSuiteInChrome iterates only r.action's skips). M-add-3's critic_on_this_fix: 'no skip event's own Output contains CHROME_BIN'. Repro run: TestSuiteInChromeRefusesASubtestSkipNamingChromeBin FAILED in 25.9 s with the inner TestSuiteInChrome PASS.",
+    "file": "tests/acceptance/suite/suite_test.go",
+    "line": 83,
+    "end_line": 201,
+    "quote": {
+     "path": "tests/acceptance/suite/suite_test.go",
+     "line": 84,
+     "text": "if !strings.Contains(e.Test, \"/\") {"
+    },
+    "fix": "In suite(), also collect every Action=skip event, subtests included, with its key. In TestSuiteInChrome, refuse any such skip whose own output (that key or any key under it) contains CHROME_BIN. In TestSuiteWithoutABrowser, refuse a skipped subtest of a TestE00[1-6] test unless it is allow-listed.",
+    "class_of": "suite checks that read only top-level go test -json events",
+    "threat": "accident",
+    "repro": {
+     "path": "tests/acceptance/suite/subtest_skip_test.go",
+     "command": "go test -count=1 -tags sc042suite -timeout 30m -run ^TestSuiteInChromeRefusesASubtestSkipNamingChromeBin$ ./tests/acceptance/suite",
+     "body": "//go:build sc042suite\n\npackage suite\n\nimport (\n\t\"encoding/json\"\n\t\"os\"\n\t\"os/exec\"\n\t\"path/filepath\"\n\t\"strings\"\n\t\"testing\"\n)\n\n// subtestSkipSource is a test, added to internal/testutil/fakegithub only through a\n// Go overlay, whose subtest skips saying CHROME_BIN while the test itself passes.\nconst subtestSkipSource = \"package fakegithub\\n\\nimport \\\"testing\\\"\\n\\nfunc TestSC042SubtestSkipsForWantOfChromeBin(t *testing.T) {\\n\\tt.Run(\\\"caller\\\", func(t *testing.T) {\\n\\t\\tt.Skip(\\\"CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check\\\")\\n\\t})\\n}\\n\"\n\nfunc lastOf(b []byte) string {\n\tif len(b) > 4000 {\n\t\treturn \"...\" + string(b[len(b)-4000:])\n\t}\n\treturn string(b)\n}\n\n// With CHROME_BIN naming Chrome, a whole-suite run in which any test, a subtest\n// included, skips saying CHROME_BIN must fail TestSuiteInChrome: E-009 line 2 refuses\n// every such skip, and a real t.Run subtest that skips under a passing parent is the\n// shape TestBrowserSkipEndsTheCallingTest had before it moved into a child process.\nfunc TestSuiteInChromeRefusesASubtestSkipNamingChromeBin(t *testing.T) {\n\tif os.Getenv(\"CHROME_BIN\") == \"\" {\n\t\tt.Skip(\"TestSuiteInChrome runs only with CHROME_BIN set\")\n\t}\n\tgoTool, err := exec.LookPath(\"go\")\n\tif err != nil {\n\t\tt.Fatalf(\"no go tool on PATH: %v\", err)\n\t}\n\tgomod, err := exec.Command(goTool, \"env\", \"GOMOD\").Output()\n\tif err != nil {\n\t\tt.Fatalf(\"go env GOMOD: %v\", err)\n\t}\n\troot := filepath.Dir(strings.TrimSpace(string(gomod)))\n\tdir, err := os.MkdirTemp(\"\", \"sc042-subskip-*\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tdefer os.RemoveAll(dir)\n\tif strings.ContainsAny(dir, \" \\t\") {\n\t\tt.Skip(\"the temporary folder's path has a space, which a GOFLAGS -overlay cannot carry\")\n\t}\n\tsrc := filepath.Join(dir, \"skip_test.go\")\n\tif err := os.WriteFile(src, []byte(subtestSkipSource), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\toverlay, _ := json.Marshal(map[string]map[string]string{\"Replace\": {\n\t\tfilepath.Join(root, \"internal\", \"testutil\", \"fakegithub\", \"sc042_subtest_skip_test.go\"): src,\n\t}})\n\tjsonPath := filepath.Join(dir, \"overlay.json\")\n\tif err := os.WriteFile(jsonPath, overlay, 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar env []string\n\tfor _, kv := range os.Environ() {\n\t\tif !strings.HasPrefix(strings.ToUpper(kv), \"GOFLAGS=\") {\n\t\t\tenv = append(env, kv)\n\t\t}\n\t}\n\tenv = append(env, \"GOFLAGS=\"+strings.TrimSpace(os.Getenv(\"GOFLAGS\")+\" -overlay=\"+jsonPath))\n\tcmd := exec.Command(goTool, \"test\", \"-count=1\", \"-tags\", \"sc042suite\", \"-timeout\", \"30m\", \"-v\", \"-run\", \"^TestSuiteInChrome$\", \"./tests/acceptance/suite\")\n\tcmd.Dir, cmd.Env = root, env\n\tout, err := cmd.CombinedOutput()\n\tif err == nil || !strings.Contains(string(out), \"--- FAIL: TestSuiteInChrome\") {\n\t\tt.Fatalf(\"TestSuiteInChrome accepted a whole-suite run, with CHROME_BIN naming a browser, in which TestSC042SubtestSkipsForWantOfChromeBin/caller skipped saying CHROME_BIN (err %v):\\n%s\", err, lastOf(out))\n\t}\n}\n"
+    }
+   },
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "isEdge's doc comment is stale after the Q-035 change.\n- It says the refusal is 'a decision by name, taken before the path is looked up'.\n- It says the name is 'taken twice' (from the text and from filepath.Abs).\n\nThe function now makes a third check, evalSymlinks(p), and filepath.EvalSymlinks does look the path up on disk. The package comment (lines 24-26) already states the three checks correctly; the function comment contradicts it.",
+    "evidence": "internal/testutil/headless/headless.go:81-92 against :93-104 (the evalSymlinks step at :100) and the package comment at :24-26.",
+    "file": "internal/testutil/headless/headless.go",
+    "line": 81,
+    "end_line": 92,
+    "quote": {
+     "path": "internal/testutil/headless/headless.go",
+     "line": 83,
+     "text": "// a decision by name, taken before the path is looked up."
+    },
+    "fix": "Say that the name is taken three times: from the text, from filepath.Abs, and from what filepath.EvalSymlinks resolves the path to. Drop 'before the path is looked up'."
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": "tests/acceptance/ported/ported_test.go",
+    "line": 154,
+    "claim": "Sites() is meant to find every 'return of a non-zero code', but the pattern `\\breturn\\s+[1-9]\\b` needs a word boundary right after one digit, so `return 124`, `return 10` and `return 12` are not sites. The function that holds such a return is therefore not named either, so none of its callers become sites. In the committed snapshots this leaves tests/acceptance/run_finish.py L145 (`return 124, ...`, the runner's verdict that a body timed out) and L184 (`code, secs, out = run_body(...)`, which inherits that verdict) with no row. TestPortedAssertionsHaveAGoTest still passes. An independent Python-AST enumeration of the snapshots (assert, raise, self.assert*/fail, sys/os exits, non-zero int returns including tuples and if-expressions, and calls of the functions holding them) found these two as the only real sites with no row. The completeness that SC-045 deletes the Python on therefore does not hold for this spelling. `return (1)` and `return -1` are also missed.",
+    "evidence": "tests/acceptance/ported/ported_test.go:154. Repro run through go -overlay: Sites returned [] for a text holding `return 124, 0.0, \"timed out\"` and `return 10`. run_finish.txt:145 `return 124, time.time() - started, \"timed out after %d s\" % TIMEOUT`. rows_test.go has no row with Source tests/acceptance/run_finish.py and At 145 or 184.",
+    "fix": "Widen the pattern to `\\breturn\\s*\\(?\\s*(?:-\\s*)?[1-9]\\d*\\b`. Make the if-expression pattern accept `[1-9]\\d*` as well. Then add the rows this exposes: run_finish.py L145 and L184, both Superseded by `go test -timeout`.",
+    "class_of": "assertion-site spellings Sites() does not see",
+    "threat": "accident",
+    "quote": {
+     "path": "tests/acceptance/ported/ported_test.go",
+     "line": 154,
+     "text": "regexp.MustCompile(`\\breturn\\s+[1-9]\\b`),"
+    },
+    "repro": {
+     "path": "tests/acceptance/ported/sites_multidigit_test.go",
+     "body": "package ported\n\nimport (\n\t\"fmt\"\n\t\"testing\"\n)\n\n// A return of a non-zero exit code is an assertion site whatever its number of\n// digits: run_finish.py's timeout verdict is `return 124, ...`.\nfunc TestSitesSeeMultiDigitExitCodes(t *testing.T) {\n\tsrc := \"def run():\\n    if slow:\\n        return 124, 0.0, \\\"timed out\\\"\\n    return 10\\n\\n\\ndef main():\\n    code = run()\\n\"\n\tgot := fmt.Sprint(Sites(Canonical([]byte(src))))\n\tif got != \"[3 4 8]\" {\n\t\tt.Fatalf(\"Sites = %s, want [3 4 8]: a return of 124 or 10 is a non-zero exit code, and run() holds it\", got)\n\t}\n}\n",
+     "command": "go test -count=1 -run TestSitesSeeMultiDigitExitCodes ./tests/acceptance/ported"
+    }
+   },
+   {
+    "id": "IN-m2",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": ".taad/fitness.yaml",
+    "line": 555,
+    "claim": "Two of the browser rules this slice added miss three spellings. O-021 answered this family as closed.\n\n1. Rule 'acceptance tests neither choose nor start a browser' (fitness.yaml:555) requires a quote immediately before the flag. A launch flag that is not the first thing in its string literal passes. Two shapes were confirmed:\n   - `strings.Fields(\"--no-first-run --headless=new --remote-debugging-port=0\")`, which is how a command line copied from a shell or a Python argv gets written;\n   - `fmt.Sprintf(\"%s --user-data-dir=%s about:blank\", bin, dir)`, a non-prefix occurrence that CC-001 names.\n2. Rule 'the DevTools driver takes its browser from Browser and reads no environment' (fitness.yaml:539) matches only `os.`/`syscall.` readers. `for _, kv := range (&exec.Cmd{}).Environ()` reads the whole environment, CHROME_BIN included, in devtools*.go and passes.\n\nNone of these is among the holes the because-text names (concatenation, a path held in a variable, the bare word chrome, an os alias).",
+    "evidence": ".taad/fitness.yaml:555 and :539. A new test using loadRules and rule.fires, run through go -overlay, failed on all three texts with 'not refused (skipped [])'.",
+    "fix": "Rule 4: also match a flag preceded by whitespace inside a literal, for example add the pattern `[\"`][^\"`\\r\\n]*[ \\t](?:-{1,2}|/)(?:headless|remote-debugging-(?:port|pipe)|user-data-dir)\\b`. Rule 3: add `\\.Environ\\(\\)`. Add these fire rows to internal/fitnessrules/testdata/rule_spellings.json:\n- rule 'acceptance tests neither choose nor start a browser', path tests/acceptance/e004_2_deep_threads_and_toggle/e004_2_deep_threads_and_toggle_test.go, text `var args = strings.Fields(\"--no-first-run --headless=new --remote-debugging-port=0\")`, expect fire;\n- the same rule and path, text `var line = fmt.Sprintf(\"%s --user-data-dir=%s about:blank\", bin, dir)`, expect fire;\n- rule 'the DevTools driver takes its browser from Browser and reads no environment', path internal/testutil/headless/devtools.go, text `for _, kv := range (&exec.Cmd{}).Environ() {`, expect fire.",
+    "class_of": "import/launch spelling variants that pass the SL-015 regex rules",
+    "threat": "accident",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 555,
+     "text": "- '[\"`](?:-{1,2}|/)(?:headless|remote-debugging-(?:port|pipe)|user-data-dir)\\b'"
+    },
+    "repro": {
+     "path": "internal/fitnessrules/sl015_rule_probe_test.go",
+     "body": "package fitnessrules\n\nimport \"testing\"\n\n// A launch flag that is not the first thing in its string literal, and an\n// environment read through exec.Cmd's Environ method, are spellings the SL-015\n// browser rules must still refuse.\nfunc TestSL015BrowserRulesSeeFlagsInsideALongerStringAndCmdEnviron(t *testing.T) {\n\trules := loadRules(t, repoRoot(t))\n\tcases := []struct{ rule, path, text string }{\n\t\t{\"acceptance tests neither choose nor start a browser\", \"tests/acceptance/e004_2_deep_threads_and_toggle/e004_2_deep_threads_and_toggle_test.go\",\n\t\t\t\"package x\\n\\nvar args = strings.Fields(\\\"--no-first-run --headless=new --remote-debugging-port=0\\\")\\n\"},\n\t\t{\"acceptance tests neither choose nor start a browser\", \"tests/acceptance/e004_2_deep_threads_and_toggle/e004_2_deep_threads_and_toggle_test.go\",\n\t\t\t\"package x\\n\\nvar line = fmt.Sprintf(\\\"%s --user-data-dir=%s about:blank\\\", bin, dir)\\n\"},\n\t\t{\"the DevTools driver takes its browser from Browser and reads no environment\", \"internal/testutil/headless/devtools.go\",\n\t\t\t\"package headless\\n\\nfunc pick() string {\\n\\tfor _, kv := range (&exec.Cmd{}).Environ() {\\n\\t\\t_ = kv\\n\\t}\\n\\treturn \\\"\\\"\\n}\\n\"},\n\t}\n\tfor _, c := range cases {\n\t\tr := rules[c.rule]\n\t\tif r == nil {\n\t\t\tt.Fatalf(\"rule %q is not in fitness.yaml\", c.rule)\n\t\t}\n\t\tif fired, skipped := r.fires(c.path, c.text); !fired || len(skipped) > 0 {\n\t\t\tt.Errorf(\"%s: not refused (skipped %v): %q\", c.rule, skipped, c.text)\n\t\t}\n\t}\n}\n",
+     "command": "go test -count=1 -run TestSL015BrowserRulesSeeFlagsInsideALongerStringAndCmdEnviron ./internal/fitnessrules"
+    }
+   },
+   {
+    "id": "IN-m3",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": "tests/acceptance/ported/check_test.go",
+    "line": 216,
+    "claim": "TestAcceptanceLinksNoneOfTheProduct is the by-construction backstop for the import regexes. Its comment says the guarantee holds 'whatever the spelling of an import'. But it runs `go list -deps -test` with no build tags, so every file behind a build constraint is invisible to it. Measured: `go list ./tests/acceptance/...` names neither tests/acceptance/breaks nor tests/acceptance/suite; with `-tags \"sc042breaks sc042suite\"` both appear. A tagged acceptance file that imports a product package with one of the spellings the regex rules pin quiet (a one-line import block, a path closed by ')' on its own line) passes both guards. The fitness because-text tells the next reader those holes are 'caught by construction' by this test.",
+    "evidence": "check_test.go:216 builds the `go list` command with no -tags. breaks_test.go:1 has `//go:build sc042breaks`, and suite_test.go:1 has `//go:build sc042suite`.",
+    "fix": "Run the go list once more with `-tags \"sc042breaks sc042suite\"` (the tags tests/acceptance uses) and apply the same allow-list to its output. Or say in the test's comment and in both because-texts that build-tagged files are outside the by-construction check.",
+    "class_of": "import/launch spelling variants that pass the SL-015 regex rules",
+    "threat": "adversary",
+    "quote": {
+     "path": "tests/acceptance/ported/check_test.go",
+     "line": 216,
+     "text": "cmd := exec.Command(goTool, \"list\", \"-deps\", \"-test\", \"-f\", \"{{if not .Standard}}{{.ImportPath}}{{end}}\", \"./tests/acceptance/...\", \"./internal/testutil/...\")"
+    }
+   },
+   {
+    "id": "IN-m4",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": "tests/acceptance/suite/suite_test.go",
+    "line": 62,
+    "claim": "suite() runs `go test -count=1 -json ./...` with the caller's environment, and that environment's GOFLAGS is passed on unchanged. A GOFLAGS that carries `-tags=sc042suite` compiles this package into the inner run, so TestSuiteWithoutABrowser and TestSuiteInChrome start the whole suite again, level after level, each loading the machine with a full parallel suite until the 10 m and 30 m timeouts. A GOFLAGS carrying `-tags=sc042breaks` adds the seven-build breaks test to the inner run. The sibling breaks test removes -tags and -overlay from GOFLAGS for exactly this reason (baseGoFlags, breaks_test.go:161-172: 'this test's own tag must not reach the acceptance packages'). The suite test does not.",
+    "evidence": "suite_test.go:62-63 sets cmd.Env from envWithout(\"CHROME_BIN\") or os.Environ() and keeps GOFLAGS. breaks_test.go:163-172 strips -tags.",
+    "fix": "In suite(), remove every -tags/--tags entry from GOFLAGS before running the inner go test, as baseGoFlags does. Keep the -overlay entries, because E-009 lines 4 and 5 rely on them reaching the inner builds.",
+    "quote": {
+     "path": "tests/acceptance/suite/suite_test.go",
+     "line": 62,
+     "text": "cmd := exec.Command(goTool, \"test\", \"-count=1\", \"-json\", \"./...\")"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/testutil/program/program_test.go:83-111. GOFLAGS gets an overlay that adds an os.Exit(7) init to cmd/hband, and Build's binary must exit 7. Build passes os.Environ() through (program.go:74-75). Passed in my suite run."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "program_test.go:115-125. The test binary re-runs itself with SC042_EXIT=3 (TestMain at :21-27). The recorder T must see a Fatalf naming 'code 3' and 'listening addr='. That message comes from program.go:214-215."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "program_test.go:130-159. pickPort hands back a held port first. Start retries on exit code 1 (program.go:209-211), and the test requires calls>=2, a new Base and a working SignIn, which proves fake.SetRedirectURI followed (program.go:189)."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "program_test.go:165-190. It holds 127.0.0.1:8080 when free, points all four proxy variables at a closed port and empties NO_PROXY/no_proxy. Build, Start, SignIn (hband's token exchange to the fake) and /healthz then all succeed. The harness clients use Proxy: nil (visitor.go:68, program.go:299)."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "program_test.go:195-241 walks cmd/, internal/ and tests/ before and after a subtest that builds, starts, signs in and publishes. It then sets TMP/TEMP/TMPDIR inside the repository and requires Build and Start to refuse through outside.MustBeOutside (outside.go:86-91, called at program.go:72,159,166)."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/suite/suite_test.go:118-169. I re-ran it: PASS in 17.4 s, 276 top-level tests, skipped exactly [TestE004FoldAndFitInBrowser TestReportScriptsNeverRun TestTabEmulatesNarrowViewport], 16 acceptance tests passed. Caveat: it sees only top-level skips (finding m1)."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/e004_2_deep_threads_and_toggle/e004_2_deep_threads_and_toggle_test.go:251-324 covers headless.Open first, the loopback start, the signed-out FOLD, Chrome signing itself in (landed.Path==Branch and replies>0), widths 360/400/1000 on Branch and /reports/e004-look after opening every details.reply, and exact toggle readings. The package passed in my Chrome suite run (14.6 s)."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "internal/testutil/headless/devtools_test.go:127-154 uses a recorder TB with CHROME_BIN unset, empty, a folder and an empty msedge.exe. Each time Open returns nil and records a skip naming CHROME_BIN. Open returns before exec when Browser gives \"\" (devtools.go:65-68)."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "devtools_test.go:162-222. /fit must read exactly 360 and 400, /wide must read more than the width, and a button wired by a script under CSP script-src 'self' is clicked twice and read back."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "devtools_test.go:40-123 covers 7-, 16- and 64-bit lengths (including a forced 64-bit length on a short payload), continuation frames with a ping between them answered by a masked pong of the same payload, and a masked client frame. readWSMessage is at devtools_ws.go:112-169."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "internal/testutil/headless/default_browser_test.go:138-169 runs the caller in a child test binary (HBAND_TEST_SKIP_CALLER=1, CHROME_BIN removed). In my whole-suite -json run with Chrome there were 0 skip events at any level."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/ported/check_test.go:132-200 builds a small world and requires a refusal for each listed shape (missing site row, out-of-range row, untagged Ported, stray tag, missing function, Why-less Amended or Superseded, Superseded with By, Verbatim or snapshot sha mismatch, Go body without Verbatim, fake-side rows, duplicates, undeclared source, missing Helper test, Verbatim Python row), plus a CRLF+BOM checkout and a tag that is not on a check. The 'wrong count' shape no longer exists because M1 removed the count."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/breaks/breaks_test.go:206-275. I re-ran it with -tags sc042breaks: PASS in 50.4 s. All seven passed as-is, and each was installed, fired and FAILED its epic's test for the behaviour (gate, opens, likes, flatten, feedback, placeholder, blocked)."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "e004_2_deep_threads_and_toggle_test.go:49-214. seedBody covers levels 1-6 (the 6th not shown), depths [1..5], 'continue this thread', levels 7-8 posted from the branch page, the link back, max depth <=5, the own script and the CSP, then DeepThread. Every check matches the snapshot lines 397-434, which I read side by side."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/ported/ported_test.go:148-235. Sites finds assert, self.assert*/fail, raise, sys/os._exit and non-zero returns after blanking comments and strings, and propagates them to every call of a def that holds a site. Check requires a row at every site (lines 423-428). On the 12 snapshots my audit found every row's At inside its snapshot, with Says matching the line."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "In-place read at review time (one mode=ro connection, SELECT id, finish FROM epics WHERE id BETWEEN 39 AND 44, closed). All 16 bodies' canonical sha256 equal the Editions in tests/acceptance/ported/rows_test.go:11-26 and the committed testdata or Go files, and the six in-tree Python files equal :27-32. The frozen-edition precondition holds at this point. SC-045 must re-check before deleting."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "ported_test.go Sites (165-235) and Check (360-512). Assertions are derived from the snapshots and no hand-written count remains. TestPortedCheckerRefusesGaps' 'a site with no row' case pins it."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "Snapshots are committed under tests/acceptance/ported/testdata with ledger Editions, which my in-place SELECT reproduced. Tag placement on or just above a checking statement is in ported_test.go:333-352. Code review's duties are done here: the re-SELECT matched all 16, and I read all 263 Ported rows plus 2 Amended-with-By against their snapshot lines and found 0 disagreements."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "internal/testutil/headless/headless.go:93-104 checks text, then Abs, then evalSymlinks as a separate step that is not dead code (seam at :109). The seam test is at default_browser_test.go:174-186 and the real-symlink test at :189-206. The package comment at :24-28 names hard links, renamed copies and launcher shims as out of scope."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": ".taad/fitness.yaml adds 'internal/testutil/**' to the except_files of 'the identity provider's endpoints are read only by the config loader', with the because-line. internal/fitnessrules passed in my suite run."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "In .taad/fitness.yaml, the SL-015 rules are single-line patterns that cover both quote styles, aliases, comments, an open list of module packages, the -/--// flags and ExpandEnv/method values, and each because names its holes. TestAcceptanceLinksNoneOfTheProduct (check_test.go:207-242) checks by construction with go list -deps -test. internal/fitnessrules passed in my run. I did not read the corpus rows individually."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "internal/testutil/program/visitor.go:134-153 (Request and Do through the visitor's own non-following client). visitor.go names no header except Content-Type. The e003 forged() (e003_1_sign_in_and_vote_test.go:29-37) sets Origin, Referer and Sec-Fetch-Site in the _test.go caller."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "internal/testutil/outside/outside.go:31-91 resolves Abs plus EvalSymlinks (nearest existing parent) and takes GOMOD from `go env`. It is called at program.go:72,159,166, devtools.go:75, headless.go:138-139 (Shot) and breaks_test.go:235."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "breaks_test.go:65-73 registers sqlite.MustRegisterScalarFunction(\"sc042_fired\") to write the fired mark synchronously, and every trigger begins with SELECT sc042_fired() (:119-141). The triage is at :262-271. My run showed all seven fired and failed."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "Waived as N-230, but the tree already has what it asked: Build has no runtime.GOROOT fallback and fails naming PATH when exec.LookPath(\"go\") fails (program.go:60-65)."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "In visitor.go, Get, Post, Upload and Do never follow (CheckRedirect ErrUseLastResponse, :75). follow() (:206-225) follows only same-host-and-port hops and Fatalfs on /auth/github/login. SignIn goes through Approve. program_test.go:246-262 checks Anonymous().Get(/admin)=303 to /auth/github/login?next= with an empty jar, and that GetFollow fails at the sign-in hop."
+   },
+   {
+    "key": "O-027",
+    "discharged": "yes",
+    "evidence": "internal/testutil/fakegithub/fakegithub_test.go covers the authorize refusals (client_id, redirect_uri, response_type, state, PKCE missing or plain, scope) and the token and user refusals. The fake-side rule in ported_test.go:450-455 requires Helper with By in fakegithub and Via under tests/acceptance. Each source in rows_test.go declares a FakeSide range."
+   },
+   {
+    "key": "O-028",
+    "discharged": "no",
+    "evidence": "tests/acceptance/suite/suite_test.go parses -json events, but suite() (:83-87) keeps only top-level events. TestSuiteInChrome therefore never sees a subtest's skip event, while M-add-3's decided version required that 'no skip event's own Output contains CHROME_BIN'. Proven by the repro in finding m1, where an overlay-added subtest skipping 'CHROME_BIN is not set' left TestSuiteInChrome passing."
+   },
+   {
+    "key": "O-029",
+    "discharged": "yes",
+    "evidence": "Canonical/EditionOf are at ported_test.go:76-88. My independent hash of each ledger item's JSON-decoded body in that canonical form reproduced all 16 Editions. In-tree sources use the same sha256, with no git blob ids. A CRLF+BOM subtest is at check_test.go:176-186."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "program_test.go:83-111 really sets GOFLAGS to an -overlay that adds sc042_exit7.go to cmd/hband and requires exit 7. It skips only when the temp path has a space, which is allow-listed in suite_test.go."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "program_test.go:115-125 starts the test binary as a program that exits 3 before printing anything. The recorder sees Fatalf naming code 3 and 'listening addr='."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "program_test.go:130-159: pickPort's first answer is a port held by the test, so hband's listen fails (exit 1). The test requires a second pick, a Base off the taken port and a SignIn that works through the moved redirect_uri."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "program_test.go:165-190 holds 8080 when free and points all four proxy variables at a closed port with NO_PROXY emptied. The child inherits them through os.Environ, and SignIn exercises hband's own token exchange."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "program_test.go:195-241 diffs cmd/, internal/ and tests/ before and after a full build, start, sign-in and publish subtest whose cleanups have run, and makes TMP/TEMP point inside the repository to see Build and Start refuse."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "TestSuiteWithoutABrowser runs go test -json ./... with CHROME_BIN removed. I re-ran it and it passed with only the three browser tests skipped and 16 acceptance passes. Its skip set covers top-level tests only (finding m1)."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "TestE004FoldAndFitInBrowser drives Chrome at exactly (360,780,mobile), (400,860,mobile) and (1000,900,desktop) on th.Branch and /reports/e004-look, opens every details.reply first, signs Chrome in through the stand-in and checks the landing, then reads the toggle exactly. It passed in my Chrome run."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "devtools_test.go:127-154 feeds unset, empty, a folder and an empty msedge.exe with a recorder TB."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "devtools_test.go:194-202 asserts that a 600 px div reads more than 360 and 400 under emulation, so the width check can fail."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "devtools_test.go:49-58 really feeds a 70000-byte 64-bit frame, a forced 64-bit header, and text, ping, continuation, continuation (final) frames, and checks the masked pong."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "default_browser_test.go:138-169 runs as part of a Chrome-set suite. The caller child gets CHROME_BIN removed. My -json Chrome run showed 0 skip events."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "check_test.go:146-199 builds each broken table (missing row, stray tag, untagged Ported, Why-less Amended, Verbatim sha mismatch, among others) and asserts a refusal that names it. 'Wrong count' was removed by M1's decision."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "breaks_test.go compiles each of the seven triggers into the real binary through GOFLAGS -overlay and requires the installed and fired marks plus '--- FAIL'. I re-ran it and all seven failed for the behaviour."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "seedBody posts six levels from the report page and levels 7-8 from the branch page under the level-5 cut, then asserts levels 1-5 shown, level 6 absent, depths [1..5] and the branch page showing 6-8. DeepThread then posts 9 levels with 6-9 required to land on the branch page."
+   }
+  ],
+  "drift": [
+   "internal/testutil/program grew three files that are not in the design's component list (program.go, visitor.go, thread.go, program_test.go) and not under the build's deviations:\n- reader.go: the Python prelude's page readers (Count, Vote, Dislikes, Say, Part, Visible, Shown, Own, Depth, Mine), with ported tags;\n- html.go: a second forgiving HTML tree (Node/Dom), beside internal/testutil/e002row's Node/Dom;\n- expect.go: Expect, ExpectEq, Mark, Account, Report, Resolve.\nThe two Dom parsers port different readers: e002row strips script and style, while html.go keeps script text as raw text, which E41-393 needs. Keeping both is defensible, but a later reader should know there are two."
+  ],
+  "unreviewed": [
+   "internal/testutil/program/reader.go:1-189 -- not read (tokens, tally, Pieces, Counts, Numbers). I saw them only through the ported rows and the passing tests.",
+   "internal/testutil/program/html.go:60-158 -- the rest of the Dom parser and Walk/Chain/Text not read.",
+   "tests/acceptance/e005_1_private_feedback/e005_1_private_feedback_test.go, tests/acceptance/e006_1_removal_and_placeholders/e006_1_removal_and_placeholders_test.go, tests/acceptance/e006_2_blocking_and_unblocking/e006_2_blocking_and_unblocking_test.go -- never opened directly. I judged each through the dump that sets every tagged Go statement (with the next two lines) beside its Python site, not as whole files.",
+   "tests/acceptance/e003_1_sign_in_and_vote/e003_1_sign_in_and_vote_test.go:99-179 -- read only through the tag/site dump.",
+   "tests/acceptance/ported/rows_test.go:121-400 -- not read in the Read tool. All 363 rows were parsed and printed by my audit script, and I read that output in full.",
+   "internal/fitnessrules/testdata/rule_spellings.json -- not opened. I relied on internal/fitnessrules passing in my suite run.",
+   "The ten verbatim E-001/E-002 bodies under tests/acceptance/e00[12]_* -- I read only e001_1_owner_only_admin_test.go:60-169. Their content is proved equal to the ledger editions by my in-place sha256 comparison, and they pass.",
+   "internal/testutil/headless/headless.go:125-end (Shot) -- read only through the grep for its MustBeOutside calls at :138-139.",
+   "internal/testutil/fakegithub/fakegithub_test.go:110-175 -- the token/user refusal tests not read."
+  ],
+  "second_round": {
+   "run_id": 12274,
+   "filed": 4,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 12275,
+   "session": "d81090e2-18b6-4c0e-9a2e-1f657cee86db",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       4,
+       4
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      9
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       30,
+       34
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      25,
+      39
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       568,
+       661
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      563,
+      663
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/testutil/fakegithub/fakegithub_test.go",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       175
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      175
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/e001_1_owner_only_admin/e001_1_owner_only_admin_test.go",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       420
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      420
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/e003_1_sign_in_and_vote/e003_1_sign_in_and_vote_test.go",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       179
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      179
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/e004_1_comments_and_replies/e004_1_comments_and_replies_test.go",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       172
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      172
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/rows_test.go",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       400
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      400
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/check_e006_1_stops_at_block.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       91
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      91
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/e003_1_sign_in_and_vote.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       386
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      386
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/e004_1_comments_and_replies.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       404
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      404
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/e004_2_deep_threads_and_toggle.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       454
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      454
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/e005_1_private_feedback.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       370
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      370
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/e006_1_removal_and_placeholders.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       445
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      445
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/e006_2_blocking_and_unblocking.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       440
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      440
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/run_finish.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       211
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      211
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/serve_show_all.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       120
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      120
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/test_run_finish_edge_guard.txt",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       43
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      43
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 18,
+   "named": [
+    "tests/acceptance/e001_2_publish_and_read/e001_2_publish_and_read_test.go",
+    "tests/acceptance/e001_3_hidden_and_deleted/e001_3_hidden_and_deleted_test.go",
+    "tests/acceptance/e001_4_replace_keeps_date/e001_4_replace_keeps_date_test.go",
+    "tests/acceptance/e001_5_upload_refusals/e001_5_upload_refusals_test.go",
+    "tests/acceptance/e001_6_report_isolation/e001_6_report_isolation_test.go",
+    "tests/acceptance/e002_1_show_all_lists_published/e002_1_show_all_lists_published_test.go",
+    "tests/acceptance/e002_2_show_all_row_numbers/e002_2_show_all_row_numbers_test.go",
+    "tests/acceptance/e002_3_opens_counted_once/e002_3_opens_counted_once_test.go",
+    "tests/acceptance/e002_4_proxy_visitors_hashed/e002_4_proxy_visitors_hashed_test.go",
+    "tests/acceptance/e005_1_private_feedback/e005_1_private_feedback_test.go",
+    "tests/acceptance/e006_1_removal_and_placeholders/e006_1_removal_and_placeholders_test.go",
+    "tests/acceptance/e006_2_blocking_and_unblocking/e006_2_blocking_and_unblocking_test.go",
+    "tests/acceptance/ported/testdata/check_run_finish_needs_chrome_bin.txt"
+   ],
+   "before": {
+    "read_whole": 19,
+    "changed": 49,
+    "listed": 30
+   },
+   "filed": 0,
+   "read_after": 18,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 49,
+   "read_whole": 34,
+   "deleted": [],
+   "runs": [
+    12273,
+    12274,
+    12275
+   ],
+   "range": {
+    "base": "845585a20063a58ee07c2eed632964af72dada2f",
+    "head": "384f9f6bdb9602ef9b621034ce8aff8d4bbf2a22",
+    "source": "commits",
+    "hunk_base": "845585a20063a58ee07c2eed632964af72dada2f",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": "tests/acceptance/e001_2_publish_and_read/e001_2_publish_and_read_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing",
+     "size_lines": 386,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        386
+       ],
+       "unseen": [
+        [
+         1,
+         386
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 386,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e001_3_hidden_and_deleted/e001_3_hidden_and_deleted_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing",
+     "size_lines": 469,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        469
+       ],
+       "unseen": [
+        [
+         1,
+         469
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 469,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e001_4_replace_keeps_date/e001_4_replace_keeps_date_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing",
+     "size_lines": 380,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        380
+       ],
+       "unseen": [
+        [
+         1,
+         380
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 380,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e001_5_upload_refusals/e001_5_upload_refusals_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing",
+     "size_lines": 413,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        413
+       ],
+       "unseen": [
+        [
+         1,
+         413
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 413,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e001_6_report_isolation/e001_6_report_isolation_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing",
+     "size_lines": 440,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        440
+       ],
+       "unseen": [
+        [
+         1,
+         440
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 440,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e002_1_show_all_lists_published/e002_1_show_all_lists_published_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing",
+     "size_lines": 508,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        508
+       ],
+       "unseen": [
+        [
+         1,
+         508
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 508,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e002_2_show_all_row_numbers/e002_2_show_all_row_numbers_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing",
+     "size_lines": 652,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        652
+       ],
+       "unseen": [
+        [
+         1,
+         652
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 652,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e002_3_opens_counted_once/e002_3_opens_counted_once_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing",
+     "size_lines": 631,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        631
+       ],
+       "unseen": [
+        [
+         1,
+         631
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 631,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e002_4_proxy_visitors_hashed/e002_4_proxy_visitors_hashed_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines; it was named only in 3 listings",
+     "size_lines": 648,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        648
+       ],
+       "unseen": [
+        [
+         1,
+         648
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 648,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e005_1_private_feedback/e005_1_private_feedback_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 161,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        161
+       ],
+       "unseen": [
+        [
+         1,
+         161
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 161,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e006_1_removal_and_placeholders/e006_1_removal_and_placeholders_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 177,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        177
+       ],
+       "unseen": [
+        [
+         1,
+         177
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 177,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/e006_2_blocking_and_unblocking/e006_2_blocking_and_unblocking_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 251,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        251
+       ],
+       "unseen": [
+        [
+         1,
+         251
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 251,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "tests/acceptance/ported/testdata/check_run_finish_needs_chrome_bin.txt",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 38,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        38
+       ],
+       "unseen": [
+        [
+         1,
+         38
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 38,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "partly-opened",
+     "section": "lines 1-579 of 579",
+     "reason": "seen only as 2 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 579,
+     "hunks": []
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "partly-opened",
+     "section": "lines 40-562 of 663",
+     "reason": "a Read returned only part of it; seen only as 9 Grep lines",
+     "size_lines": 663,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}
