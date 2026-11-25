@@ -1,0 +1,289 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-015",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-25T16:52:52.806Z",
+ "head": "6271d9a9cc36886c62546c6fcfa657cf60dca36d",
+ "run_id": 12279,
+ "summary": "Re-check of fix batch 6271d9a: both defects are fixed, and I found nothing new worth filing.\n\n**O-030 is fixed.** In `tests/acceptance/suite/judge_test.go`:\n- `parse()` (lines 64-82) now records every pass, fail and skip at every level. The old top-level-only filter is gone.\n- `judgeChrome` (183-211) refuses any skip whose own output, or its subtests' output, names CHROME_BIN. It also refuses a browser test that passes while one of its subtests skipped.\n- `judgeWithout` (129-178) refuses a skipped subtest of a non-browser TestE00[1-6] test unless `mayAlsoSkip` lists its full name.\n- `suite_test.go` now just calls these judges.\n\n**O-032 is fixed.** In `tests/acceptance/ported/ported_test.go` (151-160):\n- The return pattern is now `\\breturn(?:\\s+|\\s*\\()\\s*(?:-\\s*)?[1-9]\\d*\\b`, and the else pattern accepts the same numbers.\n- The bare `exit(`/`quit(` builtins are added.\n- `rows_test.go` gains RF-145 and RF-184, both Superseded. Their reasons match run_finish.py lines 145 and 184.\n\n**What I ran** (scratch TAAD3_HOME):\n- The engine's two closing tests pass: `TestSitesSeeMultiDigitExitCodes`, and `TestSuiteInChromeRefusesASubtestSkipNamingChromeBin` (30 s).\n- The ported and suite packages pass untagged, including both new corpus tests and `TestPortedCheckerRefusesGaps`.\n- `go test -count=1 ./...` with CHROME_BIN set to Chrome: exit 0 in 27.8 s.\n\n**Both corpora fail on the pre-fix code.** I checked this through overlays rather than taking the builder's word:\n- The old `ported_test.go` fails exactly 13 rows of `site_spellings.json`: exit/quit, return 124/10/(1)/(2)/-1/- 1, else 12/-1/(2), and the two caller chains.\n- A `parse()` cut back to top-level verdicts only fails exactly 8 rows of `skip_events.json`: five in Chrome mode, three in no-browser mode.\n\n**Trying to break it.** I probed `Sites()` and it still misses these spellings:\n- a non-zero return wrapped onto the next line by a formatter: `return (` then `0 if … else 1` then `)`;\n- `return (` then `1` then `)`;\n- `sys.exit (1)` and `exit (2)`, with a space before the parenthesis;\n- `return not ok`.\n\nI filed none of these. `Sites()` only ever runs on the twelve committed snapshots, which are frozen at their ledger editions and are about to be deleted with the Python. I have read all twelve in full and none contains any of these spellings, so no row is missing today.\n\n**Departures.** The builder declared all three: the untagged judge and corpus files in `tests/acceptance/suite`, the extra refusal of a passing browser test with a skipped subtest, and the exit/quit builtins. I found no undeclared departure, and no comment the fix made stale. `suite_test.go`'s package and test comments and the doc comment of `Sites` are updated. The isEdge comment (t1) is untouched and stays waived to the comment fixer.\n\nSecond round: Second round, read as an attacker: nothing new to file.\n\n**parse() and the judges** (`tests/acceptance/suite/judge_test.go`):\n- **Input shapes.** A trailing CR on a -json line is dropped by the scanner. Events with no test name (package-level output or skip, build failures) are ignored, and a failed build still fails the run through the exit code, which `suite()` checks before judging.\n- **Keys.** The `key+\"/\"` prefix keeps a sibling such as `TestX/ab` from matching `TestX/a`. A false match would need a package directory named after a test, which this module does not have.\n- **CHROME_BIN in test names.** `said()` includes the `=== RUN` and `--- SKIP` lines, so a test name containing CHROME_BIN would fire. No test or subtest name in the tree contains it.\n- **Non-Windows Chrome runs.** I checked the subtests that skip off Windows, since the Chrome judge now sees them: `chrome_bin_corpus_test.go:77-78`, the reports sweep corpora, `edge_dot_segments_test.go:31`. All skip with messages that do not name CHROME_BIN, and the corpus row skips before it sets CHROME_BIN. So a Chrome run on Linux or macOS does not fail falsely.\n- **Subtest refusal on other platforms.** No acceptance package under `tests/acceptance/e00*` calls Skip or branches on `runtime.GOOS`, so the new refusal of skipped acceptance subtests cannot break the no-browser run there either.\n- **Scanner limit.** The scanner still ignores the error it returns when a line exceeds 16 MB. That was in the code I reviewed in the first round, not introduced by this diff.\n\n**Corpus loaders** (`corpus_test.go`, `sites_corpus_test.go`). Both are strict: unknown keys, a duplicate name, a missing list of sites or an empty one, a site past the end of its source, and placeholders are all refused.\n\n**Sites patterns.** The spellings it still misses are the ones I recorded in the first round: a formatter-wrapped return of an if-expression, and `sys.exit (1)` or `exit (2)` with a space. None of them occurs in the twelve frozen snapshots, so I am not filing them again.\n\nNo lock is held across slow work anywhere in this diff.",
+ "payload": {
+  "status": "complete",
+  "verdict": "clean",
+  "matches_design": true,
+  "summary": "Re-check of fix batch 6271d9a: both defects are fixed, and I found nothing new worth filing.\n\n**O-030 is fixed.** In `tests/acceptance/suite/judge_test.go`:\n- `parse()` (lines 64-82) now records every pass, fail and skip at every level. The old top-level-only filter is gone.\n- `judgeChrome` (183-211) refuses any skip whose own output, or its subtests' output, names CHROME_BIN. It also refuses a browser test that passes while one of its subtests skipped.\n- `judgeWithout` (129-178) refuses a skipped subtest of a non-browser TestE00[1-6] test unless `mayAlsoSkip` lists its full name.\n- `suite_test.go` now just calls these judges.\n\n**O-032 is fixed.** In `tests/acceptance/ported/ported_test.go` (151-160):\n- The return pattern is now `\\breturn(?:\\s+|\\s*\\()\\s*(?:-\\s*)?[1-9]\\d*\\b`, and the else pattern accepts the same numbers.\n- The bare `exit(`/`quit(` builtins are added.\n- `rows_test.go` gains RF-145 and RF-184, both Superseded. Their reasons match run_finish.py lines 145 and 184.\n\n**What I ran** (scratch TAAD3_HOME):\n- The engine's two closing tests pass: `TestSitesSeeMultiDigitExitCodes`, and `TestSuiteInChromeRefusesASubtestSkipNamingChromeBin` (30 s).\n- The ported and suite packages pass untagged, including both new corpus tests and `TestPortedCheckerRefusesGaps`.\n- `go test -count=1 ./...` with CHROME_BIN set to Chrome: exit 0 in 27.8 s.\n\n**Both corpora fail on the pre-fix code.** I checked this through overlays rather than taking the builder's word:\n- The old `ported_test.go` fails exactly 13 rows of `site_spellings.json`: exit/quit, return 124/10/(1)/(2)/-1/- 1, else 12/-1/(2), and the two caller chains.\n- A `parse()` cut back to top-level verdicts only fails exactly 8 rows of `skip_events.json`: five in Chrome mode, three in no-browser mode.\n\n**Trying to break it.** I probed `Sites()` and it still misses these spellings:\n- a non-zero return wrapped onto the next line by a formatter: `return (` then `0 if … else 1` then `)`;\n- `return (` then `1` then `)`;\n- `sys.exit (1)` and `exit (2)`, with a space before the parenthesis;\n- `return not ok`.\n\nI filed none of these. `Sites()` only ever runs on the twelve committed snapshots, which are frozen at their ledger editions and are about to be deleted with the Python. I have read all twelve in full and none contains any of these spellings, so no row is missing today.\n\n**Departures.** The builder declared all three: the untagged judge and corpus files in `tests/acceptance/suite`, the extra refusal of a passing browser test with a skipped subtest, and the exit/quit builtins. I found no undeclared departure, and no comment the fix made stale. `suite_test.go`'s package and test comments and the doc comment of `Sites` are updated. The isEdge comment (t1) is untouched and stays waived to the comment fixer.\n\nSecond round: Second round, read as an attacker: nothing new to file.\n\n**parse() and the judges** (`tests/acceptance/suite/judge_test.go`):\n- **Input shapes.** A trailing CR on a -json line is dropped by the scanner. Events with no test name (package-level output or skip, build failures) are ignored, and a failed build still fails the run through the exit code, which `suite()` checks before judging.\n- **Keys.** The `key+\"/\"` prefix keeps a sibling such as `TestX/ab` from matching `TestX/a`. A false match would need a package directory named after a test, which this module does not have.\n- **CHROME_BIN in test names.** `said()` includes the `=== RUN` and `--- SKIP` lines, so a test name containing CHROME_BIN would fire. No test or subtest name in the tree contains it.\n- **Non-Windows Chrome runs.** I checked the subtests that skip off Windows, since the Chrome judge now sees them: `chrome_bin_corpus_test.go:77-78`, the reports sweep corpora, `edge_dot_segments_test.go:31`. All skip with messages that do not name CHROME_BIN, and the corpus row skips before it sets CHROME_BIN. So a Chrome run on Linux or macOS does not fail falsely.\n- **Subtest refusal on other platforms.** No acceptance package under `tests/acceptance/e00*` calls Skip or branches on `runtime.GOOS`, so the new refusal of skipped acceptance subtests cannot break the no-browser run there either.\n- **Scanner limit.** The scanner still ignores the error it returns when a line exceeds 16 MB. That was in the code I reviewed in the first round, not introduced by this diff.\n\n**Corpus loaders** (`corpus_test.go`, `sites_corpus_test.go`). Both are strict: unknown keys, a duplicate name, a missing list of sites or an empty one, a site past the end of its source, and placeholders are all refused.\n\n**Sites patterns.** The spellings it still misses are the ones I recorded in the first round: a formatter-wrapped return of an if-expression, and `sys.exit (1)` or `exit (2)` with a space. None of them occurs in the twelve frozen snapshots, so I am not filing them again.\n\nNo lock is held across slow work anywhere in this diff.",
+  "findings": [],
+  "obligations": [
+   {
+    "key": "O-030",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/suite/judge_test.go: parse() at 64-82 keeps every level; judgeChrome at 183-211; judgeWithout at 129-178. suite_test.go calls them. Corpus: tests/acceptance/suite/testdata/skip_events.json (20 rows), driven by corpus_test.go TestSuiteChecksReadEverySkip with a strict loader. 8 of its rows fail under a top-level-only parse (my overlay run). The engine's TestSuiteInChromeRefusesASubtestSkipNamingChromeBin passes (30 s)."
+   },
+   {
+    "key": "O-032",
+    "discharged": "yes",
+    "evidence": "tests/acceptance/ported/ported_test.go:151-160 has the widened return and else patterns and the exit/quit builtins. rows_test.go has RF-145 and RF-184. Corpus: tests/acceptance/ported/testdata/site_spellings.json (48 rows), driven by sites_corpus_test.go TestSitesSeeEverySpelling. 13 of its rows fail against the 384f9f6 ported_test.go (my overlay run). TestSitesSeeMultiDigitExitCodes passes."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "Sites now also covers the IN-m1 spellings, and TestPortedAssertionsHaveAGoTest passes with a row at every site of the 12 snapshots. The spellings it still misses (wrapped returns, a space before the parenthesis) occur in none of the frozen snapshots, all of which I read in full."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "The source Editions in rows_test.go:11-32 are unchanged by this diff, and my earlier in-place mode=ro SELECT matched all 16. The checker's Edition test still passes."
+   },
+   {
+    "key": "O-031",
+    "discharged": "no",
+    "evidence": "Waived to N-231 (comment fixer). internal/testutil/headless/headless.go is not in this diff, so isEdge's comment at 81-92 still says the name is 'taken twice'."
+   },
+   {
+    "key": "O-033",
+    "discharged": "no",
+    "evidence": "Waived to SC-047. .taad/fitness.yaml is not in this diff."
+   },
+   {
+    "key": "O-034",
+    "discharged": "no",
+    "evidence": "Waived as N-232. tests/acceptance/ported/check_test.go:216 still runs go list with no -tags."
+   },
+   {
+    "key": "O-035",
+    "discharged": "no",
+    "evidence": "Waived as N-233. suite() in tests/acceptance/suite/suite_test.go still passes the caller's GOFLAGS through unchanged."
+   },
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "Unchanged by this diff: internal/testutil/program/program_test.go:83-111. It passed in the full suite."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "Unchanged: program_test.go:115-125."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "Unchanged: program_test.go:130-159."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "Unchanged: program_test.go:165-190."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "Unchanged: program_test.go:195-241."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "TestSuiteWithoutABrowser now judges through judgeWithout, which also refuses skipped acceptance subtests. The builder reports the real run as passing; I did not re-run that whole-suite case in this pass."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "Unchanged: e004_2_deep_threads_and_toggle_test.go. It passed in my full Chrome run."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "Unchanged: devtools_test.go:127-154."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "Unchanged: devtools_test.go:162-222."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "Unchanged: devtools_test.go:40-123."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "Unchanged: default_browser_test.go:138-169. judgeChrome now also catches a subtest skip naming CHROME_BIN."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "check_test.go is unchanged and TestPortedCheckerRefusesGaps passes. Its small-world source still gives [12 17 18 23] under the widened patterns."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "breaks_test.go is unchanged by this diff. It passed in my earlier run."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "Unchanged."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "ported_test.go Sites and Check, now with the widened patterns."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "Unchanged. I recorded the in-place SELECT and the per-row agree/disagree read earlier. The two new rows are Superseded, and their Why matches run_finish.txt lines 145 and 184."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "Unchanged: headless.go:93-109."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "Unchanged: fitness.yaml except_files."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "Unchanged. The IN-m2 members are waived to SC-047."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "Unchanged: visitor.go:134-153."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "Unchanged: outside.go."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "Unchanged: breaks_test.go:65-73."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "program.go:60-65 has no GOROOT fallback."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "Unchanged: visitor.go and program_test.go:246-262."
+   },
+   {
+    "key": "O-027",
+    "discharged": "yes",
+    "evidence": "Unchanged: fakegithub_test.go and the fake-side rule at ported_test.go:450-455."
+   },
+   {
+    "key": "O-028",
+    "discharged": "yes",
+    "evidence": "Now holds at every level: judgeChrome refuses any skip event, subtests included, whose own output contains CHROME_BIN (judge_test.go:199-208)."
+   },
+   {
+    "key": "O-029",
+    "discharged": "yes",
+    "evidence": "Unchanged: Canonical and EditionOf at ported_test.go:76-88."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "TestSuiteWithoutABrowser runs go test -json ./... without CHROME_BIN and judges it with judgeWithout. The corpus rows for the no-browser judge, including subtest skips in acceptance tests, are fed in by corpus_test.go."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "TestSuiteInChrome is judged by judgeChrome over every level. TestSuiteInChromeRefusesASubtestSkipNamingChromeBin feeds in a real overlay-added subtest skip naming CHROME_BIN, and it passes, meaning TestSuiteInChrome now fails on that run."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "TestPortedCheckerRefusesGaps is unchanged and passes. TestSitesSeeEverySpelling feeds in 48 spellings that Sites must report or stay quiet on."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12280,
+   "filed": 0
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 7,
+    "changed": 10,
+    "listed": 3
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 10,
+   "read_whole": 7,
+   "deleted": [],
+   "runs": [
+    12273,
+    12275,
+    12279,
+    12280
+   ],
+   "range": {
+    "base": "845585a20063a58ee07c2eed632964af72dada2f",
+    "head": "6271d9a9cc36886c62546c6fcfa657cf60dca36d",
+    "source": "commits",
+    "hunk_base": "384f9f6bdb9602ef9b621034ce8aff8d4bbf2a22",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [
+    {
+     "path": "tests/acceptance/ported/ported_test.go",
+     "state": "partly-opened",
+     "section": "lines 154-239, 242-320, 323-384, 386-400, 402-431, 434-466, 469-476, 478-525 of 525",
+     "reason": "a Read returned only part of it; seen only through a shell command: git log; 357 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 525,
+     "hunks": []
+    },
+    {
+     "path": "tests/acceptance/ported/rows_test.go",
+     "state": "partly-opened",
+     "section": "lines 350-402 of 402",
+     "reason": "a Read returned only part of it; seen only through a shell command: $d (before the build), git log; 51 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 402,
+     "hunks": []
+    },
+    {
+     "path": "tests/acceptance/suite/suite_test.go",
+     "state": "partly-opened",
+     "section": "lines 6-102 of 102",
+     "reason": "a Read returned only part of it; seen only through a shell command: git log; 218 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 102,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

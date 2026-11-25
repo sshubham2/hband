@@ -58,183 +58,127 @@
   },
   {
    "stage": "build-slice",
-   "issue": "SC-044, the seeded Go launcher, including serve_show_all's four-report show-all seed (finding m8, deferred). The design files it for later; Options.Port, the fixed-port start, exists for it and has no caller yet."
+   "issue": "tests/acceptance/** (and now tests/acceptance/suite/testdata, tests/acceptance/ported/testdata/site_spellings.json) still has no owning block in the architecture record, since AA-043 was rejected. A person should decide which block, if any, owns the acceptance packages."
   },
   {
    "stage": "build-slice",
-   "issue": "SC-045, deleting the Python files, tests/acceptance/__pycache__ and .taad/slices/SL-008/run_finish_e004_2.py. That is the next row, and it is gated on this mapping."
+   "issue": "A known hole in Sites(), pinned quiet in site_spellings.json: an exit code held in a variable (`return code`) is not a site. Such verdicts are mapped only where a row is declared by hand."
   },
   {
    "stage": "build-slice",
-   "issue": "SC-046, rendering the owner's moderation pages in Chrome. The design files it for later."
+   "issue": "deviation: tests/acceptance/suite now has two untagged _test.go files (judge_test.go, corpus_test.go). The corpus therefore runs under plain go test -count=1 ./..., while the whole-suite runs stay behind sc042suite. As a result the suite package appears in untagged go test and go list output. It imports only the standard library, and TestAcceptanceLinksNoneOfTheProduct still passes."
   },
   {
    "stage": "build-slice",
-   "issue": "Submitting the comment and reply forms from a real signed-in browser. Q-019 notes the old check never did this. The port carries the body's toggle and run_finish_e004_2's signed-in look, and adds no form submissions."
+   "issue": "deviation: Closing O-030 as a class went one member past the finding's text. In the Chrome run, a browser test that passes while a subtest under it skipped is now refused, because its top-level pass hides a part that never ran in the browser. No browser test has subtests today, so the real runs are unchanged."
   },
   {
    "stage": "build-slice",
-   "issue": "The in-place re-SELECT of epics 39-44 and the agree/disagree record for each Ported row. M2's decision assigns both to code review."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "m5's three-run C1 check, which was deferred."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Retiring the stale '[testing] ... Edge here ... HBAND_TEST_BROWSER' stack constraint, and noting Q-035's limit in the row's record. Both live outside the repository."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Q-030/m5: make TestConcurrentVotesNoBusy stable under whole-suite load. The suite now has 17 more packages that each build and start hband, running in parallel. The four whole-suite runs here passed, but #987 recorded flakes."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "SC-044 must carry serve_show_all.py's show-all seed (12/3/120, 1/1/1, 0/0/0 with a long title, 1000/25/1000), seeded over HTTP, before SC-045 deletes the file (m8)."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "A signed-in Chrome test that submits the comment form and a reply form at depth and on the branch page. Q-019 records this as never exercised in a real browser."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "Retire the stale '[testing] Real-browser checks drive the locally installed Chromium-family browser (Edge here) ... HBAND_TEST_BROWSER' stack constraint, as Q-034 and Q-035 asked."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "When SC-045 deletes the Python: re-read epics 41-44 in place and compare each body's canonical sha256 (ported.Canonical's form) with its Edition in tests/acceptance/ported/rows_test.go. On a mismatch, stop and re-map."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The ported package is test-only: attempt 1's non-test tests/acceptance/ported/ported.go is renamed ported_test.go, the table is in rows_test.go and the checks in check_test.go. The design named ported_test.go, and the stack line says tests/acceptance holds test-only packages."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: New package internal/testutil/outside, which is not in the design's component list. It is the single mustBeOutsideModule helper that the m4 critic prescribed, used by both program and headless. headless now imports it."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: New build-tagged package tests/acceptance/suite (TestSuiteWithoutABrowser, TestSuiteInChrome). The design's C1/C2 check commands were PowerShell text matches, which M-add-3's decision replaced with -json event parsing; this package gives those cases a command with no shell syntax. Rule 4 excepts tests/acceptance/suite/**, because the package removes CHROME_BIN from, or passes it into, the inner go test; it starts and chooses no browser."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Rule 4 bans the words CHROME_BIN and HBAND_TEST_BROWSER anywhere in tests/acceptance, not only inside Getenv(\"...\"), so os.Environ scans and backquotes are caught. A bare 'chrome' cannot be banned, because the verbatim E-001/E-002 bodies use it for their User-Agent; this is a named hole."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The tag-placement rule accepts a tag on the line of, or the line just above, a checking statement, or on the first line of the block that the line below opens (an if, for or case). The critic's text said only 'same line or line just above'; without the extra allowance, a check written as `if cond { t.Fatalf }` could not be tagged."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The def-call propagation the critic prescribed for Sites flags name collisions as sites: in the E-004 line 2 body, built-in open() and read() share names with Chrome.open/Chrome.read, at L58, L118, L181, L207, L208, L318 and L319. Each such line has a row saying so. Those inside the stand-in GitHub are Helper rows to fakegithub; the others are Superseded 'not an assertion', or Ported to headless.Open where they are the DevToolsActivePort read."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: seedBody (the E-004 line 2 body's posting and HTTP checks) runs in both E-004 line 2 tests. The browser test therefore re-makes the HTTP checks on loopback http before its Chrome checks. The production-shaped https run is TestE004DeepThreadsAndBranchPages."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The Go Visitor does not imitate the Python Browser's extras: a Chrome User-Agent, X-Forwarded-For 192.0.2.10, CSRF hidden fields and Origin on every post. hband has no CSRF tokens, CrossOriginProtection accepts requests with no Origin or Sec-Fetch-Site, and no E-003..E-006 assertion depends on User-Agent or forwarded address. Anonymous and blocked-account posts use Post without following, where the Python followed hband's redirects up to the stand-in; those sites assert only status < 500."
+   "issue": "deviation: Closing O-032 as a class added the bare exit()/quit() builtins to the site patterns besides the prescribed return/else widening. No snapshot uses them, so they exposed no new rows."
   },
   {
    "stage": "code-review",
-   "issue": "drift: internal/testutil/program grew three files that are not in the design's component list (program.go, visitor.go, thread.go, program_test.go) and not under the build's deviations: - reader.go: the Python prelude's page readers (Count, Vote, Dislikes, Say, Part, Visible, Shown, Own, Depth, Mine), with ported tags; - html.go: a second forgiving HTML tree (Node/Dom), beside internal/testutil/e002row's Node/Dom; - expect.go: Expect, ExpectEq, Mark, Account, Report, Resolve. The two Dom parsers port different readers: e002row strips script and style, while html.go keeps script text as raw text, which E41-393 needs. Keeping both is defensible, but a later reader should know there are two."
+   "issue": "not read (measured): tests/acceptance/ported/ported_test.go (not seen: lines 154-239, 242-320, 323-384, 386-400, 402-431, 434-466, 469-476, 478-525 of 525) -- partly-opened: a Read returned only part of it; seen only through a shell command: git log; 357 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e001_2_publish_and_read/e001_2_publish_and_read_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): tests/acceptance/ported/rows_test.go (not seen: lines 350-402 of 402) -- partly-opened: a Read returned only part of it; seen only through a shell command: $d (before the build), git log; 51 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e001_3_hidden_and_deleted/e001_3_hidden_and_deleted_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): tests/acceptance/suite/suite_test.go (not seen: lines 6-102 of 102) -- partly-opened: a Read returned only part of it; seen only through a shell command: git log; 218 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e001_4_replace_keeps_date/e001_4_replace_keeps_date_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: A machine with no Python at all: C:\\Python314 was removed from PATH, but the WindowsApps python.exe alias still resolved. No Go code starts python (grep), so this was approximated, not reproduced."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e001_5_upload_refusals/e001_5_upload_refusals_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: A machine with no Chrome installed: approximated by CHROME_BIN unset, and by CHROME_BIN naming a folder."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e001_6_report_isolation/e001_6_report_isolation_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: Linux or macOS (Q-036 is open). Every run was on this Windows 11 machine."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e002_1_show_all_lists_published/e002_1_show_all_lists_published_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: The production https/__Host- cookie path in a real browser behind the VPS + WireGuard proxy. The browser test runs Chrome against a loopback-http base."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e002_2_show_all_row_numbers/e002_2_show_all_row_numbers_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: The real GitHub sign-in. The tests use fakegithub, and the real sign-in stays the by-hand check SC-023."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e002_3_opens_counted_once/e002_3_opens_counted_once_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 1 listing (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: Repeat-run stability under load (the SQLITE_BUSY flake, Q-030): each whole-suite run was done once."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e002_4_proxy_visitors_hashed/e002_4_proxy_visitors_hashed_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines; it was named only in 3 listings (measured by the engine from the review's own tool record)"
+   "stage": "validate-slice",
+   "issue": "not reached: Whether the cited editions stay frozen until SC-043 actually deletes the Python: they were verified only at this moment."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e005_1_private_feedback/e005_1_private_feedback_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+   "stage": "reflect",
+   "issue": "critique-review missed: M-add-3's prescribed fix (a whole-suite check on `go test -json` events) spoke of 'the set of skipped top-level tests' and never said that a subtest's skip event counts. The built suite() kept only verdicts whose Test name has no '/'. A subtest `t.Skip(\"CHROME_BIN is not set ...\")` under a passing parent, which is the old TestBrowserSkipEndsTheCallingTest shape and E-009 line 2's exact condition, passed TestSuiteInChrome ('277 top-level tests, skipped: []'). It also left TestSuiteWithoutABrowser blind to a skipped acceptance subtest. A check could have been written from this: a corpus row with a skip event on `pkg/TestX/caller` naming CHROME_BIN, which must be refused."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e006_1_removal_and_placeholders/e006_1_removal_and_placeholders_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+   "stage": "reflect",
+   "issue": "critique missed: The critic's own pattern for M1's assertion-site scan was `\\breturn\\s+[1-9]\\b`. It needs a word boundary after one digit, so `return 124` and `return 10` are not sites. The completeness-by-construction claim that SC-045 deletes the Python on was therefore false for tests/acceptance/run_finish.py L145 (`return 124`, the runner's timeout verdict) and L184 (the run_body call that inherits it). TestPortedAssertionsHaveAGoTest stayed green. A check could have been written from it: a site corpus containing `return 124`, `return (1)`, `return -1` and `else 12`."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/e006_2_blocking_and_unblocking/e006_2_blocking_and_unblocking_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+   "stage": "reflect",
+   "issue": "critique missed: m2's prescription widened the regex rules but left three spelling holes. (a) The 'acceptance tests neither choose nor start a browser' rule needs a quote right before the flag, so `strings.Fields(\"--no-first-run --headless=new --remote-debugging-port=0\")` and `fmt.Sprintf(\"%s --user-data-dir=%s about:blank\", ...)` pass. (b) The DevTools-driver rule matches only os./syscall. readers, so `(&exec.Cmd{}).Environ()` passes. The critique had already named CC-001 variants as the failure class, yet O-021 was marked 'closed as a class'. A check could have been written from it: fire rows for those three spellings in internal/fitnessrules/testdata/rule_spellings.json."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): tests/acceptance/ported/testdata/check_run_finish_needs_chrome_bin.txt -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+   "stage": "reflect",
+   "issue": "critique missed: m2's by-construction backstop (`go list -deps -test ./tests/acceptance/... ./internal/testutil/...`) was prescribed without build tags. tests/acceptance/breaks (sc042breaks) and tests/acceptance/suite (sc042suite) appear in `go list` only with -tags. A tagged acceptance file that imports a product package in a spelling the regexes pin quiet passes both guards, while the fitness because-texts say such holes are 'caught by construction'. A check could have been written from it: run `go list` once more with -tags \"sc042breaks sc042suite\" and apply the same allow-list."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 1-579 of 579) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+   "stage": "reflect",
+   "issue": "critique-review missed: Running the inner `go test -count=1 -json ./...` inside the sc042suite-tagged package inherits the caller's GOFLAGS unchanged. A GOFLAGS carrying -tags=sc042suite makes the suite re-run itself recursively, and -tags=sc042breaks adds the seven-build breaks test. The design already strips -tags in the sibling breaks test (baseGoFlags, breaks_test.go:161-172), but nothing said the new whole-suite check needs the same. A check could have been written from it: a test that sets GOFLAGS=-tags=sc042suite and expects the inner run not to start the suite again."
   },
   {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json (not seen: lines 40-562 of 663) -- partly-opened: a Read returned only part of it; seen only as 9 Grep lines (measured by the engine from the review's own tool record)"
+   "stage": "reflect",
+   "issue": "critique missed: The design's component list had no page-reader library, although every one of the six Python bodies carries its own prelude of page readers (Count, Vote, Dislikes, Say, Part, Visible, Shown, Own, Depth, Mine). The builder added program/reader.go, html.go and expect.go. That left a second forgiving HTML parser (program/html.go beside internal/testutil/e002row's Node/Dom) that the design never planned for. The critique had flagged the six bodies as unread (M2) but did not ask what shared helpers they would need."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/testutil/program/reader.go:1-189 -- not read (tokens, tally, Pieces, Counts, Numbers). I saw them only through the ported rows and the passing tests."
+   "stage": "reflect",
+   "issue": "still unknown: Do E-009 lines 4 and 5 pass against the committed acceptance packages? Those finish bodies (exit-at-start program, GOFLAGS overlay breaks, held 127.0.0.1:8080, dead proxies, link-none, repo left clean) are planted only at epic finish. The slice's own TestStartIgnoresTheDefaultPortAndProxies, TestStartLeavesNothingInTheRepository and the breaks test mimic them, but nobody ran the planted bodies themselves."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/testutil/program/html.go:60-158 -- the rest of the Dom parser and Walk/Chain/Text not read."
+   "stage": "reflect",
+   "issue": "still unknown: Does anything under `go test ./...` read the .py files or tests/acceptance/__pycache__? Validation proved the editions of the in-tree Python by its own script. The design says the table never needs the deleted files, and only SC-045 deleting them and running the suite will show it."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: tests/acceptance/e005_1_private_feedback/e005_1_private_feedback_test.go, tests/acceptance/e006_1_removal_and_placeholders/e006_1_removal_and_placeholders_test.go, tests/acceptance/e006_2_blocking_and_unblocking/e006_2_blocking_and_unblocking_test.go -- never opened directly. I judged each through the dump that sets every tagged Go statement (with the next two lines) beside its Python site, not as whole files."
+   "stage": "reflect",
+   "issue": "still unknown: Which architecture block owns tests/acceptance/** (including suite/testdata and ported/testdata)? AA-043 was rejected, so the packages have no owner in the record. A person has to decide whether any block owns them."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: tests/acceptance/e003_1_sign_in_and_vote/e003_1_sign_in_and_vote_test.go:99-179 -- read only through the tag/site dump."
+   "stage": "reflect",
+   "issue": "went wrong: Build attempt 1 was cut off by the provider's weekly limit partway through. Attempt 2 had to audit the inherited tree first and found four silent defects in it: the SL-015 fitness rules folded across lines so they never loaded, m1's except_files missing, a stray CR making git treat .taad/fitness.yaml as binary, and default_browser_test.go without a final newline."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: tests/acceptance/ported/rows_test.go:121-400 -- not read in the Read tool. All 363 rows were parsed and printed by my audit script, and I read that output in full."
+   "stage": "reflect",
+   "issue": "went wrong: Both repro rounds failed at launch with WinError 206 (command line too long) and produced no findings. Repro passed with 'nothing checkable', so that stage contributed nothing."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/fitnessrules/testdata/rule_spellings.json -- not opened. I relied on internal/fitnessrules passing in my suite run."
+   "stage": "reflect",
+   "issue": "went wrong: The stages before the build could not enumerate the assertions. The survey recorded approximate counts ('16/14/15/19/10/23') and the title's '14 bodies' was really 16 (10 Go, 6 Python). The design said the six Python bodies were unread, and the critique had no ledger access. M1 and M2 were both majors, and the independent list only appeared as the builder's first step."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: The ten verbatim E-001/E-002 bodies under tests/acceptance/e00[12]_* -- I read only e001_1_owner_only_admin_test.go:60-169. Their content is proved equal to the ledger editions by my in-place sha256 comparison, and they pass."
+   "stage": "reflect",
+   "issue": "went wrong: Four holes in prescribed fixes reached the build and were found only by code review #1: the single-digit `return` regex, the top-level-only skip events, `go list` without -tags, and rules 3/4 that missed three spellings. The skip-events hole sent the slice back to build 3. The spelling-class closure (O-021) leaked again as IN-m2, which was waived to SC-047."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/testutil/headless/headless.go:125-end (Shot) -- read only through the grep for its MustBeOutside calls at :138-139."
+   "stage": "reflect",
+   "issue": "went wrong: Three of the six waived or deferred code-review findings (IN-m3, IN-m4, m5) have no reproduction, so nothing in the engine will turn them into work unless a run fails. Until then the fitness because-texts keep claiming 'caught by construction' for build-tagged files, and the new one-command suite has never been run twice in a row."
   },
   {
-   "stage": "code-review",
-   "issue": "not reviewed: internal/testutil/fakegithub/fakegithub_test.go:110-175 -- the token/user refusal tests not read."
+   "stage": "reflect",
+   "issue": "went wrong: No person triaged anything: all 11 critique, 4 critique-review and 6 code-review #2 findings were disposed by a model ('counted as untriaged'). Code-review #1 never opened 15 of 49 changed files whole (the ten E-001/E-002 ports, E-005, E-006 x2, one snapshot), and the engine had to send it back to 18 unseen hunks."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The design retier raised the risk to high but nobody resized the slice. A medium slice produced 67 file-changes across two builds, 3 builds and 3 reviews."
   }
  ],
  "stages": [
@@ -317,7 +261,7 @@
    "stage": "build-slice",
    "title": "Build",
    "order": 7,
-   "state": "sent back",
+   "state": "passed",
    "attempts": [
     {
      "n": 1,
@@ -343,6 +287,36 @@
       "measured_by_git": 54
      },
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-25T16:39:14.854Z",
+     "head": "6271d9a9cc36886c62546c6fcfa657cf60dca36d",
+     "summary": "I fixed the two defects the code review sent back, each closed as a class with a committed corpus.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "2 defect(s) in lines this slice wrote were accepted by the code review (O-030, O-032). None weighs a lap on its own, so they go back to the builder TOGETHER, once, before validation -- instead of to the backlog and from there to a send-back at the merge. Fix exactly these with the smallest change: one scoped re-check reads only your fix. Sent back with what raised them: O-030 (fix): m1 (minor): The whole-suite checks read only top-level go test -json events. suite() drops every pass, fail or skip event whose Test contains '/'. TestSuiteInChrome then looks only at top-level skips. So a run with CHROME_BIN naming Chrome, in which a subtest skips saying CHROME_BIN under a passing parent, is reported as clean ('no test that skipped said CHROME_BIN'). That is E-009 line 2's condition, and M-add-3's accepted fix required that 'no skip event's own Output contains CHROME_BIN'. A subtest's skip is a skip event. The missed shape is exactly the old TestBrowserSkipEndsTheCallingTest (a real t.Run('caller') that skipped naming CHROME_BIN). The design moved that test into a child process for this reason, so a regression to it would pass C2's only check. Measured: - I added, through a GOFLAGS overlay only, a fakegithub test whose subtest calls t.Skip(\"CHROME_BIN is not set: ...\"). - `go test -tags sc042suite -run ^TestSuiteInChrome$` then logged '277 top-level tests, skipped: []' and PASSED. TestSuiteWithoutABrowser has the same blind spot: a subtest skip inside an acceptance test whose parent passes is neither allow-listed nor refused, though C1 says 'the rest run'. In suite(), also collect every Action=skip event, subtests included, with its key. In TestSuiteInChrome, refuse any such skip whose own output (that key or any key under it) contains CHROME_BIN. In TestSuiteWithoutABrowser, refuse a skipped subtest of a TestE00[1-6] test unless it is allow-listed. CLOSE THE CLASS, NOT THIS INSTANCE. m1 is one member of \"suite checks that read only top-level go test -json events\" (members come from ordinary input, by accident). Enumerate the class into a corpus committed with the code -- a table of inputs, fire/quiet plant rows, an alias list, a census of every type that carries the value -- in the repository or .taad/slices/SL-015/, make every row pass, and show the code before your fix failing the rows you claim to close. Bound the class by who produces its members, not by every exotic spelling. Answer this obligation with `corpus`: the corpus's path from the repository root. It is not discharged without one. [shown by a failing run] The engine ran the code review's test for this, tests/acceptance/suite/subtest_skip_test.go, with `go test -count=1 -tags sc042suite -timeout 30m -run ^TestSuiteInChromeRefusesASubtestSkipNamingChromeBin$ ./tests/acceptance/suite`, and it FAILED. Put that test at tests/acceptance/suite/subtest_skip_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -tags sc042suite -timeout 30m -run ^TestSuiteInChromeRefusesASubtestSkipNamingChromeBin$ ./tests/acceptance/suite` again in your tree, and that run is what closes this; your word does not. The test: //go:build sc042suite package suite import ( \"encoding/json\" \"os\" \"os/exec\" \"path/filepath\" \"strings\" \"testing\" ) // subtestSkipSource is a test, added to internal/testutil/fakegithub only through a // Go overlay, whose subtest skips saying CHROME_BIN while the test itself passes. const subtestSkipSource = \"package fakegithub\\n\\nimport \\\"testing\\\"\\n\\nfunc TestSC042SubtestSkipsForWantOfChromeBin(t *testing.T) {\\n\\tt.Run(\\\"caller\\\", func(t *testing.T) {\\n\\t\\tt.Skip(\\\"CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check\\\")\\n\\t})\\n}\\n\" func lastOf(b []byte) string { if len(b) > 4000 { return \"...\" + string(b[len(b)-4000:]) } return string(b) } // With CHROME_BIN naming Chrome, a whole-suite run in which any test, a subtest // included, skips saying CHROME_BIN must fail TestSuiteInChrome: E-009 line 2 refuses // every such skip, and a real t.Run subtest that skips under a passing parent is the // shape TestBrowserSkipEndsTheCallingTest had before it moved into a child process. func TestSuiteInChromeRefusesASubtestSkipNamingChromeBin(t *testing.T) { if os.Getenv(\"CHROME_BIN\") == \"\" { t.Skip(\"TestSuiteInChrome runs only with CHROME_BIN set\") } goTool, err := exec.LookPath(\"go\") if err != nil { t.Fatalf(\"no go tool on PATH: %v\", err) } gomod, err := exec.Command(goTool, \"env\", \"GOMOD\").Output() if err != nil { t.Fatalf(\"go env GOMOD: %v\", err) } root := filepath.Dir(strings.TrimSpace(string(gomod))) dir, err := os.MkdirTemp(\"\", \"sc042-subskip-*\") if err != nil { t.Fatal(err) } defer os.RemoveAll(dir) if strings.ContainsAny(dir, \" \\t\") { t.Skip(\"the temporary folder's path has a space, which a GOFLAGS -overlay cannot carry\") } src := filepath.Join(dir, \"skip_test.go\") if err := os.WriteFile(src, []byte(subtestSkipSource), 0o644); err != nil { t.Fatal(err) } overlay, _ := json.Marshal(map[string]map[string]string{\"Replace\": { filepath.Join(root, \"internal\", \"testutil\", \"fakegithub\", \"sc042_subtest_skip_test.go\"): src, }}) jsonPath := filepath.Join(dir, \"overlay.json\") if err := os.WriteFile(jsonPath, overlay, 0o644); err != nil { t.Fatal(err) } var env []string for _, kv := range os.Environ() { if !strings.HasPrefix(strings.ToUpper(kv), \"GOFLAGS=\") { env = append(env, kv) } } env = append(env, \"GOFLAGS=\"+strings.TrimSpace(os.Getenv(\"GOFLAGS\")+\" -overlay=\"+jsonPath)) cmd := exec.Command(goTool, \"test\", \"-count=1\", \"-tags\", \"sc042suite\", \"-timeout\", \"30m\", \"-v\", \"-run\", \"^TestSuiteInChrome$\", \"./tests/acceptance/suite\") cmd.Dir, cmd.Env = root, env out, err := cmd.CombinedOutput() if err == nil || !strings.Contains(string(out), \"--- FAIL: TestSuiteInChrome\") { t.Fatalf(\"TestSuiteInChrome accepted a whole-suite run, with CHROME_BIN naming a browser, in which TestSC042SubtestSkipsForWantOfChromeBin/caller skipped saying CHROME_BIN (err %v):\\n%s\", err, lastOf(out)) } } O-032 (fix): IN-m1 (minor): Sites() is meant to find every 'return of a non-zero code', but the pattern `\\breturn\\s+[1-9]\\b` needs a word boundary right after one digit, so `return 124`, `return 10` and `return 12` are not sites. The function that holds such a return is therefore not named either, so none of its callers become sites. In the committed snapshots this leaves tests/acceptance/run_finish.py L145 (`return 124, ...`, the runner's verdict that a body timed out) and L184 (`code, secs, out = run_body(...)`, which inherits that verdict) with no row. TestPortedAssertionsHaveAGoTest still passes. An independent Python-AST enumeration of the snapshots (assert, raise, self.assert*/fail, sys/os exits, non-zero int returns including tuples and if-expressions, and calls of the functions holding them) found these two as the only real sites with no row. The completeness that SC-045 deletes the Python on therefore does not hold for this spelling. `return (1)` and `return -1` are also missed. Widen the pattern to `\\breturn\\s*\\(?\\s*(?:-\\s*)?[1-9]\\d*\\b`. Make the if-expression pattern accept `[1-9]\\d*` as well. Then add the rows this exposes: run_finish.py L145 and L184, both Superseded by `go test -timeout`. CLOSE THE CLASS, NOT THIS INSTANCE. IN-m1 is one member of \"assertion-site spellings Sites() does not see\" (members come from ordinary input, by accident). Enumerate the class into a corpus committed with the code -- a table of inputs, fire/quiet plant rows, an alias list, a census of every type that carries the value -- in the repository or .taad/slices/SL-015/, make every row pass, and show the code before your fix failing the rows you claim to close. Bound the class by who produces its members, not by every exotic spelling. Answer this obligation with `corpus`: the corpus's path from the repository root. It is not discharged without one. [shown by a failing run] The engine ran the code review's test for this, tests/acceptance/ported/sites_multidigit_test.go, with `go test -count=1 -run TestSitesSeeMultiDigitExitCodes ./tests/acceptance/ported`, and it FAILED. Put that test at tests/acceptance/ported/sites_multidigit_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run TestSitesSeeMultiDigitExitCodes ./tests/acceptance/ported` again in your tree, and that run is what closes this; your word does not. The test: package ported import ( \"fmt\" \"testing\" ) // A return of a non-zero exit code is an assertion site whatever its number of // digits: run_finish.py's timeout verdict is `return 124, ...`. func TestSitesSeeMultiDigitExitCodes(t *testing.T) { src := \"def run():\\n if slow:\\n return 124, 0.0, \\\"timed out\\\"\\n return 10\\n\\n\\ndef main():\\n code = run()\\n\" got := fmt.Sprint(Sites(Canonical([]byte(src)))) if got != \"[3 4 8]\" { t.Fatalf(\"Sites = %s, want [3 4 8]: a return of 124 or 10 is a non-zero exit code, and run() holds it\", got) } }",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-030",
+       "O-031",
+       "O-032",
+       "O-033",
+       "O-034",
+       "O-035"
+      ]
+     },
+     "changed": {
+      "tests": 10,
+      "listed": 10,
+      "measured_by_git": 13
+     },
+     "details": "build-slice-2.json"
     }
    ]
   },
@@ -361,6 +335,61 @@
      "caused_by": null,
      "changed": {},
      "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-25T16:52:52.806Z",
+     "head": "6271d9a9cc36886c62546c6fcfa657cf60dca36d",
+     "summary": "Re-check of fix batch 6271d9a: both defects are fixed, and I found nothing new worth filing.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-25T16:39:13.206Z, and build-slice has judged since (2026-11-25T16:52:51.252Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T17:03:09.647Z",
+     "head": "443a68daf97e31a48c3a1a10ea5014e16959b903",
+     "summary": "I checked SL-015 at HEAD 443a68d on this PC, and it passes.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "reflect",
+   "title": "Reflect",
+   "order": 10,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T17:13:28.997Z",
+     "head": "443a68daf97e31a48c3a1a10ea5014e16959b903",
+     "summary": "SL-015 ported the E-001..E-006 acceptance checks to Go.",
+     "caused_by": null,
+     "changed": {},
+     "details": "reflect-1.json"
     }
    ]
   }

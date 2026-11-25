@@ -1,0 +1,252 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-015",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-25T17:03:09.647Z",
+ "head": "443a68daf97e31a48c3a1a10ea5014e16959b903",
+ "run_id": 12282,
+ "summary": "I checked SL-015 at HEAD 443a68d on this PC, and it passes. All runs used a scratch TAAD3_HOME, with no HBAND_* variables and the Python folders removed from PATH.\n\n**Whole suite, no browser.** With CHROME_BIN unset, `go test -count=1 -json ./...` exits 0 in 20 s. Of 279 top-level tests, 276 pass and 0 fail. Exactly three skip, each saying 'CHROME_BIN is not set': TestE004FoldAndFitInBrowser, TestReportScriptsNeverRun and TestTabEmulatesNarrowViewport. No subtest skips (520 subtests). All 16 non-browser TestE00[1-6] tests pass.\n\n**Whole suite, with Chrome.** With CHROME_BIN set to Chrome, it exits 0 in 29 s: 279 tests pass, 0 skip, and no skip at any level names CHROME_BIN. TestE004FoldAndFitInBrowser read these scrollWidths:\n- 360 px: 360 on the branch page, 360 on /reports/e004-look\n- 400 px: 400 and 400\n- 1000 px: 985 and 985\n\nThe toggle readings were exactly what run_finish_e004_2 asserts.\n\n**Edge.** A process watcher ran through both suite runs and saw no new msedge.exe. Setting CHROME_BIN to a folder makes all three browser tests skip with a message that it is not a file.\n\n**Mapping and its sources.** I re-read the ledger in place (`mode=ro`, epics 39-44). All 16 finish bodies match the sha256 editions recorded in rows_test.go. The 6 Python ledger bodies also match their snapshots, and the 10 Go bodies match the committed files. The 6 Python files in the tree match both their editions and their snapshots.\n\nI wrote my own Python AST enumeration of assertion sites, independent of Sites(). It covers assert, raise, self.assert*/fail, sys/os exits, non-zero int returns, and calls of any function that holds one. It found 0 sites without a row across all 12 snapshots; the mapping has 365 rows over 22 sources. A sample of Ported rows (E-006 line 2, and run_finish_e004_2 L221/L245-247) carries the same check over faithfully.\n\n**Do the tests catch breaks?**\n- The committed sc042breaks test passes in 55 s: all 7 breaks fired and failed the right test.\n- I also planted breaks of my own through a GOFLAGS -overlay:\n  - Changing threadDepthCap from 5 to 6 failed both E-004 line-2 tests.\n  - Removing the sandbox directive from the raw CSP and allowing inline script failed TestE001ReportIsolation at line 433.\n  - A first CSP change that only allowed inline script survived. That is correct: the CSP's sandbox directive still blocks scripts, so nothing was actually broken.\n- Unmutated reruns pass.\n\n**Other checks.**\n- Fitness: all 40 rules hold.\n- After the runs there were no leftover hband or chrome processes, no leftover temp folders, and the repository was clean.\n\n**Assumptions and limits.**\n- The bug report was empty beyond its title, so I took the brief's WHAT and HOW TO TELL IT IS DONE as the requirement.\n- 'No Python' is approximated: the WindowsApps python alias still resolves, but no Go code starts python.\n- Build attempt 2 was a single send-back from code review that changed tests, so this is progress, not a loop.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "I checked SL-015 at HEAD 443a68d on this PC, and it passes. All runs used a scratch TAAD3_HOME, with no HBAND_* variables and the Python folders removed from PATH.\n\n**Whole suite, no browser.** With CHROME_BIN unset, `go test -count=1 -json ./...` exits 0 in 20 s. Of 279 top-level tests, 276 pass and 0 fail. Exactly three skip, each saying 'CHROME_BIN is not set': TestE004FoldAndFitInBrowser, TestReportScriptsNeverRun and TestTabEmulatesNarrowViewport. No subtest skips (520 subtests). All 16 non-browser TestE00[1-6] tests pass.\n\n**Whole suite, with Chrome.** With CHROME_BIN set to Chrome, it exits 0 in 29 s: 279 tests pass, 0 skip, and no skip at any level names CHROME_BIN. TestE004FoldAndFitInBrowser read these scrollWidths:\n- 360 px: 360 on the branch page, 360 on /reports/e004-look\n- 400 px: 400 and 400\n- 1000 px: 985 and 985\n\nThe toggle readings were exactly what run_finish_e004_2 asserts.\n\n**Edge.** A process watcher ran through both suite runs and saw no new msedge.exe. Setting CHROME_BIN to a folder makes all three browser tests skip with a message that it is not a file.\n\n**Mapping and its sources.** I re-read the ledger in place (`mode=ro`, epics 39-44). All 16 finish bodies match the sha256 editions recorded in rows_test.go. The 6 Python ledger bodies also match their snapshots, and the 10 Go bodies match the committed files. The 6 Python files in the tree match both their editions and their snapshots.\n\nI wrote my own Python AST enumeration of assertion sites, independent of Sites(). It covers assert, raise, self.assert*/fail, sys/os exits, non-zero int returns, and calls of any function that holds one. It found 0 sites without a row across all 12 snapshots; the mapping has 365 rows over 22 sources. A sample of Ported rows (E-006 line 2, and run_finish_e004_2 L221/L245-247) carries the same check over faithfully.\n\n**Do the tests catch breaks?**\n- The committed sc042breaks test passes in 55 s: all 7 breaks fired and failed the right test.\n- I also planted breaks of my own through a GOFLAGS -overlay:\n  - Changing threadDepthCap from 5 to 6 failed both E-004 line-2 tests.\n  - Removing the sandbox directive from the raw CSP and allowing inline script failed TestE001ReportIsolation at line 433.\n  - A first CSP change that only allowed inline script survived. That is correct: the CSP's sandbox directive still blocks scripts, so nothing was actually broken.\n- Unmutated reruns pass.\n\n**Other checks.**\n- Fitness: all 40 rules hold.\n- After the runs there were no leftover hband or chrome processes, no leftover temp folders, and the repository was clean.\n\n**Assumptions and limits.**\n- The bug report was empty beyond its title, so I took the brief's WHAT and HOW TO TELL IT IS DONE as the requirement.\n- 'No Python' is approximated: the WindowsApps python alias still resolves, but no Go code starts python.\n- Build attempt 2 was a single send-back from code review that changed tests, so this is progress, not a loop.",
+  "checks": [
+   {
+    "what": "Whole suite with CHROME_BIN unset, Python folders off PATH, HBAND_* removed, Edge watcher running",
+    "command": "go test -count=1 -json ./...  (via scratch run.ps1; judged by scratch judge.ps1)",
+    "outcome": "passed",
+    "evidence": "exit=0 in 20 s. 279 top-level tests: 276 pass, 0 fail, 3 skip. The skips are TestTabEmulatesNarrowViewport (devtools_test.go:163), TestReportScriptsNeverRun (browser_test.go:151) and TestE004FoldAndFitInBrowser (e004_2_..._test.go:252), all saying 'CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check'. 520 subtests, 0 skip, 0 fail. All 16 non-browser TestE00[1-6] tests pass in 3.3-8.1 s. newEdge=0."
+   },
+   {
+    "what": "Whole suite with CHROME_BIN=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe, Edge watcher running",
+    "command": "go test -count=1 -json ./...  (same runner, -Chrome set)",
+    "outcome": "passed",
+    "evidence": "exit=0 in 29 s. 279 pass, 0 fail, 0 skip. Subtests: 0 skip. Every output line that names CHROME_BIN comes from TestSuiteChecksReadEverySkip corpus subtest names, and none is a skip. TestE004FoldAndFitInBrowser passes in 9.11 s. scrollWidth was 360/360 at 360 px, 400/400 at 400 px and 985/985 at 1000 px, on /reports/e004-look/comments/16 and /reports/e004-look. Toggle: {shown:true, before:[false,'true','Hide replies'], folded:[true,'false','Show replies',0], after:[false,'true','Hide replies',true], replyOpen:5}. TestTabEmulatesNarrowViewport and TestReportScriptsNeverRun also pass. newEdge=0."
+   },
+   {
+    "what": "Edge is never started: new msedge.exe processes sampled every 250 ms through both whole-suite runs",
+    "command": "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe'\" loop inside run.ps1",
+    "outcome": "passed",
+    "evidence": "newEdge=0 in both runs, while 80 headless chrome.exe PIDs were seen in the Chrome run. The real msedge.exe was deliberately never set as CHROME_BIN, because doing so would risk starting Edge."
+   },
+   {
+    "what": "CHROME_BIN naming a folder skips every browser test with a message",
+    "command": "CHROME_BIN=<scratch folder>; go test -count=1 -v -run 'TestE004FoldAndFitInBrowser|TestTabEmulatesNarrowViewport|TestReportScriptsNeverRun' ./tests/acceptance/e004_2_deep_threads_and_toggle ./internal/testutil/headless ./internal/server",
+    "outcome": "passed",
+    "evidence": "exit 0. All three show --- SKIP with 'CHROME_BIN=\"...sl015-validate\" is not a file: set it to the path of a Chrome executable to run this check'."
+   },
+   {
+    "what": "Architecture fitness rules",
+    "command": "mcp Fitness op=check",
+    "outcome": "passed",
+    "evidence": "40 rules checked against 140 parsed files: every declared rule holds."
+   },
+   {
+    "what": "O-016: re-read the ledger in place and compare every Edition",
+    "command": "python -I editions.py %APPDATA%\\taad3\\engine.db <repo>  (sqlite3 file:...?mode=ro; SELECT id,key,finish FROM epics WHERE id BETWEEN 39 AND 44)",
+    "outcome": "passed",
+    "evidence": "There are 22 declared sources and 16 ledger finish items: E-001 has 6, E-002 4, E-003 1, E-004 2, E-005 1, E-006 2. For every item, sha256(Canonical(body)) equals the Edition in rows_test.go. The 10 Go bodies' committed files match, and the 6 Python bodies' snapshots match. No item is undeclared, and no declared ledger source is missing from the ledger. For the 6 in-tree sources (run_finish.py, serve_show_all.py, check_e006_1_stops_at_block.py, check_run_finish_needs_chrome_bin.py, test_run_finish_edge_guard.py, .taad/slices/SL-008/run_finish_e004_2.py), the live file and the snapshot both match the Edition."
+   },
+   {
+    "what": "O-015: my own AST enumeration of assertion sites in all 12 Python snapshots, compared with the mapping rows",
+    "command": "python -I sites.py <repo>  (ast: Assert, Raise, self.assert*/fail, sys.exit/os._exit/exit/quit, non-zero int returns incl. tuples/IfExp/unary minus, and calls of every def that holds a site, to a fixpoint)",
+    "outcome": "passed",
+    "evidence": "Missing sites: 0 in total. AST sites against rows per source: e003_1 45/47, e004_1 44/46, e004_2 58/61, e005_1 40/42, e006_1 47/49, e006_2 52/54, run_finish 11/13, serve_show_all 3/4, check_e006_1 3/5, check_run_finish_needs_chrome_bin 1/1, test_run_finish_edge_guard 2/2, run_finish_e004_2 28/31."
+   },
+   {
+    "what": "Known Sites() hole (exit code held in a variable) against the snapshots",
+    "command": "Grep '^\\s*return\\s+\\(?[a-z_]+\\)?\\s*$|exit\\(\\s*[a-z_]+\\s*\\)|exit\\(main' and '^\\s*return\\b|exit\\(' in tests/acceptance/ported/testdata/*.txt",
+    "outcome": "passed",
+    "evidence": "Every variable return is a page, value or helper result, not an exit verdict. run_finish.txt L146 (`return run.returncode, ...`) sits in run_body, which already holds a site at L145, so its caller L184 has row RF-184. Both `sys.exit(main())` lines are sites with rows."
+   },
+   {
+    "what": "Mapping quality: Python lines compared with the Go statements their tags sit on",
+    "command": "Select-String 'ported:' over tests/acceptance/e00*/*.go and internal/testutil/program/*.go; Read e006_2 test L74-133; read snapshot lines",
+    "outcome": "passed",
+    "evidence": "199 tag lines. E62-387/389/393/395/396/400/401 carry the same values and messages as e006_2 snapshot L387-401, e.g. (2,1,3,3) 'before any block', (1,1) public counts, and (2,0,1) 'a blocked account cast, changed or withdrew a vote'. RE-221/245-247 (scrollWidth <= width, and the three toggle readings) carry over in e004_2_..._test.go:298/308. Row tally: 365 rows. The only Amended rows are E42-333 (Fetch bridge dropped, because Chrome signs itself in on loopback http) and E42-310 (the msedge browser list is dropped under the BROWSER RULE)."
+   },
+   {
+    "what": "C5: committed break test, one overlay trigger per epic",
+    "command": "CHROME_BIN=Chrome; go test -count=1 -tags sc042breaks -timeout 20m -v ./tests/acceptance/breaks",
+    "outcome": "passed",
+    "evidence": "exit 0 in 56 s. Every subtest broke its target and the right test failed:\n- gate: TestE001OwnerOnlyAdmin ('/admin answered 200')\n- opens: TestE002OpensCountedOnce ('its row shows 0 times opened')\n- likes: TestE003SignInAndVote ('got [0 0], want [1 1]')\n- flatten: TestE004CommentsAndReplies ('not shown beneath comment-1')\n- feedback: TestE005PrivateFeedback ('shows no element id=feedback-<n>')\n- placeholder: TestE006RemovalAndPlaceholders\n- blocked: TestE006BlockingAndUnblocking"
+   },
+   {
+    "what": "C5, independent of the builder: threadDepthCap 5→6 through a GOFLAGS overlay of internal/server/thread.go",
+    "command": "GOFLAGS=-overlay=ov_thread.json; go test -count=1 -v ./tests/acceptance/e004_2_deep_threads_and_toggle",
+    "outcome": "passed",
+    "evidence": "exit 1, so the break was caught. TestE004DeepThreadsAndBranchPages and TestE004FoldAndFitInBrowser both fail: '/reports/e004-branch-alpha should show levels 1 to 5 and not level 6'. This also shows that program.Build carries the caller's GOFLAGS overlay into the built binary."
+   },
+   {
+    "what": "C5, independent of the builder: raw report CSP mutations through a GOFLAGS overlay of internal/server/raw.go",
+    "command": "GOFLAGS=-overlay=ov_raw.json (script-src 'unsafe-inline' only), then ov_raw2.json (sandbox directive removed and script-src 'unsafe-inline'); go test -count=1 -v ./tests/acceptance/e001_6_report_isolation",
+    "outcome": "passed",
+    "evidence": "The first mutation left TestE001ReportIsolation passing. That mutant is equivalent: the CSP still carries `sandbox` without allow-scripts, which blocks scripts, and safe() at e001_6_..._test.go:379-384 accepts exactly that, so passing was correct. The second mutation really breaks the behaviour and is caught: exit 1 at e001_6_..._test.go:433, 'no Content-Security-Policy, or one that lets a script run'."
+   },
+   {
+    "what": "Unmutated reruns after the overlays",
+    "command": "go test -count=1 ./tests/acceptance/e001_6_report_isolation ./tests/acceptance/e004_2_deep_threads_and_toggle",
+    "outcome": "passed",
+    "evidence": "exit 0. Both packages ok, in 2.4 s and 14.0 s."
+   },
+   {
+    "what": "The slice's own guard and harness tests ran and passed in both whole-suite runs",
+    "command": "Query of nobrowser.json and chrome.json -json events",
+    "outcome": "passed",
+    "evidence": "Each of these passed in both runs:\n- ported checks: TestPortedAssertionsHaveAGoTest, TestPortedCheckerRefusesGaps, TestSitesSeeMultiDigitExitCodes\n- suite judge: TestSuiteChecksReadEverySkip\n- Edge refusal: TestBrowserRefusesARealSymlinkToEdge, TestBrowserRefusesWhatSymlinksResolveToEdge\n- DevTools driver: TestOpenSkipsWhereBrowserSkips, TestDevToolsFrames, TestBrowserSkipEndsTheCallingTest\n- harness: TestBuildTakesGOFLAGSFromTheEnvironment, TestStartFailsWhenTheProgramExitsBeforeListening, TestLoopbackStartRetriesOnATakenPort, TestStartIgnoresTheDefaultPortAndProxies, TestStartLeavesNothingInTheRepository, TestAnonymousVisitorIsNotSignedInByAGatedPage\n- architecture: TestAcceptanceLinksNoneOfTheProduct, TestRulesHoldOnTheTree\n- fakegithub: TestTokenExchangeRefusesABadRequest, TestUserRefusesAnUnknownToken\n- TestBinary"
+   },
+   {
+    "what": "No Go code starts Python",
+    "command": "Grep '(?i)\"python|python\\.exe|py\\.exe' over *.go",
+    "outcome": "passed",
+    "evidence": "The only matches are user-agent strings, in internal/opens/opens.go:149 and opens_test.go:337-338."
+   },
+   {
+    "what": "C3/C6: acceptance packages and how they reach the program and the browser",
+    "command": "Grep os.(Getenv|LookupEnv|Environ)|CHROME_BIN|msedge|chrome.exe|exec.Command|product imports over tests/acceptance/*.go; Grep program.go; Read e006_2 imports",
+    "outcome": "passed",
+    "evidence": "The E-003..E-006 tests import only internal/testutil/{fakegithub,program}. They use program.Start(t, program.Build(t), ...), whose env (program.go:191-200) is a free addr, a MkdirTemp data dir, the fakegithub URL for both GitHub settings, and HBAND_TRUSTED_PROXIES. The 10 Verbatim E-001/E-002 bodies exec `go build ./cmd/hband` themselves and start the binary with os.Environ() plus HBAND_*, as the ledger wrote them. No acceptance package names msedge or chrome.exe, and none starts a browser. suite_test.go:88 and subtest_skip_test.go read os.Getenv(\"CHROME_BIN\") only to decide whether the with-Chrome whole-suite check applies. They are tagged sc042suite, never start a browser, and the engine required them as given."
+   },
+   {
+    "what": "No leftovers after the runs",
+    "command": "git status --short; Get-ChildItem $env:TEMP -Directory created in last 40 min; Win32_Process hband/chrome/msedge with hband-|headless|sc042",
+    "outcome": "passed",
+    "evidence": "git status shows only the engine's own .taad/slices/SL-015 files. The only new temp folder is 'claude', which belongs to the harness, not the tests. No leftover hband, chrome or msedge processes."
+   },
+   {
+    "what": "The sc042suite-tagged whole-suite tests (TestSuiteWithoutABrowser, TestSuiteInChrome, TestSuiteInChromeRefusesASubtestSkipNamingChromeBin)",
+    "command": "go test -count=1 -tags sc042suite -timeout 30m ./tests/acceptance/suite",
+    "outcome": "not-run",
+    "evidence": "Not re-run by me. My own direct whole-suite runs measured the same two conditions with my own independent judge (above). The engine already ran the O-030 closing test, and the build and the review recorded both real runs passing."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "HOW-TO-TELL 1 / C1: with no Python and no browser, `go test -count=1 ./...` passes; browser tests SKIP with a message naming CHROME_BIN; the rest run",
+    "met": "yes",
+    "how": "I ran it with CHROME_BIN unset and the Python folders off PATH: exit 0 in 20 s. Only the 3 browser tests skip, each naming CHROME_BIN. 276 pass, with 0 subtest skips. 'No Python' is approximated: the WindowsApps alias still resolves, but no Go code starts python."
+   },
+   {
+    "criterion": "HOW-TO-TELL 2 / C2: with CHROME_BIN set to a real browser, the browser tests run and pass, including the E-004 toggle and the run_finish_e004_2 look",
+    "met": "yes",
+    "how": "I ran the whole suite with CHROME_BIN set to Chrome: 279 pass, 0 skip. TestE004FoldAndFitInBrowser read scrollWidth 360/400/985 at 360/400/1000 px on the branch page and on /reports/e004-look, and the toggle readings were exactly as asserted."
+   },
+   {
+    "criterion": "HOW-TO-TELL 3 / C3: each of E-001..E-006 has Go tests that build ./cmd/hband, start it on its own port with a throwaway config and database and a stand-in GitHub, and talk only over HTTP",
+    "met": "yes",
+    "how": "There are 17 TestE00[1-6] tests: E-001 6, E-002 4, E-003 1, E-004 3, E-005 1, E-006 2. E-003..E-006 go through program.Build and program.Start (MkdirTemp data, free addr, fakegithub). E-001 and E-002 are the Verbatim ledger bodies that build and start the binary themselves. TestAcceptanceLinksNoneOfTheProduct passes and the Fitness import rules hold."
+   },
+   {
+    "criterion": "HOW-TO-TELL 4 / C4: a written mapping from every assertion in every Python file to the Go test that now makes it, nothing unmapped",
+    "met": "yes",
+    "how": "tests/acceptance/ported/rows_test.go has 365 rows over 22 sources, and TestPortedAssertionsHaveAGoTest passes. Every Edition matches the ledger, read in place. My own AST enumeration found 0 sites without a row."
+   },
+   {
+    "criterion": "HOW-TO-TELL 5 / C5: tests seen to fail when the behaviour they guard is deliberately broken, at least a sample per epic",
+    "met": "yes",
+    "how": "The sc042breaks test passes: 7/7 breaks fired, and each failed its epic's test. My own two non-equivalent overlay breaks (thread depth cap, raw CSP without sandbox) were also caught."
+   },
+   {
+    "criterion": "C6 BROWSER RULE: browser checks through internal/testutil/headless, CHROME_BIN only, unset or non-file skips with a message, Edge never started, tests read no environment and look for no browser themselves",
+    "met": "yes",
+    "how": "0 new msedge.exe in either run. A folder as CHROME_BIN skips all 3 browser tests with 'is not a file'. The Fitness browser rules hold. The only CHROME_BIN reads in tests/acceptance are the sc042suite gate checks, which start no browser."
+   },
+   {
+    "criterion": "1. build the program when GOFLAGS carries an -overlay adding a file to ./cmd/hband",
+    "met": "yes",
+    "how": "TestBuildTakesGOFLAGSFromTheEnvironment passed in both runs. My own thread.go overlay also reached the binary that program.Build produced."
+   },
+   {
+    "criterion": "2. start fails clearly when the program exits before 'listening addr='",
+    "met": "yes",
+    "how": "TestStartFailsWhenTheProgramExitsBeforeListening passed in both runs."
+   },
+   {
+    "criterion": "3. loopback-http start retries when the picked port is taken",
+    "met": "yes",
+    "how": "TestLoopbackStartRetriesOnATakenPort passed in both runs."
+   },
+   {
+    "criterion": "4. start and sign in with 127.0.0.1:8080 held and all proxy variables pointing at a closed port",
+    "met": "yes",
+    "how": "TestStartIgnoresTheDefaultPortAndProxies passed in both runs."
+   },
+   {
+    "criterion": "5. an acceptance test leaves nothing behind once it and its cleanups finish",
+    "met": "yes",
+    "how": "TestStartLeavesNothingInTheRepository passed. After my runs git status was clean, with no leftover temp folders or processes."
+   },
+   {
+    "criterion": "6. the whole suite on a machine with no browser (CHROME_BIN unset)",
+    "met": "yes",
+    "how": "Measured directly: exit 0, and only the 3 browser tests skip, saying 'CHROME_BIN is not set'."
+   },
+   {
+    "criterion": "7. fold a thread and fit it on a phone in real Chrome, signed in, at 360/400/1000 on the branch page and /reports/<slug>, with every details.reply open",
+    "met": "yes",
+    "how": "TestE004FoldAndFitInBrowser passed with Chrome. It logged scrollWidth <= width on both pages at all three widths, the toggle readings, and replyOpen:5."
+   },
+   {
+    "criterion": "8. open a DevTools tab with CHROME_BIN unset, empty, a folder, or a file named msedge.exe",
+    "met": "yes",
+    "how": "TestOpenSkipsWhereBrowserSkips passed. A real run with CHROME_BIN set to a folder skipped with a message."
+   },
+   {
+    "criterion": "9. measure page width under emulation on a page wider than 360 px",
+    "met": "yes",
+    "how": "TestTabEmulatesNarrowViewport passed in Chrome (1.61 s)."
+   },
+   {
+    "criterion": "10. read DevTools messages: 64-bit length, continuation frames, a ping in between",
+    "met": "yes",
+    "how": "TestDevToolsFrames passed in both runs."
+   },
+   {
+    "criterion": "11. Browser's skip really ends the calling test, with CHROME_BIN set to Chrome",
+    "met": "yes",
+    "how": "TestBrowserSkipEndsTheCallingTest passed. The Chrome whole-suite run had 0 skips at any level."
+   },
+   {
+    "criterion": "12. the mapping checker refuses a missing row, an untagged Ported row, a stray tag, a reason-less Amended row, or an edition mismatch",
+    "met": "yes",
+    "how": "TestPortedCheckerRefusesGaps and TestPortedAssertionsHaveAGoTest passed. The editions were re-verified against the ledger in place."
+   },
+   {
+    "criterion": "13. break one shipped behaviour per epic through a GOFLAGS overlay",
+    "met": "yes",
+    "how": "go test -tags sc042breaks ./tests/acceptance/breaks: exit 0 in 56 s. All 7 breaks fired and failed the right test."
+   },
+   {
+    "criterion": "14. post replies deeper than a page draws (level 5, the cap, deeper)",
+    "met": "yes",
+    "how": "TestE004DeepThreadsAndBranchPages passed. With threadDepthCap changed to 6 by overlay it failed with 'should show levels 1 to 5 and not level 6'."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-015",
+    "verified": "yes",
+    "evidence": "Each Python body's assertion sites can be enumerated. My own Python-AST enumeration over all 12 committed snapshots covered assert, raise, self.assert*/fail, sys/os exits and exit/quit, non-zero int returns (tuples, if-expressions, unary minus), and transitive calls of every def holding a site. It found 0 sites without a row in rows_test.go. Per-source AST/row counts: 45/47, 44/46, 58/61, 40/42, 47/49, 52/54, 11/13, 3/4, 3/5, 1/1, 2/2, 28/31. The known hole (an exit code held in a variable) is not exercised: every variable return in the snapshots is a value, and run_finish L146 sits inside run_body, which is already a holder."
+   },
+   {
+    "key": "O-016",
+    "verified": "yes",
+    "evidence": "Checked as of 2026-11-25, re-read in place (file:...engine.db?mode=ro, SELECT id,key,finish FROM epics WHERE id BETWEEN 39 AND 44). All 16 finish bodies hash, as sha256(Canonical(body)), to the Editions in rows_test.go. The 6 Python snapshots and the 10 committed Go files match. The 6 in-tree Python sources match in both the live file and the snapshot. So the edition has stayed frozen from the build's read until now. That it stays frozen until the repeal still depends on SC-043 doing the same in-place re-read, which the rows_test.go header comment tells it to do."
+   }
+  ],
+  "not_reached": [
+   "A machine with no Python at all: C:\\Python314 was removed from PATH, but the WindowsApps python.exe alias still resolved. No Go code starts python (grep), so this was approximated, not reproduced.",
+   "A machine with no Chrome installed: approximated by CHROME_BIN unset, and by CHROME_BIN naming a folder.",
+   "Linux or macOS (Q-036 is open). Every run was on this Windows 11 machine.",
+   "The production https/__Host- cookie path in a real browser behind the VPS + WireGuard proxy. The browser test runs Chrome against a loopback-http base.",
+   "The real GitHub sign-in. The tests use fakegithub, and the real sign-in stays the by-hand check SC-023.",
+   "Repeat-run stability under load (the SQLITE_BUSY flake, Q-030): each whole-suite run was done once.",
+   "Whether the cited editions stay frozen until SC-043 actually deletes the Python: they were verified only at this moment."
+  ],
+  "screens": [],
+  "planned": [],
+  "elevation": []
+ }
+}

@@ -1,0 +1,153 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-015",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-25T16:39:14.854Z",
+ "head": "6271d9a9cc36886c62546c6fcfa657cf60dca36d",
+ "run_id": 12278,
+ "summary": "I fixed the two defects the code review sent back, each closed as a class with a committed corpus. O-030: suite_test.go now reads go test -json verdicts through a shared parse/judge (tests/acceptance/suite/judge_test.go), which keeps every pass, fail and skip at every level, subtests included. The Chrome check refuses any skip whose own output names CHROME_BIN, at any depth. It also refuses a browser test that passes while a subtest under it skipped. The no-browser check refuses a skipped subtest of a TestE00[1-6] test unless it is allow-listed. O-032: the assertion-site scanner now catches a non-zero return of any length, negative or in parentheses, with or without else, plus the bare exit()/quit() builtins. Widening it exposed exactly the two lines the review named (run_finish.py L145 and L184), and both now have Superseded rows. Both engine tests are committed as given and pass. Both real whole-suite checks still pass.",
+ "payload": {
+  "status": "complete",
+  "summary": "I fixed the two defects the code review sent back, each closed as a class with a committed corpus. O-030: suite_test.go now reads go test -json verdicts through a shared parse/judge (tests/acceptance/suite/judge_test.go), which keeps every pass, fail and skip at every level, subtests included. The Chrome check refuses any skip whose own output names CHROME_BIN, at any depth. It also refuses a browser test that passes while a subtest under it skipped. The no-browser check refuses a skipped subtest of a TestE00[1-6] test unless it is allow-listed. O-032: the assertion-site scanner now catches a non-zero return of any length, negative or in parentheses, with or without else, plus the bare exit()/quit() builtins. Widening it exposed exactly the two lines the review named (run_finish.py L145 and L184), and both now have Superseded rows. Both engine tests are committed as given and pass. Both real whole-suite checks still pass.",
+  "files": [
+   {
+    "path": "tests/acceptance/suite/judge_test.go",
+    "change": "added",
+    "why": "parse() keeps every verdict, subtests included. judgeWithout and judgeChrome are pure and judge those events. The file has no build tag, so its corpus runs under go test ./..."
+   },
+   {
+    "path": "tests/acceptance/suite/corpus_test.go",
+    "change": "added",
+    "why": "TestSuiteChecksReadEverySkip plants each corpus row into a healthy run and requires the judge to fire or stay quiet. The loader is strict: unknown keys, an empty corpus, bad mode/expect, duplicate names and placeholders are refused."
+   },
+   {
+    "path": "tests/acceptance/suite/testdata/skip_events.json",
+    "change": "added",
+    "why": "Corpus for O-030's class: 20 fire/quiet plant rows over subtest and nested-subtest skips in both modes, plus Browser's three message forms and the sibling-prefix and log-line quiet cases."
+   },
+   {
+    "path": "tests/acceptance/suite/suite_test.go",
+    "change": "modified",
+    "why": "TestSuiteWithoutABrowser and TestSuiteInChrome now call parse plus the judges. The duplicated top-level-only logic is removed."
+   },
+   {
+    "path": "tests/acceptance/suite/subtest_skip_test.go",
+    "change": "added",
+    "why": "The engine's closing test for O-030, as given."
+   },
+   {
+    "path": "tests/acceptance/ported/ported_test.go",
+    "change": "modified",
+    "why": "The site patterns now catch multi-digit, parenthesised and negative non-zero returns (bare and after else) and the exit()/quit() builtins. The Sites doc comment is updated to match."
+   },
+   {
+    "path": "tests/acceptance/ported/rows_test.go",
+    "change": "modified",
+    "why": "Added rows RF-145 and RF-184 (run_finish.py's timeout verdict and its caller), both Superseded by go test -timeout."
+   },
+   {
+    "path": "tests/acceptance/ported/sites_multidigit_test.go",
+    "change": "added",
+    "why": "The engine's closing test for O-032, as given."
+   },
+   {
+    "path": "tests/acceptance/ported/sites_corpus_test.go",
+    "change": "added",
+    "why": "TestSitesSeeEverySpelling holds Sites to every corpus row. The loader is strict: unknown keys, an empty corpus, missing sites, sites out of range and placeholders are refused."
+   },
+   {
+    "path": "tests/acceptance/ported/testdata/site_spellings.json",
+    "change": "added",
+    "why": "Corpus for O-032's class: 48 rows of Python assertion-site spellings (fire) and look-alikes (quiet), each saying who writes it."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-030",
+    "done": true,
+    "how": "parse() now keeps every pass, fail and skip at every level, keyed package/test.\n- judgeChrome refuses any skip, subtest or nested subtest included, whose own output (its key and keys under key+'/') contains CHROME_BIN. It also refuses a browser test that passes while a subtest under it skipped.\n- judgeWithout refuses a skipped subtest of a non-browser TestE00[1-6] test unless mayAlsoSkip lists its whole name.\n\nBefore the fix: run against judges that copied the old top-level-only logic, the corpus failed exactly 8 rows. These were the four Chrome subtest-skip rows (unset, nested, Edge message, no-file message), the browser-test-with-skipped-subtest row and the three no-browser acceptance-subtest rows. All 12 quiet and old-behaviour rows passed.\n\nAfter the fix: all 20 rows pass.\n\nThe engine's TestSuiteInChromeRefusesASubtestSkipNamingChromeBin passes (48 s). Run by hand with the same overlay, the inner TestSuiteInChrome fails with '.../fakegithub/TestSC042SubtestSkipsForWantOfChromeBin/caller skipped saying CHROME_BIN with CHROME_BIN set'. That is also a measurement that test2json gives the skip message to the subtest. The real TestSuiteInChrome (279 top-level tests, nothing skipped) and TestSuiteWithoutABrowser (three browser skips, 16 acceptance passes, no subtest skips) both pass.",
+    "corpus": "tests/acceptance/suite/testdata/skip_events.json",
+    "mutation": {
+     "file": "tests/acceptance/suite/judge_test.go",
+     "find": "if v.Action != \"skip\" {",
+     "replace": "if v.Action != \"skip\" || v.sub() {",
+     "test_command": "go test -count=1 -run ^TestSuiteChecksReadEverySkip$ ./tests/acceptance/suite"
+    }
+   },
+   {
+    "key": "O-032",
+    "done": true,
+    "how": "Widened the site patterns:\n- `\\breturn(?:\\s+|\\s*\\()\\s*(?:-\\s*)?[1-9]\\d*\\b` catches `return 124, ...`, `return 10`, `return (1)`, `return(2)`, `return -1` and `return - 1`. It requires a space or '(' after return, so identifiers such as returned1 stay quiet.\n- The else form now takes the same number grammar (`else 12`, `else -1`, `else (2)`).\n- Added the bare `exit(`/`quit(` builtins. A preceding '.' or word character is excluded, so on_exit( and methods named exit stay quiet.\n\nBefore the fix: 13 corpus rows and the engine's TestSitesSeeMultiDigitExitCodes failed.\n\nAfter the fix: all 48 rows pass, and so does the engine test. TestPortedAssertionsHaveAGoTest then reported exactly run_finish.py L145 and L184 as sites with no row. I added RF-145 and RF-184, both Superseded by go test -timeout, and the package passes. No other new sites appeared in the 12 snapshots. A code held in a variable (`return code`) is a known hole, pinned quiet in the corpus.",
+    "corpus": "tests/acceptance/ported/testdata/site_spellings.json",
+    "mutation": {
+     "file": "tests/acceptance/ported/ported_test.go",
+     "find": "regexp.MustCompile(`\\breturn(?:\\s+|\\s*\\()\\s*(?:-\\s*)?[1-9]\\d*\\b`),",
+     "replace": "regexp.MustCompile(`\\breturn\\s+[1-9]\\b`),",
+     "test_command": "go test -count=1 -run TestSitesSeeMultiDigitExitCodes ./tests/acceptance/ported"
+    }
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -run 'TestSitesSeeEverySpelling|TestSitesSeeMultiDigitExitCodes' ./tests/acceptance/ported  (before the fix)",
+    "outcome": "failed",
+    "note": "Expected. 13 corpus rows failed (exit/quit builtins, return 124/10/(1)/(2)/-1/- 1, else 12/-1/(2), the caller chains), and so did the engine test. Every quiet row passed."
+   },
+   {
+    "command": "go test -count=1 -run TestSuiteChecksReadEverySkip ./tests/acceptance/suite  (before the fix, judges copying the old top-level-only logic)",
+    "outcome": "failed",
+    "note": "Expected. Exactly the 8 subtest-level rows failed: 5 in Chrome mode and 3 in no-browser mode."
+   },
+   {
+    "command": "go test -count=1 ./tests/acceptance/ported  (after widening, before adding rows)",
+    "outcome": "failed",
+    "note": "TestPortedAssertionsHaveAGoTest reported run_finish.py lines 145 and 184 as sites with no row, the two the review named and no others."
+   },
+   {
+    "command": "go test -count=1 ./tests/acceptance/ported ./tests/acceptance/suite ./internal/fitnessrules",
+    "outcome": "passed",
+    "note": "After the fix and the RF-145/RF-184 rows. gofmt -l on both packages printed nothing. go vet -tags \"sc042suite sc042breaks\" ./tests/acceptance/... is clean."
+   },
+   {
+    "command": "go test -count=1 -tags sc042suite -timeout 30m -v -run ^TestSuiteInChromeRefusesASubtestSkipNamingChromeBin$ ./tests/acceptance/suite",
+    "outcome": "passed",
+    "note": "The engine's closing test for O-030 passed in 46.7 s."
+   },
+   {
+    "command": "GOFLAGS=-overlay=<the same fakegithub subtest-skip overlay>; go test -count=1 -tags sc042suite -v -run ^TestSuiteInChrome$ ./tests/acceptance/suite",
+    "outcome": "failed",
+    "note": "Expected, and for the right reason: 'github.com/sshubham2/hband/internal/testutil/fakegithub/TestSC042SubtestSkipsForWantOfChromeBin/caller skipped saying CHROME_BIN with CHROME_BIN set'. 280 top-level tests ran."
+   },
+   {
+    "command": "go test -count=1 -tags sc042suite -timeout 30m -v -run ^TestSuiteInChrome$ ./tests/acceptance/suite  (CHROME_BIN=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe)",
+    "outcome": "passed",
+    "note": "This is the real whole-suite run, go test -count=1 -json ./... with Chrome. Exit 0, 279 top-level tests, nothing skipped at any level. 28 s."
+   },
+   {
+    "command": "go test -count=1 -tags sc042suite -timeout 30m -v -run ^TestSuiteWithoutABrowser$ ./tests/acceptance/suite",
+    "outcome": "passed",
+    "note": "This is the real whole-suite run with CHROME_BIN removed. Exit 0, 279 top-level tests and 16 acceptance tests passed. Only TestE004FoldAndFitInBrowser, TestReportScriptsNeverRun and TestTabEmulatesNarrowViewport skipped, and no subtest skipped. 20 s."
+   },
+   {
+    "command": "go test -count=1 -overlay=<judge_test.go with the O-030 mutation> -run ^TestSuiteChecksReadEverySkip$ ./tests/acceptance/suite",
+    "outcome": "failed",
+    "note": "Expected: the mutation is killed."
+   },
+   {
+    "command": "go test -count=1 -overlay=<ported_test.go with the O-032 mutation> -run TestSitesSeeMultiDigitExitCodes ./tests/acceptance/ported",
+    "outcome": "failed",
+    "note": "Expected: the mutation is killed."
+   }
+  ],
+  "deviations": [
+   "tests/acceptance/suite now has two untagged _test.go files (judge_test.go, corpus_test.go). The corpus therefore runs under plain go test -count=1 ./..., while the whole-suite runs stay behind sc042suite. As a result the suite package appears in untagged go test and go list output. It imports only the standard library, and TestAcceptanceLinksNoneOfTheProduct still passes.",
+   "Closing O-030 as a class went one member past the finding's text. In the Chrome run, a browser test that passes while a subtest under it skipped is now refused, because its top-level pass hides a part that never ran in the browser. No browser test has subtests today, so the real runs are unchanged.",
+   "Closing O-032 as a class added the bare exit()/quit() builtins to the site patterns besides the prescribed return/else widening. No snapshot uses them, so they exposed no new rows."
+  ],
+  "follow_ups": [
+   "tests/acceptance/** (and now tests/acceptance/suite/testdata, tests/acceptance/ported/testdata/site_spellings.json) still has no owning block in the architecture record, since AA-043 was rejected. A person should decide which block, if any, owns the acceptance packages.",
+   "A known hole in Sites(), pinned quiet in site_spellings.json: an exit code held in a variable (`return code`) is not a site. Such verdicts are mapped only where a row is declared by hand."
+  ]
+ }
+}
