@@ -1,0 +1,189 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "reflect",
+ "attempt": 1,
+ "at": "2026-11-25T23:01:38.452Z",
+ "head": "d431cbef2a51144e61e0bb8b345f44ef7dbde4f3",
+ "run_id": 12384,
+ "summary": "SL-017 deleted the 6 .py and 2 .pyc files, added `__pycache__/` and `*.pyc` to .gitignore, and built the Go launcher internal/testutil/seeded. The launcher turned out to be a staged seed-then-serve cut-over, not the 60-80-line adapter the candidate described, because program.Start(Options{Port:N}) binds N about 1.1 s before DeepThread finishes seeding. Validate passed all 14 criteria on d431cbe, including a fresh clone with no Python on PATH. One outside-the-repository item is still open: projects.app_command for project 14 still names the deleted Python script, so the engine's look_web was never exercised through it.",
+ "payload": {
+  "status": "complete",
+  "summary": "SL-017 deleted the 6 .py and 2 .pyc files, added `__pycache__/` and `*.pyc` to .gitignore, and built the Go launcher internal/testutil/seeded. The launcher turned out to be a staged seed-then-serve cut-over, not the 60-80-line adapter the candidate described, because program.Start(Options{Port:N}) binds N about 1.1 s before DeepThread finishes seeding. Validate passed all 14 criteria on d431cbe, including a fresh clone with no Python on PATH. One outside-the-repository item is still open: projects.app_command for project 14 still names the deleted Python script, so the engine's look_web was never exercised through it.",
+  "estimate_error": "Under-sized and under-risked. It opened as medium size, medium risk, on a candidate text that called the launcher 'about 60-80 lines' over program.Start with a fixed Port. The deletion half was small and was mechanically safe from build-check onward (fresh clone passed after `git rm` of the 8 files). The launcher half was not. Spike 208 failed line 7 3/3 on the torn read, and the design had to be redone around a staged cut-over (spike 209, then design 2). Build 1 changed 31 files (d12533b2) and internal/testutil/seeded reached main.go 319 lines and main_test.go 576 lines (the line counts come from the code-review's partial-read record). The loop ran risk-spike 3x, design 2x, critique 4x, critique-review 4x, build 2x and code-review 3x. The risk tier should have been high from the opening, because 'program.Start with a fixed port is enough' was an unmeasured claim about when N starts answering.",
+  "learned": [
+   {
+    "kind": "estimate",
+    "lesson": "Do not size a launcher, harness wrapper or 'small adapter' over internal/testutil/program from reading Options alone. Start(Options{Port:N}) listens on N before DeepThread seeds, so a consumer that takes the first connect or first GET as ready (E-009 line 7, the engine's look_web) reads an empty product. Any slice that must serve a seeded product on a fixed port should open with a risk spike on 'when does N first answer', and be sized as a cut-over (staging port, shared data folder, stop, restart on N).",
+    "evidence": "Spike 208: line 7 failed 3/3, N answering ~1.1 s in while seeding ended ~2.2 s. The candidate said ~60-80 lines. The result was internal/testutil/seeded/main.go 319 lines plus main_test.go 576 lines, with 31 files changed in build 1."
+   },
+   {
+    "kind": "design",
+    "lesson": "The cut-over works with internal/testutil/program unchanged. Options.Env replaces Start's own HBAND_DATA_DIR (childEnv, program.go:277-284), launch's Kill and 5-s wait leaves a data folder that reopens whole (spike 209: 5/5, -wal 214272 B, c1-c7 equal to the baseline), and the staging stand-in must be checked against N because Start creates it before launching hband. Any later slice that needs a seeded product on a chosen port should call seeded's run() or copy its shape. It should not add Options.Seed to program, whose seam 7 acceptance packages, the breaks test and the Ported rows pin.",
+    "evidence": "Design 2 selection_rationale; spike 209 headline; code-review 1 confirmed the launcher imports only outside and program."
+   },
+   {
+    "kind": "process",
+    "lesson": "Guard rules and 'no X anywhere' done-checks draw an endless spelling-variant stream. Here the exec rule and the run-line search were attacked in 4 critique rounds and again in code review, and a class declared closed (O-021) was reopened by a new member (IN-m2: a literal inside one nested call, python3.14t, pypy3). The next slice that adds a fitness rule should fix the boundary at design: name the holes in the because text, pin them as corpus rows, and tell reviewers to attack only the spellings the text claims to cover (#939, #957).",
+    "evidence": "Code-review 1 produced 5 findings: IN-m1 fixed, IN-m2 waived to SC-051, IN-m3 overridden, IN-m4 waived to N-242, m1 waived to N-243. Critique-1 findings m3, M-add-1 (exec nested parens) and the run-line M-add-1 (`py -3`) were all spelling variants."
+   },
+   {
+    "kind": "process",
+    "lesson": "For this project check commands must be PowerShell-safe and must be run before a reviewer marks a fix as holding. Inline `pwsh -NoProfile -Command \"...$x...\"` cannot exit 0 on pass (M1), so checks live as .ps1 files under .taad/slices/SL-NNN/checks run with `pwsh -NoProfile -File`. git grep has no -x switch (exit 129 'unknown switch x'), and the worktree .gitignore is CRLF on all 29 lines, so a line match needs `--cached -E '^...$'`. A critic that writes 'holds' on a fix naming a literal git command without running it has been wrong here.",
+    "evidence": "M1 (critique 1); m1 fix text prescribed `git grep -q --cached -x -F`, marked 'holds', and build reported exit 129 (O-041)."
+   },
+   {
+    "kind": "process",
+    "lesson": "A criterion that depends on an engine or ledger setting (projects.app_command) needs a named actor and an obligation at design time. 'The engine repoints during build' had no actor: the builder cannot write the ledger, nobody did, validate recorded it as failed and did not hold the slice, and the app command now names a deleted file. The critique-review had already pointed at exactly this hole under M-add-2. Next time, either raise an explicit engine-action obligation that blocks validate, or file the repoint as its own unmet item at design.",
+    "evidence": "validations#274: [failed] 'Engine app_command for project 14 repointed'; [not-run] engine look_web; app_command still `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}`."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "E-009 line 6's ledger body does not clone: it runs in the module root with Python taken off PATH. A true fresh-clone check needs `git clone --no-hardlinks` of the slice branch, then PATH stripped of C:\\Python314, C:\\Windows (py.exe) and WindowsApps, then PYTHON*, HBAND_* and CHROME_BIN removed. Python itself stays on disk, so 'no Python installed' is only approximated; the exec fitness rule is the guard against an absolute path.",
+    "evidence": "O-042 ('Line 6's body does not clone: it runs in the module root'); validate's clone run: 33 packages ok in 41 s; validate 'not reached': C:\\Python314 still existed."
+   },
+   {
+    "kind": "risk",
+    "lesson": "Each job kill of the launcher leaves 4 hband-* temp folders (hband-acceptance-bin, -work, -data, hband-seeded-data-*) plus go-build folders in the leased TEMP, because TerminateJobObject skips Cleanup. The design accepted this and built no sweep, since a prefix sweep could delete a concurrent acceptance run's live data folder. If looks start running repeatedly within one lease, measure the growth before adding a sweep.",
+    "evidence": "Design key decision 3; validate: 'Each kill of the launcher leaves 4 hband-* temp folders plus go-build folders'; O-006 removed 4 folders by hand."
+   },
+   {
+    "kind": "process",
+    "lesson": "The repro and investigation stage died at launch with FileNotFoundError [WinError 206] (command line too long) in both rounds, on SL-017 and earlier on SL-015, and recorded nothing checkable. A slice whose brief is long or carries merged candidates, as SC-043 did with SC-044, will hit this again. Keep the brief short or reproduce by hand, and do not treat the stage's 'pass' as a run of anything.",
+    "evidence": "repro_tests#240: 'Both investigation rounds stopped at launch with FileNotFoundError [WinError 206]'; 'HOW TO CHECK IT - nothing checkable was recorded'."
+   },
+   {
+    "kind": "design",
+    "lesson": "The four-report show-all seed (12/3/120, 1/1/1, 0/0/0 with a long title, 1000/25/1000) is retired. The launcher seeds only DeepThread's e004-look thread, and show-all row text is now pinned by internal/server TestShowAll (0, 1 and 1000 rows through e002row) and the Go ports, no longer by a look at a seeded four-report page. Lesson #985 has changed from two pins to the in-process pin plus the Go acceptance ports. Any slice that changes the row markup cannot rely on a visual show-all look with large numbers.",
+    "evidence": "Design key decision 4; SS-26 and SS-120 Why texts rewritten at tests/acceptance/ported/rows_test.go:359-399; serve_show_all.txt:103-108 wrote votes/comments/report_opens straight into SQL, which the fitness rules forbid in Go outside the owning packages."
+   }
+  ],
+  "candidates": [
+   {
+    "title": "Repoint project 14's app_command to the Go launcher and run one real look_web through it",
+    "urgency": "soon",
+    "why": "validations#274: projects.app_command for project 14 is still `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}`, and that file was deleted in the SL-017 build. The value to set is `go run ./internal/testutil/seeded -port {port}`. The engine's look_web was never exercised through it; a TCP poller of the validator's own stood in. The claims that look_web runs app_command from the worktree root and treats a TCP connect as ready come only from spike 208's reading of the engine's screenlook.py, which lives outside this repository. M-add-2's 'SL-017 is the only open slice' was stated and never checked. This is an engine setting; repository work is needed only if the look fails."
+   },
+   {
+    "title": "Measure a signed-in browser look against the Go launcher (sign-in on N through the final stand-in)",
+    "urgency": "soon",
+    "why": "The launcher's final program.Start runs an auto-approving stand-in GitHub with HBAND_BASE_URL http://127.0.0.1:N, so a browser sign-in on N should work. Design 2's invariant 3 says it is unmeasured ('nothing relies on it'). The Python serve printed no session cookie either (spike 208). Lesson #961 records that the signed-in UI (compose form, reply forms) has never been rendered in a browser, and that SC-013 and SC-016 will hit the same wall. The launcher is the first thing that could remove it, so measuring one headless sign-in through internal/testutil/headless against `go run ./internal/testutil/seeded -port N` settles it cheaply."
+   }
+  ],
+  "what_went_wrong": [
+   "The launcher was sized as a ~60-80-line T adapter and was not. The candidate and the build-check relied on program.Start(Options{Port:N}) without measuring when N starts answering; spike 208 failed line 7 3/3 (N up ~1.1 s before seeding ends). That forced a staged cut-over, a second design (after spike 209), and 3 risk-spike runs, 4 critiques, 4 critique-reviews and 3 code-reviews in all.",
+   "Design 1's check strings could not exit 0 on pass (M1: `$e`, `$p`, `$LASTEXITCODE` inside a double-quoted pwsh -Command). It also dropped the explicit fresh-clone step (m2), shipped a false because text ('matches no file today' with six .py files on disk, m2) and pointed to a probe that existed only in the spike's scratch folder (m4). Design 2 then prescribed `git grep -x`, which does not exist (exit 129 at build), and the critic had marked that fix 'holds' without running it.",
+   "The guard rules and run-line search soaked up most of the review effort on a deletion slice: 4 critique rounds plus code-review findings IN-m2, IN-m3 and IN-m4. The class 'spellings of a Python interpreter in an exec literal' was declared closed (O-021) and then reopened by IN-m2, which ended as SC-051.",
+   "The committed probe source (.taad/slices/SL-017/checks/zz_probe_test.go.txt:16-19) falls back to a hard-coded folder in the builder's leased TEMP when ZZ_PROBE_DIR is unset. That is fail-open where the design required fail-closed. It was waived (O-044, N-243) and is still in the tree.",
+   "projects.app_command was assigned to 'the engine' during build with no actor and no obligation. It was not repointed, validate recorded it as [failed] and [not-run] for look_web, and the slice ships with the app command naming a deleted script. M-add-2's critic had named this exact hole.",
+   "The repro/investigation stage never ran: both rounds died at launch with WinError 206 (as on SL-015), so the 'pass' rests on reading and nothing was checkable.",
+   "Code-review 1 and 3 attest to a pass on files they did not read whole: 5 of 8 changed files in review 1 (.gitignore, .taad/fitness.yaml, rule_spellings.json, thread.go, rows_test.go) and 3 of 3 in review 3 (main.go, main_test.go, port_decimal_test.go) were partly opened, per the engine's own tool-record measurement. Round 3's 'nothing new' therefore rests on the reviewer's memory of round 1 for main.go lines 123-319.",
+   "Smaller process slips: the design filed the same by-hand item twice (SC-049 and SC-050, both about the Python finish bodies of E-003..E-006). The builder also made an accidental commit in the real repository and had to undo it. The first full-suite run in build 1 hit the known TestConcurrentVotesNoBusy flake (Q-030), and `internal/votes` passed when re-run alone."
+  ],
+  "missed": [
+   {
+    "gate": "critique",
+    "dimension": "missing-edge-cases",
+    "severity": "minor",
+    "what": "The design's -port contract and TestPortFlagRefusesBadValues listed missing, 0, -1, 65536, abc and 80x. Nobody asked which number syntaxes flag.Int accepts: it parses with base 0, so `-port 010` served on port 8 and `0x1F90` on 8080, `0o17` on 15, `1_000` on 1000. A check would feed parsePort 010, 0x1F90, 0o17, 0b1 and 1_000. Caught by the code review's second 'inputs' reader and fixed in build 2 (decimal() over fs.Func, main.go:77-121).",
+    "caught_by": "code-review (round 1, IN-m1)",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique-review",
+    "dimension": "unfounded-assumptions",
+    "severity": "minor",
+    "what": "The prescribed .gitignore literal-line check used `git grep -q --cached -x -F`, and the critic's review of that fix said 'holds'. git grep has no -x switch: it printed 'unknown switch x' with exit 129. The fix was not run once before it was approved; the builder replaced it with `-E '^__pycache__/$'` (c12) and `-E '^\\*\\.pyc$'` (c13).",
+    "caught_by": "build (O-041)",
+    "prescribed_fix": "m1"
+   },
+   {
+    "gate": "critique-review",
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "what": "The nested-parentheses exec pattern was signed off ('exec half holds', 10 fire rows) without trying a literal inside the nested call. `exec.Command(filepath.Join(pyHome, \"python.exe\"), script)`, `\"python3.14t\"` and `\"pypy3\"` stay quiet. A check would add those three rows to rule_spellings.json and name them in the because text.",
+    "caught_by": "code-review (round 1, IN-m2); waived to SC-051",
+    "prescribed_fix": "M-add-1"
+   },
+   {
+    "gate": "critique",
+    "dimension": "missing-edge-cases",
+    "severity": "minor",
+    "what": "Case-sensitivity was analysed for the fitness glob (M-add-1, '.PY') but not for done check c7, `git ls-files -- '*.py' '*.pyc' '*.pyw'`. Plain pathspecs are case-sensitive even with core.ignorecase=true on this Windows tree, so a tracked GEN.PY or tool.Py passes c7. A check would use ':(icase)*.py'. The tree has none today.",
+    "caught_by": "code-review (round 1, IN-m4); waived, note N-242",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique-review",
+    "dimension": "contract-gaps",
+    "severity": "major",
+    "what": "The accepted M-add-2 fix made 'the engine repoints app_command during build, before validate' a contract term, although the builder cannot write the ledger and no stage owned the action. The critic's note on the fix named this hole and the fix stayed unchanged. Validate then found the value still on the deleted Python script and could not run look_web. A check would add an engine-action obligation that blocks validate, or move the repoint out of the done criteria.",
+    "caught_by": "validate (validations#274, [failed] app_command repointed)",
+    "prescribed_fix": "M-add-2"
+   }
+  ],
+  "unknowns": [
+   "Does the engine's look_web really run projects.app_command from the worktree root and treat the first TCP connect as ready? That reading comes from spike 208's view of screenlook.py (outside this repository) and no run has exercised it against the Go launcher.",
+   "Does a real browser sign-in on N work after the staged cut-over, with the final stand-in on HBAND_BASE_URL http://127.0.0.1:N and the users' avatars.example rows from staging? Design 2 left it unmeasured ('nothing relies on it').",
+   "Is SL-017 the only open slice at the moment app_command is repointed? M-add-2's cost statement assumed it and nobody checked it with a SELECT.",
+   "How much do the leftover hband-* and go-build temp folders weigh per launcher kill, and does the engine's per-run TEMP lease (taad3-runs\\<id>) remove them when the run ends? Nothing measured their size or their removal.",
+   "Do E-009 lines 4 and 5 (Q-037, unrun) and the Python finish bodies of the done epics E-003..E-006 (SC-049/SC-050) need an engine-side change now that run_finish.py and the other five scripts are gone?"
+  ],
+  "lessons_judged": [
+   {
+    "id": 998,
+    "verdict": "used",
+    "why": "Before deleting, the scratch ledger Edition probe re-read epics 39-44 in place (mode=ro) and found 16/16 with 0 mismatches. The suite was also run with the .py files and __pycache__ gone, in the worktree and in a fresh clone."
+   },
+   {
+    "id": 1004,
+    "verdict": "not relevant",
+    "why": "The slice only reworded Why strings in rows_test.go and never touched Sites() or its known holes. I cannot tell from the record whether the launcher's tests added a third page-reading helper."
+   },
+   {
+    "id": 961,
+    "verdict": "used",
+    "why": "It explains why the launcher goes through program.Start, which supplies the HBAND_* env and the stand-in GitHub that internal/config demands before the app starts. It did not remove the signed-in-session wall, which is why a candidate was raised."
+   },
+   {
+    "id": 1000,
+    "verdict": "used",
+    "why": "The design and tests follow it: launcher tests avoid TestE00N names, and the first-connect GET follows no redirects, as Visitor's no-redirect rule requires."
+   },
+   {
+    "id": 985,
+    "verdict": "used",
+    "why": "The design retired the four-report show-all seed on the strength of it and named internal/server TestShowAll as the remaining guard on the row text."
+   },
+   {
+    "id": 976,
+    "verdict": "used",
+    "why": "check_e006_1_stops_at_block.py was deleted as scaffolding, and the design confirmed the Go e006_1 port presses /block and reads /admin/blocked."
+   },
+   {
+    "id": 991,
+    "verdict": "not relevant",
+    "why": "The launcher reads no browser setting. The fresh clone ran with CHROME_BIN removed and 33 packages passed, but the slice made no decision on headless.Browser."
+   },
+   {
+    "id": 947,
+    "verdict": "used",
+    "why": "Build-check and validate set CHROME_BIN to the real Chrome explicitly before running the full suite, so no Edge launch was recorded."
+   }
+  ],
+  "filed": [
+   {
+    "key": "SC-049",
+    "title": "Check by hand: Approve Go redrafts, or the retirement, of the six Python finish bodies of the done epics E-003, E-004, E-005 and E-006 (ledger epics 41-44). They still run `python tests/acceptance/test_e00*.py`. Their Go ports already pass in tests/acceptance/e003_1..e006_2, as was done for E-001 and E-002 (spike no-runnable-ledger-record-needs-python, note N-238).",
+    "urgency": "soon",
+    "source": "design"
+   },
+   {
+    "key": "SC-050",
+    "title": "Check by hand: Retire or redraft the Python finish bodies of the done epics E-003..E-006 (ledger epics 41-44), which still run `python tests/acceptance/*.py` (spike 208 no-go, N-238).",
+    "urgency": "soon",
+    "source": "design"
+   }
+  ]
+ }
+}

@@ -1,0 +1,80 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-25T22:45:05.455Z",
+ "head": "d431cbef2a51144e61e0bb8b345f44ef7dbde4f3",
+ "run_id": 12379,
+ "summary": "Fixed O-045 only. `parsePort` now declares -port with `fs.Func` and parses the value as text through a new `decimal` helper: ASCII digits only, then `strconv.Atoi`. `010` reads as decimal 10, and `0x1F90`, `0o17`, `0b1`, `1_000`, `+80`, `-1` and Arabic-Indic digits are refused. The 1..65535 range check and the usage-on-refusal behaviour are unchanged. The review's test is at internal/testutil/seeded/port_decimal_test.go as given and passes. I added the base-prefix, underscore and sign rows to TestPortFlagRefusesBadValues, plus `010` and `08080` as decimal-accepted rows. No other file changed in this attempt.",
+ "payload": {
+  "status": "complete",
+  "summary": "Fixed O-045 only. `parsePort` now declares -port with `fs.Func` and parses the value as text through a new `decimal` helper: ASCII digits only, then `strconv.Atoi`. `010` reads as decimal 10, and `0x1F90`, `0o17`, `0b1`, `1_000`, `+80`, `-1` and Arabic-Indic digits are refused. The 1..65535 range check and the usage-on-refusal behaviour are unchanged. The review's test is at internal/testutil/seeded/port_decimal_test.go as given and passes. I added the base-prefix, underscore and sign rows to TestPortFlagRefusesBadValues, plus `010` and `08080` as decimal-accepted rows. No other file changed in this attempt.",
+  "files": [
+   {
+    "path": "internal/testutil/seeded/main.go",
+    "change": "modified",
+    "why": "-port is read as text via fs.Func and parsed as decimal (new decimal helper), instead of fs.Int's base-0 ParseInt"
+   },
+   {
+    "path": "internal/testutil/seeded/port_decimal_test.go",
+    "change": "added",
+    "why": "the code review's TestPortFlagReadsADecimalPort, as given"
+   },
+   {
+    "path": "internal/testutil/seeded/main_test.go",
+    "change": "modified",
+    "why": "TestPortFlagRefusesBadValues gains rows for 0x1F90, 0o17, 0b1, 1_000, +80 and an Arabic-Indic number, and accepted rows 010 (10) and 08080 (8080)"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-045",
+    "done": true,
+    "how": "In main.go, parsePort declares -port with fs.Func and reads the text through decimal(): ASCII digits only, then strconv.Atoi, so 010 is 10 and 0x1F90, 0o17, 0b1, 1_000, +80, -1 and a non-ASCII digit string are refused through flag's own error plus usage. The range check and the usage-on-refusal path are unchanged. `go test -count=1 -run ^TestPortFlagReadsADecimalPort$ ./internal/testutil/seeded` passes. With fs.Int restored in a scratch overlay it fails: 010 gives 8, 0x1F90 gives 8080, 0o17 gives 15, 0b1 gives 1, 1_000 gives 1000. The whole seeded package passes and gofmt and vet are clean. `go run ./internal/testutil/seeded -port 0x1F90` prints 'is not a decimal number' with the usage and does not start the product.",
+    "mutation": {
+     "file": "internal/testutil/seeded/main.go",
+     "find": "n, err := decimal(s)",
+     "replace": "n64, err := strconv.ParseInt(s, 0, 64)\n\t\tn := int(n64)",
+     "test_command": "go test -count=1 -run ^TestPortFlagReadsADecimalPort$ ./internal/testutil/seeded"
+    }
+   }
+  ],
+  "mandatory": [],
+  "cases": [],
+  "tests": [
+   {
+    "command": "go test -count=1 -run ^TestPortFlagReadsADecimalPort$ ./internal/testutil/seeded",
+    "outcome": "passed",
+    "note": "the review's test, as given"
+   },
+   {
+    "command": "go test -count=1 -run ^TestPortFlagRefusesBadValues$ ./internal/testutil/seeded",
+    "outcome": "passed",
+    "note": "with the new base-prefix, underscore and sign rows"
+   },
+   {
+    "command": "go test -count=1 -overlay <scratch>/ov_mut_int.json -run ^TestPortFlagReadsADecimalPort$ ./internal/testutil/seeded",
+    "outcome": "failed",
+    "note": "expected failure: with fs.Int back, 010 gives 8, 0x1F90 8080, 0o17 15, 0b1 1, 1_000 1000"
+   },
+   {
+    "command": "go test -count=1 ./internal/testutil/seeded; go vet ./internal/testutil/seeded; gofmt -l on LF copies",
+    "outcome": "passed",
+    "note": "whole package passes; vet and gofmt clean"
+   },
+   {
+    "command": "go run ./internal/testutil/seeded -port 0x1F90",
+    "outcome": "passed",
+    "note": "refused with 'is not a decimal number' and the usage; nothing started, no temp folders left"
+   }
+  ],
+  "deviations": [
+   "The review's wording said 'refusing a value that is not all decimal digits'. A leading zero is all digits, so 010 is read as decimal 10 and accepted, not refused; the review's own test allows either (an error, or 10)."
+  ],
+  "not_built": [
+   "O-044, O-046 and O-047 were waived by the review and are not built. IN-m3 was overridden. The ZZ_PROBE_DIR fallback in the probe source, the exec-pattern holes (a literal inside one nested call, python3.14t, pypy3) and the case-sensitive ls-files pathspecs stay as they were."
+  ],
+  "follow_ups": []
+ }
+}
