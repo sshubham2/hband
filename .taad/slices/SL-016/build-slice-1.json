@@ -1,0 +1,119 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-016",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-25T19:05:26.646Z",
+ "head": "2e3af30b9a26d04827d800161799f96efd8659e9",
+ "run_id": 12313,
+ "summary": "Fixed both rows in .taad/fitness.yaml. The narrow forwarded-header rule now fences bare X-Forwarded, -IPv4/-IPv6 versions and socket-ip names. The two SL-015 browser rules now catch a launch flag after a space or tab inside a longer literal, and any .Environ method in the DevTools driver. The two engine-given tests are in place as written and pass. The class corpora are a new census, client_identity_headers.json (68 names, run in both quote styles, three contexts and two paths, under a strict loader), plus 38 new rows in rule_spellings.json. Against the pre-fix fitness.yaml, every added fire row failed and every quiet or hole pin passed. The full suite `go test -count=1 ./...` passes.",
+ "payload": {
+  "status": "complete",
+  "summary": "Fixed both rows in .taad/fitness.yaml. The narrow forwarded-header rule now fences bare X-Forwarded, -IPv4/-IPv6 versions and socket-ip names. The two SL-015 browser rules now catch a launch flag after a space or tab inside a longer literal, and any .Environ method in the DevTools driver. The two engine-given tests are in place as written and pass. The class corpora are a new census, client_identity_headers.json (68 names, run in both quote styles, three contexts and two paths, under a strict loader), plus 38 new rows in rule_spellings.json. Against the pre-fix fitness.yaml, every added fire row failed and every quiet or hole pin passed. The full suite `go test -count=1 ./...` passes.",
+  "files": [
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "Narrow forwarded-header rule: pattern 2 adds x-forwarded, pattern 3 becomes (-ip|client-?ip|socket-?ip)(v[46])?. Rule 3 (DevTools driver) adds \\.Environ\\b. Rule 4 (acceptance browser) adds the flag-after-space-or-tab-in-a-literal pattern. The because-texts name the remaining holes."
+   },
+   {
+    "path": "internal/fitnessrules/forwarded_fence_names_test.go",
+    "change": "added",
+    "why": "The engine-given SC-040 test, verbatim."
+   },
+   {
+    "path": "internal/fitnessrules/sl015_rule_probe_test.go",
+    "change": "added",
+    "why": "The engine-given SC-047 test, verbatim."
+   },
+   {
+    "path": "internal/fitnessrules/client_identity_corpus_test.go",
+    "change": "added",
+    "why": "TestClientIdentityHeaderCensus runs every census name through the narrow rule in both quote styles, three Go contexts and two paths, and checks _test.go paths stay quiet. Its loader refuses unknown keys, empty fields, names with quotes, spaces or placeholders, duplicate ids and names, and a trimmed census."
+   },
+   {
+    "path": "internal/fitnessrules/testdata/client_identity_headers.json",
+    "change": "added",
+    "why": "The SC-040 class corpus: 68 client-identity and ordinary header names by who documents them. 3 are the fenced X-Forwarded-For, 38 must fire, 8 are pinned holes and 19 stay quiet. Has purpose and bounded_by."
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "change": "modified",
+    "why": "38 new rows: fwn-f026..f031 and fwn-q015..q018, dt-env-f008..f011 and q006..q010, acc-br-f019..f027 and q007..q016. Also the bounded_by text of the two classes brought in line with the rules."
+   }
+  ],
+  "obligations": [],
+  "mandatory": [
+   {
+    "id": "SC-040",
+    "met": "yes",
+    "where": ".taad/fitness.yaml (narrow rule patterns 2 and 3); internal/fitnessrules/forwarded_fence_names_test.go; client_identity_corpus_test.go with testdata/client_identity_headers.json; rows fwn-f026..f031 in rule_spellings.json"
+   },
+   {
+    "id": "SC-047",
+    "met": "yes",
+    "where": ".taad/fitness.yaml (rule 3 gains \\.Environ\\b, rule 4 gains the flag-after-space-or-tab pattern); internal/fitnessrules/sl015_rule_probe_test.go; rows dt-env-f008..f011 and acc-br-f019..f027 in rule_spellings.json"
+   }
+  ],
+  "cases": [
+   {
+    "key": "SC-040",
+    "test_name": "fitnessrules.TestForwardedFenceCatchesBareAndVersionedNames",
+    "test_command": "go test -count=1 -run ^TestForwardedFenceCatchesBareAndVersionedNames$ ./internal/fitnessrules"
+   },
+   {
+    "key": "SC-047",
+    "test_name": "fitnessrules.TestSL015BrowserRulesSeeFlagsInsideALongerStringAndCmdEnviron",
+    "test_command": "go test -count=1 -run TestSL015BrowserRulesSeeFlagsInsideALongerStringAndCmdEnviron ./internal/fitnessrules"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 ./internal/fitnessrules  (before any fitness.yaml edit, new tests in place)",
+    "outcome": "failed",
+    "note": "As expected. TestForwardedFenceCatchesBareAndVersionedNames, TestSL015BrowserRulesSeeFlagsInsideALongerStringAndCmdEnviron and TestClientIdentityHeaderCensus failed. The census rows that failed: cih-010, 011, 012, 021, 022, 023, 024, 030, 039, 040."
+   },
+   {
+    "command": "pre-fix fitness.yaml (git show HEAD:.taad/fitness.yaml swapped in, then restored byte for byte) + go test -count=1 ./internal/fitnessrules",
+    "outcome": "failed",
+    "note": "Before column. All 4 tests above failed, plus TestRuleSpellingsCorpus on exactly the added fire rows: fwn-f026..f031, dt-env-f008..f011, acc-br-f019..f027. No quiet or hole row failed. The file hash matched after the restore."
+   },
+   {
+    "command": "go test -count=1 -run ^TestForwardedFenceCatchesBareAndVersionedNames$ ./internal/fitnessrules",
+    "outcome": "passed"
+   },
+   {
+    "command": "go test -count=1 -run TestSL015BrowserRulesSeeFlagsInsideALongerStringAndCmdEnviron ./internal/fitnessrules",
+    "outcome": "passed"
+   },
+   {
+    "command": "go test -count=1 -run 'TestClientIdentityHeaderCensus|TestRuleSpellingsCorpus|TestRulesHoldOnTheTree|TestFitnessYAMLPlainScalarsParse' -v ./internal/fitnessrules",
+    "outcome": "passed",
+    "note": "The corpus holds 623 rows. TestRulesHoldOnTheTree shows none of the widened patterns fires on any file in the repository."
+   },
+   {
+    "command": "go vet ./internal/fitnessrules; gofmt -l on the new files",
+    "outcome": "passed",
+    "note": "No vet output. gofmt lists only the existing CRLF files (lesson #975); the new test files are clean."
+   },
+   {
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "Every package ok, including all 17 acceptance packages, which build ./cmd/hband and drive it over HTTP, ported, suite, headless and server. Nothing in the product changed, so this is the closest run of the shipped program that applies. The slice touches only the fitness rules and their tests."
+   }
+  ],
+  "deviations": [
+   "Rule 3 uses \\.Environ\\b instead of the prescribed \\.Environ\\(\\). It is a superset: the same rows fire, and it also catches the method taken as a value (get := cmd.Environ). The rule's own because-text promises that it matches 'a call or a method value'. dt-env-f010 pins this. \\.Environment stays quiet (dt-env-q009).",
+   "The finding's 'line 456' and 'line 457' are stale. The narrow rule's patterns are at lines 460 and 461 in this tree. I applied the prescribed regexes to those patterns (pattern 2 and pattern 3) and added the optional socket-?ip, so X-Azure-SocketIP now fires (fwn-f030, cih-030).",
+   "The class corpus for SC-040 is a new file with its own strict loader (client_identity_headers.json and client_identity_corpus_test.go) instead of more rule_spellings.json rows. A census of names expanded over quote styles, contexts and paths does not fit that file's one-text-per-row shape. The loader follows lesson #995. The four rows the finding names are also in rule_spellings.json. The SC-047 class corpus is rule_spellings.json itself."
+  ],
+  "not_built": [
+   "The broad rule 'no request header ever supplies scheme, host or client identity' was not widened to the bare X-Forwarded. The design only changes the narrow rule, which already applies to every non-test Go file, clientaddr.go included.",
+   "Holes pinned as quiet rows, not closed (lesson #939): a flag after an escaped \\t inside an interpreted string (acc-br-q012); a flag at the start of a later line of a raw string (acc-br-q013); syscall.GetEnvironmentVariable (dt-env-q010); client-identity names that match no shape, such as X-Envoy-External-Address and CloudFront-Viewer-Address (fwn-q012, fwn-q017, cih-060..064); and underscore spellings (fwn-q018, cih-065..067)."
+  ],
+  "follow_ups": [
+   "internal/fitnessrules/** matches no architecture block's globs, so the package and its new files have no owner in the record. A person should say which block owns it, or whether none does.",
+   "Fitness op=check, which uses a real YAML parser, was not run: the builder has no such tool and this machine has no PyYAML. The edited because-texts are single-quoted with doubled apostrophes, the three new plain scalars have the same shape as the old ones, and TestFitnessYAMLPlainScalarsParse passes. The engine should still run op=check on the tree."
+  ]
+ }
+}

@@ -7,7 +7,36 @@
  "opened_at": "2026-11-25T19:04:13.648Z",
  "merge_commit": null,
  "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
- "open": [],
+ "open": [
+  {
+   "stage": "build-slice",
+   "issue": "The broad rule 'no request header ever supplies scheme, host or client identity' was not widened to the bare X-Forwarded. The design only changes the narrow rule, which already applies to every non-test Go file, clientaddr.go included."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Holes pinned as quiet rows, not closed (lesson #939): a flag after an escaped \\t inside an interpreted string (acc-br-q012); a flag at the start of a later line of a raw string (acc-br-q013); syscall.GetEnvironmentVariable (dt-env-q010); client-identity names that match no shape, such as X-Envoy-External-Address and CloudFront-Viewer-Address (fwn-q012, fwn-q017, cih-060..064); and underscore spellings (fwn-q018, cih-065..067)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "internal/fitnessrules/** matches no architecture block's globs, so the package and its new files have no owner in the record. A person should say which block owns it, or whether none does."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Fitness op=check, which uses a real YAML parser, was not run: the builder has no such tool and this machine has no PyYAML. The edited because-texts are single-quoted with doubled apostrophes, the three new plain scalars have the same shape as the old ones, and TestFitnessYAMLPlainScalarsParse passes. The engine should still run op=check on the tree."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Rule 3 uses \\.Environ\\b instead of the prescribed \\.Environ\\(\\). It is a superset: the same rows fire, and it also catches the method taken as a value (get := cmd.Environ). The rule's own because-text promises that it matches 'a call or a method value'. dt-env-f010 pins this. \\.Environment stays quiet (dt-env-q009)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The finding's 'line 456' and 'line 457' are stale. The narrow rule's patterns are at lines 460 and 461 in this tree. I applied the prescribed regexes to those patterns (pattern 2 and pattern 3) and added the optional socket-?ip, so X-Azure-SocketIP now fires (fwn-f030, cih-030)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The class corpus for SC-040 is a new file with its own strict loader (client_identity_headers.json and client_identity_corpus_test.go) instead of more rule_spellings.json rows. A census of names expanded over quote styles, contexts and paths does not fit that file's one-text-per-row shape. The loader follows lesson #995. The four rows the finding names are also in rule_spellings.json. The SC-047 class corpus is rule_spellings.json itself."
+  }
+ ],
  "stages": [
   {
    "stage": "repro",
@@ -83,6 +112,55 @@
      "details": "critique-review-1.json"
     }
    ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T19:05:26.646Z",
+     "head": "2e3af30b9a26d04827d800161799f96efd8659e9",
+     "summary": "Fixed both rows in .taad/fitness.yaml.",
+     "caused_by": null,
+     "changed": {
+      "config": 1,
+      "src": 3,
+      "tests": 2,
+      "listed": 6,
+      "measured_by_git": 10
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T19:13:26.925Z",
+     "head": "2e3af30b9a26d04827d800161799f96efd8659e9",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "failed",
+   "attempts": []
   }
  ]
 }
