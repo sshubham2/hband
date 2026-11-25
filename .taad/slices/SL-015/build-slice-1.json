@@ -1,0 +1,11 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-015",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-25T14:44:04.746Z",
+ "head": "845585a20063a58ee07c2eed632964af72dada2f",
+ "run_id": 12268,
+ "summary": "",
+ "payload": {}
+}

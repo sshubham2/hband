@@ -1,0 +1,155 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-015",
+ "title": "Port E-001..E-006's acceptance checks (the 14 ledger finish bodies, 6 of them Python, and run_finish_e004_2's look assertions) to Go tests that build and drive the real program over HTTP",
+ "status": "active",
+ "branch": "slice/SL-015",
+ "opened_at": "2026-11-25T12:51:30.906Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C1 (derived from 'HOW TO TELL IT IS DONE' 1): on a machine with no Python and no browser, `go test -count=1 ./...` passes; browser tests SKIP with a message naming CHROME_BIN; the rest run: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C2 (derived from 2): with CHROME_BIN set to a real browser, the browser acceptance tests run and pass, including the E-004 comment toggle and the run_finish_e004_2 look assertions: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C3 (derived from 3): each of E-001..E-006 has Go tests that build ./cmd/hband, start it on its own free port with a throwaway config and database and a stand-in GitHub, and talk to it only over HTTP (not internal functions): partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4 (derived from 4): a written mapping from every assertion in every Python file (run_finish.py, serve_show_all.py, check_e006_1_stops_at_block.py, check_run_finish_needs_chrome_bin.py, test_run_finish_edge_guard.py, .taad/slices/SL-008/run_finish_e004_2.py, and the 6 Python ledger bodies) to the Go test that now makes it: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C5 (derived from 5): the tests have been seen to fail when the behaviour they guard is deliberately broken, at least for a sample from each epic: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C6 (derived from the BROWSER RULE): browser checks go through internal/testutil/headless; the browser path comes from CHROME_BIN only; an unset or non-file CHROME_BIN skips with a message; Edge is never started; the tests read no environment and look for no browser themselves: partial"
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Harness package name: practice's internal/testutil/product against crossdomain's internal/testutil/program. program was chosen because E-009 line 4's own prose uses 'the product's packages' for the code under test."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Open(t), which calls Browser, against Open(tb, browser), which re-checks isEdge. Open(t) was chosen because it is structurally impossible to misuse. Crossdomain's version matched Shot's existing signature."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "The E-004 browser checks as their own top-level test (practice) against subtests named 'E004 …' of one test on a shared loopback program (crossdomain)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Mapping strength: practice's one-way check of existence and count against crossdomain's two-way tag reconciliation. Two-way was chosen."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Mapping location: tests/acceptance/ported_test.go at the root package (practice), against tests/acceptance/disposition (crossdomain), against tests/acceptance/ported/ (chosen)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Tab method names: Viewport (chosen) against Emulate."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T13:08:43.077Z",
+     "head": "845585a20063a58ee07c2eed632964af72dada2f",
+     "summary": "Practice is the core.",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T13:55:40.846Z",
+     "head": "845585a20063a58ee07c2eed632964af72dada2f",
+     "summary": "The design is mostly sound, and its main factual claims about the tree check out.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T14:19:13.742Z",
+     "head": "845585a20063a58ee07c2eed632964af72dada2f",
+     "summary": "All 11 findings from the first review hold, each at the severity it was filed at.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "waiting",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "waiting",
+     "at": "2026-11-25T14:44:04.746Z",
+     "head": "845585a20063a58ee07c2eed632964af72dada2f",
+     "summary": "the provider turned this away rather than running it -- You've hit your weekly limit · resets Nov 29, 8:30pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
+     "caused_by": null,
+     "changed": {},
+     "details": "build-slice-1.json"
+    }
+   ]
+  }
+ ]
+}

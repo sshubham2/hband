@@ -1,8 +1,11 @@
 // Package headless drives a locally installed Chromium-family browser (Chrome;
-// never Microsoft Edge) through its own command line, for checks that need
-// a real browser: it loads a URL headless, takes the browser's own screenshot
-// and returns it as an image. There is no browser-automation dependency and no
-// DevTools client; the screenshot is read with image/png.
+// never Microsoft Edge), for checks that need a real browser, in two ways. Shot
+// loads a URL headless through the browser's own command line, takes its screenshot
+// and returns it as an image, read with image/png. Open starts a browser of the
+// test's own and returns a Tab, which a stdlib-only DevTools client drives with four
+// verbs (Call, Viewport, Navigate, Eval): it reaches widths below the command line's
+// window floor of about 492 CSS px, and it clicks. There is no browser-automation
+// dependency.
 //
 // It is test-only. internal/testutil is kept out of the binary by the rule
 // that production code never imports it, and nothing here is read by
@@ -18,6 +21,11 @@
 //	                      Edge is refused even when named: a new Edge profile
 //	                      signs in to the Windows Microsoft account and imports
 //	                      the person's old browsing history at its first run.
+//	                      The refusal is by name, on the text as written, on its
+//	                      absolute form and on what its symbolic links resolve
+//	                      to. A hard link, a renamed copy or a launcher shim that
+//	                      starts Edge is out of scope: CHROME_BIN is set only by
+//	                      the person, who would have to point it there.
 //	HBAND_TEST_ARTIFACTS  a folder; every screenshot is also copied there as
 //	                      <name>.png (any run of characters in name other than
 //	                      letters, digits, '.', '_' and '-' becomes one '_'),
@@ -37,6 +45,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sshubham2/hband/internal/testutil/outside"
 )
 
 // shotTimeout bounds one browser run.
@@ -84,11 +94,19 @@ func isEdge(p string) bool {
 	if namesEdge(p) {
 		return true
 	}
-	if abs, err := filepath.Abs(p); err == nil {
-		return namesEdge(abs)
+	if abs, err := filepath.Abs(p); err == nil && namesEdge(abs) {
+		return true
+	}
+	if r, err := evalSymlinks(p); err == nil && namesEdge(r) {
+		return true
 	}
 	return false
 }
+
+// evalSymlinks resolves the symbolic links in a path: a CHROME_BIN called chrome
+// that is a link to msedge.exe is Edge. A package variable so a test can stand in
+// a resolver on a machine that may not create symbolic links.
+var evalSymlinks = filepath.EvalSymlinks
 
 // namesEdge reports whether the last element of p is an Edge executable name.
 func namesEdge(p string) bool {
@@ -117,6 +135,8 @@ func Shot(t testing.TB, browser, name, pageURL string, extraFlags ...string) ima
 		removeLoud(t, profile)
 		removeLoud(t, outDir)
 	})
+	outside.MustBeOutside(t, profile)
+	outside.MustBeOutside(t, outDir)
 	out := filepath.Join(outDir, "shot.png")
 
 	args := []string{

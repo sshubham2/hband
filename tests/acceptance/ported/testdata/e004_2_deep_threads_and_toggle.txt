@@ -1,0 +1,454 @@
+"""E-004, finish line 2: no page nests a comment more than five levels deep; a 'continue this thread' link opens the
+deeper branch on its own page, which links back to the report and takes replies; each comment with replies has a
+toggle that, in a browser and by the site's own script, hides and shows what is beneath it; the report path's
+Content-Security-Policy still forbids every script.
+
+Comments are posted through POST /reports/<slug>/comments (body=..., parent=<n>) from the page that shows comment n,
+and shown as elements id="comment-<n>" nested as they answer one another. The toggle is tried in a headless Chrome or
+Edge of the test's own: inside a comment's element, outside its replies', a button, summary, link or role=button that
+says collapse, expand, hide, show, toggle, or - / + -- clicked once, every reply beneath stops rendering; again, back.
+
+How it runs: `go build ./cmd/hband`, started on a free port with a fresh data folder and the HBAND_* settings in
+Product, spoken to as the VPS proxy forwards a browser, with a stand-in GitHub of its own. Every POST carries the CSRF
+token of the page it is sent from (a hidden field named like csrf/xsrf/token, or a csrf meta tag as X-CSRF-Token); a
+count is a number beside its label ("3 likes", "Likes: 3", a thumb and 3).
+"""
+import base64, glob, html.parser, http.client, json, os, re, secrets, shutil, socket, subprocess, sys, tempfile, threading
+import time, unittest, warnings
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
+
+warnings.simplefilter("ignore")  # a failure speaks by its message: a traceback or warning would open this file to quote it
+threading.excepthook, sys.excepthook = (lambda a: None), (lambda k, v, tb: print(f"{k.__name__}: {v}", file=sys.stderr))
+[s.reconfigure(errors="backslashreplace") for s in (sys.stdout, sys.stderr)]
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE, EVIL, EXE, OWNER_ID = "https://hband.test", "https://evil.example", ".exe" if os.name == "nt" else "", 4242
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+
+
+def check(ok, why):
+    if not ok:
+        raise AssertionError(why)
+
+
+def mark(word):  # letters only, so no count is ever read into it
+    return word + "-" + "".join(secrets.choice("bcdfghjkmnpqrstvwxz") for _ in range(10))
+
+
+def build(work):  # the product: what `go build ./cmd/hband` makes of this tree
+    go = [g for g in (shutil.which("go"), os.path.join(os.environ.get("GOROOT") or "-", "bin", "go" + EXE),
+                      r"C:\Program Files\Go\bin\go.exe", *glob.glob(os.path.expanduser("~/sdk/go*/bin/go" + EXE))) if g and os.path.isfile(g)]
+    check(go, "no Go toolchain (PATH, GOROOT, Program Files, ~/sdk) to build ./cmd/hband with")
+    run = subprocess.run([go[0], "build", "-o", work + "/hband" + EXE, "./cmd/hband"], cwd=ROOT, capture_output=True, text=True,
+                         errors="replace", env=dict(os.environ, CGO_ENABLED="0"), timeout=780)
+    check(run.returncode == 0, f"`go build ./cmd/hband` exited {run.returncode}: {(run.stdout + run.stderr)[:2000]}")
+    return [work + "/hband" + EXE]
+
+
+class GitHub(BaseHTTPRequestHandler):  # stand-in GitHub: a code the test handed out buys a token, the token its account (/user)
+    log_message = lambda self, *a: None
+
+    def answer(self, status, body, kind="application/json"):
+        self.send_response(status)
+        self.send_header("Content-Type", kind)
+        self.end_headers()
+        self.wfile.write(body.encode())
+
+    def do_POST(self):
+        sent = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode() + "&" + urlsplit(self.path).query
+        who, token, js = self.server.codes.pop(dict(parse_qsl(sent)).get("code"), None), secrets.token_hex(16), "json" in self.headers.get("Accept", "")
+        if who is None:
+            return self.answer(400, '{"error": "bad_verification_code"}')
+        self.server.tokens[token], got = who, {"access_token": token, "token_type": "bearer", "scope": ""}
+        self.answer(200, json.dumps(got) if js else urlencode(got), "application/json" if js else "application/x-www-form-urlencoded")
+
+    def do_GET(self):
+        who = self.server.tokens.get((self.headers.get("Authorization") or "-").split()[-1])
+        self.answer(200, json.dumps(dict(who, name=who["login"], type="User"))) if who else self.answer(401, '{"message": "Bad credentials"}')
+
+
+class Node:
+    def __init__(self, tag, attrs, parent):
+        self.tag, self.attrs, self.parent, self.kids, self.data = tag, dict(attrs), parent, [], ""
+
+    def walk(self):
+        for k in self.kids:
+            yield k
+            yield from k.walk()
+
+    def text(self, skip=lambda n: False):  # what it shows a person, less the elements `skip` names
+        if self.tag == "#text":
+            return self.data
+        if self.tag in ("script", "style", "template", "textarea", "title") or skip(self):
+            return ""
+        return " ".join(" ".join(k.text(skip).split()) for k in self.kids).strip()
+
+
+def dom(text):  # a page as a tree of elements and texts, forgiving of the end tags HTML leaves out
+    at = [Node("#root", (), None)]
+
+    class Reader(html.parser.HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            while len(at) > 1 and at[-1].tag == tag in ("li", "p", "tr", "td", "option"):
+                at.pop()
+            at[-1].kids.append(Node(tag, ((k, v or "") for k, v in attrs), at[-1]))
+            if tag not in ("area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "wbr"):
+                at.append(at[-1].kids[-1])
+
+        def handle_endtag(self, tag):
+            while any(n.tag == tag for n in at[1:]) and at.pop().tag != tag:
+                pass
+
+        def handle_data(self, data):
+            at[-1].kids.append(Node("#text", (), at[-1]))
+            at[-1].kids[-1].data = data
+
+    reader = Reader(convert_charrefs=True)
+    reader.feed(text)
+    reader.close()
+    return at[0]
+
+
+def chain(n):  # the node and every element around it
+    return chain(n.parent) + [n] if n is not None else []
+
+
+class Page:
+    def __init__(self, url, r):
+        self.url, self.status, self.msg, self.text, self._dom = url, r.status, r.msg, r.read().decode("utf-8", "replace"), None
+
+    def header(self, name):
+        return self.msg.get(name) or ""
+
+    @property
+    def dom(self):
+        self._dom = self._dom or dom(self.text)
+        return self._dom
+
+
+def csrf(page):  # the page's CSRF token: hidden fields named like one, or a csrf meta tag (sent as X-CSRF-Token)
+    hid = {n.attrs["name"]: n.attrs.get("value", "") for n in list(page.dom.walk())[::-1] if n.tag == "input"
+           and n.attrs.get("type", "").lower() == "hidden" and re.search("csrf|xsrf|token", n.attrs.get("name", ""), re.I)}
+    meta = [n.attrs.get("content", "") for n in page.dom.walk() if n.tag == "meta" and re.search("csrf|xsrf", n.attrs.get("name", ""), re.I)]
+    return hid, ({"X-CSRF-Token": meta[0]} if meta else {})
+
+
+class Browser:
+    """A visitor as the VPS proxy forwards it (cookies, X-Forwarded-For, https, the public host); `seen`: every answer it got."""
+    def __init__(self, port, login=None):
+        self.port, self.login, self.jar, self.seen = port, login, {}, []
+
+    def send(self, method, url, body=None, headers=None):
+        u, c = urlsplit(urljoin(BASE + "/", url)), http.client.HTTPConnection("127.0.0.1", self.port, timeout=60)
+        h = {"Host": u.netloc, "Accept": "text/html,*/*", "User-Agent": UA, "X-Forwarded-For": "192.0.2.10", "X-Real-IP": "192.0.2.10",
+             "X-Forwarded-Proto": "https", **({"Cookie": "; ".join(f"{k}={v}" for k, v in self.jar.items())} if self.jar else {}), **(headers or {})}
+        try:
+            c.request(method, (u.path or "/") + (f"?{u.query}" if u.query else ""), body, h)
+            page = Page(u.geturl(), c.getresponse())
+        finally:
+            c.close()
+        for line in page.msg.get_all("Set-Cookie") or []:
+            name, _, value = line.split(";")[0].strip().partition("=")
+            self.jar.pop(name, None)
+            if value and not re.search(r"max-age=(0|-)|expires=[^;]*19[67]\d", line, re.I):
+                self.jar[name] = value
+        self.seen.append(page)
+        return page
+
+    def go(self, url, method="GET", body=None, headers=None):  # where the browser lands, after this site's own redirects
+        page = self.send(method, url, body, headers)
+        for _ in range(8):
+            to = urljoin(page.url, page.header("Location"))
+            if not (300 <= page.status < 400 and page.header("Location")) or urlsplit(to).netloc != "hband.test":
+                break
+            page = self.send("GET", to)
+        return page
+
+    def post(self, path, fields, page, forged=False):
+        # a form POST with the CSRF token of `page`; `forged`: sent by another site, which sets no header of its own
+        hid, meta = csrf(page)
+        h = {"Origin": EVIL, "Referer": EVIL + "/", "Sec-Fetch-Site": "cross-site"} if forged else {
+            "Origin": BASE, "Referer": page.url, "Sec-Fetch-Site": "same-origin", **meta}
+        return self.go(path, "POST", urlencode({**hid, **fields}).encode(), {"Content-Type": "application/x-www-form-urlencoded", **h})
+
+
+class Product:
+    """The server this tree builds: a free port, a fresh data folder, a stand-in GitHub, the owner pinned by user ID."""
+    def __init__(self):
+        self.work, self.proc, self.hub = tempfile.mkdtemp(prefix="hband-acceptance-"), None, ThreadingHTTPServer(("127.0.0.1", 0), GitHub)
+        self.hub.codes, self.hub.tokens, self.hub.daemon_threads, self.hub.handle_error = {}, {}, True, lambda *a: None
+        threading.Thread(target=self.hub.serve_forever, daemon=True).start()
+        self.url, self.log = f"http://127.0.0.1:{self.hub.server_address[1]}", open(self.work + "/server.log", "wb")
+        self.owner = self.account(OWNER_ID, "report-author")
+        try:
+            command = build(self.work)
+            with socket.socket() as s:
+                s.bind(("127.0.0.1", 0))
+                self.port = s.getsockname()[1]
+            os.makedirs(self.work + "/data")
+            self.proc = subprocess.Popen(command, cwd=self.work, stdout=self.log, stderr=subprocess.STDOUT, env=dict(
+                os.environ, HBAND_ADDR=f"127.0.0.1:{self.port}", HBAND_DATA_DIR=self.work + "/data", HBAND_BASE_URL=BASE,
+                HBAND_OWNER_GITHUB_ID=str(OWNER_ID), HBAND_GITHUB_CLIENT_ID="hband-test", HBAND_GITHUB_CLIENT_SECRET="hband-test-secret",
+                HBAND_GITHUB_URL=self.url, HBAND_GITHUB_API_URL=self.url, HBAND_MAX_UPLOAD_BYTES=str(10 << 20), HBAND_TRUSTED_PROXIES="127.0.0.1"))
+            for _ in range(240):
+                check(self.proc.poll() is None, f"the server exited ({self.proc.returncode}): {self.said()}")
+                try:
+                    Browser(self.port).send("GET", "/")
+                    return
+                except OSError:
+                    time.sleep(0.25)
+            check(False, f"the server did not answer in 60 s: {self.said()}")
+        except BaseException:
+            self.stop()
+            raise
+
+    def said(self):
+        self.log.flush()
+        with open(self.log.name, "rb") as fh:
+            return fh.read()[-2000:].decode("utf-8", "replace")
+
+    def stop(self):
+        if self.proc and self.proc.poll() is None:
+            self.proc.kill()
+            self.proc.wait(30)
+        self.log.close()
+        self.hub.shutdown()
+        self.hub.server_close()
+        shutil.rmtree(self.work, ignore_errors=True)
+
+    def account(self, uid, login=None):  # a GitHub account: user ID, login, avatar address
+        return {"id": uid, "login": login or mark("reader").lower(), "avatar_url": f"https://avatars.example/u/{uid}?v=4"}
+
+    def sign_in(self, who):  # a browser signed in through GitHub as `who`, from GET /auth/github/login
+        b = Browser(self.port, who["login"])
+        got = self.approve(b, b.send("GET", "/auth/github/login"), who)
+        check(got.status < 400, f"signing in as {who['login']} landed on {got.status}: {got.text[:300]}")
+        return b
+
+    def approve(self, b, start, who):
+        # GitHub's half of the sign-in `start` began (a redirect to its authorize page): it approves `who`; where `b` lands
+        to = start.header("Location")
+        check(300 <= start.status < 400 and to.startswith(self.url + "/login/oauth/authorize"),
+              f"{start.url} answered {start.status} {to!r}, not a redirect to GitHub's authorize page")
+        asked, code = dict(parse_qsl(urlsplit(to).query)), secrets.token_hex(10)
+        self.hub.codes[code], back = who, asked.get("redirect_uri") or BASE + "/auth/github/callback"
+        return b.go(back + ("&" if "?" in back else "?") + urlencode({"code": code, "state": asked.get("state", "")}))
+
+    def publish(self, owner, slug, title):  # the owner uploads a report as the admin page's form does, published now
+        hid, meta = csrf(owner.go("/admin"))
+        edge, doc = secrets.token_hex(12), f"<!doctype html><html><head><title>{title}</title></head><body><h1>{title}</h1></body></html>"
+        body = "".join(f'--{edge}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n' for k, v in {
+            **hid, "title": title, "slug": slug, "status": "published"}.items()) + f'--{edge}\r\nContent-Disposition: form-data; ' \
+            f'name="file"; filename="{slug}.html"\r\nContent-Type: text/html\r\n\r\n{doc}\r\n--{edge}--\r\n'
+        got = owner.go("/admin/reports", "POST", body.encode(), {**meta, "Origin": BASE, "Referer": BASE + "/admin",
+                                                                "Content-Type": f"multipart/form-data; boundary={edge}"})
+        check(got.status < 400, f"publishing {slug} answered {got.status}: {got.text[:300]}")
+        time.sleep(1.1)  # a second apart, so the newest is known
+
+
+class Case(unittest.TestCase):
+    def setUp(self):
+        self.app = Product()
+        self.addCleanup(self.app.stop)
+
+
+CID = re.compile(r"comment-(\d+)")
+
+
+def shown(page):  # {id: element} for each comment the page shows, an element id="comment-<n>", in page order
+    return {CID.fullmatch(n.attrs["id"]).group(1): n for n in page.dom.walk() if CID.fullmatch(n.attrs.get("id", ""))}
+
+
+def own(n):  # a comment's own text: its element's, less the comments nested in it
+    return " ".join(k.text(lambda x: CID.fullmatch(x.attrs.get("id", ""))) for k in n.kids)
+
+
+def find(page, text):  # the id of the comment whose own text holds `text`, or None
+    return next((i for i, n in shown(page).items() if text in own(n)), None)
+
+
+def depth(n):  # how many comments hold this one, itself counted
+    return sum(1 for a in chain(n) if CID.fullmatch(a.attrs.get("id", "")))
+
+
+def say(b, slug, text, parent=None, page=None):
+    """`b` posts `text` from `page` (default /reports/<slug>): POST /reports/<slug>/comments, answering comment `parent`.
+    The new comment's id where that page shows it."""
+    page = page or b.go(f"/reports/{slug}")
+    got = b.post(f"/reports/{slug}/comments", {"body": text, **({"parent": parent} if parent else {})}, page)
+    check(got.status < 400, f"{b.login}'s comment on {slug} answered {got.status}: {got.text[:200]}")
+    return find(b.go(page.url), text)
+
+
+def mine(n):  # the nodes of a comment's element that are its own, not its nested comments'
+    for k in n.kids:
+        if not CID.fullmatch(k.attrs.get("id", "")):
+            yield k
+            yield from mine(k)
+
+
+FOLD = r"""(async id => {
+  const top = document.getElementById("comment-" + id);
+  if (!top) return "the page has no comment-" + id;
+  const holder = e => { for (let x = e; x; x = x.parentElement) if (/^comment-\d+$/.test(x.id)) return x; };
+  const nested = [...top.querySelectorAll("[id]")].filter(e => e !== top && /^comment-\d+$/.test(e.id));
+  const said = e => [e.textContent, e.getAttribute("aria-label"), e.getAttribute("title")].join(" ").trim();
+  const toggle = [...top.querySelectorAll("button, summary, a, [role=button]")].find(e => holder(e) === top &&
+    /collapse|expand|hide|show|toggle|^\[?\s*[-+\u2212\u2013]\s*\]?$/i.test(said(e)));
+  if (!toggle) return "comment-" + id + " has no toggle of its own";
+  const seen = () => nested.map(e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== "hidden");
+  const pause = () => new Promise(r => setTimeout(r, 400));
+  const before = seen(); toggle.click(); await pause(); const folded = seen(); toggle.click(); await pause();
+  return JSON.stringify({before, folded, after: seen()});
+})("ID")"""
+
+
+class Chrome:
+    """A headless Chrome or Edge of the test's own. The test answers its every request (DevTools' Fetch domain) by
+    sending it on to the product as the VPS proxy does, so the page is https://hband.test as it is in use."""
+    def __init__(self, port):
+        exe = [p for p in (r"C:\Program Files\Google\Chrome\Application\chrome.exe", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                           *map(shutil.which, ("chrome", "msedge", "chromium", "google-chrome"))) if p and os.path.isfile(p)]
+        check(exe, "no Chrome or Edge to open the page in")
+        self.prof, self.n, self.b, self.buf = tempfile.mkdtemp(prefix="hband-chrome-"), 0, Browser(port), b""
+        self.proc = subprocess.Popen([exe[0], "--headless=new", "--no-first-run", "--no-default-browser-check", "--remote-debugging-port=0",
+                                      f"--user-data-dir={self.prof}", "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        for _ in range(120):
+            try:
+                with open(os.path.join(self.prof, "DevToolsActivePort")) as fh:
+                    c = http.client.HTTPConnection("127.0.0.1", int(fh.read().split()[0]), timeout=30)
+                c.request("GET", "/json/list")
+                u = urlsplit(next(t["webSocketDebuggerUrl"] for t in json.loads(c.getresponse().read()) if t["type"] == "page"))
+                break
+            except (OSError, ValueError, IndexError, StopIteration):
+                time.sleep(0.25)
+        else:
+            check(False, "the browser opened no DevTools port")
+        self.s = socket.create_connection((u.hostname, u.port), timeout=60)
+        self.s.sendall(f"GET {u.path} HTTP/1.1\r\nHost: {u.netloc}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\n"
+                       f"Sec-WebSocket-Key: {base64.b64encode(os.urandom(16)).decode()}\r\n\r\n".encode())
+        while b"\r\n\r\n" not in self.buf:
+            self.buf += self.s.recv(4096)
+        self.buf = self.buf.split(b"\r\n\r\n", 1)[1]
+        self.call("Fetch.enable", patterns=[{"urlPattern": "*"}])
+
+    def read(self, n):
+        while len(self.buf) < n:
+            more = self.s.recv(1 << 16)
+            check(more, "the browser closed DevTools")
+            self.buf += more
+        out, self.buf = self.buf[:n], self.buf[n:]
+        return out
+
+    def put(self, method, params):  # one DevTools message, as a masked WebSocket text frame
+        self.n += 1
+        data, key = json.dumps({"id": self.n, "method": method, "params": params}).encode(), os.urandom(4)
+        size = bytes([0x80 | len(data)]) if len(data) < 126 else b"\xfe" + len(data).to_bytes(2, "big") if len(data) < 65536 else b"\xff" + len(data).to_bytes(8, "big")
+        self.s.sendall(b"\x81" + size + key + bytes(c ^ key[i % 4] for i, c in enumerate(data)))
+        return self.n
+
+    def call(self, method, **params):
+        mine = self.put(method, params)
+        while True:
+            msg, fin = b"", 0
+            while not fin:
+                head = self.read(2)
+                fin, size = head[0] & 0x80, head[1] & 0x7F
+                msg += self.read(int.from_bytes(self.read(2 if size == 126 else 8), "big") if size > 125 else size)
+            m = json.loads(msg)
+            if m.get("method") == "Fetch.requestPaused":
+                self.answer(m["params"])
+            elif m.get("id") == mine:
+                check("error" not in m, f"DevTools {method}: {m.get('error')}")
+                return m.get("result", {})
+
+    def answer(self, p):  # the page's request, sent on to the product; its answer handed back
+        if urlsplit(p["request"]["url"]).netloc != "hband.test":
+            return self.put("Fetch.failRequest", {"requestId": p["requestId"], "errorReason": "BlockedByClient"})
+        got = self.b.send(p["request"]["method"], p["request"]["url"])
+        self.put("Fetch.fulfillRequest", {"requestId": p["requestId"], "responseCode": got.status, "body": base64.b64encode(got.text.encode()).decode(),
+                 "responseHeaders": [{"name": k, "value": v} for k, v in got.msg.items() if k.lower() not in ("content-length", "connection", "transfer-encoding")]})
+
+    def js(self, expr):
+        got = self.call("Runtime.evaluate", expression=expr, returnByValue=True, awaitPromise=True)
+        check("exceptionDetails" not in got, f"the page's JavaScript failed: {got.get('exceptionDetails')}")
+        return got["result"].get("value")
+
+    def open(self, url):
+        self.call("Page.navigate", url=url)
+        for _ in range(120):
+            if self.js("document.readyState") == "complete":
+                return
+            time.sleep(0.25)
+        check(False, f"{url} did not finish loading")
+
+    def close(self):
+        try:
+            self.put("Browser.close", {})
+            self.proc.wait(15)
+        except Exception:
+            self.proc.kill()
+        shutil.rmtree(self.prof, ignore_errors=True)
+
+
+class E004DeepThreadsTest(Case):
+    def test_threads_nest_at_most_five_deep_continue_on_a_branch_page_and_fold_in_a_browser(self):
+        app, a = self.app, "e004-branch-alpha"
+        owner = app.sign_in(app.owner)
+        app.publish(owner, "e004-branch-beta", "Beta Notes")
+        app.publish(owner, a, "Alpha Notes")
+        rs, texts, ids = [app.sign_in(app.account(7501 + i)) for i in range(2)], [mark("Level") for _ in range(8)], []
+        for k in range(6):  # levels 1 to 6, each answered from the report page; the sixth is not shown there
+            ids.append(say(rs[k % 2], a, texts[k], ids[-1] if ids else None))
+        page = Browser(app.port).go(f"/reports/{a}")
+        got = shown(page)
+        self.assertTrue(all(ids[:5]) and texts[5] not in page.text, f"/reports/{a} should show levels 1 to 5 and not level 6")
+        self.assertEqual([depth(got[i]) for i in ids[:5]], [1, 2, 3, 4, 5], "the five levels are not nested one in another")
+        more = [x for x in got[ids[4]].walk() if x.tag == "a" and re.search(r"continue\s+this\s+thread", x.text(), re.I)]
+        self.assertTrue(more, f"comment-{ids[4]}, five levels deep, has no 'continue this thread' link")
+        branch = urljoin(page.url, more[0].attrs.get("href", ""))
+        for k in (6, 7):  # levels 7 and 8, answered from the branch page
+            there = rs[k % 2].go(branch)
+            self.assertIn(f"/reports/{a}/comments", there.text, f"the branch page {branch} offers a signed-in reader no reply form")
+            self.assertTrue(find(there, texts[k - 1]), f"the branch page {branch} does not show level {k}")
+            self.assertTrue(say(rs[k % 2], a, texts[k], find(there, texts[k - 1]), there), "a reply sent from the branch page does not show there")
+        there = Browser(app.port).go(branch)
+        self.assertTrue(all(find(there, t) for t in texts[5:]), "the branch page does not show levels 6 to 8")
+        self.assertTrue([x for x in there.dom.walk() if x.tag == "a" and re.split("[?#]", urljoin(there.url, x.attrs.get("href", "")))[0]
+                         == f"{BASE}/reports/{a}"], "the branch page has no link back to the full report")
+        for p in (Browser(app.port).go(f"/reports/{a}"), Browser(app.port).go("/"), there):
+            self.assertLessEqual(max(map(depth, shown(p).values()), default=0), 5, f"{p.url} nests a comment more than five levels deep")
+            self.assertTrue(p is there or not [t for t in texts[5:] if t in p.text], f"{p.url} shows a reply deeper than five levels")
+        side = say(rs[0], a, mark("Aside"))
+        under = say(rs[1], a, mark("Under"), side)
+        say(rs[0], a, mark("Below"), under)
+        page = Browser(app.port).go(f"/reports/{a}")
+        scripts = [urljoin(page.url, x.attrs["src"]) for x in page.dom.walk() if x.tag == "script" and x.attrs.get("src")]
+        self.assertTrue([s for s in scripts if urlsplit(s).netloc == "hband.test" and Browser(app.port).go(s).status == 200],
+                        "the report page loads no script from the site's own path")
+        frames = [urljoin(page.url, x.attrs.get("src", "")) for x in page.dom.walk() if x.tag == "iframe"]
+        self.assertTrue(frames, "the report page embeds no report")
+        csp = Browser(app.port).go(frames[0]).header("Content-Security-Policy")
+        rules = {p.split()[0].lower(): [s.lower() for s in p.split()[1:]] for p in csp.split(";") if p.split()}
+        self.assertTrue(all(rules.get(k, rules.get("script-src", rules.get("default-src"))) == ["'none'"] for k in
+                            ("script-src", "script-src-elem", "script-src-attr")), f"the report path's CSP does not forbid every script: {csp!r}")
+        tab = Chrome(app.port)
+        try:
+            tab.open(f"{BASE}/reports/{a}")
+            for cid in (ids[0], side, under):
+                said = tab.js(FOLD.replace("ID", cid))
+                self.assertTrue(said.startswith("{"), said)
+                seen = json.loads(said)
+                self.assertTrue(seen["before"] and all(seen["before"]) and not any(seen["folded"]) and all(seen["after"]),
+                                f"comment-{cid}'s toggle does not hide and then show the replies beneath it: {seen}")
+        finally:
+            tab.close()
+
+
+class Plain(unittest.TextTestResult):  # a failure is told by its message alone
+    _exc_info_to_string = lambda self, err, test: f"{err[0].__name__}: {err[1]}"
+
+
+if __name__ == "__main__":
+    sys.exit(not unittest.TextTestRunner(resultclass=Plain, verbosity=2).run(
+        unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__])).wasSuccessful())

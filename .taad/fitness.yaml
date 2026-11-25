@@ -127,10 +127,14 @@ rules:
     because: This replaces the retired rule 'the identity provider's endpoints cannot be set
       from the environment', which contradicted the person-approved finish line. The https-or-loopback
       guard and the startup override warning live in config.Load, so a second reader of HBAND_GITHUB_URL
-      or HBAND_GITHUB_API_URL would point sign-in at an unvalidated identity provider.
+      or HBAND_GITHUB_API_URL would point sign-in at an unvalidated identity provider. internal/testutil/**
+      is excepted because the acceptance harness there (internal/testutil/program) writes these names
+      into the environment of the program it starts; the rule that production code never imports
+      internal/testutil keeps it out of the product binary, so it never reaches config.Load.
     except_files:
     - '**/*_test.go'
     - internal/config/config.go
+    - internal/testutil/**
 
   - name: site HTML is never built as a Go string literal
     files: '**/*.go'
@@ -509,3 +513,67 @@ rules:
     except_files:
     - internal/opens/**
     - '**/*_test.go'
+
+  # settled by SL-015
+  - name: the acceptance tests reach the program only over HTTP
+    files: tests/acceptance/**/*.go
+    must_not_match:
+    - '(?:^|\n)[ \t]*(?:import[ \t]+)?(?:[A-Za-z_][A-Za-z0-9_]*[ \t]+|\.[ \t]*)?["`]github\.com/sshubham2/hband/(?:[^i"`\r\n]|i[^n"`\r\n]|in[^t"`\r\n]|int[^e"`\r\n]|inte[^r"`\r\n]|inter[^n"`\r\n]|intern[^a"`\r\n]|interna[^l"`\r\n]|internal[^/"`\r\n]|internal/[^t"`\r\n]|internal/t[^e"`\r\n]|internal/te[^s"`\r\n]|internal/tes[^t"`\r\n]|internal/test[^u"`\r\n]|internal/testu[^t"`\r\n]|internal/testut[^i"`\r\n]|internal/testuti[^l"`\r\n]|internal/testutil[^/"`\r\n])[^"`\r\n]*["`][ \t]*(?:;[ \t]*)?(?://[^\r\n]*|/\*[^\r\n]*)?(?:\r?\n|$)'
+    because: 'The slice and E-009 line 4 require acceptance tests that link none of the product
+      and talk to the built ./cmd/hband over HTTP. A product import lets a test call internal
+      functions in place of HTTP. The pattern matches an import spec of any package of this module
+      but internal/testutil/ (grouped, single, aliased, dot or blank, either quote, a trailing comment
+      or semicolon): a quoted path at the start of a line and alone on it. A build target inside a
+      call is followed by a comma or a parenthesis and is not matched. Known holes, pinned quiet in internal/fitnessrules/testdata/rule_spellings.json: a one-line import block, and a path closed by '')'' on its own line (the shape of a call argument). Both are caught by construction by TestAcceptanceLinksNoneOfTheProduct in tests/acceptance/ported, which runs go list -deps -test and refuses any package of this module outside internal/testutil and tests/acceptance, and modernc.org/sqlite and golang.org/x/oauth2.'
+  - name: the test helpers link none of the product
+    files: internal/testutil/**/*.go
+    must_not_match:
+    - '(?:^|\n)[ \t]*(?:import[ \t]+)?(?:[A-Za-z_][A-Za-z0-9_]*[ \t]+|\.[ \t]*)?["`]github\.com/sshubham2/hband/(?:[^i"`\r\n]|i[^n"`\r\n]|in[^t"`\r\n]|int[^e"`\r\n]|inte[^r"`\r\n]|inter[^n"`\r\n]|intern[^a"`\r\n]|interna[^l"`\r\n]|internal[^/"`\r\n]|internal/[^t"`\r\n]|internal/t[^e"`\r\n]|internal/te[^s"`\r\n]|internal/tes[^t"`\r\n]|internal/test[^u"`\r\n]|internal/testu[^t"`\r\n]|internal/testut[^i"`\r\n]|internal/testuti[^l"`\r\n]|internal/testutil[^/"`\r\n])[^"`\r\n]*["`][ \t]*(?:;[ \t]*)?(?://[^\r\n]*|/\*[^\r\n]*)?(?:\r?\n|$)'
+    because: 'program, headless, fakegithub, outside and e002row are linked into every acceptance
+      package. One product import in any of them breaks E-009 line 4''s link-none check for all six
+      epics at once. Today none of them imports any package of this module but internal/testutil.
+      Known holes, pinned quiet in internal/fitnessrules/testdata/rule_spellings.json: a one-line import block, and a path closed by '')'' on its own line (the shape of a call argument). Both are caught by construction by TestAcceptanceLinksNoneOfTheProduct in tests/acceptance/ported, which runs go list -deps -test and refuses any package of this module outside internal/testutil and tests/acceptance, and modernc.org/sqlite and golang.org/x/oauth2.'
+  - name: the DevTools driver takes its browser from Browser and reads no environment
+    files: internal/testutil/headless/*.go
+    must_not_match:
+    - '\bos\.(?:Getenv|LookupEnv|Environ|ExpandEnv)\b'
+    - '\bsyscall\.(?:Getenv|Environ)\b'
+    because: 'The owner''s BROWSER RULE: CHROME_BIN, read once in headless.Browser, is the only
+      source of a browser path, and Edge is never started. An environment read in Open, or in any
+      other file of the package, is a second source that the Edge refusal does not guard. The
+      patterns match a call or a method value. headless.go is excepted because it holds Browser,
+      the one sanctioned reader of CHROME_BIN, and Shot''s HBAND_TEST_ARTIFACTS; a new read added
+      there is not guarded by this rule, only by TestBrowserIsExactlyChromeBin and review. Known
+      hole, pinned quiet: an alias of the os package.'
+    except_files:
+    - internal/testutil/headless/headless.go
+    - '**/*_test.go'
+  - name: acceptance tests neither choose nor start a browser
+    files: tests/acceptance/**/*.go
+    must_not_match:
+    - '\b(?:CHROME_BIN|HBAND_TEST_BROWSER)\b'
+    - '["`](?:-{1,2}|/)(?:headless|remote-debugging-(?:port|pipe)|user-data-dir)\b'
+    - '(?i)\b(?:msedge|chrome|chromium)\.exe\b'
+    - '(?i)\b(?:msedge|microsoft-edge|chromium-browser|google-chrome)\b'
+    because: 'The BROWSER RULE says the tests must not read the environment or look for a browser
+      themselves. The ledger body for E-004 line 2 hard-coded an msedge path (Q-028, #980). Naming
+      CHROME_BIN here (a read, or an os.Environ scan for it), a headless, DevTools or profile flag
+      with --, - or / and either quote, or a browser executable name means a test bypasses
+      headless.Open. Known holes, pinned quiet: a flag or a variable name built by concatenation, a
+      browser path held in a variable, and the bare word chrome, which the verbatim E-001 and E-002
+      bodies use for their User-Agent. The mapping package is excepted because its Says fields quote
+      the Python verbatim. tests/acceptance/suite is excepted because its whole-suite check removes
+      CHROME_BIN from, or passes it into, the environment of the go test it runs; it starts no browser
+      and chooses none.'
+    except_files:
+    - tests/acceptance/ported/**
+    - tests/acceptance/suite/**
+  - name: only the acceptance packages carry an epic's acceptance key
+    files: '**/*_test.go'
+    must_not_match:
+    - '\bfunc[ \t]+TestE00[1-6][^0-9]'
+    because: 'E-009 lines 4 and 5 treat every listed TestE00[1-6] test as an acceptance test. One
+      in a product package fails line 4''s outside-the-product check. One that does not build the
+      program passes when the program exits at start, which line 4 also fails.'
+    except_files:
+    - tests/acceptance/**

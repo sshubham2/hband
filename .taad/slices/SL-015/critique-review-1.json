@@ -1,0 +1,108 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-015",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-25T14:19:13.742Z",
+ "head": "845585a20063a58ee07c2eed632964af72dada2f",
+ "run_id": 12263,
+ "summary": "All 11 findings from the first review hold, each at the severity it was filed at. M1 and M2 are the same weakness seen from two sides: nobody outside the builder ever enumerates the six Python ledger bodies, and the checker cannot notice what the builder leaves out. M1 is worse than filed in one respect. The ten Go bodies get one row each, and an Amended row skips the edition check, so an amended Go body can lose any of its 13 to 20 assertions without anything noticing. M3 drops the operative half of a person's decision (Q-035), and the new Open launcher inherits that gap.\n\nThe overall approach is sound. E-009's finish lines force the layout: one package per finish line under tests/acceptance, keyed TestE00N. Spikes 207 and 2 settled the browser channel. A simpler design would fall short on C4, C5 or E-009, so it was not worth arguing for.\n\nFour minor things were missed, all in seams the synthesis created:\n1. Visitor.Get follows every redirect, including into the stand-in GitHub, which approves every sign-in automatically. An anonymous visitor that requests a gated page therefore ends up signed in.\n2. Amended rows let a fake-side check that still applies map to a written reason and not to a test. fakegithub has no tests of its own, and check (e) cannot name one.\n3. The C1 and C2 case checks never pin down which tests skip. This includes E-009 line 2's condition: no SKIP naming CHROME_BIN anywhere in a whole-suite run with Chrome.\n4. Editions are hashed inconsistently. The ledger side is hashed raw, as SELECTed. The committed file is hashed after CRLF→LF.\n\nAssumptions and limits:\n- The bug report was empty. As the first reviewer did, I took the brief's WHAT and HOW TO TELL IT IS DONE as the requirement.\n- This pass had no access to files, the shell or the ledger. Nothing was re-measured. The assessments rest on the stage records and on the first reviewer's quoted evidence: line numbers in run_finish_e004_2.py and .taad/fitness.yaml.\n- The stage that should have quoted the six Python bodies' assertions is the build check (surveys#198). It had ledger read access and recorded only approximate counts.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "All 11 findings from the first review hold, each at the severity it was filed at. M1 and M2 are the same weakness seen from two sides: nobody outside the builder ever enumerates the six Python ledger bodies, and the checker cannot notice what the builder leaves out. M1 is worse than filed in one respect. The ten Go bodies get one row each, and an Amended row skips the edition check, so an amended Go body can lose any of its 13 to 20 assertions without anything noticing. M3 drops the operative half of a person's decision (Q-035), and the new Open launcher inherits that gap.\n\nThe overall approach is sound. E-009's finish lines force the layout: one package per finish line under tests/acceptance, keyed TestE00N. Spikes 207 and 2 settled the browser channel. A simpler design would fall short on C4, C5 or E-009, so it was not worth arguing for.\n\nFour minor things were missed, all in seams the synthesis created:\n1. Visitor.Get follows every redirect, including into the stand-in GitHub, which approves every sign-in automatically. An anonymous visitor that requests a gated page therefore ends up signed in.\n2. Amended rows let a fake-side check that still applies map to a written reason and not to a test. fakegithub has no tests of its own, and check (e) cannot name one.\n3. The C1 and C2 case checks never pin down which tests skip. This includes E-009 line 2's condition: no SKIP naming CHROME_BIN anywhere in a whole-suite run with Chrome.\n4. Editions are hashed inconsistently. The ledger side is hashed raw, as SELECTed. The committed file is hashed after CRLF→LF.\n\nAssumptions and limits:\n- The bug report was empty. As the first reviewer did, I took the brief's WHAT and HOW TO TELL IT IS DONE as the requirement.\n- This pass had no access to files, the shell or the ledger. Nothing was re-measured. The assessments rest on the stage records and on the first reviewer's quoted evidence: line numbers in run_finish_e004_2.py and .taad/fitness.yaml.\n- The stage that should have quoted the six Python bodies' assertions is the build check (surveys#198). It had ledger read access and recorded only approximate counts.",
+  "assessments": [
+   {
+    "finding": "M1",
+    "classification": "valid",
+    "note": "Confirmed by the design's own cross_domain_transfer invariant, marked 'fails' ('the checker verifies rows against declared counts, not against the bodies'). The independent step is handed to 'the critique', which runs before any table or edition exists and has no ledger access. SC-045's builds text only compares sha256 and then runs the checker, which proves the text is unchanged, not that the table is complete. The hole is wider than M1 says. The ten Go bodies are 'one Verbatim or Amended row each', and check (d)'s sha comparison applies only to Verbatim. A body amended under the `// SC-042:` rule (conditions a-d of the E-001/E-002 component) can therefore lose any of its 13-20 assertions with no count and no hash going red. M1's fix already lists a Go site pattern (t.(Fatal|Error)f?), so applying it to the Go snapshots closes this too. Major is right: SC-043 deletes on this table's word."
+   },
+   {
+    "finding": "M2",
+    "classification": "valid",
+    "note": "The brief asks the designer to 'read each one first and list every assertion it makes'. The design concedes it did not, and the survey (surveys#198) had mode=ro ledger access and recorded only approximate counts. So the stage that should have recorded the assertions is the build check, and the obligation lies with it. The gap is about feasibility as well as enumeration. Several contracts were fixed without knowing what the bodies contain: a Visitor that is HTTP-only and sends no headers (m3), 'each fake-side check becomes an Amended row', and 'talks only over HTTP'. The bodies could hold forms those contracts cannot carry: direct SQLite reads (serve_show_all.py shows this project's Python writes SQLite directly), Origin-dependent posts (Q-019), or assertions that run inside the stand-in GitHub. Major is right."
+   },
+   {
+    "finding": "M3",
+    "classification": "valid",
+    "note": "Q-035 is a person's decision. The survey's account of isEdge (headless.go:83-91: the text, then filepath.Abs, then namesEdge) shows EvalSymlinks is absent, and the package comment does not state the hard-link and copy limit. The design cites Q-035 as grounds for its browser decisions but keeps only the CHROME_BIN half. Its new Open launches whatever isEdge accepts, and this slice's own C6 says 'Edge is never started'. It would be reasonable to route the change to the headless row (SC-041, already merged without it) instead of building it here. Staying silent is not. The design already edits headless.go's package comment, so the one-line check and the comment sentence cost almost nothing here. Major holds because the owner's 'never' rule now covers a second launch path."
+   },
+   {
+    "finding": "m1",
+    "classification": "valid",
+    "note": "program.go has to be a non-test file, because _test.go code cannot be imported across packages. The env names in Start's contract will therefore hit the IdP-endpoint rule under TestRulesHoldOnTheTree, which `go test ./...` runs, and C1 goes red. The fix should be general, not one rule. Moving cmd/hband's package-main test code (env names, and the Host rewrite now in visitor.go) into non-test files exposes it to every fitness rule whose only exception is *_test.go. The design audited only the cookie-literal rule. The builder should run TestRulesHoldOnTheTree against draft program.go and visitor.go before writing anything else. Minor is right, because the failure is loud and found at build time."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "CC-001 applies directly, and the first reviewer reports these rules are already appended to .taad/fitness.yaml:514-565. More variants leak too. Rule 1's grouped pattern needs `\\n[ \\t]+` before the quote, so an unindented spec inside import ( ... ) passes, as does `import (\"...\")` on one line. The `go list -deps -test` check is the right by-construction backstop. Minor holds because E-009 line 4's link-none check also guards rules 1 and 2."
+   },
+   {
+    "finding": "m3",
+    "classification": "valid",
+    "note": "The design's own E-002 amendment path (browser User-Agent plus X-Forwarded-For) and Q-019's Origin-carrying posts both need request headers, and the Visitor contract has nowhere to put them. Minor is right: a contract addition the builder can make."
+   },
+   {
+    "finding": "m4",
+    "classification": "valid",
+    "note": "A walk of the whole module root (with only .git excluded) while other packages run in parallel will see the engine's own .taad writes during build and validate stages. A per-folder filepath.Rel check against `go env GOMOD` proves the same property without racing. Minor."
+   },
+   {
+    "finding": "m5",
+    "classification": "valid",
+    "note": "About 16 extra build-and-start packages add load across packages, and the no-t.Parallel rule does nothing about that. A single green run of C1 is weak evidence against the #987 flake. m5 asks for a more robust measurement, not an answer to Q-030, so it does not re-raise an open question. Minor."
+   },
+   {
+    "finding": "m6",
+    "classification": "valid",
+    "note": "The mark is written when the trigger is installed, not when it fires. 'Installed after the guarded write' and 'the test missed the break' then look the same, and the PIT distinction the design claims (survived against no coverage) is not actually drawn. The design's ordering rule (the guarded write comes after a sign-in round trip) makes this less likely but does not detect it. Minor."
+   },
+   {
+    "finding": "m7",
+    "classification": "valid",
+    "note": "runtime.GOROOT has been deprecated since Go 1.24. Since Go 1.19, go test puts GOROOT/bin first on PATH, so the fallback never runs. A trivial minor, correctly filed."
+   },
+   {
+    "finding": "m8",
+    "classification": "valid",
+    "note": "SC-044's 'what' says it replaces serve_show_all.py, but its 'builds' only seeds DeepThread, and SC-045 deletes the file. The fix should note that seeding 1000 likes over HTTP means 1000 stand-in sign-ins. Either accept that cost or retire the E-002 large-numbers look explicitly. Minor."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "contract-gaps",
+    "severity": "minor",
+    "claim": "Visitor.Get follows every redirect, including cross-host ones, and the stand-in GitHub approves every sign-in automatically. So an Anonymous() GET of an owner-gated page completes a full sign-in as whichever account the fake last had set. A port cannot assert the 303 and its Location. The 'anonymous' Visitor holds a session for the rest of the test. And if the fake's current user is a non-owner, a check like 'not 200' passes for the wrong reason.",
+    "evidence": "Visitor contract: 'Get follows redirects (Page.URL is the final URL)', and 'Requests to any other host pass straight through'. fakegithub authorize (C7 survey, 118-160): 'Otherwise 302 back with code+state' unless DenyAtAuthorize is set. TestBinary measured 'anonymous 303 to /auth/github/login?next=' for /admin. SignIn changes the fake's current user through SetUser. E-005 (private feedback) and E-006 (/admin/blocked) are owner-gated epics, so anonymous-gate assertions are likely in their unread bodies.",
+    "fix": "Make Get return the response as-is with Location, the same as Post and Upload, and add GetFollow(t, path) for the cases that need the final page. At the least, have the client's CheckRedirect stop at /auth/github/login except inside SignIn. Add a harness self-test: Anonymous().Get(\"/admin\") returns 303 with Location starting /auth/github/login?next=, and the jar holds no session cookie afterwards.",
+    "route": "re-derivation"
+   },
+   {
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "claim": "Amended rows let an assertion that still applies map to a written reason in place of a test. The design turns every check made by the Python stand-in GitHub into 'an Amended row saying fakegithub refuses the same request'. Nothing verifies that claim now, and nothing guards it later. If fakegithub is loosened (it is shared with TestBinary and the internal/server tests), those sign-in checks (state, PKCE S256, empty scope, redirect_uri) silently drop out of acceptance. Whether fakegithub refuses every request the Python stand-in checked is also unknown, because the bodies are unread.",
+    "evidence": "E-003..E-006 port component: 'each fake-side check becomes an Amended row'. Check (f): an Amended row needs only a Why, and By is optional. Check (e): Helper rows may name tests only in internal/testutil/headless or internal/testutil/program. Survey: 'fakegithub has no tests of its own ([no test files])'.",
+    "fix": "Add fakegithub_test.go with refusal tests for each branch the survey lists. authorize: 400 on non-empty scope, missing S256, empty state, a redirect_uri mismatch or a client_id mismatch. accessToken: an error on a wrong verifier, an unknown code or a wrong client. Widen check (e) so Helper rows may name Test* in internal/testutil/fakegithub. Require every fake-side row to be a Helper row with a By. Where fakegithub does not refuse what the Python checked, either add the refusal to fakegithub with a test, or port the check as an assertion on a request log kept by fakegithub.",
+    "route": "premortem"
+   },
+   {
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "claim": "The C1 and C2 case checks never pin down which tests skip. The C1 check requires exit 0, one SKIP line and eight PASS names. A Verbatim or ported acceptance test that calls t.Skip would still pass it, although C1 says 'the rest run'. No case runs the whole suite with CHROME_BIN set to Chrome and requires that no SKIP names CHROME_BIN. That is E-009 line 2's condition, and the very reason the design rewrites TestBrowserSkipEndsTheCallingTest. The C2 check runs only TestE004FoldAndFitInBrowser.",
+    "evidence": "Cases 'run the whole suite on a machine with no browser' (matches only '--- SKIP: TestE004FoldAndFitInBrowser' and eight '--- PASS' names) and 'fold a thread and fit it on a phone' (-run ^TestE004FoldAndFitInBrowser$ only). The design's TestBrowserSkipEndsTheCallingTest rationale: 'E-009 line 2 fails if any test reports SKIP naming CHROME_BIN while Chrome is given'.",
+    "fix": "C1 check: on this machine, the set of '--- SKIP:' lines must equal exactly {TestE004FoldAndFitInBrowser, TestTabEmulatesNarrowViewport, TestReportScriptsNeverRun}, and every TestE00* that `go test -list . ./tests/acceptance/...` lists must appear as '--- PASS'. Add a C2 whole-suite case with CHROME_BIN set to Chrome: exit 0, those three tests PASS, and no SKIP line or skip message mentions CHROME_BIN.",
+    "route": "re-derivation"
+   },
+   {
+    "dimension": "contract-gaps",
+    "severity": "minor",
+    "claim": "Editions are hashed inconsistently. A ledger body's Edition is 'the sha256 of the body text exactly as SELECTed', while check (d) hashes the committed file with 'CRLF normalised to LF'. Any other difference makes (d) impossible to pass: a trailing newline added by an editor or gofmt, a BOM, or CRLF inside the SELECTed text itself. The easy repair, recomputing the Edition from the committed file, quietly cuts the link to the ledger that SC-043's in-place comparison depends on, and nothing would notice.",
+    "evidence": "Mapping component: 'Edition the sha256 of the body text exactly as SELECTed'. Check (d): 'the committed file's sha256 (CRLF to LF) equals the source's Edition'. Spike 3 had to write the bodies 'with UTF-8 and LF endings' when planting them, which shows the planted form and the stored form are not assumed to be the same.",
+    "fix": "Define one canonical form: UTF-8 with no BOM, LF line endings, exactly one trailing newline. Hash it identically on both sides, in the builder's SELECT and in check (d), and use the same canonical hash in SC-045's in-place comparison. Leave Verbatim bodies out of any gofmt rewrite, or make sure the canonical form does not depend on gofmt. In the build record, state that each Edition was computed from the SELECT and not from the file.",
+    "route": "premortem"
+   }
+  ],
+  "frame_challenged": false,
+  "notes": "Calibration: the first reviewer was accurate and did not inflate severities. It read the in-tree files it could reach (run_finish_e004_2.py line numbers, fitness.yaml:123-133 and 514-565, rules_test.go:266) and quoted them. All three majors are real and correctly ranked. The minors are correctly minor, and m7 is a borderline nit. It applied CC-001 properly (m2). It covered the mapping's completeness thoroughly (M1, M2) but did not look at what each row kind permits. Amended rows without a test, Verbatim and Amended handling for whole Go bodies, and edition canonicalisation all got past it. On the harness contracts it caught the missing headers (m3) but not redirect handling meeting an auto-approving fake. None of this pass's additions is above minor. The frame holds: E-009 lines 1-5 fix the layout and the TestE00N key, and spikes 207 and 2 settled the CDP channel, so no reframe is warranted. Limits of this pass: no file, shell or ledger access, so nothing was re-measured. Every judgement here rests on the stage records and the first reviewer's quotes. Missing upstream record: the build check (surveys#198) had mode=ro ledger access and should have quoted each assertion site of epics 41-44 with each body's sha256, not approximate counts. Until some stage does that, M1 and M2 cannot be closed by any review."
+ }
+}
