@@ -584,3 +584,15 @@ rules:
       program passes when the program exits at start, which line 4 also fails.'
     except_files:
     - tests/acceptance/**
+
+  # settled by SL-017
+  - name: no Python source file is committed anywhere in the repository
+    files: '**/*.py'
+    must_not_match:
+    - \S
+    because: 'The owner wants no Python in hband, and E-009 line 6 checks that only once, at the epic''s finish, so without this rule a later slice could add a .py file and pass every gate. There is no correct Python here, so any non-whitespace character in a .py file is the defect. The rule reads files on disk, not the git index, so an untracked .py fires too, and it lands in the same commit as the SL-017 deletion. Known holes, pinned as quiet corpus rows where they can be: an empty or whitespace-only .py; other Python extensions such as .pyw and .pyi, and an upper-case .PY, which the case-sensitive glob does not match; a script with no extension that starts with a shebang line naming Python; a .py holding only comments, wherever the checker does not match comments (the local Go walk reads raw text and fires on it); .pyc files, which .gitignore keeps out instead; and any .py under .taad or a testdata folder, which the local TestRulesHoldOnTheTree walk skips and only the engine Fitness check sees.'
+  - name: no Go code starts a Python interpreter
+    files: '**/*.go'
+    must_not_match:
+    - 'exec\.(?:Command|CommandContext|LookPath)\((?:[^()\r\n]|\([^()\r\n]*\))*["`](?:[^"`\r\n]*[\\/])?(?i:python[0-9.]*|pythonw|py)(?:\.(?i:exe))?["`]'
+    because: 'The owner requires that nothing in the project needs Python to be built or tested. A Go test that runs a Python interpreter through os/exec makes the Go suite need Python again while every file stays .go, which the ls-files check of E-009 line 6 cannot see. The pattern fires on an os/exec Command, CommandContext or LookPath call that names a Python executable as a string literal, allowing one level of nested parentheses before it (a t.Context() argument), a folder in front, a version suffix and any letter case. It is quiet on the current tree, where every exec site names go, git or the built binary. Known holes, named and not chased: the name held in a variable or built by concatenation, a call split across lines, two or more levels of nested parentheses, a Python run line inside a longer shell string, exec.Cmd with a Path field, os.StartProcess, an aliased os/exec import, and a Python tool runner such as pytest or pip.'

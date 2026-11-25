@@ -1,0 +1,21 @@
+{
+  "purpose": "The ephemeral binds the launcher itself makes before the program that serves N binds N, and how it must treat each. Members come from ordinary use, not from an adversary: the OS hands out the same pool of ports N came from, so any of them can land on N. staging-port rows feed stagingPort a sequence of ports the OS hands out; stand-in rows feed checkStandIn the URL of the staging stand-in GitHub. The final stand-in GitHub is made inside the final program.Start, which binds N in the same call: it cannot be inspected beforehand, and its drawing N ends in a failed final bind (a loud exit 1), so it has no row. A job kill, an outside process taking N, and P taken between the pick and the bind are likewise loud exits, not rows.",
+  "n": 5000,
+  "rows": [
+    {"id": "sp-q001", "kind": "staging-port", "draws": [6001], "expect": "port", "port": 6001, "why": "the first port handed out is not N: used as it is"},
+    {"id": "sp-f001", "kind": "staging-port", "draws": [5000, 6001], "expect": "port", "port": 6001, "why": "the first draw is N itself: drawn again"},
+    {"id": "sp-f002", "kind": "staging-port", "draws": [5000, 5000, 5000, 5000, 6001], "expect": "port", "port": 6001, "why": "four draws of N in a row are still within the five tries"},
+    {"id": "sp-f003", "kind": "staging-port", "draws": [5000, 5000, 5000, 5000, 5000], "expect": "error", "why": "five draws of N in a row: refused, never returned"},
+    {"id": "sp-f004", "kind": "staging-port", "draws": [], "expect": "error", "why": "the OS hands out no port at all"},
+    {"id": "si-q001", "kind": "stand-in", "url": "http://127.0.0.1:5001", "expect": "ok", "why": "an IPv4 stand-in on another port"},
+    {"id": "si-q002", "kind": "stand-in", "url": "http://127.0.0.1:50000", "expect": "ok", "why": "a port that merely begins with N's digits is not N"},
+    {"id": "si-q003", "kind": "stand-in", "url": "http://127.0.0.1:15000", "expect": "ok", "why": "a port that merely ends with N's digits is not N (a suffix test would refuse it)"},
+    {"id": "si-q004", "kind": "stand-in", "url": "http://[::1]:5001", "expect": "ok", "why": "an IPv6 host on another port"},
+    {"id": "si-f001", "kind": "stand-in", "url": "http://127.0.0.1:5000", "expect": "refuse", "why": "an IPv4 stand-in on N"},
+    {"id": "si-f002", "kind": "stand-in", "url": "http://127.0.0.1:5000/", "expect": "refuse", "why": "a trailing slash after N"},
+    {"id": "si-f003", "kind": "stand-in", "url": "http://[::1]:5000", "expect": "refuse", "why": "an IPv6 host on N: its colons are not the port's"},
+    {"id": "si-f004", "kind": "stand-in", "url": "http://127.0.0.1", "expect": "refuse", "why": "no port to read: refused, never taken as safe"},
+    {"id": "si-f005", "kind": "stand-in", "url": "", "expect": "refuse", "why": "no URL at all"},
+    {"id": "si-f006", "kind": "stand-in", "url": "http://127.0.0.1:five", "expect": "refuse", "why": "a port that is not a number"}
+  ]
+}

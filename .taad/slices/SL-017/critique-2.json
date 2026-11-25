@@ -1,0 +1,91 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "critique",
+ "attempt": 2,
+ "at": "2026-11-25T21:50:56.887Z",
+ "head": "89da1ad3d8055a4b6021326ca0f34b25ba7649dc",
+ "run_id": 12369,
+ "summary": "The rework answers every accepted finding from the first pass:\n- **Shell-safe checks:** each check is now a single git command or plain PowerShell, with no `$` inside a string another shell could expand. The check-ignore checks point core.excludesFile at a file that does not exist.\n- **Staging port:** the launcher picks the staging port P itself, re-picks until P is not N, and exits loudly if the staging stand-in GitHub drew N. The window that remains is written into the contract.\n- **No-Python-file rule:** its because text now says it reads the disk and names its holes. Both new rules join rules_under_test with fire, quiet and pinned-hole rows.\n- **Exec rule:** the pattern is widened (one level of nested parentheses, a folder prefix, a version suffix, any case).\n- **Ledger probe:** it is spelled out, and it now also runs after the deletion.\n- **Searches:** the run-line search is anchored, and a separate search covers the deleted script names.\n- **Avatar evidence:** corrected.\n- **app_command repoint:** its timing and rollback value are now stated.\n\nI re-ran several things against the tree:\n- The widened exec pattern matches nothing in today's *.go files.\n- The anchored run-line pattern matches nothing outside the two record folders and the .py files.\n- Outside rows_test.go, the records and the .py files, the deleted script names appear only on the four `//` comment lines the design lists (thread.go:12, e004_2 test :8 and :232, sites_multidigit_test.go:9).\n- The widened pattern compiles in Go's regexp, and as a single-quoted YAML scalar it passes the file's own scanner.\n- The repository's info/exclude holds no patterns, so the check-ignore cases really do test `.gitignore`.\n\nTwo minor problems are left in the checks the design prescribes:\n1. The check that `.gitignore` holds the two literal lines is not among the cases, and as written it fails on this machine's CRLF checkout.\n2. The fresh-clone criterion is handed to E-009 line 6's body on the claim that the body does the clone itself. Nothing on record supports that.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The rework answers every accepted finding from the first pass:\n- **Shell-safe checks:** each check is now a single git command or plain PowerShell, with no `$` inside a string another shell could expand. The check-ignore checks point core.excludesFile at a file that does not exist.\n- **Staging port:** the launcher picks the staging port P itself, re-picks until P is not N, and exits loudly if the staging stand-in GitHub drew N. The window that remains is written into the contract.\n- **No-Python-file rule:** its because text now says it reads the disk and names its holes. Both new rules join rules_under_test with fire, quiet and pinned-hole rows.\n- **Exec rule:** the pattern is widened (one level of nested parentheses, a folder prefix, a version suffix, any case).\n- **Ledger probe:** it is spelled out, and it now also runs after the deletion.\n- **Searches:** the run-line search is anchored, and a separate search covers the deleted script names.\n- **Avatar evidence:** corrected.\n- **app_command repoint:** its timing and rollback value are now stated.\n\nI re-ran several things against the tree:\n- The widened exec pattern matches nothing in today's *.go files.\n- The anchored run-line pattern matches nothing outside the two record folders and the .py files.\n- Outside rows_test.go, the records and the .py files, the deleted script names appear only on the four `//` comment lines the design lists (thread.go:12, e004_2 test :8 and :232, sites_multidigit_test.go:9).\n- The widened pattern compiles in Go's regexp, and as a single-quoted YAML scalar it passes the file's own scanner.\n- The repository's info/exclude holds no patterns, so the check-ignore cases really do test `.gitignore`.\n\nTwo minor problems are left in the checks the design prescribes:\n1. The check that `.gitignore` holds the two literal lines is not among the cases, and as written it fails on this machine's CRLF checkout.\n2. The fresh-clone criterion is handed to E-009 line 6's body on the claim that the body does the clone itself. Nothing on record supports that.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "The design's check that `.gitignore` holds the literal lines `__pycache__/` and `*.pyc` is `git grep -q -x -F -e '__pycache__/' -- .gitignore`, then the same for '*.pyc'. It has two problems.\n1. It appears only in the 'Done checks' component, not in `cases`. The done criterion '.gitignore contains `__pycache__/` and `*.pyc`' is therefore proven only by behaviour: two check-ignore cases that would also pass with `*.py[cod]` or `**/__pycache__/`.\n2. As written it fails on this machine. The checked-out `.gitignore` is CRLF (29 of its 29 lines end in \\r), and git grep searches the working-tree bytes without converting them. A line reads `__pycache__/\\r`, so the `-x` whole-line match fails even when the rule is there. After commit, every fresh checkout under core.autocrlf=true is CRLF too (#975).",
+    "evidence": "design 'Done checks' component (design-slice-2.json:80). .gitignore: a ripgrep count of `\\r$` gives 29 of its 29 lines. The 10 cases list no literal-line check. To settle it, run `git grep -q -x -F -e '/hband' -- .gitignore; $LASTEXITCODE` on this worktree: `/hband` is an existing line, and exit 1 means the -x form cannot pass here.",
+    "file": ".taad/slices/SL-017/design-slice-2.json",
+    "line": 80,
+    "quote": {
+     "path": ".taad/slices/SL-017/design-slice-2.json",
+     "line": 80,
+     "text": "The literal-lines check is `git grep -q -x -F -e '__pycache__/' -- "
+    },
+    "fix": "Add two cases, one per literal line, that read the index blob rather than the working tree: `git grep -q --cached -x -F -e '__pycache__/' -- .gitignore`, and the same with '*.pyc'. Index blobs are LF under autocrlf. Alternatively, keep the working-tree search and allow a trailing CR, for example `git grep -q -E -e '^__pycache__/[[:space:]]*$' -- .gitignore`."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "nature": "defect",
+    "claim": "The case for the brief's last done criterion ('a fresh clone with no Python installed builds and passes go test -count=1 ./...') now just runs E-009 line 6's ledger body. Its justification is that the body 'does the clone and PATH stripping itself, as the build check reported'. The build check reported only the PATH and environment stripping ('as E-009 line 6 does'). The `git clone --no-hardlinks` was the build check's own step, and nothing it recorded says line 6 clones. The design cannot read the ledger to confirm this (#997). If line 6 runs the suite in the worktree, the case no longer checks a fresh clone. An untracked or ignored file in the worktree could then hide a file missing from the commit, which is exactly what the clone criterion exists to catch.",
+    "evidence": "design case 'build and test without Python' (design-slice-2.json:240). Build check: 'line 6 = no .py/.pyc tracked + check-ignore rules + suite without Python', and in the fresh-clone criterion the clone is listed under its own 'how'. The first design's case 13 had the explicit clone step, and this version dropped it.",
+    "file": ".taad/slices/SL-017/design-slice-2.json",
+    "line": 240,
+    "quote": {
+     "path": ".taad/slices/SL-017/design-slice-2.json",
+     "line": 240,
+     "text": "(it does the clone and PATH stripping itself, as the build check reported)"
+    },
+    "fix": "Put the explicit step back. `git clone --no-hardlinks` the slice branch into scratch, then run line 6's body, or `go build ./... && go test -count=1 ./...`, inside that clone with PATH and PYTHON*/HBAND_*/CHROME_BIN stripped. The alternative is to have the stage that reads the ledger quote the line of line 6's body that does the clone, and cite it."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "m2: the claim that line 6 clones is unsupported. Everything else checked holds. Spike 209 measured the cut-over from a killed writer at 5/5, which settles the must-verify that drove the first pass. The avatar evidence is corrected. Fake.URL is read after Start returns, which is the order the collision check needs. The SQLite documentation confirms that transactions are durable across application crashes (sqlite.org/forum/info/9d6f13e346231916, quoting pragma.html#pragma_synchronous)."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "None new. Picking P before Start lets the staging stand-in's own ephemeral bind draw P, where pickPort inside Start used to run after the stand-in held its port, and the 3 retries are gone. The contract states the cost: a loud exit 1 with no retry, never a silent torn read. The windows when the staging or final stand-in sits on N end in a loud exit, as recorded."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "None. The one rule about the port that earlier depended on luck (P != N, and the stand-in not on N) is now enforced inside run(). The rules-plus-deletion commit seam is stated explicitly."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "None. The work on the fitness rules stops at one widening, named holes and the corpus rows that TestRuleSpellingsCorpus requires once a rule is listed. No ratchet package, no sweep, no staging retry and no show-all port."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "None open. The CLI error cases now cover the staging stand-in drawing N (with its ~130 ms window), P lost between pick and bind, and the final stand-in or an outside process holding N. The app_command repoint timing, its cost and its rollback value follow the M-add-2 disposition, which is settled and not reopened."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "None. Scope Fatalf ends the scope before the parent's Fatalf. The process T runs its cleanups once, then exits 1, and a re-entrant Fatalf exits at once. The P-pick loop is bounded at 5 tries and then Fatalf. An unreadable stand-in URL causes Fatalf. Each is pinned by a named test."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "None. The rework stays inside the brief and the accepted dispositions. internal/testutil/program has no code change, only the thread.go comment. No documentation edits are planned."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "None new. Per CC-001, the widened exec pattern catches backticks, t.Context() and other single-level nested calls, folder-prefixed, version-suffixed and capitalised names, and .EXE. Its because text names the remaining holes (a shell literal, exec.Cmd{Path:}, os.StartProcess, an aliased import, deeper nesting, a variable or concatenation). A ripgrep run of the exact pattern over *.go finds nothing. The quiet rows `exec.Command(\"git\", \"ls-files\", \"--\", \"*.py\")` and the goTool build row stay quiet when traced by hand. The because texts given carry no apostrophe (#971). The new package still falls under 'the test helpers link none of the product' and Check's scanGo, with no ported: tags."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "m1: the literal-line check of .gitignore is missing from the cases and would fail on CRLF. m2: the fresh-clone check. The other cases were re-verified against the tree: the anchored run-line regex and the comment-excluding script-name search both come back empty today. The probe skips absent .py Editions, so it re-runs after the deletion. The readiness test dials TCP the way look_web does, and fails if a stand-in answers N."
+   },
+   {
+    "dimension": "security",
+    "result": "None. Every bind is on loopback, and the stand-in that approves every sign-in is test-only. No secrets or browser settings are read. Temp folders are checked to be outside the repository."
+   }
+  ]
+ }
+}

@@ -1,0 +1,605 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-25T20:47:59.562Z",
+ "head": "89da1ad3d8055a4b6021326ca0f34b25ba7649dc",
+ "run_id": 12352,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "reason": "The two proposals agree on everything except where the seed-then-serve restart lives. The practice proposal's launcher-only placement leaves the shared harness untouched, so it is the core. The crossdomain proposal contributes the full set of mapping Why fixes and the wiring assertions.",
+  "selection_rationale": "The risk spike settled the main question: a single program.Start(Options{Port:N}) binds N about 1.1 s before DeepThread finishes. Both consumers (E-009 line 7's first GET / and the engine's look_web TCP connect) treat that first answer as ready, and neither reads stdout. So N must stay closed until the data is seeded. Both proposals answer with the same restart: seed a staging hband on a picked loopback port, stop it, then start hband on N over the same data folder. A front proxy is rejected by both, because rawCSP's frame-ancestors (raw.go) and the stand-in's redirect URI follow HBAND_BASE_URL, so a proxied product would frame and sign in on the wrong origin.\n\nThe only real contest is placement, and it was decided against the code as it stands, not on taste:\n- The launcher-only form (practice) needs nothing program does not already offer. Options.Env overrides HBAND_DATA_DIR (childEnv, program.go:277-284), and Start's cleanups are registered on whatever T it is given, so a scope T can end the staging program early.\n- program.Start is the seam of 7 acceptance packages, the breaks test and 263 Ported rows. Its ported: tags (program.go:61,76,213,217,306) are checked lexically by Check. Options.Seed (crossdomain) would change that seam for one caller.\n\nBoth forms are cheap to reverse, and the launcher-only one is the simpler of the two. The four-report show-all seed is retired, as both proposals said, and the code supports that:\n- serve_show_all.txt:103-108 wrote votes, comments and report_opens straight into SQL, and fitness rules on **/*.go forbid that outside their owning packages.\n- Faking 1000 distinct visitors needs a client-identity header, which the header rule forbids outside *_test.go and clientaddr.go.\n- TestShowAll already pins the 1000/5/1000 row.\n\nThe hash-pinned testdata snapshots stay as records, because editing them breaks the Editions that prove coverage. The search criterion excludes them and the engine's .taad/slices records. Measured outside those two places, there is no Python run line today (grep exit 1). Lesson #998 is carried as a gate (case 14). Lesson #976 is confirmed: the Go E-006 port presses block (e006_1 test :146) and unblock (:156). The spike's other no-go (the Python finish bodies of done epics E-003..E-006) concerns ledger records that read none of the eight files. It does not block the deletion and is filed for a person.",
+  "components": [
+   {
+    "name": "Seeded launcher main",
+    "responsibility": "Parses the -port flag through parsePort(args, stderr), using a flag.FlagSet with ContinueOnError. -port is required, must be an integer from 1 to 65535, and no positional argument is allowed; any other input prints usage on stderr and exits 2. main then calls run(t, port, os.Stdout) with the process T. run calls seed and prints exactly one line, `serving <p.Base>/`, which is `serving http://127.0.0.1:N/`. main then blocks on signal.Notify(os.Interrupt). On interrupt it runs the cleanups newest first and exits 0. The launcher never reads CHROME_BIN or any HBAND_* variable itself. Its only imports from this module are internal/testutil/program and internal/testutil/outside.",
+    "lives_at": "internal/testutil/seeded/main.go",
+    "key_interactions": "E-009 line 7 runs it, and once repointed so does the engine's app_command, as `go run ./internal/testutil/seeded -port N` from the repository root. Both treat the first answer on N as ready."
+   },
+   {
+    "name": "seed(t program.T, port int) *program.Program",
+    "responsibility": "Steps, in order:\n1. bin := program.Build(t).\n2. data := os.MkdirTemp(\"\", \"hband-seeded-data-*\"). Its removal is registered on t before any Start, so it runs after the final child is killed; it retries like removeLoud and logs if it cannot remove. outside.MustBeOutside(t, data).\n3. env := {HBAND_DATA_DIR: data}.\n4. s := newScope(t). staging := program.Start(s, bin, Options{Loopback: true, Env: env}), then program.DeepThread(s, staging).\n5. s.end() runs, newest first: launch's kill-and-wait (up to 5 s), fake.Close, then removal of Start's own unused data folder and its work folder.\n6. return program.Start(t, bin, Options{Port: port, Env: env}). This is the fixed port, one attempt, base http://127.0.0.1:N, and a new stand-in whose redirect URI is on N.",
+    "lives_at": "internal/testutil/seeded/main.go",
+    "key_interactions": "Port N is bound only by the final Start, after DeepThread has returned and the staging child is dead. Nothing in internal/testutil/program changes."
+   },
+   {
+    "name": "scope (a program.T over a parent T)",
+    "responsibility": "Helper and Logf pass through to the parent. Cleanup appends to the scope's own list. end() runs that list newest first, exactly once; a second call does nothing. Fatalf calls end() first, then parent.Fatalf, so a staging or seeding failure never leaves the staging child running.",
+    "lives_at": "internal/testutil/seeded/main.go",
+    "key_interactions": "Wraps the process T in main and *testing.T in tests. It is the one new mechanism: it lets the launcher stop the staging program without adding a Stop method to program."
+   },
+   {
+    "name": "Process T adapter",
+    "responsibility": "Helper does nothing. Logf writes a line to stderr. Cleanup appends under a mutex. Fatalf prints `seeded: <msg>` to stderr and then works as follows:\n- If a Fatalf is already in progress (re-entry from a cleanup), it calls exit(1) at once.\n- Otherwise it runs every cleanup newest first, once, then calls exit(1).\nexit is a field set to os.Exit in main, so a test can inject one that panics with a sentinel. The interrupt path uses the same cleanup runner.",
+    "lives_at": "internal/testutil/seeded/main.go",
+    "key_interactions": "Satisfies program.T's 'Fatalf must not return'. Running the cleanups on a failure is what kills an hband child: os.Exit kills no child outside a job."
+   },
+   {
+    "name": "Launcher tests",
+    "responsibility": "TestPortOpensOnlyOnceTheThreadIsSeeded does the following:\n- Picks a free loopback port N.\n- Before calling run(t, N, &buf), starts a poller: GET http://127.0.0.1:N/reports/e004-look every 10 ms through a client with Proxy nil and no redirects. Refused connections do not count.\n- Asserts that the poller's FIRST response is 200, contains 'continue this thread' and a /reports/e004-look/comments/<id> link.\n- Asserts buf is exactly `serving http://127.0.0.1:N/\\n`.\n- Asserts the branch link and GET /raw/e004-look each answer 200.\nTestPortFlagRefusesMissingAndOutOfRange runs parsePort over a table of bad and good arguments. TestScopeEndsOnlyItsOwnCleanupsNewestFirst uses a recording parent. TestProcessFatalfRunsCleanupsOnceThenExits uses an exit that panics with a sentinel and a stderr buffer. No test name has the TestE00[1-6] shape. None starts a browser. A plain strings.Contains read is used, not a third HTML parser (lesson #1004).",
+    "lives_at": "internal/testutil/seeded/main_test.go",
+    "key_interactions": "Runs in the untagged `go test -count=1 ./...` and adds about 4 to 6 s (a cached build and two starts)."
+   },
+   {
+    "name": "Python removal",
+    "responsibility": "`git rm` these files:\n- tests/acceptance/{run_finish,serve_show_all,check_e006_1_stops_at_block,check_run_finish_needs_chrome_bin,test_run_finish_edge_guard}.py\n- tests/acceptance/__pycache__/run_finish.cpython-314.pyc\n- .taad/slices/SL-008/run_finish_e004_2.py\n- .taad/slices/SL-008/__pycache__/run_finish_e004_2.cpython-314.pyc\nThen remove both __pycache__ folders from disk. The build check found no other .py or .pyc file, tracked or untracked.\nBefore the commit (lesson #998), the Edition gate in case 14 is re-run and any mismatch stops the deletion for a re-map. TestPortedAssertionsHaveAGoTest must pass with the files gone; it reads only the testdata snapshots.",
+    "lives_at": "tests/acceptance/"
+   },
+   {
+    "name": ".gitignore Python rules",
+    "responsibility": "Append a one-line comment and the two literal rules `__pycache__/` and `*.pyc`, not the template's `*.py[cod]`. `*.py` itself is deliberately not ignored, so a new .py file shows up in git status.",
+    "lives_at": ".gitignore"
+   },
+   {
+    "name": "Mapping Why text and the Thread comment",
+    "responsibility": "Change only Why strings; Source, Edition, At, Says, Snapshot and Kind stay as they are:\n- SS-26: the four-report show-all seed is retired with serve_show_all.py; internal/testutil/seeded seeds only DeepThread's report; the 0, 1 and 1000 counts are drawn and read back by internal/server TestShowAll and the E-002 Go finish tests.\n- SS-120, RE-74, RE-157, RE-164, RE-170 and RE-271: name internal/testutil/seeded (seed, then serve on Options.Port with DeepThread) instead of 'SC-044'.\n- thread.go:11-12: the doc comment says the thread is the seed the retired run_finish_e004_2.py used and that internal/testutil/seeded uses now.",
+    "lives_at": "tests/acceptance/ported/rows_test.go",
+    "key_interactions": "Check does not hash Why. Superseded rows still need a Why and no By, so Check still passes."
+   },
+   {
+    "name": "No-Python fitness rules",
+    "responsibility": "Two entries under '# settled by SL-017' in .taad/fitness.yaml: no Python source file, and no Go file that starts a Python interpreter. Each because is a single-quoted scalar with apostrophes doubled (lesson #971). The engine's Fitness op=check must load the file before the build leaves (lessons #971 and #1002). Add corpus rows only if TestRuleSpellingsCorpus's census requires them for every rule.",
+    "lives_at": ".taad/fitness.yaml"
+   }
+  ],
+  "key_decisions": [
+   {
+    "decision": "Seed first, then serve, inside the launcher. A staging program on a picked loopback port is seeded by DeepThread and stopped through a cleanup scope. The final program then starts on the fixed port N over the same HBAND_DATA_DIR, set through Options.Env. internal/testutil/program is not changed.",
+    "reversibility": "cheap",
+    "rationale": "The spike measured that N answers about 1.1 s before seeding ends, and both consumers read the first answer as ready. Binding N only after seeding closes that window by construction. Options.Env already overrides HBAND_DATA_DIR. Keeping the change in one new package leaves untouched the harness behind 7 packages, the breaks test and Start's lexically checked ported: tags."
+   },
+   {
+    "decision": "Reject crossdomain's Options.Seed field in program.Start.",
+    "reversibility": "cheap",
+    "rationale": "It is the same restart placed in the shared seam, for one caller. It also needs a new stop return from launch and a stage loop around the attempt loop that carries the ported: tags. The launcher-only form needs neither. The benefits crossdomain cited do not apply here: a fake kept for both stages is unnecessary because no stored row names the stand-in's address (avatar_url comes from the User's profile), and an exit-verified stop is unnecessary because SQLite WAL with busy_timeout tolerates a second opener."
+   },
+   {
+    "decision": "Reject a reverse proxy in the launcher that keeps N closed in front of a product on another port.",
+    "reversibility": "cheap",
+    "rationale": "rawCSP's frame-ancestors is a.cfg.Origin, and the stand-in's redirect URI is the base's callback. A browser on N would get a blank report frame and land on the wrong port after sign-in, even though line 7, which reads only HTML, would pass."
+   },
+   {
+    "decision": "Retire serve_show_all.py's four-report show-all seed (12/3/120, 1/1/1, 0/0/0 with a long title, 1000/25/1000) instead of porting it. SS-26's Why is rewritten to say so.",
+    "reversibility": "cheap",
+    "rationale": "The Python wrote votes, comments and report_opens rows straight into SQL, which the fitness rules forbid in a non-test Go file outside internal/votes, comments and opens. Over HTTP it would need about 1000 sign-ins plus 1000 distinct visitors through a client-identity header, which the header rule forbids outside *_test.go and clientaddr.go. Nothing live runs it: app_command runs run_finish_e004_2.py serve. TestShowAll and the E-002 Go finish tests pin the row text and the 0/1/1000 counts (lesson #985). What is lost is a hand look at a long title wrapping, which no check consumes."
+   },
+   {
+    "decision": "Treat tests/acceptance/ported/testdata/*.txt and the engine's .taad/slices/** records as quoted records, not instructions. The 'no instruction to run python' search excludes exactly those two places.",
+    "reversibility": "cheap",
+    "rationale": "The snapshots are .txt files that nothing executes. rows_test.go pins their sha256 and line numbers, and its header forbids re-hashing. Rewriting them would break TestPortedAssertionsHaveAGoTest and falsify the record that the deleted files were covered. Measured: outside those two places and the .py files, a run-line grep finds nothing."
+   },
+   {
+    "decision": "Accept the temp folders that each TerminateJobObject kill leaves behind: the bin folder (about 22 MB), data, work, hband-seeded-data, and go run's go-build folder. Add no sweep at start. Fatalf and Ctrl+C both run every cleanup.",
+    "reversibility": "cheap",
+    "rationale": "Code cannot run after a job is terminated. A sweep by prefix could delete the live database of a concurrent acceptance run. The folders land in the TEMP the engine leases for the app, and the Python launcher also left files behind (measured by the spike)."
+   },
+   {
+    "decision": "The process T's Fatalf runs the registered cleanups newest first, once, before os.Exit(1). SC-044's text said only 'print, then exit'.",
+    "reversibility": "cheap",
+    "rationale": "A failure after a child has started (in seeding, or when the final start loses N) would otherwise leave an hband.exe running, holding its port and folders, because os.Exit kills no child outside a job."
+   },
+   {
+    "decision": "The command line is `go run ./internal/testutil/seeded -port N`, the ready line is `serving http://127.0.0.1:N/`, and the launcher blocks until killed. E-009 line 7's body is not committed. The engine's app_command for project 14 becomes `go run ./internal/testutil/seeded -port {port}`; that is the engine's setting and must be made when this slice merges.",
+    "reversibility": "expensive",
+    "rationale": "E-009 line 7, a finish line approved by the person, fixes this shape. The deletion removes the file the current app_command runs, so the engine's app look fails to start until the repoint. The bodies of the finish lines live in the ledger."
+   },
+   {
+    "decision": "Use the literal `__pycache__/` and `*.pyc` in .gitignore.",
+    "reversibility": "cheap",
+    "rationale": "The done check and E-009 line 6 name these exact strings. The build check measured that, appended, they ignore all four of line 6's probe paths."
+   },
+   {
+    "decision": "Add two fitness rules: no Python source file, and no Go file that starts a Python interpreter. Neither proposal had them; the practice proposal flagged a **/*.py rule as over-building.",
+    "reversibility": "cheap",
+    "rationale": "E-009 line 6 checks the end state once, at the epic's finish, and after that nothing stops a later slice from committing Python or a Go test that shells out to python and passing every gate. This is the regression the architecture rules exist to stop. Each rule costs one YAML entry, and both are quiet on today's tree (grep measured no exec of python in any .go file)."
+   }
+  ],
+  "proposals": [
+   {
+    "designer": "practice",
+    "selected": "core",
+    "note": "Taken as the core: the restart inside the launcher over a shared HBAND_DATA_DIR, the cleanup scope, the process T with cleanups on Fatalf, the poller readiness test, the retired show-all seed, the snapshots kept as records, the literal ignore rules and accepting the temp leftovers. Its over-engineering flag held for the harness change, a ratchet package and the show-all port. It was overridden on one point: two small fitness rules were added, because a finish check that runs once does not guard the slices that come after."
+   },
+   {
+    "designer": "crossdomain",
+    "selected": "partial",
+    "note": "Taken: the full set of seven Why rewrites (SS-26, SS-120, RE-74, RE-157, RE-164, RE-170, RE-271), the Thread doc-comment fix, and the wiring assertions (exact serving line, branch page 200), merged into the one poller test. Its staging/publish transfer is carried. Not taken: Options.Seed in program.Start, launch's new stop return, and the 10-s exit-verified stop, because the shared seam does not need to change for one caller."
+   }
+  ],
+  "coherence_check": "This design composes two proposals.\n\nSeams checked:\n1. Placement. Options.Seed (crossdomain) and the launcher scope (practice) are two placements of the same restart. Shipping both would give two restart paths and a changed harness. Only the launcher's is kept, so program.go and its ported: tags are untouched.\n2. Staging stop. Crossdomain required the staging process to be verified as exited (a 10-s Fatalf). Practice relies on launch's cleanup (Kill, then wait up to 5 s on cmd.Wait, program.go:240-246). Checked: the spike measured kill-to-gone at 0.57 s, and the product opens SQLite in WAL mode with busy_timeout(5000) (store.go:68), which tolerates a second opener; that tolerance is recalled. So no extra check was added. The precondition stays must-verify in the transfer block.\n3. Stand-in continuity. Crossdomain keeps one fake for both stages; practice gets a new fake per Start. Checked: the stand-in serves avatar_url from the User's profile (default https://avatars.githubusercontent.com/u/42), DeepThread's users have none, and SeeOther writes relative Locations. No stored row names the closed staging fake's address, and the final Start points the new fake's redirect at N.\n4. Why rewrites. Crossdomain's seven rows and practice's two are merged into one wording. Nothing that Check hashes or locates is touched.\n5. Error contract. Both proposals use exit 2 for a bad flag and exit 1 through Fatalf with cleanups, so there is nothing to reconcile.\n\nSettled by nobody:\n- Both proposals assume that an hband started on a data folder whose writer was killed serves every seeded row. That is recorded as the one decidable disagreement. The poller test and line 7 settle it, and a losing answer leaves only a product change or the rejected proxy.\n- The spike's no-runnable-ledger no-go is outside the repository. The six Python finish bodies of done epics E-003..E-006 read none of the eight files, so the deletion neither breaks nor fixes them. They are filed for a person.\n\nOther checks:\n- No workaround setting applies. The readiness race is this project's own harness ordering, and TerminateJobObject skipping cleanup is documented OS behaviour, not a defect.\n- Architecture rules: two. They are new, and practice argued against a Python rule; see key decision 10. The existing rule 'the test helpers link none of the product' already covers the new package, so no import rule is added.\n- Known residual risks:\n  - Port N can be taken during the 2-3 s of staging, which gives a loud exit 1 and never a wrong product.\n  - The in-suite test's picked port can be taken under -p 4; re-run the package alone (lesson #987).\n  - gofmt must be checked on the staged LF blobs (lesson #975).\n  - The app_command must be repointed at merge.",
+  "contracts": [
+   {
+    "name": "go run ./internal/testutil/seeded -port N",
+    "kind": "cli",
+    "auth_model": "Loopback only. Hband binds 127.0.0.1:N, and the in-process stand-in GitHub binds an ephemeral loopback port. Sign-in through the stand-in approves automatically, which is intended for a local look and matches every acceptance start.",
+    "error_cases": "- -port missing, non-numeric, below 1 or above 65535, or a positional argument: usage on stderr, exit 2.\n- A failed go build, a staging start, health check or DeepThread step, or N taken when the final program starts (fixed port, never retried): Fatalf, which prints `seeded: <msg>` on stderr, runs every cleanup newest first and exits 1.\n- Ctrl+C: cleanups run, exit 0.\n- TerminateJobObject: no cleanup; the temp folders stay in the leased TEMP.",
+    "notes": "Run from the repository root. N refuses connections until the final hband is healthy on it with the 9-level e004-look thread already in the database. Exactly one stdout line, `serving http://127.0.0.1:N/`, is printed after that, and then the launcher blocks. CHROME_BIN is not needed. Known differences from the Python serve, which no consumer relies on (measured by the spike):\n- /reports shows 0 views, not 1.\n- The launcher keeps blocking if hband dies.\n- The base is http://127.0.0.1:N, not https://hband.test, so the report frame's CSP matches the page a browser opens."
+   },
+   {
+    "name": "seed / run",
+    "kind": "function",
+    "error_cases": "Any failure is t.Fatalf. A failure inside the staging scope ends the scope first, so the staging child is killed before the parent's Fatalf.",
+    "notes": "func seed(t program.T, port int) *program.Program and func run(t program.T, port int, out io.Writer) *program.Program, both unexported in package main, are called by main and by main_test.go with *testing.T."
+   },
+   {
+    "name": "engine app_command for project 14",
+    "kind": "cli",
+    "notes": "New value: `go run ./internal/testutil/seeded -port {port}`. This is an engine setting outside the repository, already on the loop's open list from the build check. It must be repointed when this slice merges, because the merge deletes .taad/slices/SL-008/run_finish_e004_2.py, which the current value runs."
+   }
+  ],
+  "cases": [
+   {
+    "behaviour": "start the seeded launcher on port N",
+    "shape": "a client polls N from before the launcher starts and keeps polling",
+    "why": "The spike measured that a single Start binds N about 1.1 s before seeding ends, and both consumers take the first answer as ready. The first response on N must already carry the thread. The ready line must be exactly `serving http://127.0.0.1:N/`.",
+    "check": "go test -count=1 -run '^TestPortOpensOnlyOnceTheThreadIsSeeded$' ./internal/testutil/seeded",
+    "material": true
+   },
+   {
+    "behaviour": "serve the seeded product after the restart",
+    "shape": "the final hband opens a data folder whose earlier writer was killed with TerminateProcess (WAL and -shm left behind)",
+    "why": "The restart is the one link nothing has run yet. The comments, the report file and the users must all carry over: the report page shows 'continue this thread', and the branch page and /raw/e004-look answer 200.",
+    "check": "go test -count=1 -run '^TestPortOpensOnlyOnceTheThreadIsSeeded$' ./internal/testutil/seeded",
+    "material": true
+   },
+   {
+    "behaviour": "read the -port flag",
+    "shape": "-port missing, 0, -1, 65536, not a number, or a stray positional argument",
+    "why": "Port 0 makes Start fall back to https://hband.test on 127.0.0.1:0, a product nobody can reach on N. A bad flag must exit 2 with usage, never serve.",
+    "check": "go test -count=1 -run '^TestPortFlagRefusesMissingAndOutOfRange$' ./internal/testutil/seeded",
+    "material": true
+   },
+   {
+    "behaviour": "stop the staging program before serving",
+    "shape": "the parent T already holds cleanups (Build's binary folder, the shared data folder) when the scope ends",
+    "why": "If end() ran the parent's cleanups, the binary or the seeded data would be deleted before the final Start. The scope must run only its own cleanups, newest first, once, and Fatalf inside the scope must end the scope before the parent's Fatalf.",
+    "check": "go test -count=1 -run '^TestScopeEndsOnlyItsOwnCleanupsNewestFirst$' ./internal/testutil/seeded",
+    "material": true
+   },
+   {
+    "behaviour": "fail after a child is running",
+    "shape": "Fatalf with cleanups registered, and one of those cleanups itself calls Fatalf",
+    "why": "os.Exit kills no child outside a job, so without the cleanup pass an hband.exe is orphaned holding N. Re-entry must go straight to exit(1) without re-running the cleanups or looping. The message goes to stderr.",
+    "check": "go test -count=1 -run '^TestProcessFatalfRunsCleanupsOnceThenExits$' ./internal/testutil/seeded",
+    "material": true
+   },
+   {
+    "behaviour": "start the final program on N",
+    "shape": "another process takes port N during the 2-3 s of staging",
+    "why": "Considered and judged not worth a test of its own. The branch is program.Start's fixed-port path (attempts=1 for Port>0), which this slice leaves unchanged; it fails through Fatalf with the exit code. The launcher's only part, Fatalf running the cleanups, is the case above.",
+    "material": false
+   },
+   {
+    "behaviour": "serve until the engine stops the job",
+    "shape": "the job holding go run, the launcher and hband is ended with TerminateJobObject",
+    "why": "This is E-009 line 7, the approved finish line: GET / with src=\"/raw/...\", /reports linking a report page with a 'continue this thread' link and a branch that answers 200, still serving 3 s later with go run alive, and nothing serving within 30 s after the kill.",
+    "check": "Read E-009's finish in place (SELECT finish FROM epics WHERE id=47 on file:<engine.db>?mode=ro), write finish[6].body to <scratch>/e009_7_go_launcher_test.go, map it with -overlay to internal/testutil/fakegithub/e009_7_go_launcher_test.go, then: go test -count=1 -overlay <scratch>/overlay7.json -tags e009line7 -timeout 30m -run '^TestE009Line7GoLauncherServesTheSeededProductUntilStopped$' ./internal/testutil/fakegithub",
+    "material": true
+   },
+   {
+    "behaviour": "list the repository's files",
+    "shape": "a .py or .pyc anywhere, tracked (including under .taad/slices) or untracked and not ignored",
+    "why": "Done condition: git ls-files lists no *.py and no *.pyc, and no other Python file is left on disk.",
+    "check": "pwsh -NoProfile -Command \"if ((git ls-files -- '*.py' '*.pyc') -or (git ls-files --others --exclude-standard -- '*.py')) { exit 1 }\"",
+    "material": true
+   },
+   {
+    "behaviour": "ignore Python bytecode",
+    "shape": "a .pyc outside any __pycache__ folder (stray.pyc at the root, internal/server/left_behind.cpython-314.pyc)",
+    "why": "Only the `*.pyc` rule covers these paths. The user's own global excludes must not be what makes the check pass.",
+    "check": "pwsh -NoProfile -Command \"$e=New-TemporaryFile; foreach($p in 'stray.pyc','internal/server/left_behind.cpython-314.pyc'){ git -c core.excludesFile=$e check-ignore -q --no-index -- $p; if($LASTEXITCODE -ne 0){exit 1} }; if(-not (Select-String -Path .gitignore -SimpleMatch -Pattern '*.pyc' -Quiet)){exit 1}\"",
+    "material": true
+   },
+   {
+    "behaviour": "ignore Python cache folders",
+    "shape": "a file that is not .pyc inside a __pycache__ folder at any depth (tests/acceptance/__pycache__/notes.txt, .taad/slices/SL-099/__pycache__/anything.txt)",
+    "why": "Only the `__pycache__/` rule covers these paths, and the dotted .taad path checks that the rule matches at any depth.",
+    "check": "pwsh -NoProfile -Command \"$e=New-TemporaryFile; foreach($p in 'tests/acceptance/__pycache__/notes.txt','.taad/slices/SL-099/__pycache__/anything.txt'){ git -c core.excludesFile=$e check-ignore -q --no-index -- $p; if($LASTEXITCODE -ne 0){exit 1} }; if(-not (Select-String -Path .gitignore -SimpleMatch -Pattern '__pycache__/' -Quiet)){exit 1}\"",
+    "material": true
+   },
+   {
+    "behaviour": "search the repository for an instruction to run Python",
+    "shape": "a python, python3 or py run line anywhere outside the hash-pinned testdata snapshots and the engine's .taad/slices records",
+    "why": "Done condition. The snapshots quote the deleted scripts' run lines verbatim and are pinned in rows_test.go, so they are excluded as records, and only there.",
+    "check": "pwsh -NoProfile -Command \"git grep -q -I -i -E '(python3?|py)(\\.exe)? +(-[A-Za-z]|[^ ]+\\.py)' -- . ':(exclude)tests/acceptance/ported/testdata' ':(exclude).taad/slices'; if($LASTEXITCODE -eq 1){exit 0}else{exit 1}\"",
+    "material": true
+   },
+   {
+    "behaviour": "prove the mapping covers every retired check",
+    "shape": "the six .py files and both __pycache__ folders are gone from the tree",
+    "why": "Check must read only the testdata snapshots. If it still needs a deleted file, the mapping that justified the deletion fails.",
+    "check": "go test -count=1 -run '^TestPortedAssertionsHaveAGoTest$' ./tests/acceptance/ported",
+    "material": true
+   },
+   {
+    "behaviour": "build and test from a fresh clone",
+    "shape": "no python, python3, py or pythonw reachable on PATH, and PYTHON*, HBAND_* and CHROME_BIN unset",
+    "why": "Done condition: nothing in the project needs Python to build or test. The build check measured this before the deletion, and it must still hold after.",
+    "check": "Clone the slice branch with git clone --no-hardlinks into <scratch>/clone. Drop from PATH every folder holding python, python3, py or pythonw, and remove PYTHON*, HBAND_* and CHROME_BIN. Set TAAD3_HOME=<scratch>/home. Then: go build ./... && go test -count=1 ./... (exit 0).",
+    "material": true
+   },
+   {
+    "behaviour": "re-prove the BLOCKED-ON gate when deleting",
+    "shape": "a ledger finish body of epics 39-44 that has changed since SC-042 hashed it",
+    "why": "Lesson #998: the Editions in rows_test.go are frozen. A body changed since then would mean the deletion is justified by a stale mapping, and the slice must stop and re-map.",
+    "check": "Read SELECT id,key,finish FROM epics WHERE id BETWEEN 39 AND 44 in place (mode=ro) and quote the finish texts to scratch. Then run: go test -count=1 -overlay <scratch>/overlay.json -run '^TestZZLedgerEditionProbe$' ./tests/acceptance/ported. The overlay probe compares sha256(Canonical(body)) of every item with the sources Editions and exits 0 on zero mismatches, no orphan Editions and 16 items for 16 sources.",
+    "material": true
+   }
+  ],
+  "architecture_rules": [
+   {
+    "name": "no Python source file is committed anywhere in the repository",
+    "files": "**/*.py",
+    "must_not_match": [
+     "\\S"
+    ],
+    "because": "The owner's end state is no Python in hband. E-009 line 6 checks it only once, at the epic's finish, so without this rule a later slice could commit a .py file and pass every gate. There is no correct Python here, so any non-whitespace character in a .py file is the defect. The pattern matches no file today on purpose and fires the moment one appears. Known holes: a .py that holds only comments or whitespace, and .pyc files, which .gitignore keeps out of the index instead."
+   },
+   {
+    "name": "no Go code starts a Python interpreter",
+    "files": "**/*.go",
+    "must_not_match": [
+     "exec\\.(?:Command|CommandContext|LookPath)\\([^)\\r\\n]*[\"`](?:python3?|pythonw|py)(?:\\.exe)?[\"`]"
+    ],
+    "because": "The owner requires that nothing in the project needs Python to be built or tested. A Go test that shells out to python makes `go test ./...` need Python again while every file stays .go, which E-009 line 6's ls-files check cannot see. The pattern matches only an os/exec call naming a Python executable as a literal. It is quiet on today's tree, where every exec site names go, git or the built binary. Known holes: the name held in a variable or built by concatenation, and a call split across lines."
+   }
+  ],
+  "code_claims": [
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "Options",
+    "claim": "Options.Port above 0 is a fixed port that implies Loopback and is never retried, and Options.Env overrides or adds HBAND_* variables of the started program."
+   },
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "childEnv",
+    "claim": "childEnv drops every inherited HBAND_* name, adds each key of set that extra does not override, then adds extra, so an Options.Env HBAND_DATA_DIR replaces the data folder Start made."
+   },
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "Start",
+    "claim": "Start makes its own work and data folders with os.MkdirTemp and registers their removal as cleanups, creates one fakegithub stand-in per call with a Close cleanup, and passes HBAND_DATA_DIR=data to the child."
+   },
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "attempts",
+    "claim": "Start makes 3 attempts only for a loopback start with Port 0; a fixed Port gets exactly one attempt."
+   },
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "SetRedirectURI",
+    "claim": "Before each launch, Start sets the stand-in's redirect URI to base+\"/auth/github/callback\", and a loopback base is http://127.0.0.1:<port>."
+   },
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "launch",
+    "claim": "launch registers a cleanup that kills the child process and waits up to 5 seconds for cmd.Wait to finish."
+   },
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "T",
+    "claim": "T is Helper, Fatalf, Logf and Cleanup, and its comment says Fatalf must not return."
+   },
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "Build",
+    "claim": "Build runs go build -buildvcs=false of github.com/sshubham2/hband/cmd/hband into an os.MkdirTemp folder whose removal it registers as a cleanup."
+   },
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "internal/testutil/outside",
+    "claim": "Package program imports only internal/testutil/fakegithub and internal/testutil/outside from this module."
+   },
+   {
+    "path": "internal/testutil/program/program.go",
+    "symbol": "ported:E3-196",
+    "claim": "Start's exit-before-listening Fatalf carries a ported: tag inside Start's own body."
+   },
+   {
+    "path": "internal/testutil/program/thread.go",
+    "symbol": "DeepThread",
+    "claim": "DeepThread publishes 'e004-look', posts a nine-level chain through the real handlers, sets Branch to the level-5 comment's branch page and fails t when a post lands anywhere unexpected."
+   },
+   {
+    "path": "internal/testutil/program/thread.go",
+    "symbol": "run_finish_e004_2.py's seed",
+    "claim": "Thread's doc comment describes it as run_finish_e004_2.py's seed, a file this slice deletes."
+   },
+   {
+    "path": "internal/server/raw.go",
+    "symbol": "rawCSP",
+    "claim": "rawCSP's frame-ancestors is the configured origin a.cfg.Origin, so a page served on a port other than HBAND_BASE_URL's cannot frame the report."
+   },
+   {
+    "path": "internal/store/store.go",
+    "symbol": "servingPragmas",
+    "claim": "The product opens SQLite with journal_mode(WAL) and busy_timeout(5000)."
+   },
+   {
+    "path": "internal/testutil/fakegithub/fakegithub.go",
+    "symbol": "avatars.githubusercontent.com",
+    "claim": "The stand-in's default user has avatar_url https://avatars.githubusercontent.com/u/42, and the user API answers the signed-in User's own AvatarURL, not an address of the stand-in."
+   },
+   {
+    "path": ".gitignore",
+    "symbol": "Thumbs.db",
+    "claim": ".gitignore ends with its editor and operating-system litter section and has no __pycache__/ or *.pyc rule."
+   },
+   {
+    "path": "tests/acceptance/ported/rows_test.go",
+    "symbol": "SS-26",
+    "claim": "Row SS-26's Why says the four-report show-all seed is carried by the seeded launcher SC-044."
+   },
+   {
+    "path": "tests/acceptance/ported/rows_test.go",
+    "symbol": "SS-120",
+    "claim": "Row SS-120 is Superseded with Why 'The launcher's exit status; the seeded launcher is SC-044.'"
+   },
+   {
+    "path": "tests/acceptance/ported/rows_test.go",
+    "symbol": "RE-74",
+    "claim": "Rows RE-74, RE-157, RE-164, RE-170 and RE-271 are Superseded serve-mode rows whose Why names SC-044 as the seeded launcher."
+   },
+   {
+    "path": "tests/acceptance/ported/rows_test.go",
+    "symbol": "sources",
+    "claim": "The six repository .py sources are declared with a pinned Edition and a Snapshot under testdata."
+   },
+   {
+    "path": "tests/acceptance/ported/rows_test.go",
+    "symbol": "Never re-hash an Edition",
+    "claim": "The file's header says never to re-hash an Edition from a committed file and that a mismatch means stop and re-map."
+   },
+   {
+    "path": "tests/acceptance/ported/testdata/serve_show_all.txt",
+    "symbol": "INSERT INTO votes",
+    "claim": "The retired show-all launcher wrote votes, comments and report_opens rows straight into the database with sqlite3."
+   },
+   {
+    "path": "internal/server/showall_test.go",
+    "symbol": "TestShowAll",
+    "claim": "TestShowAll seeds a report with 1000 likes, 5 comments and 1000 views and asserts its numbers row '1000 likes &middot; 5 comments &middot; 1000 views'."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "the test helpers link none of the product",
+    "claim": "This rule covers internal/testutil/**/*.go, so the new launcher may import no product package."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "only the acceptance packages carry an epic's acceptance key",
+    "claim": "The rule matches func TestE00[1-6] in any *_test.go outside tests/acceptance, so the launcher's test names must avoid that shape."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "no request header ever supplies scheme, host or client identity",
+    "claim": "The rule applies to **/*.go except **/*_test.go and internal/server/clientaddr.go."
+   },
+   {
+    "path": "tests/acceptance/ported/check_test.go",
+    "symbol": "TestAcceptanceLinksNoneOfTheProduct",
+    "claim": "It runs go list -deps -test over ./tests/acceptance/... and ./internal/testutil/..., so the new seeded package falls in its scope."
+   },
+   {
+    "path": "tests/acceptance/ported/ported_test.go",
+    "symbol": "scanGo",
+    "claim": "Check scans the .go files of tests/acceptance and internal/testutil."
+   },
+   {
+    "path": "tests/acceptance/ported/check_test.go",
+    "symbol": "TestPortedAssertionsHaveAGoTest",
+    "claim": "This is the mapping check that must still pass once the Python files are deleted."
+   },
+   {
+    "path": "tests/acceptance/e006_1_removal_and_placeholders/e006_1_removal_and_placeholders_test.go",
+    "symbol": "TestE006RemovalAndPlaceholders",
+    "claim": "The Go E-006 port presses POST /admin/users/<id>/block and later /unblock, so it goes past where check_e006_1_stops_at_block.py stopped."
+   }
+  ],
+  "outside_claims": [
+   {
+    "claim": "In SQLite WAL mode, a transaction whose commit returned survives a TerminateProcess of the writing process, and the next process that opens the database sees it (the WAL is recovered on open).",
+    "evidence": "recalled",
+    "source": "memory (SQLite WAL documentation)",
+    "if_wrong": "The final hband would not see the seeded thread. Seed-then-serve fails, and only a product change or the rejected proxy is left. This is recorded as the decidable disagreement."
+   },
+   {
+    "claim": "Two processes can have the same WAL database open at once on a local NTFS volume without corrupting it; a second writer waits up to busy_timeout.",
+    "evidence": "recalled",
+    "source": "memory (SQLite locking and WAL documentation)",
+    "if_wrong": "A staging child not reaped within launch's 5-s wait could damage the database. The decision not to add an exit-verified stop would have to be reversed by adding a dial or wait check in the launcher."
+   },
+   {
+    "claim": "Process.Kill of the staging hband (TerminateProcess) completes in well under 5 s on this machine.",
+    "evidence": "measured",
+    "source": "spike python-serve-has-nothing-line7-drops: everything gone in 0.57 s after a kill",
+    "if_wrong": "launch's cleanup returns after 5 s while the process is still alive, which only matters if the claim above is also wrong."
+   },
+   {
+    "claim": "TerminateJobObject on the job holding go run also ends the hband child, and nothing answers on N afterwards.",
+    "evidence": "measured",
+    "source": "spike go-run-launcher-passes-line7-with-program-unchanged, diagnostic run (PASS, 0 leftover processes)",
+    "if_wrong": "E-009 line 7's after-kill check fails, and the launcher would need to put its child in a job itself."
+   },
+   {
+    "claim": "The engine's look_web declares the app ready on a TCP connect to 127.0.0.1 or ::1, and E-009 line 7 on the first successful GET /; neither reads the launcher's stdout.",
+    "evidence": "measured",
+    "source": "spike python-serve-has-nothing-line7-drops (screenlook.py:589-601, 785-786; line 7 body read from the ledger)",
+    "if_wrong": "A consumer that waited for the 'serving' line would have made a single Start enough, and the restart would be unnecessary but harmless."
+   },
+   {
+    "claim": "`__pycache__/` in the root .gitignore ignores a __pycache__ folder and its contents at any depth, and `*.pyc` (no slash) matches at any depth.",
+    "evidence": "measured",
+    "source": "build check: in a scratch clone, check-ignore exited 0 for all four probe paths, naming the two new lines",
+    "if_wrong": "The probe-path cases fail, and anchored or extra patterns would be needed."
+   },
+   {
+    "claim": "git rm removes files from future commits only; history keeps the old blobs.",
+    "evidence": "cited",
+    "source": "https://stackoverflow.com/questions/71922766/removing-pycache-from-git-repository",
+    "if_wrong": "Nothing here depends on rewriting history. The done check reads only git ls-files."
+   },
+   {
+    "claim": "On a Windows console, Ctrl+C is delivered to a Go program as os.Interrupt through signal.Notify.",
+    "evidence": "recalled",
+    "source": "memory (os/signal package documentation)",
+    "if_wrong": "Only the hand-run Ctrl+C cleanup path is lost; the folders then stay behind as they do on a job kill."
+   },
+   {
+    "claim": "A port picked by net.Listen on 127.0.0.1:0 and then closed can be taken by another process before it is bound again.",
+    "evidence": "recalled",
+    "source": "memory",
+    "if_wrong": "Nothing; it is the known source of a rare flake in the in-suite poller test (re-run the package alone, lesson #987)."
+   }
+  ],
+  "cross_domain_transfer": {
+   "source_domain": "Atomic publish in filesystems and package managers (stage privately, then make the public name appear), and container init-container seeding",
+   "pattern": "Readers take 'the public name exists' to mean 'the artifact is complete', so the state is never built under the public name. Here the public name is TCP port N, and both consumers read a working connect or GET as ready. The full state is built on a private port, the private builder is stopped, and only then does the serving process bind N over the finished data folder. Its identity (HBAND_BASE_URL=http://127.0.0.1:N) moves together with the content. A front proxy would publish late too, but it would leave the identity at the staging address, much like a symlink that resolves into scratch.",
+   "transfer_found": true,
+   "rationale": "The spike's no-go is a torn read: N existed before its content (N answered at about 1.1 s, seeding ended at about 2.2 s). The standard cure is to move the publication point after construction rather than teach readers a side signal; the spike measured that no consumer reads the 'serving' line. Both designers arrived at the same transfer independently. The launcher-only placement keeps the 'rename' step out of the shared harness.",
+   "invariants": [
+    {
+     "precondition": "Readers treat connection refused as 'not yet' and retry",
+     "status": "holds",
+     "evidence": "Spike: look_web retries for up to APP_WAIT_S=120, and line 7 polls GET / every 500 ms for up to 8 min."
+    },
+    {
+     "precondition": "The state survives the cut-over: an hband started on a data folder whose writer was killed serves the same reports, report files, users and comments",
+     "status": "must-verify",
+     "evidence": "Not yet run. TestPortOpensOnlyOnceTheThreadIsSeeded (the thread, the branch page and /raw/e004-look at N) and E-009 line 7 settle it. Recorded as the decidable disagreement."
+    },
+    {
+     "precondition": "Nothing persisted during staging depends on the staging address or on the staging stand-in",
+     "status": "must-verify",
+     "evidence": "SeeOther writes relative Locations; avatar_url comes from the User's profile (default avatars.githubusercontent.com), and DeepThread's users have none; the spike found identical rows between the https://hband.test and loopback bases. Not confirmed for every table, but the poller test reads the pages at N."
+    },
+    {
+     "precondition": "Only one writer at a time: the staging hband has exited before the final one opens the database",
+     "status": "must-verify",
+     "evidence": "launch's cleanup waits up to 5 s on cmd.Wait (program.go:240-246), and the spike measured 0.57 s. Correctness does not depend on it, because WAL with busy_timeout(5000) tolerates a second opener (recalled)."
+    },
+    {
+     "precondition": "Nobody else takes the public name between choosing it and binding it",
+     "status": "fails",
+     "evidence": "N is unbound for about 2-3 s of staging. The cost is a loud exit 1 through Fatalf, because fixed ports are never retried, and never a wrong or unseeded product."
+    },
+    {
+     "precondition": "Destroying the publisher destroys what it published: TerminateJobObject on go run stops everything serving N",
+     "status": "holds",
+     "evidence": "Spike diagnostic: the hband child stays in the go-run job, and nothing answers on N afterwards. The staging child is already dead before N is bound."
+    }
+   ]
+  },
+  "channeled_experts": [
+   "Filesystem/package-manager atomic publish (stage, then rename into place)",
+   "Readiness-probe semantics (an open port is read as ready)",
+   "Kubernetes init-container and readiness-probe practice",
+   "SQLite WAL durability (D. Richard Hipp)"
+  ],
+  "prior_art": [
+   {
+    "pattern": "Remove tracked bytecode with git rm and list `__pycache__/` in .gitignore; past commits keep the files, and only future commits are clean.",
+    "where": "https://stackoverflow.com/questions/71922766/removing-pycache-from-git-repository",
+    "authority": "community",
+    "basis": "cited",
+    "source_date": "2022-04-19"
+   },
+   {
+    "pattern": "The standard Python ignore block, `__pycache__/` and `*.py[cod]`. Here the literal `*.pyc` the done check names is used instead.",
+    "where": "https://tydukes.github.io/coding-style-guide/04_templates/gitignore_templates/",
+    "authority": "community",
+    "basis": "cited"
+   },
+   {
+    "pattern": "A Go-side gate that refuses new Python in the tree (a de-Python ratchet). Taken here in its smallest form, two fitness rules, not a package.",
+    "where": "https://github.com/anthony-chaudhary/fak/blob/b5304ad0/internal/pythongate/doc.go",
+    "authority": "oss",
+    "basis": "cited"
+   },
+   {
+    "pattern": "Init containers seed the volume before the main server starts, so the public port being ready means the data is there.",
+    "where": "Kubernetes init containers / docker-compose depends_on with healthcheck",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "A port-open wait strategy reports ready while a service is still initialising behind an open port; this is the failure that log and HTTP-content waits exist to avoid.",
+    "where": "Testcontainers wait strategies",
+    "authority": "oss",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Atomic publish: build in a private path, then rename over the public name, so readers see either nothing or the finished artifact.",
+    "where": "POSIX rename(2) semantics; dpkg/rpm and git ref updates",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "A committed WAL transaction survives a process kill and is recovered on the next open.",
+    "where": "SQLite WAL documentation",
+    "authority": "official",
+    "basis": "recalled"
+   }
+  ],
+  "decidable_disagreements": [
+   {
+    "question": "Does an hband started on a data folder whose previous hband was killed with TerminateProcess (WAL and -shm left behind) serve every seeded row and report file, so that the e004-look page shows 'continue this thread' and the branch page and /raw/e004-look answer 200?",
+    "positions": "Neither proposal disputes it, and both rest on it: the practice proposal marks it must-verify, and the crossdomain proposal marks it must-verify and requires an exit-verified stop. Nobody has measured it. It is settled in about 6 s by TestPortOpensOnlyOnceTheThreadIsSeeded, or by line 7 through -overlay. If the answer is no, both placements of the restart fail, and only a product-side change (for example, the program listening late) or the rejected front proxy is left. That would change the component boundary.",
+    "would_force_resynthesis": true
+   }
+  ],
+  "taste_disagreements": [
+   "Where seed-then-serve lives. In the launcher, through a cleanup scope and Options.Env (practice, chosen), or as an Options.Seed field inside program.Start with a staging stage loop (crossdomain). Both are restart-based and cheap to reverse; the chosen one leaves the shared seam alone.",
+   "Whether to verify that the staging process has exited before the final start. The crossdomain proposal stops and waits, with a Fatalf after 10 s. The chosen design relies on launch's 5-s wait and on SQLite WAL tolerating a second opener.",
+   "Whether to add no-Python fitness rules. The practice proposal flagged a **/*.py rule as over-building and said E-009 line 6 is the guard. The chosen design adds two small rules, because line 6 runs only at the epic's finish."
+  ],
+  "filed_for_later": [
+   {
+    "what": "Approve Go redrafts, or the retirement, of the six Python finish bodies of the done epics E-003, E-004, E-005 and E-006 (ledger epics 41-44). They still run `python tests/acceptance/test_e00*.py`. Their Go ports already pass in tests/acceptance/e003_1..e006_2, as was done for E-001 and E-002 (spike no-runnable-ledger-record-needs-python, note N-238).",
+    "why": "These are ledger records holding person-approved acceptance text, not repository files. Changing them is an approval of finish lines, not a build. They read none of the eight files this slice deletes, so the deletion neither breaks nor fixes them. Until this is done, 'nothing needs Python' holds for the repository and its suite, but not for a re-check of those four epics.",
+    "who": "person"
+   }
+  ],
+  "whats_new": [
+   "internal/testutil/seeded/main.go: parsePort, main, run, seed, the scope T and the process T adapter (about 110-130 lines)",
+   "internal/testutil/seeded/main_test.go: TestPortOpensOnlyOnceTheThreadIsSeeded, TestPortFlagRefusesMissingAndOutOfRange, TestScopeEndsOnlyItsOwnCleanupsNewestFirst, TestProcessFatalfRunsCleanupsOnceThenExits",
+   "Deletion of the 6 .py files, the 2 .pyc files and both __pycache__ folders",
+   "Two .gitignore lines, `__pycache__/` and `*.pyc`, under a one-line comment",
+   "rows_test.go: new Why text for SS-26 (show-all seed retired), and for SS-120, RE-74, RE-157, RE-164, RE-170 and RE-271 (naming internal/testutil/seeded)",
+   "thread.go: the Thread doc comment says run_finish_e004_2.py is retired and the seeded launcher uses this seed",
+   "Two fitness rules in .taad/fitness.yaml: no Python source file; no Go os/exec call naming a Python interpreter"
+  ],
+  "whats_reused": [
+   "program.Build, unchanged, builds ./cmd/hband once for both stages",
+   "program.Start, unchanged: Options{Loopback} for the staging program, Options{Port:N} for the serving one, and Options.Env HBAND_DATA_DIR to share one data folder",
+   "program.DeepThread as the whole seed (rows identical to the Python serve, per the spike)",
+   "outside.MustBeOutside for the launcher's own data folder",
+   "The fakegithub stand-in, one per Start, with its redirect re-pointed by Start's existing SetRedirectURI call",
+   "TestPortedAssertionsHaveAGoTest and the hash-pinned testdata snapshots, kept as the record that every retired check has a Go counterpart (263/263 Ported rows measured passing)",
+   "internal/server TestShowAll, e002row and the E-002 Go finish tests as the remaining guards on the show-all row text (lesson #985)",
+   "TestAcceptanceLinksNoneOfTheProduct and the fitness rule 'the test helpers link none of the product', which already cover the new package"
+  ]
+ }
+}
