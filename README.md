@@ -19,11 +19,21 @@ It is one Go program (`cmd/hband`) with an embedded SQLite database; there is no
 
 ## Build
 
-```
+Linux or macOS:
+
+```sh
 go build -o hband ./cmd/hband
 ```
 
-This writes `hband` (`hband.exe` on Windows) in the current folder. Both names are in `.gitignore`.
+Windows:
+
+```powershell
+go build -o hband.exe ./cmd/hband
+```
+
+Either writes the program in the current folder. On Windows, `-o hband` would write a file named exactly `hband`
+with no `.exe`, so give the name with its extension (or leave `-o` out: `go build ./cmd/hband` writes `hband.exe`
+on Windows and `hband` elsewhere). Both names are in `.gitignore`.
 `go build ./...` compiles every package without writing a program.
 
 ## Run
@@ -72,14 +82,15 @@ stand-in for GitHub; they need no network, no GitHub account and none of the `HB
 One check in `internal/server` loads pages in a headless browser. It uses the browser named by
 `HBAND_TEST_BROWSER` (and fails if that path is unusable); if that is unset it looks for Chrome at
 `C:\Program Files\Google\Chrome\Application\chrome.exe` and `C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
-and if neither exists the check is skipped with a message. Set `HBAND_TEST_ARTIFACTS` to a folder to keep a copy of
-every screenshot those checks take. Neither variable is read by the program itself.
+and if neither exists the check is skipped with a message. It never defaults to Microsoft Edge. Set
+`HBAND_TEST_ARTIFACTS` to a folder to keep a copy of every screenshot those checks take. Neither variable is read by
+the program itself.
 
 ## Settings
 
 Every setting is an environment variable. Names are exact and case-sensitive. A set value is never trimmed
 except where stated. All problems are reported together, and no message repeats a value (the client secret is never
-printed or logged).
+printed or logged). An empty value counts as unset. Any other `HBAND_*` name is ignored.
 
 | Variable | Required | Default | What it does |
 |---|---|---|---|
@@ -131,16 +142,16 @@ Actions that need a signed-in reader (a visitor who is not signed in is sent bac
 `POST /reports/<slug>/vote` (field `vote`: `up`, `down` or `none`), `POST /reports/<slug>/comments` (fields `body`, and
 `parent` for a reply), `POST /reports/<slug>/feedback` (field `body`). Sign-in and sign-out are
 `GET /auth/github/login` (optional `?next=` local path to return to), `GET /auth/github/callback` and `POST /auth/logout`.
-A comment or feedback body is plain text of 1 to 5000 characters; control characters other than newline and tab are refused.
-Anything else typed is shown as typed, never as markup.
+A comment or feedback body is plain text of 1 to 5000 characters (after trimming white space at both ends); control
+characters other than newline and tab are refused. Anything else typed is shown as typed, never as markup.
 
-Owner pages (everything under `/admin`): an anonymous `GET` is redirected to sign-in (any other method from an anonymous visitor gets a 403), a signed-in non-owner gets a 403
-page, and only the owner gets through.
+Owner pages (everything under `/admin`): an anonymous `GET` or `HEAD` is redirected to sign-in (any other method from an
+anonymous visitor gets a 403), a signed-in non-owner gets a 403 page, and only the owner gets through.
 
 | Path | What |
 |---|---|
 | `GET /admin` | The report list and the upload form. |
-| `POST /admin/reports` | Upload (multipart: `title`, `slug`, `status` = `published` or `draft`, and one `file`). A new slug creates a report; an existing slug replaces its file and title and keeps its ID, first publish date, votes and comments. |
+| `POST /admin/reports` | Upload (multipart: `title`, `slug`, `status` = `published` or `draft`, and one `file`). A new slug creates a report; an existing slug replaces its file, title and publish state and keeps its ID, first publish date, votes and comments. |
 | `GET /admin/reports/<slug>` | One report: likes and dislikes, preview, publish state, replace form, every visible comment (with remove and block), private feedback with reply forms. |
 | `GET /admin/reports/<slug>/raw` | Preview of the file, drafts included. |
 | `POST /admin/reports/<slug>/publish`, `/unpublish`, `/delete` | Change the publish state, or delete the report with its file, votes, comments and opens. |
@@ -152,6 +163,10 @@ Rules the upload enforces: the file name must end in `.html` or `.htm`; the file
 optional UTF-8 byte-order mark, look like UTF-8 HTML or text in its first 512 bytes; it may not exceed
 `HBAND_MAX_UPLOAD_BYTES`; the slug is 1 to 80 characters, lower-case letters and digits with single hyphens between them;
 the title is 1 to 200 characters with no control characters. A refused upload changes nothing.
+
+On a Windows host, a report file that a reader is fetching at that moment cannot be swapped: the replace is refused
+with a 409 and nothing changes, and trying again a moment later works. (The code's own note says the intended host is a
+Linux container, where this does not arise.)
 
 How opens are counted: a report page that is answered with a 200 counts one open per visitor, per report, per UTC day.
 Not counted: the owner's own visits, requests that are not `GET`, a `User-Agent` that is empty, does not contain
@@ -230,3 +245,7 @@ What the code assumes:
 - It does not store visitors' addresses, and it does not count the owner's visits or bots as opens.
 - It does not serve HTTPS, send email, or call any service except GitHub's sign-in and profile endpoints.
 - The admin lists (comments, feedback, blocked users) are not paged or limited; they grow with what was posted.
+
+## Licence
+
+MIT, see `LICENSE`.
