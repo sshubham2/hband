@@ -457,8 +457,8 @@ rules:
     files: '**/*.go'
     must_not_match:
     - (?i)["`]x-forwarded-(?:[a-eg-z-][a-z-]*|f|f[a-np-z-][a-z-]*|fo|fo[a-qs-z-][a-z-]*|for[a-z-]+)["`]
-    - (?i)["`](x-real-ip|forwarded)["`]
-    - (?i)["`][a-z0-9-]*(-ip|client-?ip)["`]
+    - (?i)["`](x-real-ip|x-forwarded|forwarded)["`]
+    - (?i)["`][a-z0-9-]*(-ip|client-?ip|socket-?ip)(v[46])?["`]
     - (?i)["`](?:(?:[a-wyz0-9-][a-z0-9-]*|x[a-z0-9-]+)-)?forwarded(?:-[a-z-]+)?["`]
     because: 'clientaddr.go is excepted from the broad forwarded-header rule only so that it
       can read X-Forwarded-For. If it also named X-Forwarded-Proto or X-Forwarded-Host, a client
@@ -471,7 +471,9 @@ rules:
       (X-Forwarded-For is x then forwarded, which is why that one prefix is left out). Known
       holes are a header name built by concatenation or held in a constant defined elsewhere,
       ranging over r.Header, and client-identity names that match none of those shapes (for
-      example X-Envoy-External-Address).'
+      example X-Envoy-External-Address). The bare X-Forwarded, and a name ending in -ip,
+      client-ip or socket-ip with a trailing v4 or v6 (Cf-Pseudo-IPv4, CF-Connecting-IPv6), are
+      matched too.'
     except_files:
     - '**/*_test.go'
   - name: only clientaddr.go reads the connecting address
@@ -538,13 +540,15 @@ rules:
     must_not_match:
     - '\bos\.(?:Getenv|LookupEnv|Environ|ExpandEnv)\b'
     - '\bsyscall\.(?:Getenv|Environ)\b'
+    - '\.Environ\b'
     because: 'The owner''s BROWSER RULE: CHROME_BIN, read once in headless.Browser, is the only
       source of a browser path, and Edge is never started. An environment read in Open, or in any
       other file of the package, is a second source that the Edge refusal does not guard. The
       patterns match a call or a method value. headless.go is excepted because it holds Browser,
       the one sanctioned reader of CHROME_BIN, and Shot''s HBAND_TEST_ARTIFACTS; a new read added
       there is not guarded by this rule, only by TestBrowserIsExactlyChromeBin and review. Known
-      hole, pinned quiet: an alias of the os package.'
+      hole, pinned quiet: an alias of the os package. The Environ method of any value, an
+      exec.Cmd included, is matched by the third pattern.'
     except_files:
     - internal/testutil/headless/headless.go
     - '**/*_test.go'
@@ -553,13 +557,16 @@ rules:
     must_not_match:
     - '\b(?:CHROME_BIN|HBAND_TEST_BROWSER)\b'
     - '["`](?:-{1,2}|/)(?:headless|remote-debugging-(?:port|pipe)|user-data-dir)\b'
+    - '["`][^"`\r\n]*[ \t](?:-{1,2}|/)(?:headless|remote-debugging-(?:port|pipe)|user-data-dir)\b'
     - '(?i)\b(?:msedge|chrome|chromium)\.exe\b'
     - '(?i)\b(?:msedge|microsoft-edge|chromium-browser|google-chrome)\b'
     because: 'The BROWSER RULE says the tests must not read the environment or look for a browser
       themselves. The ledger body for E-004 line 2 hard-coded an msedge path (Q-028, #980). Naming
       CHROME_BIN here (a read, or an os.Environ scan for it), a headless, DevTools or profile flag
-      with --, - or / and either quote, or a browser executable name means a test bypasses
+      with --, - or / and either quote (right after it, or after a space or tab later on the
+      same line of the literal), or a browser executable name means a test bypasses
       headless.Open. Known holes, pinned quiet: a flag or a variable name built by concatenation, a
+      flag after an escaped \t or at the start of a later line of a raw string, a
       browser path held in a variable, and the bare word chrome, which the verbatim E-001 and E-002
       bodies use for their User-Agent. The mapping package is excepted because its Says fields quote
       the Python verbatim. tests/acceptance/suite is excepted because its whole-suite check removes
