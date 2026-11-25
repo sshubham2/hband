@@ -1,0 +1,143 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-014",
+ "stage": "reflect",
+ "attempt": 1,
+ "at": "2026-11-25T11:09:50.371Z",
+ "head": "c786c1e5d54108530f8c5bf636acd3c525cd725e",
+ "run_id": 12221,
+ "summary": "SC-041 changed internal/testutil/headless/headless.go so Browser reads only CHROME_BIN. It returns that text unchanged for an existing regular file that is not Edge, and otherwise skips with a message naming CHROME_BIN. defaultBrowsers, both Program Files paths and the HBAND_TEST_BROWSER read are gone, and the two helper test files were rewritten to assert the new rule. The slice opened as medium risk and XS with no critique. A second-reader probe in code review #1 found that Edge could still be reached through Windows path spellings such as `msedge.exe\\.`. That forced a second build, which added a filepath.Abs check in isEdge and a 35-row spelling corpus, and then two more halt-and-dispose review rounds. Validation passed with real Chrome and a stand-in browser. No msedge process was started: 5 before, 5 after.",
+ "payload": {
+  "status": "complete",
+  "reason": "Reflection on SL-014 / SC-041, written from the stage records handed in. I did not open the ledger or re-run anything.",
+  "summary": "SC-041 changed internal/testutil/headless/headless.go so Browser reads only CHROME_BIN. It returns that text unchanged for an existing regular file that is not Edge, and otherwise skips with a message naming CHROME_BIN. defaultBrowsers, both Program Files paths and the HBAND_TEST_BROWSER read are gone, and the two helper test files were rewritten to assert the new rule. The slice opened as medium risk and XS with no critique. A second-reader probe in code review #1 found that Edge could still be reached through Windows path spellings such as `msedge.exe\\.`. That forced a second build, which added a filepath.Abs check in isEdge and a 35-row spelling corpus, and then two more halt-and-dispose review rounds. Validation passed with real Chrome and a stand-in browser. No msedge process was started: 5 before, 5 after.",
+  "estimate_error": "Both were too low. The size was XS and the risk tier medium with 0 designers, so the critique and the review of the critique did not run. The acceptance text contains a \"never\" invariant (Edge is never started) enforced on a Windows path string, and that is a high-risk shape. Build 1 changed 7 files and passed its own checks. Code review #1 then found that Browser decided on filepath.Base of the raw CHROME_BIN text. Build 2 changed headless.go and added 3 files: edge_dot_segments_test.go, chrome_bin_corpus_test.go and testdata/chrome_bin_spellings.json (22 edge, 9 chrome, 4 skip rows = 35). Code reviews #3 and #4 followed, then a comment-fixer commit (c786c1e5d). In effect this was two build cycles with a review round after each, not one XS edit.",
+  "what_went_wrong": [
+   "The first build decided Edge by filepath.Base of the raw CHROME_BIN text. On Windows `msedge.exe\\.`, `\\.\\.`, `\\x\\..`, `/.` and `msedge.exe \\.` all resolve to msedge.exe, and Browser let them through. A real Edge path plus `\\.` would have made Shot start Edge, which is the one thing the owner's rule forbids. The critique did not run (medium risk, 0 designers), so nothing asked which spellings of a path reach the same file. Only the second reader of code review #1 found it, which cost build 2, a 35-row corpus and two more review rounds.",
+   "The two investigation attempts at the start failed on WinError 206 and recorded no stage in .taad/slices/SL-014/index.json. The repro stage had to fall back to reading the code. It then reported 'not a defect, a change of requirement' on a slice that was opened as a bug fix, so the lane label and the finding disagree. The bug report was only a title.",
+   "Build 2 departed from the accepted IN-M1 fix. The fix said to fall back to filepath.Clean when filepath.Abs fails. isEdge (headless.go:83-91) returns false instead, and the build did not declare it. Code review #3 found it as drift and recorded it twice with near-identical text. It had no consequence, but an undeclared departure from an accepted fix is a loop fault.",
+   "Code review #3 halted although its own text says nothing needs fixing. The engine measured that it did not read headless.go whole: lines 71-128 and 130-213 of 213 were not seen, and Shot, the exec.Command site, is in that range. The file had changed 123 returned lines since it was read. The review was incremental and leaned on the earlier read, on a slice whose promise is that Shot starts exactly the CHROME_BIN file.",
+   "Finding R2-m2 was decided accepted-pending with the words 'the fix belongs here', but obligation O-004 was waived as note N-224. The corpus reader is still plain json.Unmarshal (chrome_bin_corpus_test.go:44-47). A skip row with a misspelt key, an empty spelling or a mistyped {dir} placeholder still passes without testing anything. Only m1 was closed, by the comment fixer. Whoever reads the two lists will think R2-m2 is owed and also that it is waived.",
+   "Two stale items got past the last review. The comment fixer found that the namesEdge doc (headless.go:93) says the last element 'is an Edge executable name', while the code uses strings.Contains for 'msedge' or 'microsoft-edge', so msedge_proxy.exe would also match. It also found that dotRecorder (edge_dot_segments_test.go:12) duplicates recorder in default_browser_test.go. It left both, because they are not comment-only fixes. The comment-fixer step ran after the last model review, which is the situation lesson #975 warns about for formatting.",
+   "Criterion C7, 'passes on a machine with no browser', was never measured. Chrome cannot be removed from this PC, so validation inferred it from Browser doing no lookup when CHROME_BIN is unset. Linux and macOS were also not measured, and the 10 Windows-only corpus rows skip there. The 'Everything the loop has left open' list still carries C1-C8 from the pre-build check. Validation closed them, but the list does not say so."
+  ],
+  "learned": [
+   {
+    "kind": "design",
+    "lesson": "In this repo, a rule of the form 'never start X' over a Windows path must be decided on the path the OS resolves, not on the text. headless.isEdge now tests the CHROME_BIN text as written and again after filepath.Abs (GetFullPathName on Windows), refuses on either, and Browser still returns the CHROME_BIN text unchanged. Later work that picks or checks a browser path (the Go acceptance port SC-042, SC-043) should call headless.Browser and Shot rather than write another name check. A new spelling goes into testdata/chrome_bin_spellings.json as a row.",
+    "evidence": "IN-M1: 10 corpus rows and all 5 subtests of TestBrowserRefusesEdgeBehindDotSegments failed against 31c388c8's headless.go and pass at 1e2cbce3. Code review #3's probe of 16 further spellings (\\\\?\\, \\\\.\\, ::$DATA, UNC admin share) found no hole."
+   },
+   {
+    "kind": "estimate",
+    "lesson": "Open a slice at high risk, so the critique runs, when its acceptance text says 'never' about something the machine can start (Edge, a browser, a process) and the check works on an untrusted-shaped string. The medium/XS default skipped the critique here, and the one major defect of the slice was the kind a critique asks about: which other spellings reach the same file. The slice manager judged this 'clear from the candidate and the code' without asking that.",
+    "evidence": "critique #1 and critique-review #1 were 'a sizing decision' pass. Code review #1 halted on IN-M1, and then build 2 and code reviews #3 and #4 followed."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "headless.Browser is a pure check: it looks nothing up and starts nothing. It reads only CHROME_BIN and refuses Edge by a lowercased-base substring match ('msedge' or 'microsoft-edge') on the text and on the Abs result. It also refuses empty, missing and directory values. It always skips through Skip or Skipf with a message naming CHROME_BIN. Tests assert this through a recording testing.TB, or through t.Run plus Skipped() when the real Skip must end the caller. The engine environment sets CHROME_BIN to the real Chrome, so every test must t.Setenv('CHROME_BIN', ...) first and then unset. HBAND_TEST_ARTIFACTS (headless.go:154) is the only other env read and is not a browser source. Lesson #946's statement that Browser 'defaults to installed Chrome' is now false and should not be handed forward.",
+    "evidence": "Validation read headless.go:48-69 and :154. Build 1 measured that every test touching CHROME_BIN goes through t.Setenv, directly or via setEnv. The mutants (hard-coded Chrome fallback, HBAND_TEST_BROWSER fallback, no Edge check, directory accepted) were each killed by the rewritten tests."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "Edge refusal is by name only. A symlink, hard link or renamed copy called chrome.exe that is really msedge.exe is not caught. filepath.EvalSymlinks in isEdge would close only symlinks. Hard links and copies cannot be told apart without reading the file's metadata or hard-coding an Edge path, which the CHROME_BIN rule forbids. Treat the name check as defence in depth on top of the owner setting CHROME_BIN to Chrome, not as a guarantee.",
+    "evidence": "Build 2 'left open' and code review #3 'not covered' both state it. Validation listed it as not reached."
+   },
+   {
+    "kind": "process",
+    "lesson": "A decision of accepted-pending and an obligation of waived can both stand for the same finding, as with R2-m2 (decision: 'fix belongs here'; O-004: waived, note N-224). The code fix then belongs to nobody, and the next reader sees it as both owed and waived. When reflecting, treat the waived obligation as the state that actually shipped. Only comment-only findings (m1, N-223) get closed afterwards, by the comment fixer.",
+    "evidence": "R2-m2 and O-004 as quoted in the decision list and obligations. The comment-fixer entry closed only N-223 (c786c1e5d). chrome_bin_corpus_test.go:44-47 still uses json.Unmarshal."
+   },
+   {
+    "kind": "process",
+    "lesson": "An incremental code review (the same reviewer continuing its conversation) trusts its earlier read of any file it does not reopen. On this helper that left Shot, the exec.Command site in headless.go, unread after the file changed, and the engine recorded the gap itself. For a slice that touches headless.go, require the final review to reopen the whole file, which is 213 lines, or at least every function that returns or uses the chosen path.",
+    "evidence": "code-review #3: 'not read (measured): headless.go (not seen: lines 71-128, 130-213 of 213) ... 123 returned lines differ from the reviewed file'."
+   },
+   {
+    "kind": "process",
+    "lesson": "A path fix can discharge its obligation by 'proved' while leaving a different shape unchecked. Lesson #14 held in this slice: the corpus and mutation checks passed on behaviour, never on a source grep. But the corpus's weak spot, a skip row that tests nothing because its spelling is empty or its placeholder is mistyped, was found only by a later reader. For any new table-driven corpus in this repo, make the loader fail on unknown keys, empty inputs and unexpanded placeholders from the start.",
+    "evidence": "R2-m2: three kinds of malformed skip row passed through -overlay on a scratch corpus, while edge and chrome rows with the same mistakes failed loudly."
+   }
+  ],
+  "missed": [
+   {
+    "gate": "critique",
+    "dimension": "missing-edge-cases",
+    "severity": "major",
+    "what": "The design case was 'a file whose base name is msedge.exe' on Windows. Nothing asked which spellings of a path resolve to that file: `msedge.exe\\.`, `\\.\\.`, `\\x\\..`, `/.`, `msedge.exe \\.`, a trailing dot or space. The first build checked only filepath.Base of the raw CHROME_BIN text, so Edge got past the refusal and exec.Command would have started it. The critique did not run because the slice was sized medium risk with 0 designers. A check that could have been written: set CHROME_BIN to <tmp>\\msedge.exe plus each of those suffixes and assert a skip naming CHROME_BIN.",
+    "caught_by": "code-review #1, by the second reader that probed inputs, after build 1 had passed its own checks",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "code-review",
+    "dimension": "contract-gaps",
+    "severity": "minor",
+    "what": "The namesEdge doc (headless.go:93) says the last path element 'is an Edge executable name', but the code is strings.Contains for 'msedge' or 'microsoft-edge' on the lowercased base, so msedge_proxy.exe is also refused. Code review #3 re-read five statements about the moved behaviour and called them all true. It did not list namesEdge's own doc among them.",
+    "caught_by": "the comment fixer, after code review #4; it left the comment as an approximation",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "code-review",
+    "dimension": "cross-cutting-conformance",
+    "severity": "minor",
+    "what": "edge_dot_segments_test.go:12 defines dotRecorder, a copy of recorder in default_browser_test.go, in the same package. Code review #3 read the file in full and described it as 'the earlier review's repro, as given', without flagging the duplicated test double. The duplicate is still in the tree.",
+    "caught_by": "the comment fixer, which left it because it is a code matter",
+    "prescribed_fix": ""
+   }
+  ],
+  "lessons_judged": [
+   {
+    "id": 946,
+    "verdict": "used",
+    "why": "It told the build to keep TestBrowserNeverDefaultsToEdge and TestDefaultBrowserIsNeverEdge green and to treat the project's 'default Edge' record as stale. Both tests were kept and rewritten to the CHROME_BIN rule, and the conflict was declared, not cited. Its claim that Browser 'defaults to the installed Chrome' is now false after this slice."
+   },
+   {
+    "id": 947,
+    "verdict": "used",
+    "why": "Build 2 and validation counted msedge processes before and after each run that could launch a browser (5 and 5). Validation also polled Win32_Process for the hband-headless-profile folder. The build-check probed through -overlay and did not run the browser test."
+   },
+   {
+    "id": 980,
+    "verdict": "not relevant",
+    "why": "No script that runs ledger bodies was prescribed. run_finish.py and the Python guard were only reported as SC-043's. The ledger finish bodies that Q-028 says hard-code msedge were outside the C8 search, which excluded .taad."
+   },
+   {
+    "id": 972,
+    "verdict": "not relevant",
+    "why": "The design had one case with no check command. The engine command later supplied, `-run TestBrowserRefusesEdgeBehindDotSegments`, already names one top-level test, so the lesson did not change anything."
+   },
+   {
+    "id": 14,
+    "verdict": "used",
+    "why": "The build says criterion 6 is shown by behaviour, not a source grep, citing this lesson. Validation's mutants (HBAND_TEST_BROWSER fallback, hard-coded Chrome, no Edge refusal, directory accepted) were all killed by behaviour tests."
+   },
+   {
+    "id": 46,
+    "verdict": "not relevant",
+    "why": "It is about a C# HandlePurger survey from another codebase. The design here was composed by the engine for an XS change, and the survey already quoted Browser's branches by line."
+   },
+   {
+    "id": 249,
+    "verdict": "not relevant",
+    "why": "The slice is not harness-only: it changes the Go test helper and its tests. The new tests use t.TempDir and t.Setenv, and no shared machine state beyond CHROME_BIN and the process watch was introduced."
+   },
+   {
+    "id": 975,
+    "verdict": "used",
+    "why": "The build redid gofmt on true LF copies after a CRLF Out-File attempt wrongly listed all files. Reviewers and validation checked LF blobs. Validation re-ran gofmt after the comment-fixer commit and it was clean."
+   }
+  ],
+  "unknowns": [
+   "Will the Go acceptance-port row (SC-042) go through headless.Browser and Shot for its browser tests, or exec a browser itself? The slice's DOES NOT WAIT clause says the port row relies on this helper. A direct exec.Command of a browser there would bring back the defect this slice removed, outside the corpus and the Edge check.",
+   "Is a name-only Edge refusal enough for the owner? A symlink, hard link or renamed copy of msedge.exe gets through. Only symlinks can be closed cheaply with filepath.EvalSymlinks. Closing the rest needs file metadata or a hard-coded Edge path, which the CHROME_BIN rule forbids. Nobody has said whether a person-set CHROME_BIN makes this moot.",
+   "Does `go test -count=1 ./...` pass on a machine with no browser, and on Linux or macOS? Neither was measured. 'No browser' was inferred from Browser doing no lookup when CHROME_BIN is unset. How isEdge behaves with Unix filepath.Abs was not measured, and the 10 Windows-only corpus rows skip there."
+  ],
+  "candidates": [
+   {
+    "title": "Harden the headless CHROME_BIN corpus reader and remove the duplicated test double",
+    "urgency": "soon",
+    "why": "R2-m2 was decided 'fix belongs here' but waived (O-004, N-224). internal/testutil/headless/chrome_bin_corpus_test.go:44-47 decodes with plain json.Unmarshal. :80-81 expands {dir} and calls Setenv without checking the result. :100-106 accepts any skip whose message names CHROME_BIN. So a 'skip' row with a misspelt key, an empty spelling or a mistyped {Dir} placeholder passes without testing anything. Measured through -overlay on a scratch corpus by code review #3. The fix is json.Decoder with DisallowUnknownFields plus Fatalf on an empty spelling or a leftover '{'. None of the 35 current rows in testdata/chrome_bin_spellings.json (22 edge, 9 chrome, 4 skip) has the problem. In the same package, dotRecorder (edge_dot_segments_test.go:12) duplicates recorder (default_browser_test.go), and the namesEdge doc (headless.go:93) says 'an Edge executable name' where the code is a substring match on 'msedge' or 'microsoft-edge'. Nothing is wrong at run time. This only keeps the corpus that guards 'Edge is never started' honest as rows are added."
+   }
+  ],
+  "filed": []
+ }
+}

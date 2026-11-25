@@ -1,0 +1,224 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-014",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-25T11:04:20.003Z",
+ "head": "c786c1e5d54108530f8c5bf636acd3c525cd725e",
+ "run_id": 12220,
+ "summary": "SL-014 does what SC-041 asks, checked on this PC with a real Chrome and a stand-in browser I built. All checks used TAAD3_HOME pointed at a scratch folder.\n\n**What headless.Browser does now** (internal/testutil/headless/headless.go:48-69):\n- It reads only CHROME_BIN and returns that text unchanged when it names an existing file that is not Edge.\n- In every other case it skips with a message naming CHROME_BIN.\n- The package's only other environment read is HBAND_TEST_ARTIFACTS (:154), which only copies screenshots.\n- No install path is written anywhere in the package.\n\n**How it behaves through the only real caller** (internal/server TestReportScriptsNeverRun): it SKIPs with a CHROME_BIN message for each of these:\n- CHROME_BIN unset;\n- CHROME_BIN empty;\n- HBAND_TEST_BROWSER set to the real Chrome while CHROME_BIN is unset;\n- a missing path;\n- a directory;\n- the real Edge path;\n- the real Edge path with `\\.` on the end.\n\nIn the two Edge cases the message also says it is Microsoft Edge.\n\n**Real Chrome:** with CHROME_BIN set to it, the test PASSed in about 6 s. A process watch saw only `C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe` with the test's profile folder on its command line. There were 5 msedge processes before and 5 after, and none carried that profile folder.\n\n**Stand-in browser:** I built a fake executable at a non-standard path (with spaces) and set HBAND_TEST_BROWSER to the real Chrome:\n- Browser returned the fake's exact path, and Shot started the fake. The fake's own log shows its path.\n- The real caller also started only the fake, and no chrome.exe ran. That test then failed on pixel counts, which is expected from a fake 2x2 image.\n\n**Full suite:** `go test -count=1 ./...` exits 0 with CHROME_BIN unset (also with HBAND_TEST_BROWSER set) and with CHROME_BIN set to Chrome. With CHROME_BIN unset the process watch saw no browser start. `go vet` is clean, gofmt is clean and all 35 fitness rules hold.\n\n**Mutations:** I fed altered copies of headless.go to the package's tests through `-overlay`:\n- falling back to HBAND_TEST_BROWSER;\n- a hard-coded Chrome default;\n- no Edge refusal;\n- accepting a directory.\n\nThe rewritten default_browser_test.go, edge_default_test.go and the corpus and dot-segment tests failed on each one, and the tests pass on the real code.\n\n**Searching the rest of the repository** found three other places that mention a browser path:\n- README.md:82-87 and :108 still describe the old HBAND_TEST_BROWSER rule and the hard-coded Chrome paths. It is documentation, so no slice owes it.\n- tests/acceptance/run_finish.py:70 and :105-121 guard finish bodies stored in the ledger against Edge. That is a different kind of change, and SC-043 deletes it.\n- check_run_finish_needs_chrome_bin.py and test_run_finish_edge_guard.py name msedge only as test data.\n\nThere are no CI or shell script files. The only other exec.Command in Go is cmd/hband/main_test.go, which builds and runs the program itself.\n\n**Decision conflict:** the project's recorded testing decision still says Edge is the default browser and names HBAND_TEST_BROWSER. The owner's CHROME_BIN rule and the engine's measurement that Edge must not be started on this machine overrule it. That record needs updating outside the slices; it is not a defect in this one.\n\n**Slice shape:** build attempt 2 was caused by the code review (O-002) and did change source. It is not a loop.\n\n**The bug report** was only a title. The owner's description in the slice's own text was taken as the requirement.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "real",
+  "summary": "SL-014 does what SC-041 asks, checked on this PC with a real Chrome and a stand-in browser I built. All checks used TAAD3_HOME pointed at a scratch folder.\n\n**What headless.Browser does now** (internal/testutil/headless/headless.go:48-69):\n- It reads only CHROME_BIN and returns that text unchanged when it names an existing file that is not Edge.\n- In every other case it skips with a message naming CHROME_BIN.\n- The package's only other environment read is HBAND_TEST_ARTIFACTS (:154), which only copies screenshots.\n- No install path is written anywhere in the package.\n\n**How it behaves through the only real caller** (internal/server TestReportScriptsNeverRun): it SKIPs with a CHROME_BIN message for each of these:\n- CHROME_BIN unset;\n- CHROME_BIN empty;\n- HBAND_TEST_BROWSER set to the real Chrome while CHROME_BIN is unset;\n- a missing path;\n- a directory;\n- the real Edge path;\n- the real Edge path with `\\.` on the end.\n\nIn the two Edge cases the message also says it is Microsoft Edge.\n\n**Real Chrome:** with CHROME_BIN set to it, the test PASSed in about 6 s. A process watch saw only `C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe` with the test's profile folder on its command line. There were 5 msedge processes before and 5 after, and none carried that profile folder.\n\n**Stand-in browser:** I built a fake executable at a non-standard path (with spaces) and set HBAND_TEST_BROWSER to the real Chrome:\n- Browser returned the fake's exact path, and Shot started the fake. The fake's own log shows its path.\n- The real caller also started only the fake, and no chrome.exe ran. That test then failed on pixel counts, which is expected from a fake 2x2 image.\n\n**Full suite:** `go test -count=1 ./...` exits 0 with CHROME_BIN unset (also with HBAND_TEST_BROWSER set) and with CHROME_BIN set to Chrome. With CHROME_BIN unset the process watch saw no browser start. `go vet` is clean, gofmt is clean and all 35 fitness rules hold.\n\n**Mutations:** I fed altered copies of headless.go to the package's tests through `-overlay`:\n- falling back to HBAND_TEST_BROWSER;\n- a hard-coded Chrome default;\n- no Edge refusal;\n- accepting a directory.\n\nThe rewritten default_browser_test.go, edge_default_test.go and the corpus and dot-segment tests failed on each one, and the tests pass on the real code.\n\n**Searching the rest of the repository** found three other places that mention a browser path:\n- README.md:82-87 and :108 still describe the old HBAND_TEST_BROWSER rule and the hard-coded Chrome paths. It is documentation, so no slice owes it.\n- tests/acceptance/run_finish.py:70 and :105-121 guard finish bodies stored in the ledger against Edge. That is a different kind of change, and SC-043 deletes it.\n- check_run_finish_needs_chrome_bin.py and test_run_finish_edge_guard.py name msedge only as test data.\n\nThere are no CI or shell script files. The only other exec.Command in Go is cmd/hband/main_test.go, which builds and runs the program itself.\n\n**Decision conflict:** the project's recorded testing decision still says Edge is the default browser and names HBAND_TEST_BROWSER. The owner's CHROME_BIN rule and the engine's measurement that Edge must not be started on this machine overrule it. That record needs updating outside the slices; it is not a defect in this one.\n\n**Slice shape:** build attempt 2 was caused by the code review (O-002) and did change source. It is not a loop.\n\n**The bug report** was only a title. The owner's description in the slice's own text was taken as the requirement.",
+  "checks": [
+   {
+    "what": "Environment before the runs",
+    "command": "$env:CHROME_BIN; $env:HBAND_TEST_BROWSER; $env:TAAD3_HOME; go version",
+    "outcome": "passed",
+    "evidence": "CHROME_BIN was C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe; HBAND_TEST_BROWSER and TAAD3_HOME were unset; go1.27.4 windows/amd64. TAAD3_HOME was set to <scratch>\\taadhome for every run below."
+   },
+   {
+    "what": "go vet with CHROME_BIN unset",
+    "command": "go vet ./...",
+    "outcome": "passed",
+    "evidence": "exit 0"
+   },
+   {
+    "what": "Full suite with CHROME_BIN and HBAND_TEST_BROWSER unset",
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "All 12 packages with tests ok; e002row and fakegithub have no test files; exit 0."
+   },
+   {
+    "what": "Real caller, CHROME_BIN unset",
+    "command": "go test -count=1 -v -run ^TestReportScriptsNeverRun$ ./internal/server/",
+    "outcome": "passed",
+    "evidence": "browser_test.go:151: CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check --- SKIP"
+   },
+   {
+    "what": "Real caller, CHROME_BIN unset and HBAND_TEST_BROWSER set to the real Chrome (no fallback)",
+    "command": "$env:HBAND_TEST_BROWSER=<chrome>; go test -count=1 -v -run ^TestReportScriptsNeverRun$ ./internal/server/",
+    "outcome": "passed",
+    "evidence": "--- SKIP with 'CHROME_BIN is not set...'"
+   },
+   {
+    "what": "Real caller, CHROME_BIN a missing path, a directory, or empty",
+    "command": "CHROME_BIN=<scratch>\\no-such-chrome.exe | <scratch> | '' ; go test -count=1 -v -run ^TestReportScriptsNeverRun$ ./internal/server/",
+    "outcome": "passed",
+    "evidence": "Missing path: SKIP 'CHROME_BIN=... names no file (GetFileAttributesEx ...)'. Directory: SKIP 'CHROME_BIN=... is not a file'. Empty: SKIP 'CHROME_BIN is not set'."
+   },
+   {
+    "what": "Real caller, CHROME_BIN set to the real Edge path, and the same path ending in \\.",
+    "command": "CHROME_BIN='C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe' and the same path + '\\.'",
+    "outcome": "passed",
+    "evidence": "Both SKIP: 'CHROME_BIN=\"...msedge.exe\" is Microsoft Edge, which is never started...' (the second message shows the path with \\. on the end). Edge was not launched."
+   },
+   {
+    "what": "Real Chrome through the real caller, watching which browser processes start",
+    "command": "Start-Process go test -count=1 -v -run ^TestReportScriptsNeverRun$ ./internal/server/ while polling Win32_Process for CommandLine like '%hband-headless-profile%' every 150 ms; CHROME_BIN=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "outcome": "passed",
+    "evidence": "--- PASS (5.99s). The only process seen was chrome.exe|C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe (69 samples). msedge count was 5 before and 5 after; no msedge process carried the hband marker."
+   },
+   {
+    "what": "Browser and Shot start exactly the CHROME_BIN file, a non-standard executable, even with HBAND_TEST_BROWSER set to the real Chrome",
+    "command": "go build a fake browser to '<scratch>\\bin\\my fake browser.exe'; CHROME_BIN=<that>; HBAND_TEST_BROWSER=<chrome>; go test -count=1 -v -overlay <scratch>\\overlay.json -run ^TestValidateProbeShotStartsChromeBin$ ./internal/testutil/headless/",
+    "outcome": "passed",
+    "evidence": "Browser returned exactly '...\\bin\\my fake browser.exe' and Shot returned a (0,0)-(2,2) image. The fake's log: 'started ...\\bin\\my fake browser.exe args=--headless=new ... --user-data-dir=...hband-headless-profile-739421045 ... about:blank'. The overlay probe was not written to the repository."
+   },
+   {
+    "what": "The real caller with CHROME_BIN set to the fake browser: which executable is started",
+    "command": "CHROME_BIN=<fake>; go test -count=1 -run ^TestReportScriptsNeverRun$ ./internal/server/ with the process watch on chrome.exe",
+    "outcome": "passed",
+    "evidence": "The fake's log records one start of the fake. No chrome.exe with the hband marker was seen. go test exited 1 because the fake's 2x2 green image tripped the test's own 'INVALID RUN' guard (browser_test.go:200). That failure is caused by the stand-in, not by the slice."
+   },
+   {
+    "what": "Mutations of headless.go through -overlay (fallback to HBAND_TEST_BROWSER; hard-coded Chrome default; no Edge refusal; directory accepted), each run with CHROME_BIN unset and with it set",
+    "command": "go test -count=1 -overlay <scratch>\\mut.json ./internal/testutil/headless/",
+    "outcome": "passed",
+    "evidence": "M1 fails TestBrowserSkipsUnlessChromeBinNamesAFile (the HBAND_TEST_BROWSER-names-an-existing-file subtests). M2 fails TestBrowserSkipsUnlessChromeBinNamesAFile/unset, TestDefaultBrowserIsNeverEdge and TestBrowserSkipEndsTheCallingTest. M3 fails TestBrowserNeverDefaultsToEdge, TestBrowserRefusesEdgeBehindDotSegments and all 22 Edge corpus rows. M4 fails the directory subtest and the 3 folder corpus rows. Every mutant exited 1 in both environment states."
+   },
+   {
+    "what": "Fifth mutation: Edge refused but its path returned",
+    "command": "string replace on headless.go",
+    "outcome": "not-run",
+    "evidence": "The replacement string did not match the source, so no mutant was produced. M3 already covers a missing Edge refusal."
+   },
+   {
+    "what": "Headless package on the real code, CHROME_BIN unset and set",
+    "command": "go test -count=1 ./internal/testutil/headless/",
+    "outcome": "passed",
+    "evidence": "ok in both states, exit 0. This includes the engine's command for O-002 (TestBrowserRefusesEdgeBehindDotSegments)."
+   },
+   {
+    "what": "Criterion 6: no install path and no other browser variable in the package source",
+    "command": "Select-String 'Getenv|LookupEnv|Environ\\(|syscall\\.Getenv|Program Files|ProgramFiles|LOCALAPPDATA|HBAND_TEST_BROWSER' over internal/testutil/headless",
+    "outcome": "passed",
+    "evidence": "headless.go:50 reads CHROME_BIN and :154 reads HBAND_TEST_ARTIFACTS, and nothing else is read. HBAND_TEST_BROWSER appears only in the tests, as t.Setenv or os.Unsetenv calls that prove it is ignored. There is no 'Program Files' string in the package."
+   },
+   {
+    "what": "Repository-wide search for anything else that picks a browser path",
+    "command": "git grep -l -i -e HBAND_TEST_BROWSER -e msedge -e 'Program Files' -- ':!.taad'; git ls-files | Select-String CI/script patterns; Grep exec.Command in *.go",
+    "outcome": "passed",
+    "evidence": "Outside the helper package the matches are: README.md (stale docs, not slice work), tests/acceptance/run_finish.py and its .pyc (an Edge guard for ledger finish bodies; a different kind of change, deleted by SC-043), and check_run_finish_needs_chrome_bin.py and test_run_finish_edge_guard.py (msedge only as test data). The only tracked yaml is .taad/fitness.yaml; there are no CI, .ps1, .sh or Makefile files. The only other exec.Command is cmd/hband/main_test.go, which runs go build and the hband binary."
+   },
+   {
+    "what": "gofmt on LF copies of the package's .go files",
+    "command": "gofmt -l <scratch>\\fmt",
+    "outcome": "passed",
+    "evidence": "Nothing listed, exit 0."
+   },
+   {
+    "what": "Fitness rules",
+    "command": "Fitness op=check",
+    "outcome": "passed",
+    "evidence": "35 rules checked against 102 parsed files; every declared rule holds."
+   },
+   {
+    "what": "Full suite with CHROME_BIN set to the real Chrome",
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "All packages ok, exit 0; internal/server took 17.2 s, which includes real Chrome runs."
+   },
+   {
+    "what": "Full suite with CHROME_BIN unset and HBAND_TEST_BROWSER set to the real Chrome, with a process watch for any browser started",
+    "command": "Start-Process go test -count=1 ./... while polling Win32_Process for '%hband-headless-profile%'",
+    "outcome": "passed",
+    "evidence": "Exit 0. No browser processes with the test profile were seen; msedge count was 5 before and 5 after."
+   },
+   {
+    "what": "`go test ./...` on a machine that has no browser installed",
+    "outcome": "not-run",
+    "evidence": "Chrome and Edge are installed here, and uninstalling them is the person's call. With CHROME_BIN unset Browser looks no path up (shown above), so whether a browser is installed should not change anything, but this was not measured on such a machine."
+   },
+   {
+    "what": "Behaviour on Linux or macOS (the windows_only corpus rows skip there; filepath.Abs semantics differ)",
+    "outcome": "not-run",
+    "evidence": "Only Windows 11 is available on this machine."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "HOW 1: with CHROME_BIN set to an existing browser executable, the helper starts exactly that one",
+    "met": "yes",
+    "how": "A fake executable at a non-standard path was named in CHROME_BIN, with HBAND_TEST_BROWSER set to the real Chrome. Browser returned the fake's exact path and Shot started the fake (its own log records its path), through both an overlay probe and the real caller. With CHROME_BIN set to the real Chrome, the process watch saw only that chrome.exe start."
+   },
+   {
+    "criterion": "HOW 2: with CHROME_BIN unset, the test is reported as skipped with a message naming CHROME_BIN, even with Chrome or Edge installed in a standard place",
+    "met": "yes",
+    "how": "Both browsers are installed in their standard places on this PC. TestReportScriptsNeverRun reports '--- SKIP' with 'CHROME_BIN is not set: ...'. The full suite with CHROME_BIN unset started no browser according to the process watch. TestBrowserSkipEndsTheCallingTest checks Skipped() on a real subtest."
+   },
+   {
+    "criterion": "HOW 3: with CHROME_BIN set to a path that does not exist, the test is skipped with a message",
+    "met": "yes",
+    "how": "The real caller SKIPs with 'CHROME_BIN=\"...no-such-chrome.exe\" names no file (...)'. A directory SKIPs with '... is not a file'."
+   },
+   {
+    "criterion": "HOW 4: with HBAND_TEST_BROWSER set and CHROME_BIN unset, the test still skips (no fallback)",
+    "met": "yes",
+    "how": "With HBAND_TEST_BROWSER set to the real Chrome, the real caller SKIPs and the full suite started no browser. Mutant M1, which adds that fallback, is caught by the package's tests."
+   },
+   {
+    "criterion": "HOW 5: Edge is never started, even when installed",
+    "met": "yes",
+    "how": "CHROME_BIN set to the real Edge path, and to that path with \\. on the end, both SKIP with a Microsoft Edge message. msedge count was 5 before and 5 after every browser run, and no msedge process carried the hband profile marker. The corpus covers 22 Edge spellings and the dot-segment test passes."
+   },
+   {
+    "criterion": "HOW 6: the helper's source holds no hard-coded browser install path and no read of any variable other than CHROME_BIN",
+    "met": "yes",
+    "how": "The only Getenv calls are headless.go:50 (CHROME_BIN) and :154 (HBAND_TEST_ARTIFACTS, screenshot copies only, which the design allows). There is no 'Program Files' string in the package. Mutant M2, which adds a hard-coded default, is caught by the tests."
+   },
+   {
+    "criterion": "HOW 7: default_browser_test.go and edge_default_test.go assert the new rule, and `go test -count=1 ./...` passes with CHROME_BIN unset on a machine with no browser",
+    "met": "yes",
+    "how": "I read both files: they assert the exact CHROME_BIN path comes back; a skip naming CHROME_BIN for unset, empty, missing, directory and the HBAND_TEST_BROWSER cases; Edge refusal; and a real Skipped() check. The full suite exits 0 with CHROME_BIN unset. The machine has browsers installed; that a machine without one behaves the same is inferred, because nothing is looked up when CHROME_BIN is unset."
+   },
+   {
+    "criterion": "WHAT: search the repository (scripts, docs, CI) for other places that pick a browser path, report them, fix the same defect, name different kinds of change",
+    "met": "yes",
+    "how": "The search found no other Go code that picks a browser, and there are no CI or script files. README.md:82-87 and :108 are stale documentation (not slice work, dropped). tests/acceptance/run_finish.py:70 and :105-121 are a different kind of change (an Edge guard for ledger finish bodies, owned by SC-043's deletion). The Python check and test files name msedge only as test data."
+   },
+   {
+    "criterion": "Design SC-041 acceptance case: exact path back for an existing file; Skip naming CHROME_BIN and no path for unset, missing, directory, a file whose base name is msedge.exe, and unset with HBAND_TEST_BROWSER naming an existing file; recording TB or t.Skipped(); no 'Program Files' and no other browser Getenv; the two test files rewritten; `go test -count=1 ./...` passes with CHROME_BIN unset",
+    "met": "yes",
+    "how": "Every listed case is asserted in default_browser_test.go, edge_default_test.go, edge_dot_segments_test.go or the corpus test, and each was also seen through the real caller. The mutation runs show the tests catch each rule being broken. The full suite passes in both environment states."
+   }
+  ],
+  "planned": [
+   {
+    "ordinal": 1,
+    "met": "yes",
+    "evidence": "The real caller SKIPs naming CHROME_BIN for unset, empty, missing, directory, the real Edge path, Edge with \\. on the end, and unset with HBAND_TEST_BROWSER set to the real Chrome. Real Chrome was started only from the CHROME_BIN path (process watch), and a fake at a non-standard path was started exactly as named. The source reads only CHROME_BIN and HBAND_TEST_ARTIFACTS and holds no install path. The rewritten tests catch fallback, hard-coded default, Edge and directory mutants. `go test -count=1 ./...` exits 0 with CHROME_BIN unset and with it set."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "verified": "yes",
+    "evidence": "The tests it cites exist and pass (go test -count=1 ./internal/testutil/headless/ ok with CHROME_BIN unset and set). Mutants M1, M2 and M4 make them fail."
+   },
+   {
+    "key": "O-002",
+    "verified": "yes",
+    "evidence": "The headless package run includes TestBrowserRefusesEdgeBehindDotSegments and passes. Mutant M3 fails all 5 of its subtests and all 22 Edge corpus rows. The real caller SKIPs for the real msedge.exe path with \\. on the end."
+   },
+   {
+    "key": "O-003",
+    "verified": "yes",
+    "evidence": "Waived as N-223. The recorder comment at default_browser_test.go:11-15 now reads 'Anything other than those (Helper) goes to the real test. Browser never fails a test: every refusal is a skip.' (commit c786c1e), so it no longer mentions Fatalf."
+   },
+   {
+    "key": "O-004",
+    "verified": "cannot-tell",
+    "evidence": "Waived as N-224, a hardening nobody required. chrome_bin_corpus_test.go:44-47 still decodes with plain json.Unmarshal and does not check for an empty spelling or a leftover {dir}. The 35 current rows are well-formed by reading."
+   }
+  ],
+  "not_reached": [
+   "A machine with no Chrome or Edge installed: Chrome cannot be removed here, so 'passes with no browser' is inferred from Browser looking nothing up when CHROME_BIN is unset.",
+   "Linux or macOS: the Windows-only corpus rows skip there, and how isEdge behaves with Unix filepath.Abs was not measured.",
+   "Edge reached through a hard link, a symlink or a renamed copy called chrome.exe: the check is by name. The build declared this as a follow-up; it was not probed here.",
+   "The run_finish.py Edge guard and the Python acceptance runner were not executed. They are a different change, owned by SC-043."
+  ]
+ }
+}

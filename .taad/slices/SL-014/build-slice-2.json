@@ -1,0 +1,90 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-014",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-25T10:54:48.088Z",
+ "head": "1e2cbce3dd17bb016f5b936b7b8b3ca74f55bcee",
+ "run_id": 12215,
+ "summary": "IN-M1 is fixed. isEdge now names Edge from the CHROME_BIN text as written and again from the path resolved by filepath.Abs, which is GetFullPathName on Windows, and either one refuses it. Browser still returns the CHROME_BIN text unchanged. The review's test is committed as internal/testutil/headless/edge_dot_segments_test.go, and its engine command passes. I closed the class with a corpus in testdata/chrome_bin_spellings.json, run by chrome_bin_corpus_test.go. It has 12 Edge rows that run everywhere, 10 Windows-only Edge rows (dot segments, down-and-back-up, a space before the separator, a trailing dot or space), 9 Chrome rows that must come back unchanged, and 4 non-file rows. Against HEAD's headless.go via -overlay, 10 corpus rows and all 5 review-test subtests failed. With the fix, everything passes, as does the full suite with CHROME_BIN unset and set.",
+ "payload": {
+  "status": "complete",
+  "summary": "IN-M1 is fixed. isEdge now names Edge from the CHROME_BIN text as written and again from the path resolved by filepath.Abs, which is GetFullPathName on Windows, and either one refuses it. Browser still returns the CHROME_BIN text unchanged. The review's test is committed as internal/testutil/headless/edge_dot_segments_test.go, and its engine command passes. I closed the class with a corpus in testdata/chrome_bin_spellings.json, run by chrome_bin_corpus_test.go. It has 12 Edge rows that run everywhere, 10 Windows-only Edge rows (dot segments, down-and-back-up, a space before the separator, a trailing dot or space), 9 Chrome rows that must come back unchanged, and 4 non-file rows. Against HEAD's headless.go via -overlay, 10 corpus rows and all 5 review-test subtests failed. With the fix, everything passes, as does the full suite with CHROME_BIN unset and set.",
+  "files": [
+   {
+    "path": "internal/testutil/headless/headless.go",
+    "change": "modified",
+    "why": "isEdge checks the raw CHROME_BIN text and the filepath.Abs-resolved path (new namesEdge helper does the base-name test); comment explains why"
+   },
+   {
+    "path": "internal/testutil/headless/edge_dot_segments_test.go",
+    "change": "added",
+    "why": "the code review's TestBrowserRefusesEdgeBehindDotSegments, as given (five dot-segment spellings of msedge.exe must skip naming CHROME_BIN)"
+   },
+   {
+    "path": "internal/testutil/headless/testdata/chrome_bin_spellings.json",
+    "change": "added",
+    "why": "the corpus of CHROME_BIN spellings whose last text element is not the file the OS opens: edge, chrome and skip rows, with windows_only flags"
+   },
+   {
+    "path": "internal/testutil/headless/chrome_bin_corpus_test.go",
+    "change": "added",
+    "why": "TestChromeBinSpellingsCorpus expands each corpus row against a temp folder holding empty msedge.exe, chrome.exe, Edge/Application/chrome.exe and sub/, and asserts the Browser outcome (nothing is started)"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "In isEdge I added filepath.Abs resolution next to the raw-text check, via a namesEdge helper, so msedge.exe\\., \\.\\., \\x\\.., /., 'msedge.exe \\.', a trailing dot and a trailing space are all refused with a skip that says Microsoft Edge and names CHROME_BIN. The returned path is still the CHROME_BIN text. The review's test is in place as edge_dot_segments_test.go and `go test -count=1 -run TestBrowserRefusesEdgeBehindDotSegments ./internal/testutil/headless/` passes. The corpus's quiet rows (Chrome with the same dot segments, a Chrome inside folders called Edge, folders, a missing file) guard against a rule that refuses everything. Before the fix (HEAD's headless.go through -overlay): 10 corpus rows and 5 of 5 review-test subtests failed. Mutation: making the Abs branch return namesEdge(abs) && false fails the review's test.",
+    "corpus": "internal/testutil/headless/testdata/chrome_bin_spellings.json",
+    "mutation": {
+     "file": "internal/testutil/headless/headless.go",
+     "find": "return namesEdge(abs)",
+     "replace": "return namesEdge(abs) && false",
+     "test_command": "go test -count=1 -run TestBrowserRefusesEdgeBehindDotSegments ./internal/testutil/headless/"
+    }
+   }
+  ],
+  "mandatory": [],
+  "deviations": [],
+  "not_built": [
+   "O-003 / m1 (the recorder's doc comment in default_browser_test.go still mentions Fatalf): a person waived it as note N-223, a comment-only fix left to the comment fixer, so I did not touch it."
+  ],
+  "follow_ups": [
+   "Symlinks or hard links named chrome.exe that point at msedge.exe are not caught, because the check is by name and not by resolving links. That is not an ordinary-input spelling, so the corpus does not claim it. If it matters, resolving the target with filepath.EvalSymlinks in isEdge would close it."
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -overlay <HEAD headless.go> -run 'TestBrowserRefusesEdgeBehindDotSegments|TestChromeBinSpellingsCorpus' ./internal/testutil/headless/ (before the fix)",
+    "outcome": "failed",
+    "note": "Expected: 10 corpus rows (the dot-segment, down-and-back-up and space-before-separator Edge spellings) and all 5 review-test subtests failed."
+   },
+   {
+    "command": "go test -count=1 -v -run 'TestBrowserRefusesEdgeBehindDotSegments|TestChromeBinSpellingsCorpus' ./internal/testutil/headless/ (after the fix)",
+    "outcome": "passed",
+    "note": "All 35 corpus subtests and 5 review-test subtests pass."
+   },
+   {
+    "command": "go test -count=1 -run TestBrowserRefusesEdgeBehindDotSegments ./internal/testutil/headless/",
+    "outcome": "passed",
+    "note": "The engine's own command; ok. With the Abs branch mutated to return namesEdge(abs) && false the same command fails; restored afterwards and it passes again."
+   },
+   {
+    "command": "go vet ./...; gofmt -l on LF copies of the package's .go files",
+    "outcome": "passed",
+    "note": "vet exit 0; gofmt lists nothing."
+   },
+   {
+    "command": "go test -count=1 ./... with CHROME_BIN and HBAND_TEST_BROWSER removed",
+    "outcome": "passed",
+    "note": "All packages ok, exit 0; the browser test skips."
+   },
+   {
+    "command": "go test -count=1 ./... with CHROME_BIN=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe (real browser through the real entry point)",
+    "outcome": "passed",
+    "note": "All packages ok, exit 0; internal/server ran real Chrome (16.6 s). msedge process count 5 before and 5 after, so none were started."
+   }
+  ]
+ }
+}
