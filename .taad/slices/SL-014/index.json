@@ -39,6 +39,38 @@
   {
    "stage": "build-check",
    "issue": "C8 (from WHAT): search the whole repository (scripts, docs, CI) for other places that pick a browser path, report them, fix the ones that are the same defect, and name the ones that are a different kind of change: missing"
+  },
+  {
+   "stage": "build-slice",
+   "issue": "README.md:82-87 and :108 still describe HBAND_TEST_BROWSER and the two Program Files paths. That is documentation, which is outside slice work; the code is what is true."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "tests/acceptance/run_finish.py (BROWSER_PATH regex at :70, edge_risk at :105-121), check_run_finish_needs_chrome_bin.py and test_run_finish_edge_guard.py are a different kind of change: a guard on browser paths inside ledger finish bodies, not a browser picker for Go tests. SC-043 deletes them, so I left them alone."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The approved ledger finish body for E-004 line 2 (test_e004_2, Q-028) hard-codes an msedge fallback and ignores CHROME_BIN. It lives only in the ledger, not in the tree, and no slice code can change it. .taad/slices/SL-008/run_finish_e004_2.py already follows the CHROME_BIN-only rule."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The project's recorded testing stack still says 'otherwise the default Edge path is used' and names HBAND_TEST_BROWSER as a test setting. Both are now untrue: the browser comes from CHROME_BIN only, and CHROME_BIN is not an HBAND_TEST_* name. The record needs the edit; it is not in this repository, so I could not make it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Repository search for other browser pickers (C8): Go has exactly one, headless.go, fixed here; its only caller is internal/server/browser_test.go:151, which needed no change. No CI files or shell scripts are tracked. The only other hits are README.md (stale docs), the three Python files under tests/acceptance (SC-043) and the SL-008 scratch runner, which already conforms."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The README's browser-test paragraph needs correcting outside slice work, since it now describes the old variables."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: No settings checkbox or on-screen notice was built for the Edge refusal or the CHROME_BIN-only rule. The standing workaround rule is written for an app with settings. This is a test-only helper with no settings or UI, and the owner's rule (restated by the engine for this machine) is that Edge is never started. A switch to turn the refusal off would contradict it. Edge's first-run behaviour (signing the profile in to the Windows Microsoft account and importing old browsing history) is an outside defect, and the skip message states it in plain words next to the skipped result."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Edge refusal matches a lower-cased base name containing 'msedge' or 'microsoft-edge', wider than the design's literal msedge.exe, so msedge without .exe, MSEDGE.EXE and the Linux package name are refused too. The check runs before the file lookup, so a missing Edge path is also refused by name."
   }
  ],
  "stages": [
@@ -114,6 +146,46 @@
      "caused_by": null,
      "changed": {},
      "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T10:47:38.428Z",
+     "head": "31c388c828919a84329b09191381d98d6e3c9e8f",
+     "summary": "headless.Browser now takes the browser from CHROME_BIN only.",
+     "caused_by": null,
+     "changed": {
+      "tests": 3,
+      "listed": 3,
+      "measured_by_git": 7
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T10:50:29.401Z",
+     "head": "31c388c828919a84329b09191381d98d6e3c9e8f",
+     "summary": "I read all three changed files in full (headless.go, default_browser_test.go, edge_default_test.go), the old versions at 789aa8d, and the only caller (internal/server/browser_test.go:151).",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
     }
    ]
   }

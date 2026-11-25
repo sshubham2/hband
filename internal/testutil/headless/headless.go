@@ -68,10 +68,30 @@ func Browser(t testing.TB) string {
 	return p
 }
 
-// isEdge reports whether the path's file name is Microsoft Edge's executable,
-// as it is called on Windows (msedge.exe) and in Linux packages
-// (microsoft-edge). It is a decision by name, taken before the path is looked up.
+// isEdge reports whether the path names Microsoft Edge's executable, as it is
+// called on Windows (msedge.exe) and in Linux packages (microsoft-edge). It is
+// a decision by name, taken before the path is looked up.
+//
+// The last text element of the path is not always the file the OS opens: on
+// Windows msedge.exe\. , msedge.exe\x\.. , msedge.exe/. and "msedge.exe \."
+// all open msedge.exe, and "msedge.exe." and "msedge.exe " lose their trailing
+// dot or space. So the name is taken twice, from the text as written and from
+// the path resolved the way the OS resolves it (filepath.Abs is
+// GetFullPathName on Windows, which CreateFile and CreateProcess apply too),
+// and either one naming Edge refuses it. The caller keeps the CHROME_BIN text
+// unchanged.
 func isEdge(p string) bool {
+	if namesEdge(p) {
+		return true
+	}
+	if abs, err := filepath.Abs(p); err == nil {
+		return namesEdge(abs)
+	}
+	return false
+}
+
+// namesEdge reports whether the last element of p is an Edge executable name.
+func namesEdge(p string) bool {
 	base := strings.ToLower(filepath.Base(p))
 	return strings.Contains(base, "msedge") || strings.Contains(base, "microsoft-edge")
 }
