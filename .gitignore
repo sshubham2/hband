@@ -1,3 +1,29 @@
 /data/
 /hband
 /hband.exe
+
+# The program built from inside its own folder
+/cmd/hband/hband
+/cmd/hband/hband.exe
+
+# The program reads its settings from the environment; a file that holds them is local
+.env
+.env.*
+
+# SQLite database files, if the program is started from another folder
+*.db
+*.db-shm
+*.db-wal
+
+# Go test binaries and coverage output
+*.test
+coverage.out
+
+# Editor and operating-system litter
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
