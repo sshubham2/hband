@@ -1,0 +1,1 @@
+git grep -q -I -E -e '(run_finish(_e004_2)?|serve_show_all|check_e006_1_stops_at_block|check_run_finish_needs_chrome_bin|test_run_finish_edge_guard)\.py' --and --not -e '^[[:blank:]]*//' -- . ':(exclude).taad/slices' ':(exclude)tests/acceptance/ported/testdata' ':(exclude)tests/acceptance/ported/rows_test.go'; if ($LASTEXITCODE -eq 1) { exit 0 } else { exit 1 }

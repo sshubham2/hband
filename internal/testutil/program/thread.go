@@ -9,7 +9,8 @@ import (
 )
 
 // Thread is the look's nine-level thread (the signed-in look of the E-004 line 2
-// check, run_finish_e004_2.py's seed), posted through the real handlers.
+// check, which the retired run_finish_e004_2.py seeded first), posted through the real
+// handlers. internal/testutil/seeded serves it for a look.
 type Thread struct {
 	Slug     string
 	IDs      [9]string // the id of the comment at each level, level 1 first

@@ -1,0 +1,309 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "critique",
+ "attempt": 2,
+ "at": "2026-11-25T21:50:56.887Z",
+ "head": "89da1ad3d8055a4b6021326ca0f34b25ba7649dc",
+ "run_id": 12369,
+ "summary": "The rework answers every accepted finding from the first pass:\n- **Shell-safe checks:** each check is now a single git command or plain PowerShell, with no `$` inside a string another shell could expand. The check-ignore checks point core.excludesFile at a file that does not exist.\n- **Staging port:** the launcher picks the staging port P itself, re-picks until P is not N, and exits loudly if the staging stand-in GitHub drew N. The window that remains is written into the contract.\n- **No-Python-file rule:** its because text now says it reads the disk and names its holes. Both new rules join rules_under_test with fire, quiet and pinned-hole rows.\n- **Exec rule:** the pattern is widened (one level of nested parentheses, a folder prefix, a version suffix, any case).\n- **Ledger probe:** it is spelled out, and it now also runs after the deletion.\n- **Searches:** the run-line search is anchored, and a separate search covers the deleted script names.\n- **Avatar evidence:** corrected.\n- **app_command repoint:** its timing and rollback value are now stated.\n\nI re-ran several things against the tree:\n- The widened exec pattern matches nothing in today's *.go files.\n- The anchored run-line pattern matches nothing outside the two record folders and the .py files.\n- Outside rows_test.go, the records and the .py files, the deleted script names appear only on the four `//` comment lines the design lists (thread.go:12, e004_2 test :8 and :232, sites_multidigit_test.go:9).\n- The widened pattern compiles in Go's regexp, and as a single-quoted YAML scalar it passes the file's own scanner.\n- The repository's info/exclude holds no patterns, so the check-ignore cases really do test `.gitignore`.\n\nTwo minor problems are left in the checks the design prescribes:\n1. The check that `.gitignore` holds the two literal lines is not among the cases, and as written it fails on this machine's CRLF checkout.\n2. The fresh-clone criterion is handed to E-009 line 6's body on the claim that the body does the clone itself. Nothing on record supports that.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The rework answers every accepted finding from the first pass:\n- **Shell-safe checks:** each check is now a single git command or plain PowerShell, with no `$` inside a string another shell could expand. The check-ignore checks point core.excludesFile at a file that does not exist.\n- **Staging port:** the launcher picks the staging port P itself, re-picks until P is not N, and exits loudly if the staging stand-in GitHub drew N. The window that remains is written into the contract.\n- **No-Python-file rule:** its because text now says it reads the disk and names its holes. Both new rules join rules_under_test with fire, quiet and pinned-hole rows.\n- **Exec rule:** the pattern is widened (one level of nested parentheses, a folder prefix, a version suffix, any case).\n- **Ledger probe:** it is spelled out, and it now also runs after the deletion.\n- **Searches:** the run-line search is anchored, and a separate search covers the deleted script names.\n- **Avatar evidence:** corrected.\n- **app_command repoint:** its timing and rollback value are now stated.\n\nI re-ran several things against the tree:\n- The widened exec pattern matches nothing in today's *.go files.\n- The anchored run-line pattern matches nothing outside the two record folders and the .py files.\n- Outside rows_test.go, the records and the .py files, the deleted script names appear only on the four `//` comment lines the design lists (thread.go:12, e004_2 test :8 and :232, sites_multidigit_test.go:9).\n- The widened pattern compiles in Go's regexp, and as a single-quoted YAML scalar it passes the file's own scanner.\n- The repository's info/exclude holds no patterns, so the check-ignore cases really do test `.gitignore`.\n\nTwo minor problems are left in the checks the design prescribes:\n1. The check that `.gitignore` holds the two literal lines is not among the cases, and as written it fails on this machine's CRLF checkout.\n2. The fresh-clone criterion is handed to E-009 line 6's body on the claim that the body does the clone itself. Nothing on record supports that.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "The design's check that `.gitignore` holds the literal lines `__pycache__/` and `*.pyc` is `git grep -q -x -F -e '__pycache__/' -- .gitignore`, then the same for '*.pyc'. It has two problems.\n1. It appears only in the 'Done checks' component, not in `cases`. The done criterion '.gitignore contains `__pycache__/` and `*.pyc`' is therefore proven only by behaviour: two check-ignore cases that would also pass with `*.py[cod]` or `**/__pycache__/`.\n2. As written it fails on this machine. The checked-out `.gitignore` is CRLF (29 of its 29 lines end in \\r), and git grep searches the working-tree bytes without converting them. A line reads `__pycache__/\\r`, so the `-x` whole-line match fails even when the rule is there. After commit, every fresh checkout under core.autocrlf=true is CRLF too (#975).",
+    "evidence": "design 'Done checks' component (design-slice-2.json:80). .gitignore: a ripgrep count of `\\r$` gives 29 of its 29 lines. The 10 cases list no literal-line check. To settle it, run `git grep -q -x -F -e '/hband' -- .gitignore; $LASTEXITCODE` on this worktree: `/hband` is an existing line, and exit 1 means the -x form cannot pass here.",
+    "file": ".taad/slices/SL-017/design-slice-2.json",
+    "line": 80,
+    "quote": {
+     "path": ".taad/slices/SL-017/design-slice-2.json",
+     "line": 80,
+     "text": "The literal-lines check is `git grep -q -x -F -e '__pycache__/' -- "
+    },
+    "fix": "Add two cases, one per literal line, that read the index blob rather than the working tree: `git grep -q --cached -x -F -e '__pycache__/' -- .gitignore`, and the same with '*.pyc'. Index blobs are LF under autocrlf. Alternatively, keep the working-tree search and allow a trailing CR, for example `git grep -q -E -e '^__pycache__/[[:space:]]*$' -- .gitignore`."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "nature": "defect",
+    "claim": "The case for the brief's last done criterion ('a fresh clone with no Python installed builds and passes go test -count=1 ./...') now just runs E-009 line 6's ledger body. Its justification is that the body 'does the clone and PATH stripping itself, as the build check reported'. The build check reported only the PATH and environment stripping ('as E-009 line 6 does'). The `git clone --no-hardlinks` was the build check's own step, and nothing it recorded says line 6 clones. The design cannot read the ledger to confirm this (#997). If line 6 runs the suite in the worktree, the case no longer checks a fresh clone. An untracked or ignored file in the worktree could then hide a file missing from the commit, which is exactly what the clone criterion exists to catch.",
+    "evidence": "design case 'build and test without Python' (design-slice-2.json:240). Build check: 'line 6 = no .py/.pyc tracked + check-ignore rules + suite without Python', and in the fresh-clone criterion the clone is listed under its own 'how'. The first design's case 13 had the explicit clone step, and this version dropped it.",
+    "file": ".taad/slices/SL-017/design-slice-2.json",
+    "line": 240,
+    "quote": {
+     "path": ".taad/slices/SL-017/design-slice-2.json",
+     "line": 240,
+     "text": "(it does the clone and PATH stripping itself, as the build check reported)"
+    },
+    "fix": "Put the explicit step back. `git clone --no-hardlinks` the slice branch into scratch, then run line 6's body, or `go build ./... && go test -count=1 ./...`, inside that clone with PATH and PYTHON*/HBAND_*/CHROME_BIN stripped. The alternative is to have the stage that reads the ledger quote the line of line 6's body that does the clone, and cite it."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "m2: the claim that line 6 clones is unsupported. Everything else checked holds. Spike 209 measured the cut-over from a killed writer at 5/5, which settles the must-verify that drove the first pass. The avatar evidence is corrected. Fake.URL is read after Start returns, which is the order the collision check needs. The SQLite documentation confirms that transactions are durable across application crashes (sqlite.org/forum/info/9d6f13e346231916, quoting pragma.html#pragma_synchronous)."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "None new. Picking P before Start lets the staging stand-in's own ephemeral bind draw P, where pickPort inside Start used to run after the stand-in held its port, and the 3 retries are gone. The contract states the cost: a loud exit 1 with no retry, never a silent torn read. The windows when the staging or final stand-in sits on N end in a loud exit, as recorded."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "None. The one rule about the port that earlier depended on luck (P != N, and the stand-in not on N) is now enforced inside run(). The rules-plus-deletion commit seam is stated explicitly."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "None. The work on the fitness rules stops at one widening, named holes and the corpus rows that TestRuleSpellingsCorpus requires once a rule is listed. No ratchet package, no sweep, no staging retry and no show-all port."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "None open. The CLI error cases now cover the staging stand-in drawing N (with its ~130 ms window), P lost between pick and bind, and the final stand-in or an outside process holding N. The app_command repoint timing, its cost and its rollback value follow the M-add-2 disposition, which is settled and not reopened."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "None. Scope Fatalf ends the scope before the parent's Fatalf. The process T runs its cleanups once, then exits 1, and a re-entrant Fatalf exits at once. The P-pick loop is bounded at 5 tries and then Fatalf. An unreadable stand-in URL causes Fatalf. Each is pinned by a named test."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "None. The rework stays inside the brief and the accepted dispositions. internal/testutil/program has no code change, only the thread.go comment. No documentation edits are planned."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "None new. Per CC-001, the widened exec pattern catches backticks, t.Context() and other single-level nested calls, folder-prefixed, version-suffixed and capitalised names, and .EXE. Its because text names the remaining holes (a shell literal, exec.Cmd{Path:}, os.StartProcess, an aliased import, deeper nesting, a variable or concatenation). A ripgrep run of the exact pattern over *.go finds nothing. The quiet rows `exec.Command(\"git\", \"ls-files\", \"--\", \"*.py\")` and the goTool build row stay quiet when traced by hand. The because texts given carry no apostrophe (#971). The new package still falls under 'the test helpers link none of the product' and Check's scanGo, with no ported: tags."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "m1: the literal-line check of .gitignore is missing from the cases and would fail on CRLF. m2: the fresh-clone check. The other cases were re-verified against the tree: the anchored run-line regex and the comment-excluding script-name search both come back empty today. The probe skips absent .py Editions, so it re-runs after the deletion. The readiness test dials TCP the way look_web does, and fails if a stand-in answers N."
+   },
+   {
+    "dimension": "security",
+    "result": "None. Every bind is on loopback, and the stand-in that approves every sign-in is test-only. No secrets or browser settings are read. Temp folders are checked to be outside the repository."
+   }
+  ]
+ },
+ "prescribed": {
+  "host": 736,
+  "at": "2026-11-25T22:02:51.553Z",
+  "runs": [
+   {
+    "run_id": 12373,
+    "resumed_from": "f2519250-d433-4dca-a294-20464985b6c7",
+    "ending": "completed",
+    "cost_usd": 1.9307065999999997,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 2112,
+    "key": "M-add-1#2112",
+    "digest": "33e9590005ea70ea"
+   },
+   {
+    "finding_id": 2110,
+    "key": "m1#2110",
+    "digest": "7e6e19a20e12419a"
+   },
+   {
+    "finding_id": 2111,
+    "key": "m2#2111",
+    "digest": "f3d4743e1c7cc848"
+   },
+   {
+    "finding_id": 2108,
+    "key": "M-add-1#2108",
+    "digest": "248e5eb218d72fa9"
+   },
+   {
+    "finding_id": 2109,
+    "key": "M-add-2",
+    "digest": "a80e7578d8b9ffb4"
+   },
+   {
+    "finding_id": 2101,
+    "key": "M1",
+    "digest": "cd6187897015a452"
+   },
+   {
+    "finding_id": 2102,
+    "key": "m1#2102",
+    "digest": "23578662f8d0a139"
+   },
+   {
+    "finding_id": 2103,
+    "key": "m2#2103",
+    "digest": "e5c4bbd094d0c94c"
+   },
+   {
+    "finding_id": 2104,
+    "key": "m3",
+    "digest": "b7ea027e3b1298b1"
+   },
+   {
+    "finding_id": 2105,
+    "key": "m4",
+    "digest": "a6f5ceea3514ea3d"
+   },
+   {
+    "finding_id": 2106,
+    "key": "m5",
+    "digest": "65c3911b2afaa395"
+   },
+   {
+    "finding_id": 2107,
+    "key": "m6",
+    "digest": "330259561c56c932"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 2112,
+    "key": "M-add-1#2112",
+    "digest": "33e9590005ea70ea",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I traced `py -3 x.py` and `py -3.14 x.py` through the widened regex: `-[A-Za-z0-9]` catches both. A path form like `C:\\Windows\\py.exe -3` is caught too, because the character before `py` is not alphanumeric. I ran ripgrep for the widened flag alternative `(^|[^A-Za-z0-9_])(python[0-9.]*|pythonw|py)(\\.exe)?[[:blank:]]+-[0-9]` across the tree, excluding .taad/slices, ported/testdata and *.py: no matches, so the widening adds no false positive today. The anchor keeps `copy -1` and `happy -3` quiet. I also ripgrepped for Python tool runners (pytest, pip, pipx, poetry, tox, nox, uv followed by a blank and an argument): no matches today.",
+    "why": "The widening is correct and safe. It still leaves a whole class the criterion ('no instruction to run python', 'nothing needing Python to be built or tested') covers and the search cannot see: a Python tool run with no interpreter name, such as `pytest -q`, `pip install x`, `uv run tool.py`, `poetry run ...` or `tox`. None of them contains python, pythonw or py followed by a blank. The rationale names only the shebang hole, and names it only in rule 1's because text, not in the search's own why. A later README line 'run pytest -q' would pass the done check.",
+    "instead": "Do one of these and stop (#939, #957). Either add the common runners to the name group, `(python[0-9.]*|pythonw|py|pytest|pip[0-9.]*)`, which is quiet on today's tree, or name 'a Python tool runner (pytest, pip, uv/poetry/pipx run, tox) and an extensionless shebang script' as holes in the run-line case's why. Whichever is chosen, any example of a shebang in rule 1's because text must not be followed by a flag such as -u, or the case trips on the slice's own text."
+   },
+   {
+    "finding_id": 2110,
+    "key": "m1#2110",
+    "digest": "7e6e19a20e12419a",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "I re-checked that the working-tree .gitignore is CRLF: ripgrep counts 29 of its 29 lines ending in \\r. No .gitattributes exists. Lesson #975 records that the index blobs are LF under core.autocrlf=true and that `git show HEAD:<f>` is the LF view. `--cached` searches index blobs, and `-x -F` makes `__pycache__/` and `*.pyc` exact whole-line fixed strings. I traced the alternatives: `*.py[cod]` and `**/__pycache__/` both fail -x, which is what the criterion wants. In PowerShell, single quotes pass `*.pyc` through literally.",
+    "why": "Reading the index closes the CRLF problem, and two cases now prove the literal lines that the check-ignore cases cannot. The one start state that would break it is an index blob of .gitignore that is itself CRLF. Safer autocrlf then would not normalise the file, and -x would fail. That cannot be settled without running git, but the rationale's 'through the case runner once before hand-on' catches it loudly. The check passes only after the lines are staged, which holds at validate and after commit.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2111,
+    "key": "m2#2111",
+    "digest": "f3d4743e1c7cc848",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "I compared the restored procedure with the build check's own recorded clone run: `git clone --no-hardlinks --branch slice/SL-017 <worktree>`, PATH stripped of C:/Python314, C:/Windows and WindowsApps, PYTHON*/HBAND_*/CHROME_BIN removed, then exit 0 with 32 packages ok both before and after the deletion. I read outside.go: MkdirTemp folders in TEMP are checked against the clone's own `go env GOMOD` root, so a clone in scratch does not trip MustBeOutside. program.Build runs `go build github.com/sshubham2/hband/cmd/hband`, which resolves inside the clone.",
+    "why": "Cloning the committed branch brings back the property the criterion exists for: an untracked or ignored file in the worktree can no longer hide a file missing from the commit. Stripping PATH is the same approximation the build check measured, since uninstalling Python is outside TAAD's folders. Running line 6's body as well is harmless even if that body clones again. The procedure is several steps rather than one command, exactly as design 1's case was. A failure in TestConcurrentVotesNoBusy (#987) must be re-run in that package alone before it is read as a regression. That is how the procedure should be used, not a hole in it.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2108,
+    "key": "M-add-1#2108",
+    "digest": "248e5eb218d72fa9",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I traced the nested-parentheses prefix `(?:[^()\\r\\n]|\\([^()\\r\\n]*\\))*` against `exec.CommandContext(t.Context(), \"python\", \"x\")`: the first alternative consumes `t.Context`, the second consumes `()`, then `, \"python\"` matches, so it fires. `context.Background()` behaves the same. I ripgrepped the full widened pattern over *.go: no matches. I read fitness.yaml: every one of the 42 rules has exactly one `files:` scalar, and none uses a brace glob. rules_test.go loadRules stores `cur.Files = scalar(m[2])`, one string, and globRegexp quotes `{` as a literal. The design's corpus pins `tools/gui.pyw 'import os'` as a quiet row.",
+    "why": "The exec half holds. The file half offers 'add `**/*.pyw` to the file rule' as one branch, and that branch cannot be built as written. A rule carries one `files` glob, the local matcher has no brace syntax, and `**/*.py*` would also fire on .pyi files and on any on-disk `__pycache__/*.pyc`, since the rule reads the disk. A second rule would need its own name and its own corpus rows. Taking that branch would also make the design's pinned-quiet `tools/gui.pyw` row fire, so TestRuleSpellingsCorpus would fail.",
+    "instead": "Keep only the 'name it as a hole' branch for .pyw, .pyi and upper-case .PY, as the design's because text and its quiet `tools/gui.pyw` row already do. Build the nested-parentheses prefix and the `t.Context()` fire row exactly as prescribed."
+   },
+   {
+    "finding_id": 2109,
+    "key": "M-add-2",
+    "digest": "a80e7578d8b9ffb4",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I read the rationale against the brief ('Repointing the engine's app_command to the launcher afterwards is an engine setting, not repository work') and against the ledger rule (read-only, SELECT only, never write). I looked for whoever would perform the change: the prescription says the engine makes it during SL-017's build, after the launcher is committed and TestPortOpensOnlyOnceTheThreadIsSeeded passes, and before validate. No operation, obligation or stage is named to make it happen.",
+    "why": "The builder cannot write projects.app_command, and the brief puts the setting outside repository work. So 'the engine repoints during build' depends on something nobody is told to do. If it does not happen, validate's look_web runs `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve` in a worktree where the build has deleted that file. It fails at launch, which is exactly failure (a) that M-add-2 was filed to prevent, and it costs a lap. 'SL-017 is the only open slice' is also stated but not checked here; one SELECT on slices or candidates in place would settle it.",
+    "instead": "Name the actor and add a guard. The build hands off with an explicit engine action or obligation to set app_command to `go run ./internal/testutil/seeded -port {port}` before validate. Validate's first step reads projects.app_command for id 14 in place (mode=ro). If it still holds the Python value, validate attempts no look and raises an obligation naming that action, rather than failing on 'can't open file'."
+   },
+   {
+    "finding_id": 2101,
+    "key": "M1",
+    "digest": "cd6187897015a452",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "I read the rework's checks. The check-ignore cases are single git commands, `git -c core.excludesFile=.no-such-excludes check-ignore -q --no-index -- <one path>`. The run-line and script-name searches are plain PowerShell, with the regex in single quotes and `$LASTEXITCODE` outside any string. The ls-files check is `if (git ls-files ...) { exit 1 }; exit 0`. I read .git/info/exclude in the common directory: no patterns, so the probes test .gitignore alone. I found the PowerShell-form command `$env:HBAND_TEST_BROWSER='...'; ...; go test -count=1 ./...` recorded as executed in .taad/slices/SL-003/validate-slice-1.json:24.",
+    "why": "No `$` now sits inside a string an outer shell could expand. A missing core.excludesFile is skipped without error (git warns only on errors other than ENOENT), and -q is given exactly one path, as check-ignore requires. 128 from git grep maps to exit 1, never a false pass. The checks still assume a PowerShell runner: under cmd.exe the `|` inside the single-quoted regexes would be taken as a pipe. The SL-003 record supports PowerShell, and the prescription's 'run each once through the runner on a passing tree' catches the other case loudly. The ls-files check passes when git itself fails, because empty output reads as false, but it is not one of M1's three checks and a git failure outside a repository is not a state the runner starts in.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2102,
+    "key": "m1#2102",
+    "digest": "23578662f8d0a139",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I re-read program.Start (program.go:151-222). The stand-in is created at :168, then for Port>0 the fixed port is used as given (:179-187), then launch runs at :203, all within one call. On failure Start calls t.Fatalf, and program.T says 'Fatalf must not return' (:45). Loopback mode with Port 0 calls pickPort at :182, after the stand-in already holds its port, and gets 3 attempts (:172-175).",
+    "why": "Three parts of the prescription text are wrong or unbuildable.\n(a) 'Fatalf if either stand-in's URL ends in :N before the final launch': the final stand-in exists only inside the final program.Start, which launches hband in the same call. The launcher cannot inspect it before that launch without changing program. The only reachable outcome is the final hband failing to bind N, a loud exit 1.\n(b) 'Retry the staging start on exit 1 if wanted': a failed staging Start calls the scope's Fatalf, which ends the scope and then calls the parent's Fatalf, which must not return. A retry needs a recoverable T, for example a panic with a sentinel and a recover, which the prescription does not mention.\n(c) Picking P in the launcher reverses Loopback's order. With a fixed Port, Start binds the staging stand-in on an ephemeral port before launching hband on P, so the stand-in can draw P. That is a new loud exit 1 with no retry, which Loopback mode, picking after the stand-in and retrying 3 times, did not have.\nThe design already chose correctly: it checks only the staging stand-in, records the final-stand-in case as a bind failure, does not retry, and lists 'P taken between the pick and the bind'.",
+    "instead": "Build it as the design states, not as the prescription text says. Check only the staging stand-in's URL against N after the staging Start returns. Treat the final stand-in drawing N as the loud final-bind failure. Do not attempt a staging retry unless the scope is given a recoverable Fatalf. Keep the error-case line for the staging stand-in drawing P (exit 1, no retry)."
+   },
+   {
+    "finding_id": 2103,
+    "key": "m2#2103",
+    "digest": "e5c4bbd094d0c94c",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "I re-read rules_test.go. The walk prunes .git, .taad, node_modules and testdata (:282) and reads from disk (:291). The census at :254-257 requires a fire row and a quiet row for each name in rules_under_test, and rule_spellings.json:29-64 lists neither SL-017 rule. I traced the planned rows through globRegexp('**/*.py') = `^(?:.*/)?[^/]*\\.py$`: `tools/gen.py` and `.taad/slices/SL-099/x.py` holding text fire on \\S; whitespace-only `tools/blank.py` and `tools/gui.pyw` stay quiet. The carrier census (yaml_scalar_corpus_test.go:89-127) gains no new key.",
+    "why": "Every part is correct and buildable. The because text was false ('matches no file today' with six .py files on disk). \\S does match a comment in the local raw-text walk. Landing the rule in the same commit as the deletion avoids a red commit. The corpus rows make the census require and pin both rules. The engine's own coverage of .taad is unmeasured, so the reworded text should not claim it, but the prescription does not ask it to.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2104,
+    "key": "m3",
+    "digest": "b7ea027e3b1298b1",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I traced the prescribed piece `[\"`](?:[^\"`\\r\\n]*[\\\\/])?(?i:python[0-9.]*|pythonw|py)(?:\\.exe)?[\"`]` against `exec.Command(\"PYTHON.EXE\")`: the name folds case, but `(?:\\.exe)?` is case-sensitive, and the closing-quote requirement fails after `PYTHON`, so the call gets past. It keeps the old prefix `[^)\\r\\n]*`, which stops at the `)` of `t.Context()`. I ripgrepped the design's combined pattern, with the nested-parentheses prefix and `(?:\\.(?i:exe))?`, over *.go: no matches.",
+    "why": "As written, m3 folds the case of the interpreter name but not of its extension. That leaves `Python.EXE` and `PYTHON.EXE`, the very same-on-Windows spellings it was meant to catch. Combined with its unchanged prefix, it also misses the natural Go 1.24+ `t.Context()` form. The design composed the right pattern, and the m3 text alone would rebuild the narrower one. Python's re supports scoped `(?i:...)` since 3.6 (recalled), which bears on whether the engine's op=check loads it; op=check must still be run (#971, #1002).",
+    "instead": "Build the combined pattern from the design's architecture_rules, `exec\\.(?:Command|CommandContext|LookPath)\\((?:[^()\\r\\n]|\\([^()\\r\\n]*\\))*[\"`](?:[^\"`\\r\\n]*[\\\\/])?(?i:python[0-9.]*|pythonw|py)(?:\\.(?i:exe))?[\"`]`, as one single-quoted scalar. Include the `PYTHON.EXE` fire row, then confirm Fitness op=check loads the file."
+   },
+   {
+    "finding_id": 2105,
+    "key": "m4",
+    "digest": "a6f5ceea3514ea3d",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I read ported_test.go: Canonical strips a BOM, converts CRLF to LF and leaves one trailing newline (:78-82); EditionOf is sha256 of Canonical (:85-88). I confirmed that `sources` is unexported in rows_test.go (package ported), so the probe must be an internal `package ported` _test.go file, as designed. I traced the prescribed check, `go test -count=1 -overlay <scratch>/overlay.json ./tests/acceptance/ported` with ZZ_PROBE_DIR set, through each start state that could make it exit 0 without probing.",
+    "why": "The spelled-out probe fails closed once it runs: unmatched or orphan Editions, a name mismatch, duplicates, a count other than 16, and an unset ZZ_PROBE_DIR (0 items, not 16) all fail it. But nothing proves it ran. If the overlay key does not name the package directory exactly as Go resolves it (drive-letter case, slash form, a typo in `<abs worktree>`), the file is simply not compiled into ported, and the package passes on its other tests with exit 0. The design 1 form with `-run '^TestZZ...$'` had the same problem, since 'no tests to run' also exits 0. This is the BLOCKED-ON gate, so a silent non-run justifies the deletion on a stale mapping. Separately, if the finish texts are quoted with Windows PowerShell's Out-File (UTF-16), json decoding fails. That failure is loud, but it stops the deletion falsely.",
+    "instead": "Run `go test -count=1 -v -run '^TestZZLedgerEditionProbe$' -overlay <scratch>/overlay.json ./tests/acceptance/ported` and require `--- PASS: TestZZLedgerEditionProbe` in the output; its absence is a failure. Alternatively, have the probe write a marker file that the check tests for. Write the quoted finish files as UTF-8 without a BOM."
+   },
+   {
+    "finding_id": 2106,
+    "key": "m5",
+    "digest": "65c3911b2afaa395",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "I ripgrepped the anchored run-line regex over the tree, excluding .taad/slices, ported/testdata and *.py: no matches. I ripgrepped the six script names, excluding .taad/slices, ported/testdata, rows_test.go and the .py files: only the four `//` lines (thread.go:12, e004_2 test :8 and :232, sites_multidigit_test.go:9), which `--and --not -e '^[[:blank:]]*//'` excludes. I confirmed that internal/fitnessrules/testdata is not excluded by either search. rule_spellings.json carries a top-level `bounded_by` map of long prose strings (lines 3 onward) beside `rows`, and the design adds a bounded_by entry naming each SL-017 rule's holes.",
+    "why": "The anchoring and the second search are right, and both are empty today. The rationale keeps 'because texts and corpus rows' free of a literal run line, but the place most likely to receive one is the new bounded_by prose for the exec rule. Its hole list is exactly 'the interpreter inside a longer shell command literal', and the natural way to write that is an example run line. That text sits in internal/fitnessrules/testdata, which the search covers, so the case would fail on the slice's own addition, loudly, costing a lap.",
+    "instead": "Extend the rule to every line of rule_spellings.json, the bounded_by entries included, and to fitness.yaml. Describe a hole in words ('a run line inside a shell string') rather than with an example run line, or write any example without a blank between the interpreter name and its argument."
+   },
+   {
+    "finding_id": 2107,
+    "key": "m6",
+    "digest": "330259561c56c932",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "I re-read visitor.go:82-91. SignIn sets an empty u.AvatarURL to \"https://avatars.example/u/\" + itoa(u.ID) + \"?v=4\" and then calls p.Fake.SetUser(u). DeepThread (thread.go:32, 40-41) signs in all three users through Owner and SignIn with no AvatarURL. program.go:168 shows that the stand-in's own address is a separate loopback httptest URL.",
+    "why": "The corrected evidence is accurate. All three of DeepThread's users store an avatars.example URL, which names no stand-in address, so the conclusion that nothing persisted depends on the staging stand-in still holds. No code changes, and no other path writes the stand-in's address into a row.",
+    "instead": ""
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:2112",
+   "finding:2108",
+   "finding:2109",
+   "finding:2102",
+   "finding:2104",
+   "finding:2105",
+   "finding:2106"
+  ],
+  "counts": {
+   "holds": 5,
+   "hole": 7,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "I checked all 12 prescriptions. Five hold as written and seven have minor holes; none is a blocker, and none needs the design reopened.\n\n**Holds:** m1#2110 (read .gitignore from the index), m2#2111 (put back the explicit clone step), M1 (no `$` inside a quoted string), m2#2103 (rule 1's because text and corpus rows) and m6 (avatar evidence).\n\n**Holes:**\n- **m1#2102:** two parts can't be built as written. The final stand-in can't be inspected before the final launch without changing internal/testutil/program, and a staging retry needs a Fatalf that can recover. The design's version already handles both correctly.\n- **M-add-1#2108:** its \"add `**/*.pyw`\" branch can't be expressed in a rule's single `files` glob. It would also make the design's pinned-quiet `tools/gui.pyw` corpus row fire.\n- **m3:** its pattern leaves the `.exe` suffix case-sensitive, so `PYTHON.EXE` gets through. The design's combined pattern fixes this.\n- **m4:** the probe check can pass without the probe ever running. A mis-keyed overlay drops the test, and the package still exits 0.\n- **M-add-2:** it names no one to make the app_command repoint during build. If nobody does, validate's look fails at launch.\n- **m5:** the run-line search also scans rule_spellings.json's `bounded_by` entries, which the \"keep free of run lines\" rule doesn't cover.\n- **M-add-1#2112:** Python tool runners such as pytest, pip and uv run are neither caught by the search nor named as a hole.\n\n**Measured against the tree:**\n- The widened flag alternative, the anchored run-line pattern and the nested-parentheses exec pattern match nothing today.\n- No pytest, pip, uv, poetry or tox run lines exist.\n- SL-003's validate record holds a PowerShell-form command, which supports the case runner being PowerShell.",
+  "why": "",
+  "round": "landed"
+ }
+}

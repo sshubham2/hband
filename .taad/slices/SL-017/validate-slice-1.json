@@ -1,0 +1,340 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-25T22:52:52.982Z",
+ "head": "d431cbef2a51144e61e0bb8b345f44ef7dbde4f3",
+ "run_id": 12383,
+ "summary": "I checked all 14 acceptance criteria against the committed tree (HEAD d431cbe) and every one holds.\n\n**Python is gone.**\n- `git ls-files` lists no *.py, *.pyc, *.pyw or *.pyi, including case-insensitive pathspecs. Nothing matches on disk either.\n- The committed .gitignore holds `__pycache__/` and `*.pyc`, and git honours both with the global excludes file disabled.\n\n**The same checks pass in a fresh scratch clone without Python.**\n- In the clone, python, python3, py and pythonw cannot be resolved, and PYTHON*, HBAND_* and CHROME_BIN are unset.\n- c7–c13 all exit 0. A planted tracked .py makes c7 exit 1, so it does catch one.\n- `go build` passes, and `go test -count=1 -p 4 ./...` passes all 33 packages in 41 s.\n- In the worktree with Chrome given, vet, build and the whole suite also pass (33 ok, 46 s).\n\n**The ledger gates hold.**\n- E-009 line 6 and line 7, run from bodies read read-only from the ledger, both PASS.\n- The Edition probe, run against a fresh read-only copy of epics 39–44, finds 16/16 with 0 mismatches.\n- I restored the six deleted .py files from 89da1ad in the clone and ran the probe again: it passes with all 6 present. So the deleted files are exactly what the Go port mapped.\n\n**The launcher works when started with `go run`.** I drove it with a TCP poller that dials every 10 ms, the way look_web waits.\n- The first connection came at 2.43 s. A GET sent on that first connection got 200 with 'continue this thread'.\n- The `serving http://127.0.0.1:N/` line came at 2.44 s.\n- `/`, `/reports`, the branch page and `/raw/e004-look` (98 bytes) all answered as they should, and the page shows '9 comments'.\n- After the process tree was killed, nothing answered on N.\n- The built binary exits 2 with the usage for `-port 0`, `0x1F90`, `abc` and a missing `-port`. Under `go run` the exit code is 1 with 'exit status 2', which is how go run reports it.\n\n**The engine's Fitness check fires on planted files.** It flagged a planted .py under .taad and an `exec.CommandContext(t.Context(), \"C:/Python314/PYTHON.EXE\")` call. With both removed it is quiet again. The no-.py rule therefore matching no files on the real tree is the intended state.\n\n**Still to do outside the repository:** the ledger's `projects.app_command` for project 14 still reads `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}`, and that file is now deleted. Any look the engine runs in this worktree, or after the merge, will fail at launch until the engine sets it to `go run ./internal/testutil/seeded -port {port}`. That is an engine setting, not repository work, so it does not hold the slice.\n\nEach kill of the launcher leaves 4 hband-* temp folders plus go-build folders, as the design accepts. I removed every one my runs left.\n\nThe slice's history shows no loop: one fork-measure send-back to the spike and one code-review fix that changed code.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "I checked all 14 acceptance criteria against the committed tree (HEAD d431cbe) and every one holds.\n\n**Python is gone.**\n- `git ls-files` lists no *.py, *.pyc, *.pyw or *.pyi, including case-insensitive pathspecs. Nothing matches on disk either.\n- The committed .gitignore holds `__pycache__/` and `*.pyc`, and git honours both with the global excludes file disabled.\n\n**The same checks pass in a fresh scratch clone without Python.**\n- In the clone, python, python3, py and pythonw cannot be resolved, and PYTHON*, HBAND_* and CHROME_BIN are unset.\n- c7–c13 all exit 0. A planted tracked .py makes c7 exit 1, so it does catch one.\n- `go build` passes, and `go test -count=1 -p 4 ./...` passes all 33 packages in 41 s.\n- In the worktree with Chrome given, vet, build and the whole suite also pass (33 ok, 46 s).\n\n**The ledger gates hold.**\n- E-009 line 6 and line 7, run from bodies read read-only from the ledger, both PASS.\n- The Edition probe, run against a fresh read-only copy of epics 39–44, finds 16/16 with 0 mismatches.\n- I restored the six deleted .py files from 89da1ad in the clone and ran the probe again: it passes with all 6 present. So the deleted files are exactly what the Go port mapped.\n\n**The launcher works when started with `go run`.** I drove it with a TCP poller that dials every 10 ms, the way look_web waits.\n- The first connection came at 2.43 s. A GET sent on that first connection got 200 with 'continue this thread'.\n- The `serving http://127.0.0.1:N/` line came at 2.44 s.\n- `/`, `/reports`, the branch page and `/raw/e004-look` (98 bytes) all answered as they should, and the page shows '9 comments'.\n- After the process tree was killed, nothing answered on N.\n- The built binary exits 2 with the usage for `-port 0`, `0x1F90`, `abc` and a missing `-port`. Under `go run` the exit code is 1 with 'exit status 2', which is how go run reports it.\n\n**The engine's Fitness check fires on planted files.** It flagged a planted .py under .taad and an `exec.CommandContext(t.Context(), \"C:/Python314/PYTHON.EXE\")` call. With both removed it is quiet again. The no-.py rule therefore matching no files on the real tree is the intended state.\n\n**Still to do outside the repository:** the ledger's `projects.app_command` for project 14 still reads `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}`, and that file is now deleted. Any look the engine runs in this worktree, or after the merge, will fail at launch until the engine sets it to `go run ./internal/testutil/seeded -port {port}`. That is an engine setting, not repository work, so it does not hold the slice.\n\nEach kill of the launcher leaves 4 hband-* temp folders plus go-build folders, as the design accepts. I removed every one my runs left.\n\nThe slice's history shows no loop: one fork-measure send-back to the spike and one code-review fix that changed code.",
+  "checks": [
+   {
+    "what": "Python files tracked or on disk",
+    "command": "git ls-files -- '*.py' '*.pyc' '*.pyw' ':(icase)*.py' ':(icase)*.pyc' ':(icase)*.pyw' ':(icase)*.pyi'; Glob **/*.{py,pyc,pyw,pyi} and **/__pycache__/**; Test-Path on the 6 named files and tests/acceptance/__pycache__",
+    "outcome": "passed",
+    "evidence": "ls-files empty; Glob found no files; all 7 paths False"
+   },
+   {
+    "what": "Committed .gitignore holds the two rules",
+    "command": "git show HEAD:.gitignore; c12/c13 (git grep -q --cached -E '^__pycache__/$' / '^\\*\\.pyc$' -- .gitignore)",
+    "outcome": "passed",
+    "evidence": "lines 32-33 are `__pycache__/` and `*.pyc`; c12 and c13 exit 0 in the fresh clone"
+   },
+   {
+    "what": "Design checks c7-c11 in a fresh clone, plus a negative control for c7",
+    "command": "pwsh -NoProfile -File .taad/slices/SL-017/checks/c*.ps1 in a scratch clone of slice/SL-017 (HEAD d431cbe); a planted tracked planted.py",
+    "outcome": "passed",
+    "evidence": "c7, c8, c9, c10, c11, c12 and c13 each exit 0; with planted.py staged, c7 exits 1 (want 1)"
+   },
+   {
+    "what": "Every Python mention left outside the records is description, not a run instruction",
+    "command": "git grep -n -i -I -e python -e '\\.pyc\\b' outside .taad/slices and tests/acceptance/ported/testdata; also listed CI/build/doc files",
+    "outcome": "passed",
+    "evidence": "the remaining hits are comments ('retired Python launcher', 'Python's set <='), bot user-agent strings in internal/opens and README:174, fitness rule text, corpus rows, and rows_test.go Source/Says fields; no CI or script files exist besides README.md and .taad/fitness.yaml"
+   },
+   {
+    "what": "vet, build and the whole suite in the worktree",
+    "command": "go vet ./...; go build ./...; go test -count=1 -p 4 ./... (TAAD3_HOME=scratch, CHROME_BIN=Chrome)",
+    "outcome": "passed",
+    "evidence": "vet 0, build 0, test 0 in 46 s, 33 packages ok"
+   },
+   {
+    "what": "Fresh clone with no Python reachable builds and passes the suite",
+    "command": "git clone --no-hardlinks --branch slice/SL-017; PATH stripped of dirs holding python/python3/py/pythonw (C:\\Python314, C:\\Windows, WindowsApps); PYTHON*, HBAND_*, CHROME_BIN removed; go build ./...; go test -count=1 -p 4 ./...",
+    "outcome": "passed",
+    "evidence": "python, python3, py and pythonw all resolve False; build exit 0; test exit 0 in 41 s, ok=33, no failing lines"
+   },
+   {
+    "what": "E-009 line 6 ledger body",
+    "command": "go test -count=1 -v -overlay <scratch>/ov6.json -tags e009line6 -timeout 60m -run ^TestE009Line6 ./internal/testutil/headless (body read with mode=ro from epics id 47)",
+    "outcome": "passed",
+    "evidence": "--- PASS: TestE009Line6NoPythonLeftAndNoneNeeded (22.04s); it took C:\\Python314, C:\\Windows and WindowsApps off the PATH"
+   },
+   {
+    "what": "E-009 line 7 ledger body (go run, then TerminateJobObject)",
+    "command": "go test -count=1 -v -overlay <scratch>/ov7.json -tags e009line7 -timeout 30m -run ^TestE009Line7 ./internal/testutil/fakegithub",
+    "outcome": "passed",
+    "evidence": "--- PASS: TestE009Line7GoLauncherServesTheSeededProductUntilStopped (5.57s); no hband or seeded process left afterwards"
+   },
+   {
+    "what": "Real go run launcher driven by a look_web-style TCP poller",
+    "command": "scratch poll.go: go run ./internal/testutil/seeded -port N; dial N every 10 ms; on the first connect send GET /reports/e004-look; then GET /, /reports, the branch link, /raw/e004-look; wait 3 s; taskkill /T /F; dial N",
+    "outcome": "passed",
+    "evidence": "first connect at 2.43s, 'HTTP/1.1 200 OK' with 'continue this thread'; ready line 'serving http://127.0.0.1:61971/' at 2.44s; / 200 with src=/raw/e004-look; /reports links e004-look; report 200, branch /reports/e004-look/comments/5 200, '9 comments'; /raw 200, 98 bytes; still 200 3 s later; after the kill N refused"
+   },
+   {
+    "what": "Bad -port values refused on the real binary",
+    "command": "go build -o seeded.exe ./internal/testutil/seeded; seeded.exe -port 0|0x1F90|abc, no -port, -h; also go run with -port 70000",
+    "outcome": "passed",
+    "evidence": "direct binary exits 2 for 0, 0x1F90, abc and a missing flag, with the usage; -h exits 0; go run prints 'exit status 2' and itself exits 1 (go run's own behaviour); -port 70000 refused; no hband started"
+   },
+   {
+    "what": "seeded package and fitnessrules tests, verbose (none skipped)",
+    "command": "go test -count=1 -v ./internal/testutil/seeded ./internal/fitnessrules",
+    "outcome": "passed",
+    "evidence": "8 seeded tests PASS, including TestPortOpensOnlyOnceTheThreadIsSeeded, TestSeededProgramOpensAKilledWritersDataFolder, TestEphemeralBindsNeverReachTheServingPort and TestPortFlagReadsADecimalPort; 10 fitnessrules tests PASS, including TestRuleSpellingsCorpus and TestRulesHoldOnTheTree"
+   },
+   {
+    "what": "Ledger Edition gate (BLOCKED-ON) re-proved on a fresh read-only read",
+    "command": "finish of epics 39-44 SELECTed from engine.db?mode=ro into scratch; go test -v -overlay ovprobe.json -run ^TestZZLedgerEditionProbe$ ./tests/acceptance/ported with ZZ_PROBE_DIR set",
+    "outcome": "passed",
+    "evidence": "worktree: 16 finish items, 16 ledger sources, 0 mismatches, 6 .py absent, PASS"
+   },
+   {
+    "what": "The deleted .py files equal the Editions the port mapped",
+    "command": "in the scratch clone: git checkout 89da1ad -- the 6 .py files; rerun the probe",
+    "outcome": "passed",
+    "evidence": "probe: 16 finish items, 16 ledger sources, 6 repository files present, 0 absent; --- PASS"
+   },
+   {
+    "what": "Engine Fitness check on the real tree",
+    "command": "mcp Fitness op=check",
+    "outcome": "passed",
+    "evidence": "42 rules, every declared rule holds; the no-.py rule matches no files, which is the intended state after the deletion"
+   },
+   {
+    "what": "Engine Fitness fires on planted Python (negative control), then quiet again",
+    "command": "planted .taad/slices/SL-017/zz_validate_probe.py and internal/zzvalidate/x.go with exec.CommandContext(t.Context(), \"C:/Python314/PYTHON.EXE\", \"x\"); Fitness op=check rebuild=true; removed both",
+    "outcome": "passed",
+    "evidence": "both rules VIOLATED at exactly the planted lines; both files removed afterwards and git status shows only the engine's slice records"
+   },
+   {
+    "what": "Engine app_command for project 14 repointed to the Go launcher",
+    "command": "SELECT id, name, app_command FROM projects WHERE id=14 on file:engine.db?mode=ro",
+    "outcome": "failed",
+    "nature": "extra",
+    "evidence": "(14, 'hband', 'python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}'). This names a file the slice deleted. It is an engine setting, not repository work (the brief says so); the engine must set it to `go run ./internal/testutil/seeded -port {port}` before any look in this worktree or after the merge. Rollback value is the string above."
+   },
+   {
+    "what": "Leftovers from killing the launcher",
+    "command": "list $env:TEMP (taad3-runs\\12383) before and after; Get-Process hband,seeded",
+    "outcome": "passed",
+    "evidence": "each kill left 4 hband-* folders (bin, final data, final work, seeded data) plus a go-build folder, as the design accepts; I removed all 8 hband-* and 2 go-build folders from my own run's TEMP, and 0 hband or seeded processes remain"
+   },
+   {
+    "what": "Engine-driven look_web through app_command",
+    "outcome": "not-run",
+    "evidence": "app_command still holds the Python value, and starting the engine's look is not mine to drive; the poller above stands in for its TCP-connect wait"
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "1. start the seeded product for a look: a consumer that connects to N the moment it opens (look_web's TCP-connect wait)",
+    "met": "yes",
+    "how": "Real `go run` with a 10 ms dial poller: the first connect (2.43 s) answered 200 with 'continue this thread'; the serving line came at 2.44 s; TestPortOpensOnlyOnceTheThreadIsSeeded passes"
+   },
+   {
+    "criterion": "2. start the seeded product for a look: through go run as E-009 line 7 does, then stopped by TerminateJobObject",
+    "met": "yes",
+    "how": "E-009 line 7's ledger body, read with mode=ro and run through -overlay -tags e009line7: PASS in 5.57 s"
+   },
+   {
+    "criterion": "3. start the seeded product for a look: -port missing, 0, negative, above 65535 or not a number",
+    "met": "yes",
+    "how": "TestPortFlagRefusesBadValues and TestPortFlagReadsADecimalPort pass; the built binary exits 2 with usage for 0, 0x1F90, abc and missing; 70000 refused"
+   },
+   {
+    "criterion": "4. refuse a staging stand-in on the serving port: IPv4 port, IPv6 host, no readable port",
+    "met": "yes",
+    "how": "TestStandInPortIsReadFromItsURL and TestEphemeralBindsNeverReachTheServingPort pass (code-level only; no real collision forced)"
+   },
+   {
+    "criterion": "5. stop the staging product before serving: the scope holds several cleanups and the parent holds its own",
+    "met": "yes",
+    "how": "TestScopeEndsOnlyItsOwnCleanupsNewestFirst passes; I read main.go:232-270 and scope.end runs only its own list, newest first, once"
+   },
+   {
+    "criterion": "6. fail a seed step: Fatalf inside the staging scope, at the root, and from inside a cleanup",
+    "met": "yes",
+    "how": "TestFatalfRunsCleanupsBeforeExit passes; I read main.go:252-255 and 299-319"
+   },
+   {
+    "criterion": "7. delete the Python: any tracked .py, .pyc or .pyw anywhere, including .taad/slices",
+    "met": "yes",
+    "how": "ls-files with plain and icase pathspecs is empty; Glob finds nothing on disk; c7 exits 0 in the clone and 1 with a planted .py"
+   },
+   {
+    "criterion": "8. ignore Python bytecode: a .pyc outside any __pycache__, deep in the tree",
+    "met": "yes",
+    "how": "c8 (check-ignore --no-index with a missing core.excludesFile) exits 0 in the fresh clone; line 6's own check-ignore probes pass"
+   },
+   {
+    "criterion": "9. ignore Python bytecode: a non-.pyc inside a __pycache__ several levels deep under .taad",
+    "met": "yes",
+    "how": "c9 on .taad/slices/SL-099/__pycache__/anything.txt exits 0 in the fresh clone"
+   },
+   {
+    "criterion": "10. leave no instruction to run Python outside the quoted records",
+    "met": "yes",
+    "how": "c10 (anchored run-line search) exits 0; my own grep of every 'python' mention outside .taad/slices and the hash-pinned testdata finds only descriptions, user-agent strings, rule text and corpus rows"
+   },
+   {
+    "criterion": "11. leave no reference to a deleted script on a non-// line outside rows_test.go, the snapshots and the slice records",
+    "met": "yes",
+    "how": "c11 exits 0 in the fresh clone"
+   },
+   {
+    "criterion": "12. prove the port covers what was deleted: ledger finish bodies for E-001..E-006 now, .py files present or absent",
+    "met": "yes",
+    "how": "Probe on a fresh mode=ro read: 16/16, 0 mismatches with the files absent (worktree) and with all 6 restored from 89da1ad (clone); TestPortedAssertionsHaveAGoTest passes in the suite"
+   },
+   {
+    "criterion": "13. keep the repository Python-free after the slice: exec via t.Context(), folder prefix, version, case, .EXE; a .py under .taad; pinned holes",
+    "met": "yes",
+    "how": "TestRuleSpellingsCorpus and TestRulesHoldOnTheTree pass; the engine's Fitness fired on a planted .taad .py and on exec.CommandContext(t.Context(), \"C:/Python314/PYTHON.EXE\"), and was quiet after removal"
+   },
+   {
+    "criterion": "14. build and test without Python: fresh clone, Python folders off PATH, PYTHON*/HBAND_*/CHROME_BIN removed",
+    "met": "yes",
+    "how": "Scratch clone at d431cbe: all four interpreter names unresolvable; go build 0; go test -count=1 -p 4 ./... 0, 33 ok in 41 s; E-009 line 6 body PASS"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "verified": "yes",
+    "evidence": "TestPortOpensOnlyOnceTheThreadIsSeeded passes; independently, real go run with a 10 ms poller got 200 + 'continue this thread' on its first connect"
+   },
+   {
+    "key": "O-002",
+    "verified": "yes",
+    "evidence": "TestSeededProgramOpensAKilledWritersDataFolder PASS (2.15s), not skipped"
+   },
+   {
+    "key": "O-003",
+    "verified": "yes",
+    "evidence": "Tests pass; the built binary exits 2 for -port 0. Small correction to the discharge text: `go run ... -port 0` itself exits 1 and prints 'exit status 2'"
+   },
+   {
+    "key": "O-004",
+    "verified": "yes",
+    "evidence": "TestScopeEndsOnlyItsOwnCleanupsNewestFirst PASS"
+   },
+   {
+    "key": "O-005",
+    "verified": "yes",
+    "evidence": "TestFatalfRunsCleanupsBeforeExit PASS"
+   },
+   {
+    "key": "O-006",
+    "verified": "yes",
+    "evidence": "line 7 ledger body via -overlay -tags e009line7 PASS (5.57s)"
+   },
+   {
+    "key": "O-007",
+    "verified": "yes",
+    "evidence": "c7 exits 0 in the fresh clone; ls-files empty in the worktree too (deletions committed)"
+   },
+   {
+    "key": "O-008",
+    "verified": "yes",
+    "evidence": "c8 exits 0 in the fresh clone"
+   },
+   {
+    "key": "O-009",
+    "verified": "yes",
+    "evidence": "c9 exits 0 in the fresh clone"
+   },
+   {
+    "key": "O-010",
+    "verified": "yes",
+    "evidence": "c10 exits 0 in the fresh clone; independent grep of python mentions finds no run line"
+   },
+   {
+    "key": "O-011",
+    "verified": "yes",
+    "evidence": "TestPortedAssertionsHaveAGoTest is in the passing suite, worktree and clone, with the files gone"
+   },
+   {
+    "key": "O-012",
+    "verified": "yes",
+    "evidence": "fresh clone with no Python reachable: build 0, test 0, 33 ok"
+   },
+   {
+    "key": "O-013",
+    "verified": "yes",
+    "evidence": "probe on my own mode=ro read: 16/16, 0 mismatches; with the 6 files restored from 89da1ad, 6 present, PASS"
+   },
+   {
+    "key": "O-019",
+    "verified": "yes",
+    "evidence": "main.go:151-163 re-picks P != N; checkStandIn at 203-213; TestEphemeralBindsNeverReachTheServingPort PASS"
+   },
+   {
+    "key": "O-020",
+    "verified": "yes",
+    "evidence": "TestRulesHoldOnTheTree passes with the files gone; the engine Fitness rule fires on a .py under .taad"
+   },
+   {
+    "key": "O-021",
+    "verified": "yes",
+    "evidence": "fitness.yaml:597 holds the widened pattern; it fired on a folder-prefixed, upper-case PYTHON.EXE inside CommandContext(t.Context(), ...)"
+   },
+   {
+    "key": "O-022",
+    "verified": "yes",
+    "evidence": "the probe source in .taad/slices/SL-017/checks/zz_probe_test.go.txt ran from my overlay and passes with ZZ_PROBE_DIR set"
+   },
+   {
+    "key": "O-025",
+    "verified": "yes",
+    "evidence": "the t.Context() nesting fires in the engine Fitness; corpus test passes"
+   },
+   {
+    "key": "O-026",
+    "verified": "yes",
+    "evidence": "The statement, cost and rollback the discharge promised are in place, and the tree has the Go launcher. The action it hands to the engine is NOT done: projects.app_command for id 14 still reads `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}`, which names a deleted file. The engine must set `go run ./internal/testutil/seeded -port {port}`."
+   },
+   {
+    "key": "O-037",
+    "verified": "yes",
+    "evidence": "c11 exits 0 in the fresh clone"
+   },
+   {
+    "key": "O-039",
+    "verified": "yes",
+    "evidence": "fitnessrules package passes; engine Fitness fire and quiet confirmed by planting and removing"
+   },
+   {
+    "key": "O-040",
+    "verified": "yes",
+    "evidence": "line 6 body PASS in the worktree; fresh-clone suite PASS"
+   },
+   {
+    "key": "O-041",
+    "verified": "yes",
+    "evidence": "c12/c13 read the index blob with -E anchors; both exit 0 in the clone"
+   },
+   {
+    "key": "O-042",
+    "verified": "yes",
+    "evidence": "my own clone (gitdir inside the scratch folder) at d431cbe built and passed with Python off PATH"
+   },
+   {
+    "key": "O-043",
+    "verified": "cannot-tell",
+    "evidence": "c10's pattern holds -[A-Za-z0-9] (it reads `py)(\\.exe)?[[:blank:]]+(-[A-Za-z0-9]|...`), but I did not plant `py -3 x.py` to see it fire"
+   },
+   {
+    "key": "O-045",
+    "verified": "yes",
+    "evidence": "TestPortFlagReadsADecimalPort passes; the real binary refuses -port 0x1F90 with 'is not a decimal number' and exit 2"
+   }
+  ],
+  "not_reached": [
+   "The engine's own look_web starting the app through projects.app_command. It still names the deleted Python script, so this was not exercised; a TCP poller of my own stood in for it.",
+   "TerminateJobObject was exercised only through E-009 line 7's test. My own kill was taskkill /T /F, a process-tree kill, not a job kill.",
+   "A real collision of the staging stand-in or staging hband with N was not forced; it is proven only by unit tests over the corpus.",
+   "A Ctrl+C stop of the launcher (signal path and the folder removal on it) was not driven on a real process.",
+   "Another Windows version, Linux or macOS were not tried; only this Windows 11 machine.",
+   "A fresh clone on a machine where Python was never installed was approximated by taking it off PATH; C:\\Python314 still existed on disk."
+  ],
+  "planned": [],
+  "screens": []
+ }
+}

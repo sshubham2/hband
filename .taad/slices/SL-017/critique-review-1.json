@@ -1,0 +1,72 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-25T21:20:34.569Z",
+ "head": "89da1ad3d8055a4b6021326ca0f34b25ba7649dc",
+ "run_id": 12355,
+ "summary": "The frame holds. Three constraints are fixed: the readiness probe in the person-approved E-009 line 7 (first GET /), the engine's look_web TCP connect, and the rule that test helpers link none of the product, which blocks seeding through the store. Under those constraints, seeding on a staging port and then restarting on N is about the smallest design that works. The rejected options really do fail. A front proxy gives the wrong origin for frame-ancestors and the OAuth redirect. A listener the launcher holds on N would itself pass a TCP-connect readiness probe, so \"reserving\" N cannot keep it closed. Nothing simpler was missed.\n\nWhat breaks if each imported precondition is false:\n- **P1 (state survives the killed writer).** The failure is loud, not silent: TestPortOpensOnlyOnceTheThreadIsSeeded and line 7 both fail at build. The design already treats this as a resynthesis trigger.\n- **P2 (nothing stored names the staging address).** At most it would affect signed-in reuse of staging sessions or tokens, and no consumer does that. The anonymous pages the poller reads use relative links.\n- **P3 (single writer).** Benign under WAL with busy_timeout.\n\nAssessment of the first reviewer's findings:\n- **Valid:** M1 at major, and m1, m2, m3, m5, m6 at minor.\n- **Suspicious:** m4. The design's case 14 check text already spells out the probe's comparison, its orphan rule and the 16-for-16 count.\n\nTwo minor findings were missed:\n- **Rule patterns (CC-001 variants).** The exec rule's `[^)\\r\\n]*` prefix lets `exec.CommandContext(t.Context(), \"python\")` through, and m3's widened pattern keeps that prefix. The file rule misses `.pyw`, and also `.PY` if its matcher is case-sensitive.\n- **app_command timing.** The design repoints the engine's app_command \"when this slice merges\". That leaves this slice's own post-build stages, and every other open worktree, with no single value that works.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "The frame holds. Three constraints are fixed: the readiness probe in the person-approved E-009 line 7 (first GET /), the engine's look_web TCP connect, and the rule that test helpers link none of the product, which blocks seeding through the store. Under those constraints, seeding on a staging port and then restarting on N is about the smallest design that works. The rejected options really do fail. A front proxy gives the wrong origin for frame-ancestors and the OAuth redirect. A listener the launcher holds on N would itself pass a TCP-connect readiness probe, so \"reserving\" N cannot keep it closed. Nothing simpler was missed.\n\nWhat breaks if each imported precondition is false:\n- **P1 (state survives the killed writer).** The failure is loud, not silent: TestPortOpensOnlyOnceTheThreadIsSeeded and line 7 both fail at build. The design already treats this as a resynthesis trigger.\n- **P2 (nothing stored names the staging address).** At most it would affect signed-in reuse of staging sessions or tokens, and no consumer does that. The anonymous pages the poller reads use relative links.\n- **P3 (single writer).** Benign under WAL with busy_timeout.\n\nAssessment of the first reviewer's findings:\n- **Valid:** M1 at major, and m1, m2, m3, m5, m6 at minor.\n- **Suspicious:** m4. The design's case 14 check text already spells out the probe's comparison, its orphan rule and the 16-for-16 count.\n\nTwo minor findings were missed:\n- **Rule patterns (CC-001 variants).** The exec rule's `[^)\\r\\n]*` prefix lets `exec.CommandContext(t.Context(), \"python\")` through, and m3's widened pattern keeps that prefix. The file rule misses `.pyw`, and also `.PY` if its matcher is case-sensitive.\n- **app_command timing.** The design repoints the engine's app_command \"when this slice merges\". That leaves this slice's own post-build stages, and every other open worktree, with no single value that works.",
+  "assessments": [
+   {
+    "finding": "M1",
+    "classification": "valid",
+    "note": "Major is right. The build check's own first run of this same check-ignore probe failed with 'excludesFile path null'. That is what a `$e` emptied by an outer PowerShell would produce, so this is evidence, not speculation, that the runner interpolates. One addition to the fix: case 8 ('list the repository's files') uses the same `pwsh -NoProfile -Command` wrapper. It has no `$`, but it still needs `pwsh` (PowerShell 7) on PATH. No stage measured that pwsh is installed, and Windows 11 ships only powershell.exe 5.1. Dropping the wrapper should cover all four checks, not three."
+   },
+   {
+    "finding": "m1",
+    "classification": "valid",
+    "note": "Minor is right. Windows hands out bind(0) ports roughly in sequence, so drawing back a just-released N is unlikely. But if it happens, the result is the same silent torn read the restart exists to prevent, and the fix (pick the staging port in the launcher, make sure it is not N, and pass Options{Port:P}) is a few lines. The same collision can also make the in-suite poller test flake."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "Minor is right. The most concrete point is that the rule already sits in .taad/fitness.yaml (reviewer cites :589-598). TestRulesHoldOnTheTree walks tests/acceptance, so it fires on the five .py files there until the deletion lands. Any baseline run of the suite before the deletion fails. The point that the .taad prune skips exactly where run_finish_e004_2.py lived also stands."
+   },
+   {
+    "finding": "m3",
+    "classification": "valid",
+    "note": "Minor is right. However, m3 says the pattern already handles 'an argument before the name (CommandContext(ctx, \"python\"))'. That is true only for a bare identifier. `[^)\\r\\n]*` stops at the first `)`, so `exec.CommandContext(t.Context(), \"python\")` and `context.Background()` are not caught. m3's widened pattern keeps that same prefix. Filed under missed."
+   },
+   {
+    "finding": "m4",
+    "classification": "suspicious",
+    "note": "The design's case 14 check text already gives the probe's logic: 'compares sha256(Canonical(body)) of every item with the sources Editions and exits 0 on zero mismatches, no orphan Editions and 16 items for 16 sources'. With 16 distinct Editions, those three conditions already force the one-to-one item-to-source match m4 asks to spell out, so the gate's strictness does not depend on the rewrite. The quoted-file names are scratch-local, and the check's first sentence says to quote the finish texts to scratch. Leaving the throwaway probe uncommitted is deliberate."
+   },
+   {
+    "finding": "m5",
+    "classification": "valid",
+    "note": "Minor is right. The grep is unanchored, so 'copy -r' or 'happy -x' matches through `py -[A-Za-z]` under -i. It also misses bare script invocations, even though the criterion names the deleted scripts. Today grep exits 1, so this only affects how well the check proves the criterion, not whether the criterion holds."
+   },
+   {
+    "finding": "m6",
+    "classification": "valid",
+    "note": "Minor is right. The design's evidence is wrong (SignIn fills https://avatars.example/u/<id>?v=4), but the conclusion survives because that host is not the staging stand-in. The fix is to correct the evidence text."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "cross-cutting-conformance",
+    "severity": "minor",
+    "route": "re-derivation",
+    "claim": "Both new fitness rules miss common variants that CC-001 requires checking. Neither the design nor m3's fix closes these holes. (1) The exec rule's `[^)\\r\\n]*` prefix stops at the first `)`, so a nested call before the interpreter name is not caught. In Go 1.24+ tests the most natural spelling, `exec.CommandContext(t.Context(), \"python\", \"x.py\")`, is quiet, and so is `exec.CommandContext(context.Background(), \"python\")`. The rule's because text names only variables, concatenation and split lines as holes. (2) The file rule `**/*.py` misses `.pyw` Python sources, and if the engine's glob matcher is case-sensitive, it also misses `FOO.PY` on a case-insensitive Windows tree.",
+    "evidence": "Design architecture_rules: the exec rule pattern is `exec\\\\.(?:Command|CommandContext|LookPath)\\\\([^)\\\\r\\\\n]*[\"`](?:python3?|pythonw|py)(?:\\\\.exe)?[\"`]`. Against `exec.CommandContext(t.Context(), \"python\")`, `[^)]*` consumes `t.Context(` and the next character is `)`, not a quote, so it fails. m3's proposed pattern changes only the quoted-name part. The file rule's `files: **/*.py` has no .pyw entry, and its because text names only whitespace-only .py files and .pyc as holes.",
+    "fix": "Replace the prefix with one that allows one level of nested parentheses, for example `exec\\.(?:Command|CommandContext|LookPath)\\((?:[^()\\r\\n]|\\([^()\\r\\n]*\\))*[\"`]...`, which is valid RE2. Add a fire row for the `t.Context()` spelling. For the file rule, either add `**/*.pyw` (and an upper-case extension if the matcher is case-sensitive) or list those as holes in its because text."
+   },
+   {
+    "dimension": "contract-gaps",
+    "severity": "minor",
+    "route": "premortem",
+    "claim": "The design fixes the app_command repoint at one moment, 'when this slice merges'. app_command, however, is one project-wide setting that each worktree resolves on its own. No single moment makes it right for every worktree. (a) From the build that deletes .taad/slices/SL-008/run_finish_e004_2.py until the merge, this slice's own worktree has no file for the current value. Any look_web run by SL-017's validate or later stages fails at launch with 'python: can't open file'. (b) Once repointed, every other open worktree that branched before the merge has no internal/testutil/seeded, so its look_web fails until it rebases. The design acknowledges only the post-merge gap ('the engine's app look fails to start until the repoint').",
+    "evidence": "Design key decision 8 and the contract 'engine app_command for project 14' say it 'must be repointed when this slice merges'. The current value runs a path relative to the worktree root (`python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}`). The spike found that look_web runs app_command and waits for a TCP connect (screenlook.py:589-601).",
+    "fix": "In the contract, state whether any SL-017 stage after build needs a look at the app. If none does, say so, so validate does not attempt one against a worktree without the launcher. If one does, the repoint must come before that stage, and the contract must name the cost: other open worktrees' looks fail until they rebase onto the merge."
+   }
+  ],
+  "frame_challenged": false,
+  "notes": "The first reviewer was accurate and checked its claims against the code. Each finding cites file:line evidence, and the severities are well judged: one major for checks that may fail on every tree, minors for everything else. No finding is inflated. Two slips:\n- m4 missed that the design's case 14 text already describes the probe's comparison.\n- m3 said the exec pattern handles 'an argument before the name' after testing only a bare identifier. It did not try a nested call, which is the common Go 1.24+ test spelling.\n\nCC-001 was applied to the exec rule but not to the file rule's glob.\n\nOn the report being thin: this slice is not a defect. The repro stage recorded that and proposed no checkable repro, which is correct for cleanup work. The brief's WHY, WHAT and done criteria were taken as the whole specification.\n\nNo administrator operation was needed. No earlier stage is blocking."
+ }
+}

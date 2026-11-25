@@ -1,0 +1,175 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-25T21:06:55.311Z",
+ "head": "89da1ad3d8055a4b6021326ca0f34b25ba7649dc",
+ "run_id": 12353,
+ "summary": "The core design holds up against the code. The spike's no-go was a reader seeing port N before the seed was done, and doing the seeding and the restart inside the launcher fixes it. The facts it relies on check out against the tree:\n- program.Start takes Options.Env, and childEnv lets HBAND_DATA_DIR from it override the folder Start makes (program.go:190-201, 277-284).\n- Start registers its cleanups on whatever T it is given, so a scope T can end the staging program.\n- A fixed Port gets exactly one attempt (program.go:171-175).\n- The product leaves no lock file in the data folder, and its config reads no folder setting other than HBAND_DATA_DIR.\n- The recalled SQLite claim is backed by the SQLite documentation: \"Transactions are durable across application crashes regardless of the synchronous setting or journal mode.\" So the seed should survive the killed staging writer.\n\nOne major finding. Three of the material case checks wrap their PowerShell in `pwsh -NoProfile -Command \"...\"` and put `$e`, `$p` and `$LASTEXITCODE` inside the double quotes. If the engine runs checks through PowerShell, the outer shell expands those variables before pwsh sees them. The checks would then fail on any tree, and one of them always exits 1. SL-003's checks were written in plain PowerShell, which points to a PowerShell runner, and the build check already hit a broken variable in this exact check-ignore probe.\n\nSix minors:\n- The claim that only the final Start binds N is luck, not construction. The launcher makes three ephemeral binds of its own before then (staging pickPort and both stand-in servers), and any of them can land on N.\n- The `**/*.py` rule's local guard skips .taad and testdata, the two places the rule matters most. Its because text says it matches nothing today, but six .py files are still in the tree.\n- The exec rule misses a path-prefixed, version-suffixed or capitalised interpreter name, which is the variant check CC-001 asks for. Neither new rule has corpus rows (#999).\n- The lesson #998 gate (case 14) needs a probe test and overlay that exist only in the spike's scratch folder.\n- The search check covers only lines starting with python/py, not the deleted script names.\n- One piece of evidence for a must-verify precondition gets the avatar URL wrong.\n\nNothing here argues for reopening the main placement choice.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The core design holds up against the code. The spike's no-go was a reader seeing port N before the seed was done, and doing the seeding and the restart inside the launcher fixes it. The facts it relies on check out against the tree:\n- program.Start takes Options.Env, and childEnv lets HBAND_DATA_DIR from it override the folder Start makes (program.go:190-201, 277-284).\n- Start registers its cleanups on whatever T it is given, so a scope T can end the staging program.\n- A fixed Port gets exactly one attempt (program.go:171-175).\n- The product leaves no lock file in the data folder, and its config reads no folder setting other than HBAND_DATA_DIR.\n- The recalled SQLite claim is backed by the SQLite documentation: \"Transactions are durable across application crashes regardless of the synchronous setting or journal mode.\" So the seed should survive the killed staging writer.\n\nOne major finding. Three of the material case checks wrap their PowerShell in `pwsh -NoProfile -Command \"...\"` and put `$e`, `$p` and `$LASTEXITCODE` inside the double quotes. If the engine runs checks through PowerShell, the outer shell expands those variables before pwsh sees them. The checks would then fail on any tree, and one of them always exits 1. SL-003's checks were written in plain PowerShell, which points to a PowerShell runner, and the build check already hit a broken variable in this exact check-ignore probe.\n\nSix minors:\n- The claim that only the final Start binds N is luck, not construction. The launcher makes three ephemeral binds of its own before then (staging pickPort and both stand-in servers), and any of them can land on N.\n- The `**/*.py` rule's local guard skips .taad and testdata, the two places the rule matters most. Its because text says it matches nothing today, but six .py files are still in the tree.\n- The exec rule misses a path-prefixed, version-suffixed or capitalised interpreter name, which is the variant check CC-001 asks for. Neither new rule has corpus rows (#999).\n- The lesson #998 gate (case 14) needs a probe test and overlay that exist only in the spike's scratch folder.\n- The search check covers only lines starting with python/py, not the deleted script names.\n- One piece of evidence for a must-verify precondition gets the avatar URL wrong.\n\nNothing here argues for reopening the main placement choice.",
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "major",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "Three material case checks (Python bytecode ignored, Python cache folders ignored, no Python run line) are written as `pwsh -NoProfile -Command \"...\"` with `$e`, `$p` and `$LASTEXITCODE` inside the outer double quotes. If the check string is run by PowerShell, the outer shell expands them before pwsh starts. `$e=New-TemporaryFile` becomes `=New-TemporaryFile` and `foreach($p in ...)` becomes `foreach( in ...)`, which are parse errors, so pwsh exits 1 whatever the tree holds. The search check's `if($LASTEXITCODE -eq 1){exit 0}else{exit 1}` collapses to the outer shell's value, for example `if(0 -eq 1)`, so it always exits 1. Under cmd.exe, or a runner that passes the string as one argument, the checks work. So whether three done criteria pass depends on the runner, not the tree. Lesson #972 records a slice that lost a build attempt to checks that could not exit 0 on pass.",
+    "evidence": "design case checks for 'ignore Python bytecode', 'ignore Python cache folders' and 'search the repository for an instruction to run Python'. SL-003's design wrote a check as plain PowerShell (`$env:HBAND_TEST_BROWSER='...'; go test ...`, .taad/slices/SL-003/design-slice-1.json:311), which points to a PowerShell runner. The build check's first run of this same check-ignore probe 'errored on a bad scratch path variable ... (excludesFile path null)'. To settle it: run each of the three strings, unchanged, through the engine's case runner (or `powershell -NoProfile -Command <string>` and `cmd /c <string>`) on a scratch clone where the rules are present, and look at the exit codes.",
+    "file": ".taad/slices/SL-017/design-slice-1.json",
+    "line": 212,
+    "quote": {
+     "path": ".taad/slices/SL-017/design-slice-1.json",
+     "line": 212,
+     "text": "\"check\": \"pwsh -NoProfile -Command \\\"$e=New-TemporaryFile; foreach($p in 'stray.pyc','internal/server/left_behind.cpython-314.pyc'){ git -c core.excludesFile=$e check-ignore -q --no-index -- $p; if($LASTEXITCODE -ne 0){exit 1} }"
+    },
+    "fix": "Write each of the three checks so that no `$` sits inside a string an outer shell interpolates. Either drop the pwsh wrapper and write plain PowerShell, as SL-003 did, or use a single-quoted -Command with the inner single quotes doubled. Then run each check once through the engine's runner on a passing scratch tree before build starts. New-TemporaryFile also leaves a file in TEMP on every run; an excludesFile path that does not exist does the same job without one."
+   },
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "nature": "defect",
+    "claim": "The design says 'Port N is bound only by the final Start' as though it held by construction. It holds only if the launcher's own ephemeral binds never draw N, and the launcher makes three of them before the final hband listens:\n- the staging hband's port from program's pickPort (Listen on 127.0.0.1:0);\n- the staging stand-in GitHub's httptest server;\n- the final stand-in's httptest server, created before the final launch.\n\nThe engine and line 7 most likely picked N from the same OS pool. If the staging hband or the staging fake lands on N, the engine's TCP connect, or line 7's first GET, reads an unseeded product or a stand-in GitHub. That is the torn read the restart was meant to rule out, and it fails without any error. If the final fake lands on N, the final start fails loudly with exit 1. The design names only 'another process takes N' as a residual risk.",
+    "class_of": "ephemeral binds the launcher itself makes before the final hband binds N",
+    "threat": "accident",
+    "evidence": "program.go:139-146 (pickPort), program.go:168 (fakegithub.New, an httptest server on an ephemeral port), program.go:179-187 (Port==0 means a picked port). The design's seed step 4 uses Options{Loopback: true} with Port 0.",
+    "file": "internal/testutil/program/program.go",
+    "line": 182,
+    "quote": {
+     "path": "internal/testutil/program/program.go",
+     "line": 182,
+     "text": "if port, err = pickPort(); err != nil {"
+    },
+    "fix": "In seed, pick the staging port in the launcher, re-picking until it differs from N, and pass Options{Port: P, Env: env}. Retry the staging start in the launcher on exit 1 if wanted. After the staging Start returns, Fatalf if staging.Fake.URL() ends in :N, so a collision becomes a loud exit and never a served unseeded port. Record the remaining window in the contract's error cases."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The local check of the new rule 'no Python source file is committed anywhere in the repository' skips the places it matters most. TestRulesHoldOnTheTree prunes .taad and testdata (rules_test.go:282), so a .py under .taad/slices, where run_finish_e004_2.py itself lived, never reaches the local check; only the engine's Fitness op=check could see it, if it walks .taad at all. The rule also reads files on disk, not commits, so 'committed' in its name overstates it. Its because text says 'The pattern matches no file today on purpose'. That is false at the design's tree: six .py files are present, and .taad/fitness.yaml already holds the rule (git status M). So `go test ./internal/fitnessrules` fails until the deletion lands in the same change. Neither new rule is in rules_under_test, so no fire or quiet row pins them (#999).",
+    "evidence": ".taad/fitness.yaml:589-598 (rule 1 and its because); internal/fitnessrules/rules_test.go:274-286 (walk prunes .taad and testdata); rule_spellings.json:29-64 (rules_under_test lacks both new rules)",
+    "file": "internal/fitnessrules/rules_test.go",
+    "line": 282,
+    "quote": {
+     "path": "internal/fitnessrules/rules_test.go",
+     "line": 282,
+     "text": "case \".git\", \".taad\", \"node_modules\", \"testdata\":"
+    },
+    "fix": "Reword the because text to name the holes: the local test skips .taad and testdata, and the rule reads files on disk rather than the index. Drop 'matches no file today' or say 'after SL-017'. Land the rule in the same commit as the deletion. Add both rules to rules_under_test with one fire and one quiet row each, for example a .py path that holds `import os`, and a .py path that holds only whitespace as a pinned quiet row."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "Checked against CC-001's variants, the exec rule handles backticks and an argument before the name (CommandContext(ctx, \"python\")). It misses spellings its because text says it covers ('an os/exec call naming a Python executable as a literal'):\n- a literal with a folder in front, such as exec.Command(\"C:/Python314/python.exe\") or \"/usr/bin/python3\";\n- a version suffix, such as \"python3.14\";\n- another letter case, such as \"Python\", which Windows resolves the same;\n- a run line inside a longer shell literal, such as exec.Command(\"cmd\", \"/c\", \"python -I x.py\").\nThe because text names only a variable, concatenation and a call split across lines.",
+    "class_of": "spellings of a Python interpreter name in an os/exec literal",
+    "threat": "accident",
+    "evidence": ".taad/fitness.yaml:602 pattern; because at :603-608",
+    "file": ".taad/fitness.yaml",
+    "line": 602,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 602,
+     "text": "exec\\.(?:Command|CommandContext|LookPath)\\([^)\\r\\n]*[\"`](?:python3?|pythonw|py)(?:\\.exe)?[\"`]"
+    },
+    "fix": "Widen the pattern at low cost: allow an optional folder prefix and a case-insensitive name with an optional version, for example `[\"`](?:[^\"`\\r\\n]*[\\\\/])?(?i:python[0-9.]*|pythonw|py)(?:\\.exe)?[\"`]`. List the holes that remain (a run line inside a shell literal, exec.Cmd{Path:...}, os.StartProcess) in the because text, then stop, per #939 and #957. Add one fire and one quiet row."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "required",
+    "claim": "Case 14 is the BLOCKED-ON gate lesson #998 requires at deletion time. Its check runs `-run '^TestZZLedgerEditionProbe$'` through `<scratch>/overlay.json`, but neither the probe test nor the overlay is in the repository or in the design. Both were in the risk spike's scratch folder, which no later stage has. The builder or validator who must re-prove the gate has to rewrite the probe from one sentence of description, so the gate's strictness is whatever that rewrite turns out to be.",
+    "evidence": "design case 're-prove the BLOCKED-ON gate when deleting'; spike ledger-epic-bodies-match-port-editions ('A throwaway zz_probe_test.go in package ported was injected with ... -overlay')",
+    "file": ".taad/slices/SL-017/design-slice-1.json",
+    "line": 247,
+    "quote": {
+     "path": ".taad/slices/SL-017/design-slice-1.json",
+     "line": 247,
+     "text": "Read SELECT id,key,finish FROM epics WHERE id BETWEEN 39 AND 44 in place (mode=ro)"
+    },
+    "fix": "Spell the probe out in the case so it can be rebuilt exactly. It decodes each quoted finish array, computes sha256([]byte(Canonical([]byte(body)))) per item, and matches each against the sources whose Name is `ledger:<epic id>/<item path>`. It fails on an unmatched item, on an orphan Edition, or on an item count other than the 16 ledger sources. Give the quoted-file names it reads."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "required",
+    "claim": "The done criterion is 'no instruction to run python OR ANY OF THE DELETED SCRIPTS'. The case's grep only looks for `python|py` followed by a flag or a .py argument, so a bare script invocation (for example `./tests/acceptance/run_finish.py --others`) would not be caught. The grep is also not anchored, so a future 'copy -r' or 'happy -x' in any tracked file would make it fail. Today the criterion is met. Outside the two excluded places, the script names appear only in rows_test.go Name, Says and Why fields and in 'Go port of the retired ...py' comments (for example e004_2_deep_threads_and_toggle_test.go:8 and :232), none of them instructions. The check just does not prove it.",
+    "evidence": "design case 'search the repository for an instruction to run Python'. Ran Grep for the six script names outside .taad/slices: only rows_test.go, the .py files themselves and doc comments match.",
+    "file": ".taad/slices/SL-017/design-slice-1.json",
+    "line": 226,
+    "quote": {
+     "path": ".taad/slices/SL-017/design-slice-1.json",
+     "line": 226,
+     "text": "git grep -q -I -i -E '(python3?|py)(\\\\.exe)? +(-[A-Za-z]|[^ ]+\\\\.py)'"
+    },
+    "fix": "Anchor the interpreter name with `(^|[^A-Za-z0-9_])`. In the case's why, list the script-name mentions that stay as records (rows_test.go and the 'Go port of the retired' comments), or add a second git grep for the six names that excludes rows_test.go and Go comment lines."
+   },
+   {
+    "id": "m6",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "nature": "defect",
+    "claim": "The evidence for the must-verify precondition 'nothing persisted during staging depends on the staging address' says 'DeepThread's users have none' (no avatar URL). That is false: SignIn fills an empty AvatarURL with https://avatars.example/u/<id>?v=4 before every sign-in, so all three of DeepThread's users store one. The conclusion survives, because that host is not the staging stand-in's address. A builder relying on 'no avatar' could still be misled about what the users rows hold.",
+    "evidence": "internal/testutil/program/visitor.go:84-86; design coherence_check seam 3 and cross_domain_transfer invariant 2",
+    "file": "internal/testutil/program/visitor.go",
+    "line": 85,
+    "quote": {
+     "path": "internal/testutil/program/visitor.go",
+     "line": 85,
+     "text": "u.AvatarURL = \"https://avatars.example/u/\" + itoa(u.ID) + \"?v=4\""
+    },
+    "fix": "Correct the evidence to say DeepThread's users store https://avatars.example/u/<id>?v=4 (set by SignIn), which names no stand-in address. No code change is needed."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "m1: the claim that only the final Start binds N rests on luck, since three of the launcher's own ephemeral binds can draw N. m6: the avatar claim is wrong but harmless.\n\nChecked and holding:\n- Options.Env overrides HBAND_DATA_DIR (program.go:190-201, 277-284).\n- Port>0 gets one attempt (171-175).\n- launch kills the child and waits up to 5 s (240-246).\n- Start registers its cleanups on the T it is given (158, 165, 169, 240).\n- The product leaves no lock file in the data folder, and config has no folder setting other than HBAND_DATA_DIR.\n- WAL plus busy_timeout(5000) is in servingPragmas (store.go:68).\n- The recalled WAL durability claim is supported by the SQLite documentation as quoted on sqlite.org/forum/info/9d6f13e346231916 (pragma.html#pragma_synchronous): 'Transactions are durable across application crashes regardless of the synchronous setting or journal mode.'\n- The lesson #976 confirmation is right for the block press: the owner presses it at e006_1 :146 and the test goes on to later steps. But ':156 unblock' is a non-owner attempt (anon, r[0], twin) that only asserts <500, not the owner unblocking; that is E-006 line 2's test. The conclusion holds."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "m1 covers the launcher's own ephemeral binds landing on N. Considered and judged acceptable:\n- another process taking N during staging (loud exit 1);\n- the staging child outliving its 5-s wait (WAL tolerates a second opener);\n- Ctrl+C reaching hband too (cmd/hband handles os.Interrupt through signal.NotifyContext);\n- hband dying while the launcher blocks (stated in the contract)."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "m1 is the one invariant the design leaves to luck. The restart's other ordering rule (the shared data folder's removal registered before any Start) is held inside one function, seed, and its failure mode is only a folder left behind, not a wrong product."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "None. The scope T, the process T with cleanups on Fatalf, and four small tests fit a launcher that starts two child processes. The two fitness rules are a taste call the design argued; each costs one YAML entry."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "None blocking. The CLI contract (exit 2 on a bad flag, exit 1 through Fatalf with cleanups, exactly one stdout line) matches what line 7 and look_web consume, as measured by the spike. The app_command repoint is recorded with its new value and is already on the loop's open list. The brief says it is an engine setting, so nothing more is owed in the repository."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "None new. The scope's Fatalf ends the scope before the parent's Fatalf, and the process T's re-entry guard exits at once, so a failure while staging cannot leave the staging hband running. removeLoud logs and never fails (program.go:314-323), so a cleanup does not cause Fatalf re-entry in the normal case."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "None. The design follows the brief: it deletes the eight files, adds the two literal ignore rules, retires the four-report seed as the brief allowed, confirms the mapping (263/263 Ported rows pass, per the spike), and adds the launcher. Departing from SC-044's 'about 60-80 lines' single Start is justified by the spike's measured no-go. It plans no documentation edits."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "m2: the local guard of the `**/*.py` rule skips .taad and testdata, the because text claims a quiet tree that is not quiet yet, and there are no corpus rows. m3: CC-001 variants of the exec rule.\n\nChecked and holding:\n- The new main.go falls under 'the test helpers link none of the product' and is excepted from 'production code never links the fake GitHub' (internal/testutil/**).\n- No TestE00[1-6] names are planned.\n- Check's scanGo will walk the new package; it has no ported: tags, so nothing to resolve.\n- rows_test.go Why fields are not hashed, and the seven SC-044 rows the design lists are exactly the seven in the file (359, 362, 378, 386, 387, 388, 399).\n- thread.go is not a declared source, so a comment edit there breaks no Edition."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "M1: three material checks would fail falsely under a PowerShell runner. m4: the lesson #998 gate's probe is not reproducible as written. m5: the search check covers only half of the criterion.\n\nThe poller test does separate the restart from the spike's single-Start no-go: its first response would be a 404 or an empty thread there. The scope and Fatalf tests cover the two new mechanisms. Line 7 is run by validate through -overlay."
+   },
+   {
+    "dimension": "security",
+    "result": "None. Both binds are on loopback. The stand-in that approves every sign-in is test-only and stays on loopback, as at every acceptance start. The launcher reads no secrets and no HBAND_* or CHROME_BIN. Its temp folders are checked to be outside the repository through outside.MustBeOutside."
+   }
+  ]
+ }
+}

@@ -1,0 +1,99 @@
+package ported
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// TestZZLedgerEditionProbe is the scratch gate of SL-017 (lesson 998): the ledger's finish
+// bodies of epics 39-44, as they are now, hash to exactly the Editions this package declares,
+// and the repository's .py sources, where they still exist, equal theirs.
+func TestZZLedgerEditionProbe(t *testing.T) {
+	dir := os.Getenv("ZZ_PROBE_DIR")
+	if dir == "" {
+		dir = "C:\\Users\\sshub\\AppData\\Local\\Temp\\taad3-runs\\12374\\sl017-build\\finish" // the quoted finish_39..44.json of a mode=ro SELECT of epics 39-44
+	}
+	byEdition := map[string]Source{}
+	ledgerSources := 0
+	for _, s := range sources {
+		if strings.HasPrefix(s.Name, "ledger:") {
+			ledgerSources++
+		}
+		if prev, dup := byEdition[s.Edition]; dup {
+			t.Errorf("sources %s and %s share an Edition", prev.Name, s.Name)
+		}
+		byEdition[s.Edition] = s
+	}
+	produced := map[string]string{}
+	total := 0
+	for id := 39; id <= 44; id++ {
+		data, err := os.ReadFile(filepath.Join(dir, fmt.Sprintf("finish_%d.json", id)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
+			t.Fatalf("finish_%d.json starts with a byte-order mark", id)
+		}
+		var items []map[string]any
+		if err := json.Unmarshal(data, &items); err != nil {
+			t.Fatalf("finish_%d.json: %v", id, err)
+		}
+		for i, it := range items {
+			path, ok1 := it["path"].(string)
+			body, ok2 := it["body"].(string)
+			if !ok1 || !ok2 {
+				t.Errorf("epic %d item %d: path or body is not a string", id, i)
+				continue
+			}
+			total++
+			name := fmt.Sprintf("ledger:%d/%s", id, path)
+			ed := EditionOf([]byte(body))
+			src, found := byEdition[ed]
+			switch {
+			case !found:
+				t.Errorf("%s: Edition %s matches no source (the body changed since it was mapped)", name, ed)
+			case src.Name != name:
+				t.Errorf("%s: its Edition belongs to the source %s", name, src.Name)
+			}
+			if other, dup := produced[ed]; dup {
+				t.Errorf("%s and %s have one Edition", other, name)
+			}
+			produced[ed] = name
+		}
+	}
+	for _, s := range sources {
+		if strings.HasPrefix(s.Name, "ledger:") {
+			if _, ok := produced[s.Edition]; !ok {
+				t.Errorf("the source %s is produced by no finish item", s.Name)
+			}
+		}
+	}
+	if total != 16 || ledgerSources != 16 {
+		t.Errorf("%d finish items and %d ledger sources, want 16 and 16", total, ledgerSources)
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", "..", ".."))
+	present, absent := 0, 0
+	for _, s := range sources {
+		if strings.HasPrefix(s.Name, "ledger:") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash(s.Name)))
+		if os.IsNotExist(err) {
+			absent++
+			t.Logf("%s is absent: its check is skipped", s.Name)
+			continue
+		} else if err != nil {
+			t.Errorf("%s: %v", s.Name, err)
+			continue
+		}
+		present++
+		if EditionOf(b) != s.Edition {
+			t.Errorf("%s on disk hashes to %s, not its declared Edition", s.Name, EditionOf(b))
+		}
+	}
+	t.Logf("probe: %d finish items, %d ledger sources, %d repository files present, %d absent", total, ledgerSources, present, absent)
+}

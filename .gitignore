@@ -27,3 +27,7 @@ coverage.out
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Python's compiled files: the project has no Python, and a stray run leaves these behind
+__pycache__/
+*.pyc

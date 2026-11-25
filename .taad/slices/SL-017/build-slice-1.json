@@ -1,0 +1,539 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-25T22:09:17.668Z",
+ "head": "d12533b2790c0ef2328cde9c2f974f90c312b74a",
+ "run_id": 12374,
+ "summary": "Built the Go launcher internal/testutil/seeded. It stages the seed on a private port P, stops that program, then starts the serving program on N over the same data folder. E-009 line 7 passes through go run and TerminateJobObject. Deleted the 6 .py and 2 .pyc files and both __pycache__ folders, added `__pycache__/` and `*.pyc` to .gitignore, and rewrote the two SL-017 fitness rules (exec pattern widened) with 25 corpus rows. Reworded the 7 mapping Why texts and the thread.go comment. In a fresh scratch clone of the committed tree with Python off PATH, the build and `go test -count=1 -p 4 ./...` pass (33 packages), as does E-009 line 6's body. The first suite run in an earlier clone failed once on the known `TestConcurrentVotesNoBusy` flake; `internal/votes` passes when re-run alone, and the second clone's suite had no failures. Not done: the app_command repoint (the engine's setting) and the Fitness op=check load (no tool here). I also made an accidental commit in the real repository and undid it (see deviations).",
+ "payload": {
+  "status": "complete",
+  "summary": "Built the Go launcher internal/testutil/seeded. It stages the seed on a private port P, stops that program, then starts the serving program on N over the same data folder. E-009 line 7 passes through go run and TerminateJobObject. Deleted the 6 .py and 2 .pyc files and both __pycache__ folders, added `__pycache__/` and `*.pyc` to .gitignore, and rewrote the two SL-017 fitness rules (exec pattern widened) with 25 corpus rows. Reworded the 7 mapping Why texts and the thread.go comment. In a fresh scratch clone of the committed tree with Python off PATH, the build and `go test -count=1 -p 4 ./...` pass (33 packages), as does E-009 line 6's body. The first suite run in an earlier clone failed once on the known `TestConcurrentVotesNoBusy` flake; `internal/votes` passes when re-run alone, and the second clone's suite had no failures. Not done: the app_command repoint (the engine's setting) and the Fitness op=check load (no tool here). I also made an accidental commit in the real repository and undid it (see deviations).",
+  "files": [
+   {
+    "path": "internal/testutil/seeded/main.go",
+    "change": "added",
+    "why": "the launcher: parsePort, process T, scope, portOf, stagingPort, checkStandIn, run (staged cut-over over a shared HBAND_DATA_DIR)"
+   },
+   {
+    "path": "internal/testutil/seeded/main_test.go",
+    "change": "added",
+    "why": "the tests for the launcher (readiness, killed-writer restart, flags, scope, Fatalf, port reading, ephemeral-bind corpus)"
+   },
+   {
+    "path": "internal/testutil/seeded/testdata/ephemeral_binds.json",
+    "change": "added",
+    "why": "corpus of the ephemeral binds the launcher makes before N is bound (O-019)"
+   },
+   {
+    "path": ".gitignore",
+    "change": "modified",
+    "why": "adds __pycache__/ and *.pyc"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "true because text for the no-Python-file rule; widened exec pattern and because text for the no-Go-starts-Python rule"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "change": "modified",
+    "why": "both SL-017 rules added to rules_under_test, with bounded_by entries and 25 fire/quiet/hole rows"
+   },
+   {
+    "path": "tests/acceptance/ported/rows_test.go",
+    "change": "modified",
+    "why": "Why texts of SS-26, SS-120, RE-74, RE-157, RE-164, RE-170, RE-271 no longer name SC-044; no Source, Edition, Snapshot, At or Says changed"
+   },
+   {
+    "path": "internal/testutil/program/thread.go",
+    "change": "modified",
+    "why": "Thread doc comment marks run_finish_e004_2.py retired and names the seeded launcher; comment-only"
+   },
+   {
+    "path": "tests/acceptance/run_finish.py",
+    "change": "deleted",
+    "why": "retired Python scaffolding"
+   },
+   {
+    "path": "tests/acceptance/serve_show_all.py",
+    "change": "deleted",
+    "why": "retired Python scaffolding"
+   },
+   {
+    "path": "tests/acceptance/check_e006_1_stops_at_block.py",
+    "change": "deleted",
+    "why": "retired Python scaffolding"
+   },
+   {
+    "path": "tests/acceptance/check_run_finish_needs_chrome_bin.py",
+    "change": "deleted",
+    "why": "retired Python scaffolding"
+   },
+   {
+    "path": "tests/acceptance/test_run_finish_edge_guard.py",
+    "change": "deleted",
+    "why": "retired Python scaffolding"
+   },
+   {
+    "path": ".taad/slices/SL-008/run_finish_e004_2.py",
+    "change": "deleted",
+    "why": "retired Python launcher the Go one replaces"
+   },
+   {
+    "path": "tests/acceptance/__pycache__/run_finish.cpython-314.pyc",
+    "change": "deleted",
+    "why": "committed bytecode"
+   },
+   {
+    "path": ".taad/slices/SL-008/__pycache__/run_finish_e004_2.cpython-314.pyc",
+    "change": "deleted",
+    "why": "committed bytecode"
+   },
+   {
+    "path": ".taad/slices/SL-017/checks/",
+    "change": "added",
+    "why": "the check scripts (c7..c13 .ps1) and the scratch Edition probe source (zz_probe_test.go.txt), kept in the slice folder so the cases do not depend on the leased TEMP; no .py"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "TestPortOpensOnlyOnceTheThreadIsSeeded: a poller dials N every 10 ms and sends GET /reports/e004-look on its first connect, before run returns. The first answer is 200 with 'continue this thread' and a branch link, the ready line is exactly `serving http://127.0.0.1:N/`, and the final page has '9 comments' with ids 1..9. A mutant that starts once on N and seeds after fails it: the first answer is 404."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "TestSeededProgramOpensAKilledWritersDataFolder seeds a program, kills it through the subtest's cleanups, requires P refused and a non-empty -wal plus -shm, then starts on N over the same folder and compares every served fact (report, branch, /raw sha256, home frame, /reports, count, ids) with the baseline. It passed, it did not skip, and the -wal was non-empty."
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "TestPortFlagRefusesBadValues: parsePort refuses missing, 0, -1, 65536, a 20-digit number, abc, 80x, empty, a bare -port, a stray argument and an unknown flag, each with usage. main exits 2 for missing, 0, 65536 and abc. A real `go run ./internal/testutil/seeded -port 0` printed the usage and exited 2."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "TestScopeEndsOnlyItsOwnCleanupsNewestFirst: end() runs C, B, A, leaves the parent's cleanup alone, and a second end() runs nothing. Logf goes to the parent."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "TestFatalfRunsCleanupsBeforeExit has three subtests: the scope's Fatalf ends the scope before the parent's Fatalf; the process T runs its cleanups newest first, once, then exit(1) with the message on stderr; a Fatalf inside a cleanup exits at once and no cleanup runs twice."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "E-009 line 7's ledger body, read in place with mode=ro, run through -overlay with -tags e009line7: PASS in 8.08 s (go run, GET /, /reports, branch page, still serving 3 s later, nothing serving after TerminateJobObject). The kill left 4 temp folders, which the contract accepts; I removed them."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "c7-ls-files.ps1 (`git ls-files -- *.py *.pyc *.pyw` must be empty) exits 0 in an independent scratch clone of the tree committed there. In this worktree the index still lists the 8 files until the engine stages the deletions, because I changed no VC state."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "c8: `git -c core.excludesFile=.no-such-excludes check-ignore -q --no-index -- internal/server/left_behind.cpython-314.pyc` exits 0 (named .gitignore:33); the negative control on a non-ignored path exits 1."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "c9: check-ignore of .taad/slices/SL-099/__pycache__/anything.txt exits 0 (named .gitignore:32); tests/acceptance/__pycache__/notes.txt and stray.pyc were also ignored."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "c10: the anchored run-line search, with the flag alternative widened to -[A-Za-z0-9], finds nothing outside .taad/slices and the hash-pinned testdata, fitness.yaml and the corpus included. Planted `py -3 x.py`, `Python3.14 -I`, `PYTHON.EXE x.py` and `pythonw -u` are caught; `happy -x`, `pyramid` and `python3 run` are not."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "TestPortedAssertionsHaveAGoTest passes in the tree and in the independent clone with the 6 .py files and both __pycache__ folders gone."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "Independent scratch clone of the committed tree with the Python, Windows and WindowsApps folders off PATH (python, python3, py, pythonw unresolvable) and PYTHON*, HBAND_*, CHROME_BIN removed: go build exit 0 and go test -count=1 -p 4 ./... had 33 packages ok, 0 failing."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "Re-read epics 39-44 in place (mode=ro) just before deleting and again after. The scratch probe (source kept in .taad/slices/SL-017/checks/zz_probe_test.go.txt) shows 16 finish items against 16 ledger sources, 0 mismatches. The six .py Editions were checked while the files were still present, and the probe passes with them absent. `--- PASS: TestZZLedgerEditionProbe` was required in -v output both times."
+   },
+   {
+    "key": "O-018",
+    "done": true,
+    "how": "The checks are single git commands or plain PowerShell in script files, with no `$` inside any double-quoted string and no New-TemporaryFile (a nonexistent core.excludesFile is used instead). Each ran once on the passing independent clone through `pwsh -NoProfile -File`, exit 0 each. I do not have the engine's case runner, so that part is unproven.",
+    "not_mutable": "The fix is in the check command strings and their scripts, which live outside the repository's code; no repository test observes them. They were run with their positive result and with negative controls instead."
+   },
+   {
+    "key": "O-019",
+    "done": true,
+    "corpus": "internal/testutil/seeded/testdata/ephemeral_binds.json",
+    "how": "The launcher picks P itself, re-picks until it is not N (at most 5 tries), and checkStandIn refuses a staging stand-in on N, one with an unreadable port, or an IPv6 host on N. The final stand-in is not inspected: its drawing N ends in a failed bind. TestEphemeralBindsNeverReachTheServingPort feeds 15 rows. A naive HasSuffix check fails 4 rows and a stagingPort with no re-pick fails 3.",
+    "mutation": {
+     "file": "internal/testutil/seeded/main.go",
+     "find": "if p != n {",
+     "replace": "if p != -1 {",
+     "test_command": "go test -count=1 -run ^TestEphemeralBindsNeverReachTheServingPort$ ./internal/testutil/seeded"
+    }
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "how": "The because text of the no-Python-file rule is rewritten: it reads the disk not the index, drops 'matches no file today', and names the holes (whitespace-only .py, .pyw/.pyi/.PY, shebang script, comment-only, .pyc, .taad/testdata skipped by the local walk). Both rules are in rules_under_test with fire rows (tools/gen.py, .taad/slices/SL-099/x.py, main.py), quiet rows and pinned-hole rows. The rules and the deletion are in the same tree, and TestRulesHoldOnTheTree passes."
+   },
+   {
+    "key": "O-021",
+    "done": true,
+    "corpus": "internal/fitnessrules/testdata/rule_spellings.json",
+    "how": "The exec pattern is the design's single-quoted scalar: one nested-parentheses level, an optional folder prefix, python with an optional version, pythonw or py, and .exe, in any case. There are 10 fire rows (t.Context(), py, python3.14, C:/Python314/python.exe, /usr/bin/python3.14, backtick Python, PYTHON.EXE, a backslash folder, pythonw) and 6 quiet or pinned-hole rows. Against the old pattern 7 rows failed (corpus_before.txt); now all pass, and Python's re agrees on every exec row. The holes are named in the because text and in bounded_by.",
+    "mutation": {
+     "file": ".taad/fitness.yaml",
+     "find": "\\((?:[^()\\r\\n]|\\([^()\\r\\n]*\\))*[\"`](?:[^\"`\\r\\n]*[\\\\/])?(?i:python[0-9.]*|pythonw|py)(?:\\.(?i:exe))?[\"`]'",
+     "replace": "\\([^)\\r\\n]*[\"`](?:python3?|pythonw|py)(?:\\.exe)?[\"`]'",
+     "test_command": "go test -count=1 -run ^TestRuleSpellingsCorpus$ ./internal/fitnessrules"
+    }
+   },
+   {
+    "key": "O-022",
+    "done": true,
+    "how": "The probe is spelled out and kept in .taad/slices/SL-017/checks/zz_probe_test.go.txt. It decodes finish_39..44.json (UTF-8, no BOM, a BOM fails it), hashes EditionOf per item and matches ledger:<epic>/<path>. It fails on an unmatched item, a name mismatch, a duplicate, an orphan source or a count other than 16, and it skips a .py that is absent. The checks run it with -v and require `--- PASS: TestZZLedgerEditionProbe`."
+   },
+   {
+    "key": "O-023",
+    "done": true,
+    "how": "The run-line search is anchored with (^|[^A-Za-z0-9_]) and a second git grep for the deleted script names skips // comment lines and rows_test.go. Both are empty on the tree. The 4 comment mentions stay. No fitness because text or corpus row holds an interpreter name followed by a blank and a flag; holes are described in words."
+   },
+   {
+    "key": "O-024",
+    "done": true,
+    "how": "No code change. Verified visitor.go:85: SignIn fills an empty AvatarURL with https://avatars.example/u/<id>?v=4, so DeepThread's users store that URL, which names no stand-in address. The launcher's tests show the restart serves identical pages from another port."
+   },
+   {
+    "key": "O-025",
+    "done": true,
+    "how": "The nested-parentheses exec prefix and the t.Context() fire row (pyexec-f002) are built. The file rule keeps the 'name it as a hole' branch for .pyw, .pyi and .PY, with quiet rows pyfile-q002 to q004 and the because text; the file rule was not widened."
+   },
+   {
+    "key": "O-026",
+    "done": true,
+    "how": "Stated plainly: SL-017's validate and any later look need the Go launcher. The tree has it now (go run ./internal/testutil/seeded -port N) and has no run_finish_e004_2.py. The engine must set projects.app_command for project 14 to `go run ./internal/testutil/seeded -port {port}` before validate. I can write nothing to the ledger, and it still holds the Python value. Rollback while unmerged: `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}`. Cost: until the merge, looks on trunk and in worktrees branched before it fail at launch. Validate should read app_command for id 14 (mode=ro) first and raise an obligation naming this action if it is still the Python value."
+   },
+   {
+    "key": "O-027",
+    "done": true,
+    "how": "Same test as O-001: TestPortOpensOnlyOnceTheThreadIsSeeded."
+   },
+   {
+    "key": "O-028",
+    "done": true,
+    "how": "Same as O-006: E-009 line 7 passes through go run and TerminateJobObject."
+   },
+   {
+    "key": "O-029",
+    "done": true,
+    "how": "Same test as O-003: TestPortFlagRefusesBadValues."
+   },
+   {
+    "key": "O-030",
+    "done": true,
+    "how": "TestStandInPortIsReadFromItsURL (IPv4 port, trailing slash, [::1]:80, no port, empty, non-numeric and an overflowing port) and the stand-in rows of TestEphemeralBindsNeverReachTheServingPort."
+   },
+   {
+    "key": "O-031",
+    "done": true,
+    "how": "Same test as O-004: TestScopeEndsOnlyItsOwnCleanupsNewestFirst."
+   },
+   {
+    "key": "O-032",
+    "done": true,
+    "how": "Same test as O-005: TestFatalfRunsCleanupsBeforeExit."
+   },
+   {
+    "key": "O-033",
+    "done": true,
+    "how": "Same check as O-007 (c7)."
+   },
+   {
+    "key": "O-034",
+    "done": true,
+    "how": "Same check as O-008 (c8)."
+   },
+   {
+    "key": "O-035",
+    "done": true,
+    "how": "Same check as O-009 (c9)."
+   },
+   {
+    "key": "O-036",
+    "done": true,
+    "how": "Same check as O-010 (c10)."
+   },
+   {
+    "key": "O-037",
+    "done": true,
+    "how": "c11, the script-name search, exits 0: no deleted script name appears on a non-comment line outside rows_test.go, the snapshots and .taad/slices."
+   },
+   {
+    "key": "O-038",
+    "done": true,
+    "how": "Same probe as O-013, run with -v: PASS with 16/16 and 0 mismatches before the deletion (6 files present) and after it (6 absent), in the worktree and in the independent clone."
+   },
+   {
+    "key": "O-039",
+    "done": true,
+    "how": "go test -count=1 ./internal/fitnessrules passes: the corpus pins the fire, quiet and hole rows and TestRulesHoldOnTheTree is quiet with the files gone."
+   },
+   {
+    "key": "O-040",
+    "done": true,
+    "how": "Same as O-012, plus E-009 line 6's ledger body run through -overlay with -tags e009line6 in the independent clone: PASS in 23.8 s, covering ls-files, the four check-ignore probes and the suite with Python off PATH."
+   },
+   {
+    "key": "O-041",
+    "done": true,
+    "how": "Two cases read the index blob: c12 and c13 run `git grep -q --cached -E -e '^__pycache__/$' -- .gitignore` and the same for '^\\*\\.pyc$'. Both exit 0 on the committed tree; `-E` with anchors replaces `-x -F` because git grep has no -x switch (git printed 'unknown switch x' with exit 129). They pass only once the .gitignore change is staged or committed."
+   },
+   {
+    "key": "O-042",
+    "done": true,
+    "how": "Independent scratch clone (git dir verified inside it) of branch slice/SL-017: the 8 files removed, the tree copied over, committed there. go build ./... && go test -count=1 -p 4 ./... passed with Python off PATH and PYTHON*, HBAND_*, CHROME_BIN removed (33 ok). E-009 line 6's body was also run inside it (PASS). Line 6's body does not clone: it runs in the module root."
+   },
+   {
+    "key": "O-043",
+    "done": true,
+    "how": "The flag alternative is widened to -[A-Za-z0-9], so `py -3 x.py` is caught. The shebang script and the Python tool runners (pytest, pip, uv, poetry, pipx, tox) are named as holes in rule 1's because text and in bounded_by, not added to the search; no shebang example with a flag appears in any text."
+   }
+  ],
+  "mandatory": [],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "internal/testutil/seeded.TestPortOpensOnlyOnceTheThreadIsSeeded",
+    "test_command": "go test -count=1 -run ^TestPortOpensOnlyOnceTheThreadIsSeeded$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-002",
+    "test_name": "internal/testutil/seeded.TestSeededProgramOpensAKilledWritersDataFolder",
+    "test_command": "go test -count=1 -run ^TestSeededProgramOpensAKilledWritersDataFolder$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-003",
+    "test_name": "internal/testutil/seeded.TestPortFlagRefusesBadValues",
+    "test_command": "go test -count=1 -run ^TestPortFlagRefusesBadValues$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-004",
+    "test_name": "internal/testutil/seeded.TestScopeEndsOnlyItsOwnCleanupsNewestFirst",
+    "test_command": "go test -count=1 -run ^TestScopeEndsOnlyItsOwnCleanupsNewestFirst$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-005",
+    "test_name": "internal/testutil/seeded.TestFatalfRunsCleanupsBeforeExit",
+    "test_command": "go test -count=1 -run ^TestFatalfRunsCleanupsBeforeExit$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-007",
+    "test_name": "fakegithub.TestE009Line7GoLauncherServesTheSeededProductUntilStopped (E-009 line 7 body from the ledger, via overlay)",
+    "test_command": "go test -count=1 -overlay C:\\Users\\sshub\\AppData\\Local\\Temp\\taad3-runs\\12374\\sl017-build\\ov7.json -tags e009line7 -timeout 30m -run ^TestE009Line7 ./internal/testutil/fakegithub"
+   },
+   {
+    "key": "C-008",
+    "test_name": "c7-ls-files: git ls-files lists no .py, .pyc or .pyw",
+    "test_command": "pwsh -NoProfile -File .taad/slices/SL-017/checks/c7-ls-files.ps1"
+   },
+   {
+    "key": "C-009",
+    "test_name": "c8: a .pyc outside any __pycache__ is ignored",
+    "test_command": "git -c core.excludesFile=.no-such-excludes check-ignore -q --no-index -- internal/server/left_behind.cpython-314.pyc"
+   },
+   {
+    "key": "C-010",
+    "test_name": "c9: a non-.pyc file in a deep __pycache__ under .taad is ignored",
+    "test_command": "git -c core.excludesFile=.no-such-excludes check-ignore -q --no-index -- .taad/slices/SL-099/__pycache__/anything.txt"
+   },
+   {
+    "key": "C-011",
+    "test_name": "c10: no interpreter run line outside the quoted records",
+    "test_command": "pwsh -NoProfile -File .taad/slices/SL-017/checks/c10-run-line.ps1"
+   },
+   {
+    "key": "C-012",
+    "test_name": "ported.TestPortedAssertionsHaveAGoTest",
+    "test_command": "go test -count=1 -run ^TestPortedAssertionsHaveAGoTest$ ./tests/acceptance/ported"
+   },
+   {
+    "key": "C-013",
+    "test_name": "headless.TestE009Line6NoPythonLeftAndNoneNeeded (E-009 line 6 body from the ledger, via overlay)",
+    "test_command": "go test -count=1 -overlay C:\\Users\\sshub\\AppData\\Local\\Temp\\taad3-runs\\12374\\sl017-build\\ov6_wt.json -tags e009line6 -timeout 60m -run ^TestE009Line6 ./internal/testutil/headless"
+   },
+   {
+    "key": "C-014",
+    "test_name": "ported.TestZZLedgerEditionProbe (scratch probe over the quoted finish_39..44.json)",
+    "test_command": "go test -count=1 -v -run ^TestZZLedgerEditionProbe$ -overlay C:\\Users\\sshub\\AppData\\Local\\Temp\\taad3-runs\\12374\\sl017-build\\ov_probe.json ./tests/acceptance/ported"
+   },
+   {
+    "key": "C-015",
+    "test_name": "internal/testutil/seeded.TestPortOpensOnlyOnceTheThreadIsSeeded",
+    "test_command": "go test -count=1 -run ^TestPortOpensOnlyOnceTheThreadIsSeeded$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-016",
+    "test_name": "fakegithub.TestE009Line7GoLauncherServesTheSeededProductUntilStopped",
+    "test_command": "go test -count=1 -overlay C:\\Users\\sshub\\AppData\\Local\\Temp\\taad3-runs\\12374\\sl017-build\\ov7.json -tags e009line7 -timeout 30m -run ^TestE009Line7 ./internal/testutil/fakegithub"
+   },
+   {
+    "key": "C-017",
+    "test_name": "internal/testutil/seeded.TestPortFlagRefusesBadValues",
+    "test_command": "go test -count=1 -run ^TestPortFlagRefusesBadValues$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-018",
+    "test_name": "internal/testutil/seeded.TestStandInPortIsReadFromItsURL",
+    "test_command": "go test -count=1 -run ^TestStandInPortIsReadFromItsURL$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-019",
+    "test_name": "internal/testutil/seeded.TestScopeEndsOnlyItsOwnCleanupsNewestFirst",
+    "test_command": "go test -count=1 -run ^TestScopeEndsOnlyItsOwnCleanupsNewestFirst$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-020",
+    "test_name": "internal/testutil/seeded.TestFatalfRunsCleanupsBeforeExit",
+    "test_command": "go test -count=1 -run ^TestFatalfRunsCleanupsBeforeExit$ ./internal/testutil/seeded"
+   },
+   {
+    "key": "C-021",
+    "test_name": "c7-ls-files",
+    "test_command": "pwsh -NoProfile -File .taad/slices/SL-017/checks/c7-ls-files.ps1"
+   },
+   {
+    "key": "C-022",
+    "test_name": "c8",
+    "test_command": "git -c core.excludesFile=.no-such-excludes check-ignore -q --no-index -- internal/server/left_behind.cpython-314.pyc"
+   },
+   {
+    "key": "C-023",
+    "test_name": "c9",
+    "test_command": "git -c core.excludesFile=.no-such-excludes check-ignore -q --no-index -- .taad/slices/SL-099/__pycache__/anything.txt"
+   },
+   {
+    "key": "C-024",
+    "test_name": "c10",
+    "test_command": "pwsh -NoProfile -File .taad/slices/SL-017/checks/c10-run-line.ps1"
+   },
+   {
+    "key": "C-025",
+    "test_name": "c11: no deleted script name on a non-comment line",
+    "test_command": "pwsh -NoProfile -File .taad/slices/SL-017/checks/c11-script-names.ps1"
+   },
+   {
+    "key": "C-026",
+    "test_name": "ported.TestZZLedgerEditionProbe",
+    "test_command": "go test -count=1 -v -run ^TestZZLedgerEditionProbe$ -overlay C:\\Users\\sshub\\AppData\\Local\\Temp\\taad3-runs\\12374\\sl017-build\\ov_probe.json ./tests/acceptance/ported"
+   },
+   {
+    "key": "C-027",
+    "test_name": "fitnessrules.TestRuleSpellingsCorpus and TestRulesHoldOnTheTree",
+    "test_command": "go test -count=1 ./internal/fitnessrules"
+   },
+   {
+    "key": "C-028",
+    "test_name": "headless.TestE009Line6NoPythonLeftAndNoneNeeded",
+    "test_command": "go test -count=1 -overlay C:\\Users\\sshub\\AppData\\Local\\Temp\\taad3-runs\\12374\\sl017-build\\ov6_wt.json -tags e009line6 -timeout 60m -run ^TestE009Line6 ./internal/testutil/headless"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -v ./internal/testutil/seeded",
+    "outcome": "passed",
+    "note": "7 tests pass in 5.8 s; the killed-writer test ran (did not skip), the -wal was non-empty"
+   },
+   {
+    "command": "go test -count=1 -overlay <scratch>/ov_mut.json -run ^TestPortOpensOnlyOnceTheThreadIsSeeded$ ./internal/testutil/seeded",
+    "outcome": "failed",
+    "note": "expected failure: a mutant that seeds after serving answers 404 on the first connect. Mutants of checkStandIn and stagingPort fail the corpus rows (4 and 3)"
+   },
+   {
+    "command": "go test -count=1 -v -overlay <scratch>/ov7.json -tags e009line7 -timeout 30m -run ^TestE009Line7 ./internal/testutil/fakegithub",
+    "outcome": "passed",
+    "note": "E-009 line 7's ledger body: PASS in 8.08 s; 4 temp folders left by the job kill, removed by hand; no stray process"
+   },
+   {
+    "command": "go run ./internal/testutil/seeded -port <free port>, fetched with Invoke-WebRequest, then killed with taskkill /T",
+    "outcome": "passed",
+    "note": "as shipped: ready line after 2.8 s, GET / 200 with the frame, report 200 with 'continue this thread' and '9 comments', branch 200; after the kill no process and the port closed. `-port 0` and a missing flag print the usage and exit 2"
+   },
+   {
+    "command": "go test -count=1 -run TestRuleSpellingsCorpus ./internal/fitnessrules (old rule text, new rows)",
+    "outcome": "failed",
+    "note": "expected: 7 pyexec rows fail against the old pattern; after the rewrite the corpus passes"
+   },
+   {
+    "command": "go build ./... ; go vet ./... ; go test -count=1 ./internal/fitnessrules ./tests/acceptance/ported",
+    "outcome": "passed",
+    "note": "after deletion; gofmt clean on LF copies of the new and changed Go files"
+   },
+   {
+    "command": "go test -count=1 -v -run ^TestZZLedgerEditionProbe$ -overlay <scratch>/ov_probe.json ./tests/acceptance/ported",
+    "outcome": "passed",
+    "note": "16 items / 16 sources before the deletion (6 files present) and after it (6 absent)"
+   },
+   {
+    "command": "(independent scratch clone, tree committed there) c7..c13 check scripts via pwsh -File",
+    "outcome": "passed",
+    "note": "all exit 0; negative controls give exit 1"
+   },
+   {
+    "command": "(independent scratch clone, Python off PATH, PYTHON*/HBAND_*/CHROME_BIN removed) go build ./... ; go test -count=1 -p 4 ./...",
+    "outcome": "passed",
+    "note": "33 packages ok, 0 failing. An earlier clone's run had one TestConcurrentVotesNoBusy SQLITE_BUSY flake (lesson #987); the package passed when re-run alone"
+   },
+   {
+    "command": "(independent scratch clone) go test -count=1 -v -overlay <scratch>/ov6_clone2.json -tags e009line6 -run ^TestE009Line6 ./internal/testutil/headless",
+    "outcome": "passed",
+    "note": "E-009 line 6's ledger body: PASS in 23.8 s with Python off PATH"
+   },
+   {
+    "command": "python -I <scratch>/fitcheck.py (Python re on the exec pattern and corpus)",
+    "outcome": "passed",
+    "note": "Python re agrees with the Go corpus on every exec row; PyYAML is absent here, so the real Fitness op=check load was not run"
+   }
+  ],
+  "deviations": [
+   "git grep has no -x switch (it exited 129, 'unknown switch x'), so the design's `git grep -q -x -F` literal-line check cannot run. The two cases use `git grep -q --cached -E -e '^__pycache__/$'` and `'^\\*\\.pyc$'` against the index blob (m1's own alternative form).",
+   "The run-line search's flag alternative is -[A-Za-z0-9] (accepted M-add-1); the shebang script and Python tool runners are named as holes in rule 1's because text and bounded_by instead of being searched for.",
+   "Factored the stand-in check out of run into checkStandIn and added TestEphemeralBindsNeverReachTheServingPort with testdata/ephemeral_binds.json, plus TestSeededProgramOpensAKilledWritersDataFolder for O-002. The design listed five tests and no corpus; the obligations required them.",
+   "The check scripts and the probe source are kept in .taad/slices/SL-017/checks/ so the cases do not depend on the engine's leased TEMP. The ledger-derived bodies and overlay files stay in scratch, so C-007, C-013, C-014, C-016, C-026 and C-028 need the engine to re-read the ledger and rebuild the scratch files, as the design says. The overlay and scratch paths in those test_command strings are mine, in the leased TEMP, and will not survive it.",
+   "The checks ran through `pwsh -NoProfile -File`, not the engine's case runner, which I do not have. Fitness op=check was not run: no tool here, and PyYAML is absent. Local scalar tests and Python's re stand in.",
+   "INCIDENT, repaired. My scratch 'clone' was mirrored with `robocopy /XD .git`, which does not exclude a worktree's `.git` file, so it pointed at the real repository. There I made `git add -A` and `git commit` (e3ee128, 'scratch: SL-017 tree') and `git config user.name/user.email` set to scratch values. I removed both config keys and ran `git reset --mixed 89da1ad`. HEAD is back at 89da1ad, the index equals HEAD, and the working tree holds all of the work as uncommitted changes, as the engine found it. Commit e3ee128 is now unreferenced and remains in the reflog and object store until gc. The later verification used a properly independent clone whose git dir was checked. Nothing was pushed."
+  ],
+  "not_built": [
+   "serve_show_all.py's four-report show-all seed: retired as the design decided. The launcher seeds only DeepThread's report; the SS-26 and SS-120 Why texts say so, and internal/server TestShowAll remains the guard on the row text.",
+   "A sweep of temp folders left by a job kill, a retry of the staging start, and a ratchet package: not built, per the design. Each kill leaves hband-acceptance-bin, -work and -data, hband-seeded-data-* and go-build folders.",
+   "The engine's app_command repoint for project 14: an engine setting I cannot write, handed off under O-026 and follow_ups.",
+   "A ready-line or redirect-aware readiness signal other than a TCP connect: the product opens N only after seeding, so connect equals ready."
+  ],
+  "follow_ups": [
+   "Engine: set projects.app_command for project 14 to `go run ./internal/testutil/seeded -port {port}` before validate. Validate should read it first (mode=ro) and raise an obligation naming this action if it still holds the Python value; if SL-017 is abandoned before merge, restore `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}`.",
+   "Engine: stage the 8 deletions and the new files and commit; the ls-files check and the two .gitignore `--cached` checks pass only on the committed tree. Commit e3ee128 from my incident is unreferenced.",
+   "Run the engine's Fitness op=check on .taad/fitness.yaml before merge (no tool here, and the two rules carry a widened (?i:...) pattern in a single-quoted scalar).",
+   "Person: the finish bodies of done epics E-003..E-006 (ledger epics 41-44) still run `python tests/acceptance/*.py`; retiring or redrafting them is the owner's decision (spike 208 no-go, N-238).",
+   "After a TerminateJobObject kill the launcher leaves hband-* folders under the leased TEMP; accepted by the design, no sweep built."
+  ],
+  "architecture": [
+   {
+    "block": "C-001",
+    "kind": "paths",
+    "add": [
+     "internal/testutil/seeded/**"
+    ],
+    "why": "internal/testutil/seeded (main.go, main_test.go, testdata/ephemeral_binds.json) is new and matches no block's globs. It builds and starts the real ./cmd/hband and serves it for a look, so it sits closest to C-001, which owns cmd/hband/**."
+   }
+  ]
+ }
+}

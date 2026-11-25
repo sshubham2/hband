@@ -1,0 +1,402 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-25T22:46:46.150Z",
+ "head": "d431cbef2a51144e61e0bb8b345f44ef7dbde4f3",
+ "run_id": 12380,
+ "summary": "The fix removes O-045, and I found nothing new in it.\n\n**What changed.** Commit d431cbe touches only internal/testutil/seeded. In main.go:77-88, `parsePort` now reads -port with `fs.Func` instead of `fs.Int`. The new `decimal` helper (main.go:107-121) accepts ASCII digits only, then calls `strconv.Atoi`. The range check and the usage-on-refusal path (main.go:89-101) are unchanged.\n\n**What I ran.** I fed `parsePort` and `main` extra inputs through a scratch overlay test, removed afterwards:\n- `0010` and `-port=010` both read as decimal 10.\n- `00` reaches the range check and is refused with the usage, as before.\n- Each of these is refused through flag's own error plus the usage: ` 80`, `80 `, `+0`, `-1`, `0x50`, `1e3`, and a 20-digit value ('is out of range').\n- `65536` is refused by the range check.\n- A repeated flag whose last value is `0x1` is refused, because every value passes through `decimal`.\n- `main` exits 2 for `0x1F90`, `1_000` and `-1`.\n\n`go test -count=1 -v ./internal/testutil/seeded` passes all 8 tests, the review's `TestPortFlagReadsADecimalPort` among them. `go vet` is clean, and gofmt is clean on the committed LF blobs of all three files.\n\n**Text that described the old behaviour.**\n- The parsePort doc comment (main.go:70-73) is still true: it promises refusal for a missing value, a non-whole number, a value at or below 0 or above 65535, and a stray argument, and all of those are still refused.\n- The new comment at main.go:78-80 describes fs.Int's base-0 parse correctly.\n- The test names and the design's contract ('a bad or missing -port: usage on stderr, exit 2') still hold.\n\nThe one visible change is that the usage line now reads `-port value` where it used to read `-port int`. That is cosmetic and not filed.\n\n**The declared departure.** `010` is accepted as 10 rather than refused. It agrees with the review's test and with the fix wording, since a leading zero is still all decimal digits.\n\n**Waived items.** The three waived obligations (O-044, O-046, O-047) are untouched, as their waivers decided. This diff does not change the probe source, the fitness pattern or the check scripts.\n\nEverything else I measured in the first pass stands, because no other code file moved. That covers:\n- the line 6 and line 7 bodies;\n- the fresh-clone suite without Python;\n- the ledger Edition gate;\n- the engine's Fitness load and fire checks.\n\nSecond round: Second pass, reading the code to break it: I found nothing new to file. I went back over the parsers, the boundaries, the failure paths and the lock-and-release sequences in internal/testutil/seeded (main.go and both test files) and the slice's check scripts.\n\n**What I ran against the new decimal `-port` parser (main.go:77-121).** It reads 0010 and -port=010 as 10. It refuses each of these with the usage and exit 2: an empty value, a bare flag, `-port --`, ` 80` and `80 ` (spaces), +0, -1, 1e3, 0x50, 0x1F90, 1_000, non-ASCII digits, and a 20-digit value (\"out of range\"). A repeated flag whose second value is bad is refused too, because each value goes through decimal() separately. Invalid UTF-8 decodes to U+FFFD, which is outside '0'..'9', so it is refused as well.\n\n**Other parsers and readers.**\n- portOf: url.Parse already rejects a URL with no scheme and a non-numeric port. A leading-zero port reads as its decimal value, so it still compares correctly against N.\n- The bind-corpus loader uses DisallowUnknownFields and refuses an unknown kind or expect value.\n- The page readers in the tests (first branch link, first count) match the single-branch shape DeepThread produces.\n\n**Boundaries and failure paths.**\n- Every failure inside Build, Start, MustBeOutside or DeepThread ends in a Fatalf. Under the staging scope that first ends the scope (kill, then folder removal), then the root runs its own cleanups and exits 1.\n- The cleanup order on both the Ctrl+C path and the Fatalf path kills each hband before its data folder is removed.\n\n**Lock and release.**\n- scope.end and processT.runCleanups each mark themselves done under a mutex, take a copy of the list, and run it outside the lock. A Cleanup registered after that point would be dropped. Nothing registers one then: program registers every cleanup synchronously, and the staging scope is never used after end().\n- No refusal is checked under a lock and then acted on after releasing it.\n\n**Residual risks that are known, named or out of scope** (none filed):\n- A Ctrl+C before signal.Notify, which is installed only after run returns, skips cleanup. The design promises cleanup only once the product is serving.\n- Logs of the final hband accumulate in memory while it serves.\n- c7 passes falsely if git itself fails. This is the known ls-files caveat: critique-2 raised it while checking M1's fix, and it was not taken up.\n- c11 skips any line that starts with //, so a deleted script name on such a line inside a raw string is not caught. That is the same family as IN-m3, which was overridden.\n\nNone of these is a defect against what the slice promised, and none is new.",
+ "payload": {
+  "status": "complete",
+  "verdict": "clean",
+  "summary": "The fix removes O-045, and I found nothing new in it.\n\n**What changed.** Commit d431cbe touches only internal/testutil/seeded. In main.go:77-88, `parsePort` now reads -port with `fs.Func` instead of `fs.Int`. The new `decimal` helper (main.go:107-121) accepts ASCII digits only, then calls `strconv.Atoi`. The range check and the usage-on-refusal path (main.go:89-101) are unchanged.\n\n**What I ran.** I fed `parsePort` and `main` extra inputs through a scratch overlay test, removed afterwards:\n- `0010` and `-port=010` both read as decimal 10.\n- `00` reaches the range check and is refused with the usage, as before.\n- Each of these is refused through flag's own error plus the usage: ` 80`, `80 `, `+0`, `-1`, `0x50`, `1e3`, and a 20-digit value ('is out of range').\n- `65536` is refused by the range check.\n- A repeated flag whose last value is `0x1` is refused, because every value passes through `decimal`.\n- `main` exits 2 for `0x1F90`, `1_000` and `-1`.\n\n`go test -count=1 -v ./internal/testutil/seeded` passes all 8 tests, the review's `TestPortFlagReadsADecimalPort` among them. `go vet` is clean, and gofmt is clean on the committed LF blobs of all three files.\n\n**Text that described the old behaviour.**\n- The parsePort doc comment (main.go:70-73) is still true: it promises refusal for a missing value, a non-whole number, a value at or below 0 or above 65535, and a stray argument, and all of those are still refused.\n- The new comment at main.go:78-80 describes fs.Int's base-0 parse correctly.\n- The test names and the design's contract ('a bad or missing -port: usage on stderr, exit 2') still hold.\n\nThe one visible change is that the usage line now reads `-port value` where it used to read `-port int`. That is cosmetic and not filed.\n\n**The declared departure.** `010` is accepted as 10 rather than refused. It agrees with the review's test and with the fix wording, since a leading zero is still all decimal digits.\n\n**Waived items.** The three waived obligations (O-044, O-046, O-047) are untouched, as their waivers decided. This diff does not change the probe source, the fitness pattern or the check scripts.\n\nEverything else I measured in the first pass stands, because no other code file moved. That covers:\n- the line 6 and line 7 bodies;\n- the fresh-clone suite without Python;\n- the ledger Edition gate;\n- the engine's Fitness load and fire checks.\n\nSecond round: Second pass, reading the code to break it: I found nothing new to file. I went back over the parsers, the boundaries, the failure paths and the lock-and-release sequences in internal/testutil/seeded (main.go and both test files) and the slice's check scripts.\n\n**What I ran against the new decimal `-port` parser (main.go:77-121).** It reads 0010 and -port=010 as 10. It refuses each of these with the usage and exit 2: an empty value, a bare flag, `-port --`, ` 80` and `80 ` (spaces), +0, -1, 1e3, 0x50, 0x1F90, 1_000, non-ASCII digits, and a 20-digit value (\"out of range\"). A repeated flag whose second value is bad is refused too, because each value goes through decimal() separately. Invalid UTF-8 decodes to U+FFFD, which is outside '0'..'9', so it is refused as well.\n\n**Other parsers and readers.**\n- portOf: url.Parse already rejects a URL with no scheme and a non-numeric port. A leading-zero port reads as its decimal value, so it still compares correctly against N.\n- The bind-corpus loader uses DisallowUnknownFields and refuses an unknown kind or expect value.\n- The page readers in the tests (first branch link, first count) match the single-branch shape DeepThread produces.\n\n**Boundaries and failure paths.**\n- Every failure inside Build, Start, MustBeOutside or DeepThread ends in a Fatalf. Under the staging scope that first ends the scope (kill, then folder removal), then the root runs its own cleanups and exits 1.\n- The cleanup order on both the Ctrl+C path and the Fatalf path kills each hband before its data folder is removed.\n\n**Lock and release.**\n- scope.end and processT.runCleanups each mark themselves done under a mutex, take a copy of the list, and run it outside the lock. A Cleanup registered after that point would be dropped. Nothing registers one then: program registers every cleanup synchronously, and the staging scope is never used after end().\n- No refusal is checked under a lock and then acted on after releasing it.\n\n**Residual risks that are known, named or out of scope** (none filed):\n- A Ctrl+C before signal.Notify, which is installed only after run returns, skips cleanup. The design promises cleanup only once the product is serving.\n- Logs of the final hband accumulate in memory while it serves.\n- c7 passes falsely if git itself fails. This is the known ls-files caveat: critique-2 raised it while checking M1's fix, and it was not taken up.\n- c11 skips any line that starts with //, so a deleted script name on such a line inside a raw string is not caught. That is the same family as IN-m3, which was overridden.\n\nNone of these is a defect against what the slice promised, and none is new.",
+  "findings": [],
+  "obligations": [
+   {
+    "key": "O-045",
+    "discharged": "yes",
+    "evidence": "internal/testutil/seeded/main.go:77-88: -port is read with fs.Func and parsed by decimal() (main.go:107-121, ASCII digits only, then strconv.Atoi). TestPortFlagReadsADecimalPort (internal/testutil/seeded/port_decimal_test.go) passes. My probe: 010 and 0010 give 10; 0x50, 0x1F90, 1_000, +0, -1, 1e3 and space-padded values are refused with usage, and main exits 2."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "TestPortFlagRefusesBadValues (main_test.go:390 onwards) still refuses missing, 0, -1, 65536, abc and 80x, and now also 0x1F90, 0o17, 0b1, 1_000, +80 and Arabic-Indic digits. It accepts 010 as 10 and 08080 as 8080. It passes."
+   },
+   {
+    "key": "O-029",
+    "discharged": "yes",
+    "evidence": "Same as O-003, re-run on d431cbe: passes."
+   },
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "Unchanged by the fix. TestPortOpensOnlyOnceTheThreadIsSeeded passes on d431cbe (2.16 s)."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "TestSeededProgramOpensAKilledWritersDataFolder passes on d431cbe (2.15 s), not skipped."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "TestScopeEndsOnlyItsOwnCleanupsNewestFirst passes; scope code unchanged."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "TestFatalfRunsCleanupsBeforeExit passes; processT and scope unchanged."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "E-009 line 7 passed in my first pass. The fix touches only flag parsing, and a decimal port such as the engine's still parses."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "Unchanged: c7 exited 0 in the first pass, and d431cbe adds no Python file."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "Unchanged (.gitignore not in this diff)."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "Unchanged."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "Unchanged. The new main.go comment names strconv.ParseInt, not an interpreter run line."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "Unchanged; ported is untouched by this diff."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "Measured in the first pass (fresh clone, 33/33). The fix adds only stdlib code and a test in a package that passed again."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "Measured in the first pass (16/16 with the files absent; the deleted files hash to their Editions)."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "Void; held by TestSeededProgramOpensAKilledWritersDataFolder, which passes."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "Void; the deep-equal across ports still passes."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "Void; stage.end() before the final Start is unchanged (main.go run)."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "Void; settled by spike 209 and the passing test."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "Check scripts unchanged; they exited 0 in the first pass. The engine's own runner is still unproven."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "stagingPort and checkStandIn are unchanged; TestEphemeralBindsNeverReachTheServingPort passes."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "fitness.yaml unchanged; the engine check reaching .taad and testdata was measured in the first pass."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "Unchanged; the engine evaluates the widened pattern (measured in the first pass)."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "Probe source unchanged; it is spelled out. Its fallback is waived (O-044)."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "Unchanged."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "No code was owed; unchanged."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "Unchanged."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "Hand-off unchanged. The ledger's app_command still held the Python value at my first-pass read; the repoint is the engine's to make."
+   },
+   {
+    "key": "O-027",
+    "discharged": "yes",
+    "evidence": "Same as O-001."
+   },
+   {
+    "key": "O-028",
+    "discharged": "yes",
+    "evidence": "Same as O-006."
+   },
+   {
+    "key": "O-030",
+    "discharged": "yes",
+    "evidence": "TestStandInPortIsReadFromItsURL passes; portOf unchanged."
+   },
+   {
+    "key": "O-031",
+    "discharged": "yes",
+    "evidence": "Same as O-004."
+   },
+   {
+    "key": "O-032",
+    "discharged": "yes",
+    "evidence": "Same as O-005."
+   },
+   {
+    "key": "O-033",
+    "discharged": "yes",
+    "evidence": "Same as O-007."
+   },
+   {
+    "key": "O-034",
+    "discharged": "yes",
+    "evidence": "Same as O-008."
+   },
+   {
+    "key": "O-035",
+    "discharged": "yes",
+    "evidence": "Same as O-009."
+   },
+   {
+    "key": "O-036",
+    "discharged": "yes",
+    "evidence": "Same as O-010."
+   },
+   {
+    "key": "O-037",
+    "discharged": "yes",
+    "evidence": "Unchanged; the new comment names no deleted script."
+   },
+   {
+    "key": "O-038",
+    "discharged": "yes",
+    "evidence": "Same as O-013."
+   },
+   {
+    "key": "O-039",
+    "discharged": "yes",
+    "evidence": "Unchanged; fitnessrules untouched by this diff."
+   },
+   {
+    "key": "O-040",
+    "discharged": "yes",
+    "evidence": "Line 6 passed in the clean clone in my first pass; the fix adds no Python dependency."
+   },
+   {
+    "key": "O-041",
+    "discharged": "yes",
+    "evidence": "Unchanged."
+   },
+   {
+    "key": "O-042",
+    "discharged": "yes",
+    "evidence": "Measured in the first pass."
+   },
+   {
+    "key": "O-043",
+    "discharged": "yes",
+    "evidence": "Unchanged. The widening and the named shebang hole are in place; tool-runner holes are named in rule 2's text only, as noted in the first pass."
+   },
+   {
+    "key": "O-044",
+    "discharged": "no",
+    "evidence": "Waived (N-243) and not built: .taad/slices/SL-017/checks/zz_probe_test.go.txt is not in d431cbe's diff and still falls back to the builder's TEMP folder when ZZ_PROBE_DIR is unset."
+   },
+   {
+    "key": "O-046",
+    "discharged": "no",
+    "evidence": "Waived (carried to SC-051) and not built: .taad/fitness.yaml is not in this diff, and the exec pattern still misses a literal inside one nested call, python3.14t and pypy3."
+   },
+   {
+    "key": "O-047",
+    "discharged": "no",
+    "evidence": "Waived (N-242) and not built: c7-ls-files.ps1 is unchanged and still uses case-sensitive pathspecs."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "Row 3, -port missing, 0, negative, above 65535 or not a number. TestPortFlagRefusesBadValues feeds missing, 0, -1, 65536, abc and 80x, plus base-prefix, underscore, sign and non-ASCII digit rows. TestPortFlagReadsADecimalPort feeds 010 and the base-prefix forms. Both pass on d431cbe."
+   },
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "Row 1 (connect the moment N opens): TestPortOpensOnlyOnceTheThreadIsSeeded, unchanged, passes."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "Row 2 (go run then TerminateJobObject): E-009 line 7 passed in my first pass; the fix does not touch serving."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "Row 4 (stand-in URL shapes): TestStandInPortIsReadFromItsURL, unchanged, passes."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "Row 5 (scope and parent cleanups): unchanged test passes."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "Row 6 (Fatalf in scope, at root, in a cleanup): unchanged test passes."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "Row 7 (tracked Python files): c7 unchanged; it exited 0 in the first pass."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "Row 8 (deep .pyc): unchanged."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "Row 9 (file under a deep __pycache__): unchanged."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "Row 10 (run-line search): unchanged; the planted spellings were checked in the first pass."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "Row 11 (deleted script names): unchanged."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "Row 12 (ledger Edition probe): measured in the first pass."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "Row 13 (fitness corpus): unchanged."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "Row 14 (fresh clone without Python): measured in the first pass."
+   }
+  ],
+  "matches_design": true,
+  "drift": [],
+  "second_round": {
+   "run_id": 12381,
+   "filed": 0
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 0,
+    "changed": 3,
+    "listed": 3
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 3,
+   "read_whole": 0,
+   "deleted": [],
+   "runs": [
+    12376,
+    12380,
+    12381
+   ],
+   "range": {
+    "base": "89da1ad3d8055a4b6021326ca0f34b25ba7649dc",
+    "head": "d431cbef2a51144e61e0bb8b345f44ef7dbde4f3",
+    "source": "commits",
+    "hunk_base": "d12533b2790c0ef2328cde9c2f974f90c312b74a",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [
+    {
+     "path": "internal/testutil/seeded/main.go",
+     "state": "partly-opened",
+     "section": "lines 123-131, 133-213, 215-225, 228-319 of 319",
+     "reason": "a Read returned only part of it; seen only through a shell command: $s, foreach (before the build), git log; 211 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 319,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/seeded/main_test.go",
+     "state": "partly-opened",
+     "section": "lines 400-433, 435-507, 509-576 of 576",
+     "reason": "a Read returned only part of it; seen only through a shell command: $s, foreach (before the build), git log; 168 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 576,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/seeded/port_decimal_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-19 of 19",
+     "reason": "seen only through a shell command: $s, git log",
+     "size_lines": 19,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

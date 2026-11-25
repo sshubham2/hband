@@ -1,0 +1,1 @@
+git grep -q -I -i -E '(^|[^A-Za-z0-9_])(python[0-9.]*|pythonw|py)(\.exe)?[[:blank:]]+(-[A-Za-z0-9]|[^[:space:]]+\.py([^A-Za-z0-9_]|$))' -- . ':(exclude).taad/slices' ':(exclude)tests/acceptance/ported/testdata'; if ($LASTEXITCODE -eq 1) { exit 0 } else { exit 1 }
