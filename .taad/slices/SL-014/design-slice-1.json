@@ -1,0 +1,43 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-014",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-25T10:47:36.669Z",
+ "head": "789aa8dba8449839545353a8dfd71a031dc7a8c6",
+ "run_id": null,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "selection_rationale": "Composed by the engine from the slice manager's verdict on SC-041 (review 1188): it judged the change clear from the candidate and the code, size XS, so there was nothing for a tournament to choose between.",
+  "whats_new": [],
+  "whats_reused": [],
+  "components": [],
+  "key_decisions": [
+   {
+    "decision": "SC-041: Make internal/testutil/headless take the browser from CHROME_BIN only (refusing Edge) and skip with a message naming CHROME_BIN otherwise",
+    "reversibility": "cheap",
+    "rationale": "internal/testutil/headless/headless.go:43-46 hard-codes two Chrome install paths, :56 reads HBAND_TEST_BROWSER, and nothing in the package reads CHROME_BIN. I ran `go test -count=1 -v ./internal/testutil/headless/` with CHROME_BIN and HBAND_TEST_BROWSER both unset: both tests PASSED instead of skipping, so Browser fell back to the hard-coded C:\\Program Files\\Google\\Chrome path. Its only caller is internal/server/browser_test.go:151. I also searched the rest of the tree for code that picks a browser. tests/acceptance/run_finish.py:70 has a path regex, and .taad/slices/SL-008/run_finish_e004_2.py:37-50 already reads CHROME_BIN only; SC-043 deletes both. README.md:83-84 and :108 describe the old variables, but those are documentation and outside slice work, so they are not part of this row."
+   }
+  ],
+  "proposals": [],
+  "coherence_check": "One direct change, built as the candidate describes it -- with anything bundled into it, which its description lists. A part that no longer holds (already fixed, or misread) is left alone, and the build says so.",
+  "cases": [
+   {
+    "behaviour": "SC-041: headless.Browser returns exactly the CHROME_BIN path when it names an existing file. In each of these cases it calls Skip with a message containing \"CHROME_BIN\" and returns no path: CHROME_BIN unset; set to a missing path; set to a directory; set to a file whose base name is msedge.exe; unset while HBAND_TEST_BROWSER names an existing file. The tests use a recording testing.TB, or check t.Skipped() in a subtest. The package source holds no 'Program Files' path and no Getenv other than CHROME_BIN for choosing a browser. HBAND_TEST_ARTIFACTS, which only copies screenshots, may stay. default_browser_test.go and edge_default_test.go are rewritten to assert this. `go test -count=1 ./...` passes with CHROME_BIN unset.",
+    "shape": "what SC-041 asks for",
+    "why": "the slice manager named the behaviour a test must pin",
+    "material": true
+   }
+  ],
+  "direct_change": {
+   "key": "SC-041",
+   "title": "Make internal/testutil/headless take the browser from CHROME_BIN only (refusing Edge) and skip with a message naming CHROME_BIN otherwise",
+   "description": "WHY: The owner's rule for every browser the project starts, in tests and anywhere else, is that its path comes from the environment variable CHROME_BIN and from nowhere else. When CHROME_BIN is unset, or names no file, the test SKIPS and says so, so plain `go test -count=1 ./...` passes on a machine with no browser. Microsoft Edge is never started.\n\nTHE DEFECT (as the owner reported it, not re-measured for this row): internal/testutil/headless reads HBAND_TEST_BROWSER, falls back to hard-coded Chrome install paths, and never reads CHROME_BIN. So today a machine with a Chrome installed in a standard place starts it whatever CHROME_BIN says, and CHROME_BIN is ignored.\n\nWHAT: Change the helper so the browser comes from CHROME_BIN only. Remove every hard-coded install path. Remove the HBAND_TEST_BROWSER read and any fallback to another variable or another browser. When CHROME_BIN is unset, or points at a path that is not an existing file, the calling test is skipped (testing's Skip) with a message that names CHROME_BIN. Bring the helper's own tests, default_browser_test.go and edge_default_test.go, in line with the new rule. They were not read for this row, so whoever picks it up should read them first. Because the owner says the rule applies everywhere, also search the repository, including scripts, docs and CI files, for any other place that picks a browser path (HBAND_TEST_BROWSER, hard-coded Chrome or Edge paths, msedge). Report what is found. Fix what is the same defect, and say so if something is a different kind of change.\n\nDOES NOT WAIT on the Go acceptance-port row or the Python-deletion row. The port row's browser tests rely on this helper behaving this way.\n\nHOW TO TELL IT IS DONE: (1) With CHROME_BIN set to an existing browser executable, the helper starts exactly that one. (2) With CHROME_BIN unset, the test is reported as skipped with a message naming CHROME_BIN, even on a machine that has Chrome or Edge installed in a standard place. (3) With CHROME_BIN set to a path that does not exist, the test is skipped with a message. (4) With HBAND_TEST_BROWSER set and CHROME_BIN unset, the test still skips, so there is no fallback. (5) Edge is never started, even when it is installed. (6) The helper's source holds no hard-coded browser install path and no read of any variable other than CHROME_BIN. (7) default_browser_test.go and edge_default_test.go assert the rule above, not the old behaviour, and `go test -count=1 ./...` passes on a machine with no browser and with CHROME_BIN unset.",
+   "worth": "The person's rule, and this machine's (the browser comes from CHROME_BIN and never from a path written in code), is broken today. Measured: with CHROME_BIN unset, the helper still finds and uses the Chrome at the standard install path rather than skipping. With HBAND_TEST_BROWSER pointing at a missing file, internal/server's TestReportScriptsNeverRun fails instead of skipping (headless.go:57-58). SC-042's browser tests rely on this rule.",
+   "why": "internal/testutil/headless/headless.go:43-46 hard-codes two Chrome install paths, :56 reads HBAND_TEST_BROWSER, and nothing in the package reads CHROME_BIN. I ran `go test -count=1 -v ./internal/testutil/headless/` with CHROME_BIN and HBAND_TEST_BROWSER both unset: both tests PASSED instead of skipping, so Browser fell back to the hard-coded C:\\Program Files\\Google\\Chrome path. Its only caller is internal/server/browser_test.go:151. I also searched the rest of the tree for code that picks a browser. tests/acceptance/run_finish.py:70 has a path regex, and .taad/slices/SL-008/run_finish_e004_2.py:37-50 already reads CHROME_BIN only; SC-043 deletes both. README.md:83-84 and :108 describe the old variables, but those are documentation and outside slice work, so they are not part of this row.",
+   "size": "XS",
+   "test": "headless.Browser returns exactly the CHROME_BIN path when it names an existing file. In each of these cases it calls Skip with a message containing \"CHROME_BIN\" and returns no path: CHROME_BIN unset; set to a missing path; set to a directory; set to a file whose base name is msedge.exe; unset while HBAND_TEST_BROWSER names an existing file. The tests use a recording testing.TB, or check t.Skipped() in a subtest. The package source holds no 'Program Files' path and no Getenv other than CHROME_BIN for choosing a browser. HBAND_TEST_ARTIFACTS, which only copies screenshots, may stay. default_browser_test.go and edge_default_test.go are rewritten to assert this. `go test -count=1 ./...` passes with CHROME_BIN unset."
+  }
+ }
+}

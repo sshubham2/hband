@@ -1,6 +1,5 @@
-// Package headless drives the locally installed Chromium-family browser
-// (Chrome by default; never Microsoft Edge unless HBAND_TEST_BROWSER names it)
-// through its own command line, for checks that need
+// Package headless drives a locally installed Chromium-family browser (Chrome;
+// never Microsoft Edge) through its own command line, for checks that need
 // a real browser: it loads a URL headless, takes the browser's own screenshot
 // and returns it as an image. There is no browser-automation dependency and no
 // DevTools client; the screenshot is read with image/png.
@@ -11,17 +10,18 @@
 //
 // Environment, read only here:
 //
-//	HBAND_TEST_BROWSER    the browser to run. When set, the check must run: a
-//	                      missing browser or a failed launch fails the test, it
-//	                      never skips. When unset, the first Chrome install that
-//	                      exists is used, and otherwise the test skips. Edge is
-//	                      never a default: a new Edge profile signs in to the
-//	                      Windows Microsoft account and imports the person's old
-//	                      browsing history at its first run.
+//	CHROME_BIN            the browser to run, and the only place its path comes
+//	                      from: no install path is written in this package and
+//	                      no other variable stands in for it. When it is unset,
+//	                      or names no existing file, the calling test skips and
+//	                      says so, so a machine with no browser still passes.
+//	                      Edge is refused even when named: a new Edge profile
+//	                      signs in to the Windows Microsoft account and imports
+//	                      the person's old browsing history at its first run.
 //	HBAND_TEST_ARTIFACTS  a folder; every screenshot is also copied there as
 //	                      <name>.png (any run of characters in name other than
 //	                      letters, digits, '.', '_' and '-' becomes one '_'),
-//	                      for a person to look at.
+//	                      for a person to look at. It never picks a browser.
 package headless
 
 import (
@@ -34,38 +34,66 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
 
-// defaultBrowsers are where Chrome installs on Windows. Microsoft Edge is
-// deliberately not listed (see the package comment).
-var defaultBrowsers = []string{
-	`C:\Program Files\Google\Chrome\Application\chrome.exe`,
-	`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
-}
-
 // shotTimeout bounds one browser run.
 const shotTimeout = 60 * time.Second
 
-// Browser returns the browser to drive. With HBAND_TEST_BROWSER set it is
-// that path and never a skip; otherwise it is the first default path that
-// exists, or the test skips and says which variable would run it.
+// Browser returns the browser to drive: exactly the path in CHROME_BIN, when it
+// names an existing file that is not Microsoft Edge. In every other case it
+// skips the calling test with a message that names CHROME_BIN, and returns "".
 func Browser(t testing.TB) string {
 	t.Helper()
-	if p := os.Getenv("HBAND_TEST_BROWSER"); p != "" {
-		if _, err := os.Stat(p); err != nil {
-			t.Fatalf("HBAND_TEST_BROWSER=%q cannot be used: %v", p, err)
-		}
-		return p
+	p := os.Getenv("CHROME_BIN")
+	if p == "" {
+		t.Skip("CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check")
+		return ""
 	}
-	for _, p := range defaultBrowsers {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
+	if isEdge(p) {
+		t.Skipf("CHROME_BIN=%q is Microsoft Edge, which is never started (its first run signs in to the Windows Microsoft account and imports old browsing history): set CHROME_BIN to a Chrome executable", p)
+		return ""
 	}
-	t.Skip("no Chrome found: set HBAND_TEST_BROWSER to a Chromium-family browser (for example chrome.exe) to run this check")
-	return ""
+	info, err := os.Stat(p)
+	if err != nil {
+		t.Skipf("CHROME_BIN=%q names no file (%v): set it to the path of a Chrome executable to run this check", p, err)
+		return ""
+	}
+	if !info.Mode().IsRegular() {
+		t.Skipf("CHROME_BIN=%q is not a file: set it to the path of a Chrome executable to run this check", p)
+		return ""
+	}
+	return p
+}
+
+// isEdge reports whether the path names Microsoft Edge's executable, as it is
+// called on Windows (msedge.exe) and in Linux packages (microsoft-edge). It is
+// a decision by name, taken before the path is looked up.
+//
+// The last text element of the path is not always the file the OS opens: on
+// Windows msedge.exe\. , msedge.exe\x\.. , msedge.exe/. and "msedge.exe \."
+// all open msedge.exe, and "msedge.exe." and "msedge.exe " lose their trailing
+// dot or space. So the name is taken twice, from the text as written and from
+// the path resolved the way the OS resolves it (filepath.Abs is
+// GetFullPathName on Windows, which CreateFile and CreateProcess apply too),
+// and either one naming Edge refuses it. The caller keeps the CHROME_BIN text
+// unchanged.
+func isEdge(p string) bool {
+	if namesEdge(p) {
+		return true
+	}
+	if abs, err := filepath.Abs(p); err == nil {
+		return namesEdge(abs)
+	}
+	return false
+}
+
+// namesEdge reports whether the last element of p is an Edge executable name.
+func namesEdge(p string) bool {
+	base := strings.ToLower(filepath.Base(p))
+	return strings.Contains(base, "msedge") || strings.Contains(base, "microsoft-edge")
 }
 
 // Shot loads pageURL in a fresh headless browser process, with a fresh

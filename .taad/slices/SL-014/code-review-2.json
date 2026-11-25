@@ -1,0 +1,123 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-014",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-25T10:57:30.899Z",
+ "head": "1e2cbce3dd17bb016f5b936b7b8b3ca74f55bcee",
+ "run_id": 12216,
+ "summary": "IN-M1 is fixed, and nothing new is wrong in the diff 31c388c..1e2cbce.\n\n**What changed.** isEdge (internal/testutil/headless/headless.go:83-91) now runs namesEdge twice: on the CHROME_BIN text as written, and on filepath.Abs of it. On Windows filepath.Abs is GetFullPathName, followed by Clean. Browser still returns the CHROME_BIN text unchanged at :68. I read the three new files in full:\n- edge_dot_segments_test.go: the earlier review's repro, as given.\n- chrome_bin_corpus_test.go: runs the corpus inside a temp folder that holds empty msedge.exe, chrome.exe, Edge/Application/chrome.exe and sub/.\n- testdata/chrome_bin_spellings.json: 22 edge rows, 9 chrome rows, 4 skip rows.\n\nThe quiet chrome rows include Chrome behind the same dot segments and Chrome inside folders called Edge. So a rule that refuses everything cannot pass.\n\n**What I ran** (TAAD3_HOME pointed at a scratch folder):\n- Headless package, CHROME_BIN unset: exit 0, 62 PASS lines and one intended SKIP (the real-subtest caller).\n- The engine's command, `go test -count=1 -run TestBrowserRefusesEdgeBehindDotSegments ./internal/testutil/headless/`: exit 0.\n- Mutant making the Abs branch `namesEdge(abs) && false`: fails all 5 review subtests and 10 corpus rows.\n- Probe, through -overlay, of 16 further Windows spellings of a real msedge.exe file: every spelling that os.Stat resolves to a regular file was refused. The spellings were `\\\\?\\`, `\\\\.\\` and `\\??\\` prefixes with `\\.` or `\\x\\..`; a trailing `\\.\\`; a doubled `\\\\.`; `. .\\.`; `::$DATA` and `::$DATA\\.`; `\\..\\msedge.exe\\.`; and the UNC admin share via localhost and via 127.0.0.1. The one spelling that got past isEdge, `msedge.exe\\.::$DATA`, is a path os.Stat cannot find, so it skips. No hole was found.\n- `go vet ./...`: exit 0.\n- Full suite `go test -count=1 ./...` with CHROME_BIN unset: exit 0.\n- gofmt on true LF copies of all five package .go blobs: clean.\n- TestReportScriptsNeverRun with CHROME_BIN set to Chrome: PASS in 5.73 s. msedge process count was 5 before and 5 after.\n\n**Statements about the moved behaviour.** I re-read each one against the new code: the package comment (\"Edge is refused even when named\"), Browser's doc, isEdge's new doc, the edge_default_test.go comment, and the corpus doc. All are true.\n\n**Still open, already decided.** The one stale text is the recorder's \"Helper, Fatalf\" comment (default_browser_test.go:13-15). It was waived as N-223 and is left to the comment fixer, so I did not re-file it.\n\n**Not covered, declared by the build.** Links or copies of Edge under another name (a hard link, symlink or renamed copy called chrome.exe) are not caught by a check by name. The build declared this as a follow-up, and it is outside this class.\n\n**Not built, consequence-free.** The decided fix's `filepath.Clean` fallback for when Abs fails was not built. It is listed under drift. I found no input where it matters: on Windows Abs fails only for strings that os.Stat also cannot open.\n\nSecond round: This round found nothing that needs fixing; one optional hardening note is filed as an extra.\n\n**Browser and isEdge: no new hole.** I probed past the first round:\n- **Exotic spellings:** the 16 Windows spellings from the first round all hold (device, NT and UNC prefixes, ADS, mixed dots, spaces and separators). No spelling that os.Stat resolves to msedge.exe gets through.\n- **Bad values in CHROME_BIN:** a CR or newline, quotes, unexpanded %VAR%, or a semicolon list either still contains \"msedge\" and is refused, or fails os.Stat and skips with a message naming CHROME_BIN.\n- **Stat versus exec:** what Browser stats and what Shot's exec.Command runs do not differ in any way that reaches Edge. For an absolute path with an extension, exec runs the path as written. With no extension it tries PATHEXT suffixes, which reaches Edge only if the path already ends in \"msedge\", and that is refused by name. A relative bare name ends in a loud ErrDot failure, not a silent wrong browser.\n- **Concurrency:** there is no lock-and-gap. Browser is a pure check made once, and Shot uses the returned string, not the environment.\n- **What is still open:** a hard link, symlink or renamed copy of Edge under another name. The build declared it as a follow-up, and it is outside this class.\n\n**The corpus reader has one gap** (filed as m2, an extra). I checked how testdata/chrome_bin_spellings.json is read:\n- These fail loudly: a byte-order mark, two top-level arrays, an unknown \"want\", and malformed JSON.\n- These pass without testing anything: a \"skip\" row with a misspelt \"spelling\" key, an empty spelling, or a mistyped `{Dir}` placeholder. I confirmed this by running the corpus test through -overlay on a scratch corpus.\n- None of the 35 current rows has this defect; I read every one. Only future rows are at risk.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "IN-M1 is fixed, and nothing new is wrong in the diff 31c388c..1e2cbce.\n\n**What changed.** isEdge (internal/testutil/headless/headless.go:83-91) now runs namesEdge twice: on the CHROME_BIN text as written, and on filepath.Abs of it. On Windows filepath.Abs is GetFullPathName, followed by Clean. Browser still returns the CHROME_BIN text unchanged at :68. I read the three new files in full:\n- edge_dot_segments_test.go: the earlier review's repro, as given.\n- chrome_bin_corpus_test.go: runs the corpus inside a temp folder that holds empty msedge.exe, chrome.exe, Edge/Application/chrome.exe and sub/.\n- testdata/chrome_bin_spellings.json: 22 edge rows, 9 chrome rows, 4 skip rows.\n\nThe quiet chrome rows include Chrome behind the same dot segments and Chrome inside folders called Edge. So a rule that refuses everything cannot pass.\n\n**What I ran** (TAAD3_HOME pointed at a scratch folder):\n- Headless package, CHROME_BIN unset: exit 0, 62 PASS lines and one intended SKIP (the real-subtest caller).\n- The engine's command, `go test -count=1 -run TestBrowserRefusesEdgeBehindDotSegments ./internal/testutil/headless/`: exit 0.\n- Mutant making the Abs branch `namesEdge(abs) && false`: fails all 5 review subtests and 10 corpus rows.\n- Probe, through -overlay, of 16 further Windows spellings of a real msedge.exe file: every spelling that os.Stat resolves to a regular file was refused. The spellings were `\\\\?\\`, `\\\\.\\` and `\\??\\` prefixes with `\\.` or `\\x\\..`; a trailing `\\.\\`; a doubled `\\\\.`; `. .\\.`; `::$DATA` and `::$DATA\\.`; `\\..\\msedge.exe\\.`; and the UNC admin share via localhost and via 127.0.0.1. The one spelling that got past isEdge, `msedge.exe\\.::$DATA`, is a path os.Stat cannot find, so it skips. No hole was found.\n- `go vet ./...`: exit 0.\n- Full suite `go test -count=1 ./...` with CHROME_BIN unset: exit 0.\n- gofmt on true LF copies of all five package .go blobs: clean.\n- TestReportScriptsNeverRun with CHROME_BIN set to Chrome: PASS in 5.73 s. msedge process count was 5 before and 5 after.\n\n**Statements about the moved behaviour.** I re-read each one against the new code: the package comment (\"Edge is refused even when named\"), Browser's doc, isEdge's new doc, the edge_default_test.go comment, and the corpus doc. All are true.\n\n**Still open, already decided.** The one stale text is the recorder's \"Helper, Fatalf\" comment (default_browser_test.go:13-15). It was waived as N-223 and is left to the comment fixer, so I did not re-file it.\n\n**Not covered, declared by the build.** Links or copies of Edge under another name (a hard link, symlink or renamed copy called chrome.exe) are not caught by a check by name. The build declared this as a follow-up, and it is outside this class.\n\n**Not built, consequence-free.** The decided fix's `filepath.Clean` fallback for when Abs fails was not built. It is listed under drift. I found no input where it matters: on Windows Abs fails only for strings that os.Stat also cannot open.\n\nSecond round: This round found nothing that needs fixing; one optional hardening note is filed as an extra.\n\n**Browser and isEdge: no new hole.** I probed past the first round:\n- **Exotic spellings:** the 16 Windows spellings from the first round all hold (device, NT and UNC prefixes, ADS, mixed dots, spaces and separators). No spelling that os.Stat resolves to msedge.exe gets through.\n- **Bad values in CHROME_BIN:** a CR or newline, quotes, unexpanded %VAR%, or a semicolon list either still contains \"msedge\" and is refused, or fails os.Stat and skips with a message naming CHROME_BIN.\n- **Stat versus exec:** what Browser stats and what Shot's exec.Command runs do not differ in any way that reaches Edge. For an absolute path with an extension, exec runs the path as written. With no extension it tries PATHEXT suffixes, which reaches Edge only if the path already ends in \"msedge\", and that is refused by name. A relative bare name ends in a loud ErrDot failure, not a silent wrong browser.\n- **Concurrency:** there is no lock-and-gap. Browser is a pure check made once, and Shot uses the returned string, not the environment.\n- **What is still open:** a hard link, symlink or renamed copy of Edge under another name. The build declared it as a follow-up, and it is outside this class.\n\n**The corpus reader has one gap** (filed as m2, an extra). I checked how testdata/chrome_bin_spellings.json is read:\n- These fail loudly: a byte-order mark, two top-level arrays, an unknown \"want\", and malformed JSON.\n- These pass without testing anything: a \"skip\" row with a misspelt \"spelling\" key, an empty spelling, or a mistyped `{Dir}` placeholder. I confirmed this by running the corpus test through -overlay on a scratch corpus.\n- None of the 35 current rows has this defect; I read every one. Only future rows are at risk.",
+  "findings": [
+   {
+    "id": "R2-m2",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "extra",
+    "claim": "The corpus reader in TestChromeBinSpellingsCorpus decodes rows with plain json.Unmarshal and never checks that a row's spelling is non-empty or that its {dir} placeholder was replaced. So a \"skip\" row can pass while proving nothing:\n- a row with a misspelt key, such as {\"speling\": \"{dir}/sub\", \"want\": \"skip\"}, or an empty spelling, sets CHROME_BIN to \"\". Browser takes the \"CHROME_BIN is not set\" branch, whose message names CHROME_BIN and not Microsoft Edge, so the row passes;\n- a mistyped placeholder (`{Dir}/sub`) becomes a missing path and passes the same way.\n\nMeasured through -overlay on a scratch corpus: all three such rows PASS. Edge and chrome rows with the same mistakes fail loudly; only skip rows go quiet. The file is the corpus the class \"path spellings whose last text element is not the file the OS opens\" was closed against, and later reviews are told to add rows to it. A row added with one of these mistakes would be green and pin nothing. The current 35 rows are well-formed.",
+    "file": "internal/testutil/headless/chrome_bin_corpus_test.go",
+    "line": 44,
+    "end_line": 81,
+    "evidence": "chrome_bin_corpus_test.go:44-47 decodes with plain json.Unmarshal into []spellingRow (unknown keys are dropped). :80-81 uses strings.ReplaceAll(row.Spelling, \"{dir}\", dir) and t.Setenv(\"CHROME_BIN\", spelling) without checking the result. The skip branch at :100-106 accepts any skip whose message names CHROME_BIN. Overlay run on a 5-row scratch corpus: '--- PASS: TestChromeBinSpellingsCorpus/typo_key_in_a_skip_row', '.../empty_spelling_in_a_skip_row', '.../typo_placeholder_in_a_skip_row'.",
+    "quote": {
+     "path": "internal/testutil/headless/chrome_bin_corpus_test.go",
+     "line": 45,
+     "text": "\tif err := json.Unmarshal(data, &rows); err != nil {"
+    },
+    "fix": "Decode with json.NewDecoder(bytes.NewReader(data)) and call DisallowUnknownFields(). In the row loop, t.Fatalf when row.Spelling == \"\" or when the expanded spelling still contains \"{\"."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "headless.go:48-69: Browser reads only CHROME_BIN. It skips, naming CHROME_BIN, when CHROME_BIN is unset or empty, names Edge, is missing or is not a regular file. Otherwise it returns the text exactly. There is no Program Files path, and the only other Getenv is HBAND_TEST_ARTIFACTS in Shot. The tests are in default_browser_test.go (exact path; eight skip shapes including HBAND_TEST_BROWSER alone; the no-default check; a real subtest checking Skipped()) and edge_default_test.go (msedge.exe as an existing file, among other Edge shapes). I re-ran all of them on this tree: pass. The full suite passes with CHROME_BIN unset (exit 0)."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "The fix is in headless.go:71-97: isEdge checks namesEdge(p), then namesEdge(filepath.Abs(p)), and Browser returns the raw text. The review's test edge_dot_segments_test.go passes (engine command exit 0). The corpus testdata/chrome_bin_spellings.json, run by chrome_bin_corpus_test.go, passes. A mutant disabling the Abs branch fails 5 review subtests and 10 corpus rows. My own probe of 16 further spellings (\\\\?\\, \\\\.\\ and \\??\\ prefixes, a UNC admin share, ::$DATA, a trailing \\.\\, doubled separators, mixed dots and spaces) found no spelling that os.Stat resolves to msedge.exe and Browser lets through."
+   },
+   {
+    "key": "O-003",
+    "discharged": "no",
+    "evidence": "default_browser_test.go:13-15 still says Browser asks the test for 'Helper, Fatalf'; headless.go never calls Fatalf. It was waived as note N-223 and left to the comment fixer, so I did not re-file it. It is not fixed in this tree."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "The case's named shapes are all still fed in, and the tests pass on this tree:\n- exact path: TestBrowserIsExactlyChromeBin;\n- unset, missing, directory, and HBAND_TEST_BROWSER alone: TestBrowserSkipsUnlessChromeBinNamesAFile;\n- base name msedge.exe, existing: TestBrowserNeverDefaultsToEdge and the corpus 'plain' row;\n- t.Skipped() in a real subtest: TestBrowserSkipEndsTheCallingTest.\n\nThis round adds the Windows dot-segment spellings of an existing msedge.exe. Those are fed by edge_dot_segments_test.go and the corpus's windows_only rows, and the mutant confirms both pin the Abs branch."
+   }
+  ],
+  "matches_design": true,
+  "drift": [
+   "The accepted IN-M1 fix said to normalise with filepath.Abs, 'falling back to filepath.Clean if that fails'. isEdge (headless.go:83-91) has no Clean fallback: when Abs errors it returns false, so only the raw-text check applies. The build did not declare this. I found no consequence. On Windows, Abs errors only on strings GetFullPathName rejects, which os.Stat cannot open either, so Browser skips. On Unix, `msedge.exe/.` does not resolve to the file at all.",
+   "The accepted IN-M1 fix said to fall back to filepath.Clean when filepath.Abs fails. isEdge (headless.go:83-91) returns false instead, and the build did not declare this. I found no input where it matters: on Windows, Abs fails only on strings os.Stat cannot open, so Browser skips."
+  ],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12217,
+   "filed": 1
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 3,
+    "changed": 4,
+    "listed": 1
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 4,
+   "read_whole": 3,
+   "deleted": [],
+   "runs": [
+    12212,
+    12216,
+    12217
+   ],
+   "range": {
+    "base": "789aa8dba8449839545353a8dfd71a031dc7a8c6",
+    "head": "1e2cbce3dd17bb016f5b936b7b8b3ca74f55bcee",
+    "source": "commits",
+    "hunk_base": "31c388c828919a84329b09191381d98d6e3c9e8f",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [
+    {
+     "path": "internal/testutil/headless/headless.go",
+     "state": "partly-opened",
+     "section": "lines 71-128, 130-213 of 213",
+     "reason": "a Read returned only part of it; seen only as 10 Grep lines (before the build); seen only through a shell command: $s (before the build), git log, git show (before the build); 123 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 213,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

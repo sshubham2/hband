@@ -1,0 +1,103 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-014",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-25T10:47:38.428Z",
+ "head": "31c388c828919a84329b09191381d98d6e3c9e8f",
+ "run_id": 12209,
+ "summary": "headless.Browser now takes the browser from CHROME_BIN only. It returns that path exactly when it names an existing regular file that is not Edge. Otherwise it calls Skip/Skipf with a message naming CHROME_BIN and returns \"\": unset, empty, missing path, directory, Edge by file name, and HBAND_TEST_BROWSER set alone. I removed defaultBrowsers, both Program Files paths and the HBAND_TEST_BROWSER read; HBAND_TEST_ARTIFACTS stays because it only copies screenshots. default_browser_test.go and edge_default_test.go are rewritten with a recording testing.TB plus one real-subtest check that Skip stops the caller and reports it skipped. Against the old code the new tests failed on every skip case and on the exact-path case. Now they pass, and `go test -count=1 ./...` passes with CHROME_BIN unset (TestReportScriptsNeverRun skips) and set (it runs real Chrome).",
+ "payload": {
+  "status": "complete",
+  "summary": "headless.Browser now takes the browser from CHROME_BIN only. It returns that path exactly when it names an existing regular file that is not Edge. Otherwise it calls Skip/Skipf with a message naming CHROME_BIN and returns \"\": unset, empty, missing path, directory, Edge by file name, and HBAND_TEST_BROWSER set alone. I removed defaultBrowsers, both Program Files paths and the HBAND_TEST_BROWSER read; HBAND_TEST_ARTIFACTS stays because it only copies screenshots. default_browser_test.go and edge_default_test.go are rewritten with a recording testing.TB plus one real-subtest check that Skip stops the caller and reports it skipped. Against the old code the new tests failed on every skip case and on the exact-path case. Now they pass, and `go test -count=1 ./...` passes with CHROME_BIN unset (TestReportScriptsNeverRun skips) and set (it runs real Chrome).",
+  "files": [
+   {
+    "path": "internal/testutil/headless/headless.go",
+    "change": "modified",
+    "why": "Browser reads CHROME_BIN only, refuses Edge by name, skips naming CHROME_BIN otherwise; defaultBrowsers and the HBAND_TEST_BROWSER read removed; package comment updated; isEdge helper added"
+   },
+   {
+    "path": "internal/testutil/headless/default_browser_test.go",
+    "change": "modified",
+    "why": "rewritten to assert the CHROME_BIN-only rule: exact path returned, eight skip shapes with a message naming CHROME_BIN, no default browser when unset, Skip really ends the calling test; adds the recorder TB and helpers"
+   },
+   {
+    "path": "internal/testutil/headless/edge_default_test.go",
+    "change": "modified",
+    "why": "rewritten to assert that a CHROME_BIN naming Edge (msedge.exe, upper case, no extension, microsoft-edge, a missing path) is refused with a skip naming CHROME_BIN and no path returned"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "TestBrowserSkipsUnlessChromeBinNamesAFile feeds eight shapes (CHROME_BIN unset, empty, missing path, directory, and four with HBAND_TEST_BROWSER set to an existing or missing path) and asserts a skip, no returned path and 'CHROME_BIN' in the message. TestBrowserIsExactlyChromeBin asserts the exact path comes back even with HBAND_TEST_BROWSER set. TestBrowserNeverDefaultsToEdge asserts the Edge shapes skip. TestDefaultBrowserIsNeverEdge asserts unset means no default, although this PC has Chrome and Edge in their standard places. TestBrowserSkipEndsTheCallingTest uses a real subtest and checks Skipped(). None of them starts a browser. Criterion 6 is shown by behaviour, not by grepping source (lesson #14). Run before the fix: all of them failed; after: all pass.",
+    "mutation": {
+     "file": "internal/testutil/headless/headless.go",
+     "find": "p := os.Getenv(\"CHROME_BIN\")",
+     "replace": "p := os.Getenv(\"HBAND_TEST_BROWSER\")",
+     "test_command": "go test -count=1 -run ^TestBrowserIsExactlyChromeBin$ ./internal/testutil/headless/"
+    }
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "github.com/sshubham2/hband/internal/testutil/headless.TestBrowserSkipsUnlessChromeBinNamesAFile",
+    "test_command": "go test -count=1 -run ^TestBrowserSkipsUnlessChromeBinNamesAFile$ ./internal/testutil/headless/"
+   }
+  ],
+  "mandatory": [],
+  "deviations": [
+   "No settings checkbox or on-screen notice was built for the Edge refusal or the CHROME_BIN-only rule. The standing workaround rule is written for an app with settings. This is a test-only helper with no settings or UI, and the owner's rule (restated by the engine for this machine) is that Edge is never started. A switch to turn the refusal off would contradict it. Edge's first-run behaviour (signing the profile in to the Windows Microsoft account and importing old browsing history) is an outside defect, and the skip message states it in plain words next to the skipped result.",
+   "Edge refusal matches a lower-cased base name containing 'msedge' or 'microsoft-edge', wider than the design's literal msedge.exe, so msedge without .exe, MSEDGE.EXE and the Linux package name are refused too. The check runs before the file lookup, so a missing Edge path is also refused by name."
+  ],
+  "not_built": [
+   "README.md:82-87 and :108 still describe HBAND_TEST_BROWSER and the two Program Files paths. That is documentation, which is outside slice work; the code is what is true.",
+   "tests/acceptance/run_finish.py (BROWSER_PATH regex at :70, edge_risk at :105-121), check_run_finish_needs_chrome_bin.py and test_run_finish_edge_guard.py are a different kind of change: a guard on browser paths inside ledger finish bodies, not a browser picker for Go tests. SC-043 deletes them, so I left them alone.",
+   "The approved ledger finish body for E-004 line 2 (test_e004_2, Q-028) hard-codes an msedge fallback and ignores CHROME_BIN. It lives only in the ledger, not in the tree, and no slice code can change it. .taad/slices/SL-008/run_finish_e004_2.py already follows the CHROME_BIN-only rule."
+  ],
+  "follow_ups": [
+   "The project's recorded testing stack still says 'otherwise the default Edge path is used' and names HBAND_TEST_BROWSER as a test setting. Both are now untrue: the browser comes from CHROME_BIN only, and CHROME_BIN is not an HBAND_TEST_* name. The record needs the edit; it is not in this repository, so I could not make it.",
+   "Repository search for other browser pickers (C8): Go has exactly one, headless.go, fixed here; its only caller is internal/server/browser_test.go:151, which needed no change. No CI files or shell scripts are tracked. The only other hits are README.md (stale docs), the three Python files under tests/acceptance (SC-043) and the SL-008 scratch runner, which already conforms.",
+   "The README's browser-test paragraph needs correcting outside slice work, since it now describes the old variables."
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -v ./internal/testutil/headless/ (against the OLD headless.go, new tests written first)",
+    "outcome": "failed",
+    "note": "Expected failure: every skip shape returned a path or failed, e.g. CHROME_BIN unset returned C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe; TestBrowserIsExactlyChromeBin got HBAND_TEST_BROWSER's file; HBAND_TEST_BROWSER pointing at a missing file hit Fatalf; Edge shapes returned Chrome."
+   },
+   {
+    "command": "go test -count=1 -v ./internal/testutil/headless/",
+    "outcome": "passed",
+    "note": "All 5 top-level tests and every subtest pass; the real-subtest case shows --- SKIP naming CHROME_BIN."
+   },
+   {
+    "command": "CHROME_BIN and HBAND_TEST_BROWSER removed: go test -count=1 -v -run TestReportScriptsNeverRun ./internal/server/",
+    "outcome": "passed",
+    "note": "--- SKIP: TestReportScriptsNeverRun (0.00s), 'browser_test.go:151: CHROME_BIN is not set: set it to the path of a Chrome executable (not Edge) to run this check'. Before this change the same run started Chrome and passed in 6 s."
+   },
+   {
+    "command": "CHROME_BIN and HBAND_TEST_BROWSER removed: go test -count=1 ./...",
+    "outcome": "passed",
+    "note": "All 12 packages with tests ok, exit 0; internal/server 10.9 s with the browser test skipped."
+   },
+   {
+    "command": "CHROME_BIN=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe: go test -count=1 -v -run TestReportScriptsNeverRun ./internal/server/ (the real entry point, real browser)",
+    "outcome": "passed",
+    "note": "Ran real Chrome from CHROME_BIN: W4/W4b red=805759, W3 and W1 green >800k, as expected. msedge process count 5 before and 5 after, so none started. No hband-headless-* folders left in %TEMP%."
+   },
+   {
+    "command": "go vet ./... and go test -count=1 ./... with CHROME_BIN set to Chrome",
+    "outcome": "passed",
+    "note": "vet exit 0; full suite exit 0, every package ok."
+   },
+   {
+    "command": "gofmt -l on LF copies of headless.go, default_browser_test.go, edge_default_test.go (the working tree is CRLF)",
+    "outcome": "passed",
+    "note": "No file listed, exit 0 (lesson #975)."
+   }
+  ]
+ }
+}

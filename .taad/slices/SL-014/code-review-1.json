@@ -1,0 +1,125 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-014",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-25T10:50:29.401Z",
+ "head": "31c388c828919a84329b09191381d98d6e3c9e8f",
+ "run_id": 12212,
+ "summary": "I read all three changed files in full (headless.go, default_browser_test.go, edge_default_test.go), the old versions at 789aa8d, and the only caller (internal/server/browser_test.go:151). They do what SC-041 asks.\n\n**What Browser now does**\n- It reads only CHROME_BIN (headless.go:50).\n- It refuses Edge by its lower-cased base name before any file lookup (:55). This is wider than the design's literal msedge.exe, and the build declared that.\n- It skips when CHROME_BIN is unset or empty (:52), names a missing path (:61), or names something that is not a regular file (:65).\n- Every Skip message names CHROME_BIN and is followed by `return \"\"`. With the recording TB the function therefore returns no path. With a real *testing.T, Skip ends the caller.\n- defaultBrowsers, both Program Files paths and the HBAND_TEST_BROWSER read are gone. The only other Getenv is HBAND_TEST_ARTIFACTS in Shot, which only copies screenshots.\n\n**What I ran** (TAAD3_HOME pointed at a scratch folder)\n- Headless package, CHROME_BIN and HBAND_TEST_BROWSER unset: all 5 top-level tests and 13 subtests pass. The real subtest reports `--- SKIP` with the CHROME_BIN message.\n- TestReportScriptsNeverRun, unset: `--- SKIP`, `browser_test.go:151: CHROME_BIN is not set ...`.\n- Full suite `go test -count=1 ./...`, unset: exit 0, every package ok.\n- `go vet ./...`: exit 0.\n- gofmt on true LF copies of the three HEAD blobs: clean. A first attempt wrote CRLF through Out-File and wrongly listed all three files; redone with WriteAllText.\n- TestReportScriptsNeverRun with CHROME_BIN set to Chrome: PASS in 7.04 s, with real Chrome red/green counts. msedge process count was 5 before and 5 after, and no hband-headless-* folders were left in %TEMP%.\n- Fitness op=check: all 35 rules hold.\n\n**Mutation check** (`go test -overlay`, nothing written to the tree): every mutant was killed by the named tests.\n- M1, a hard-coded Chrome fallback when unset: killed by the unset/empty subtests, TestDefaultBrowserIsNeverEdge and TestBrowserSkipEndsTheCallingTest. It is only caught because Chrome is installed at the standard path on this machine, which is the shape criterion 2 names.\n- M2, no Edge check: killed by 4 Edge subtests.\n- M3, no regular-file check: killed by the directory subtest.\n- M4, fallback to HBAND_TEST_BROWSER: killed by the existing-HBAND_TEST_BROWSER subtests.\n- M5, a skip message that does not name CHROME_BIN: killed by the directory subtest.\n- M6, an exact-msedge.exe-only Edge check: killed by the no-extension and Linux-name subtests.\n- M7, the whole old headless.go: killed by the exact-path test and every skip shape.\n\n**Contracts I checked**\n- The caller passes a real *testing.T and never uses the \"\" return.\n- Every test that touches CHROME_BIN or HBAND_TEST_BROWSER does so through t.Setenv, either directly or via setEnv, which calls t.Setenv first and then Unsetenv. So the machine's value is restored after each test.\n- No test execs anything.\n\n**Repository search (C8)** matches the build's account:\n- README.md:83-84 and :108 still describe the old variables. That is documentation, not slice work.\n- tests/acceptance/run_finish.py, test_run_finish_edge_guard.py and check_run_finish_needs_chrome_bin.py guard Edge paths inside ledger finish bodies. That is a different kind of change, left for SC-043.\n- No other Go code picks a browser.\n\n**Other notes**\n- The conflict with the recorded testing stack is real: it names HBAND_TEST_* settings and an Edge default. The design requires the change and the build declared the conflict as a follow-up, so I filed no finding for it.\n- The only thing I filed is one stale test comment.\n\nSecond reader, for inputs: I read the inputs of headless.Browser and isEdge, the only code this slice changed, and ran probes injected with `go test -overlay`, so the repository was not written to. The design's input shapes all behave as designed: unset, empty, missing path, directory, msedge.exe, MSEDGE.EXE, msedge with no extension, microsoft-edge, and HBAND_TEST_BROWSER set alone. One family gets past the Edge refusal on Windows. isEdge decides on the path's last text element (filepath.Base(p)), but Windows resolves \".\" and \"..\" by text before it opens the file. So CHROME_BIN=<dir>\\msedge.exe\\. (also \\.\\., \\x\\.., /. and \"msedge.exe \\.\") is not refused. os.Stat finds msedge.exe as a regular file, and Browser returns the path without skipping. I checked separately that exec.Command runs a path of this form: `C:\\Windows\\System32\\cmd.exe\\.` and `cmd.exe\\x\\..` both ran cmd.exe. So Shot would start Edge, which the owner's rule and the design's \"a file whose base name is msedge.exe\" case both forbid. Fix: make isEdge decide on filepath.Abs(p), which on Windows calls GetFullPathName, the same resolution CreateProcess uses. With that fix in an overlay, the repro passes and so does the whole package. No other input shape I built broke the code. Files I read whole: internal/testutil/headless/headless.go, default_browser_test.go and edge_default_test.go.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "I read all three changed files in full (headless.go, default_browser_test.go, edge_default_test.go), the old versions at 789aa8d, and the only caller (internal/server/browser_test.go:151). They do what SC-041 asks.\n\n**What Browser now does**\n- It reads only CHROME_BIN (headless.go:50).\n- It refuses Edge by its lower-cased base name before any file lookup (:55). This is wider than the design's literal msedge.exe, and the build declared that.\n- It skips when CHROME_BIN is unset or empty (:52), names a missing path (:61), or names something that is not a regular file (:65).\n- Every Skip message names CHROME_BIN and is followed by `return \"\"`. With the recording TB the function therefore returns no path. With a real *testing.T, Skip ends the caller.\n- defaultBrowsers, both Program Files paths and the HBAND_TEST_BROWSER read are gone. The only other Getenv is HBAND_TEST_ARTIFACTS in Shot, which only copies screenshots.\n\n**What I ran** (TAAD3_HOME pointed at a scratch folder)\n- Headless package, CHROME_BIN and HBAND_TEST_BROWSER unset: all 5 top-level tests and 13 subtests pass. The real subtest reports `--- SKIP` with the CHROME_BIN message.\n- TestReportScriptsNeverRun, unset: `--- SKIP`, `browser_test.go:151: CHROME_BIN is not set ...`.\n- Full suite `go test -count=1 ./...`, unset: exit 0, every package ok.\n- `go vet ./...`: exit 0.\n- gofmt on true LF copies of the three HEAD blobs: clean. A first attempt wrote CRLF through Out-File and wrongly listed all three files; redone with WriteAllText.\n- TestReportScriptsNeverRun with CHROME_BIN set to Chrome: PASS in 7.04 s, with real Chrome red/green counts. msedge process count was 5 before and 5 after, and no hband-headless-* folders were left in %TEMP%.\n- Fitness op=check: all 35 rules hold.\n\n**Mutation check** (`go test -overlay`, nothing written to the tree): every mutant was killed by the named tests.\n- M1, a hard-coded Chrome fallback when unset: killed by the unset/empty subtests, TestDefaultBrowserIsNeverEdge and TestBrowserSkipEndsTheCallingTest. It is only caught because Chrome is installed at the standard path on this machine, which is the shape criterion 2 names.\n- M2, no Edge check: killed by 4 Edge subtests.\n- M3, no regular-file check: killed by the directory subtest.\n- M4, fallback to HBAND_TEST_BROWSER: killed by the existing-HBAND_TEST_BROWSER subtests.\n- M5, a skip message that does not name CHROME_BIN: killed by the directory subtest.\n- M6, an exact-msedge.exe-only Edge check: killed by the no-extension and Linux-name subtests.\n- M7, the whole old headless.go: killed by the exact-path test and every skip shape.\n\n**Contracts I checked**\n- The caller passes a real *testing.T and never uses the \"\" return.\n- Every test that touches CHROME_BIN or HBAND_TEST_BROWSER does so through t.Setenv, either directly or via setEnv, which calls t.Setenv first and then Unsetenv. So the machine's value is restored after each test.\n- No test execs anything.\n\n**Repository search (C8)** matches the build's account:\n- README.md:83-84 and :108 still describe the old variables. That is documentation, not slice work.\n- tests/acceptance/run_finish.py, test_run_finish_edge_guard.py and check_run_finish_needs_chrome_bin.py guard Edge paths inside ledger finish bodies. That is a different kind of change, left for SC-043.\n- No other Go code picks a browser.\n\n**Other notes**\n- The conflict with the recorded testing stack is real: it names HBAND_TEST_* settings and an Edge default. The design requires the change and the build declared the conflict as a follow-up, so I filed no finding for it.\n- The only thing I filed is one stale test comment.\n\nSecond reader, for inputs: I read the inputs of headless.Browser and isEdge, the only code this slice changed, and ran probes injected with `go test -overlay`, so the repository was not written to. The design's input shapes all behave as designed: unset, empty, missing path, directory, msedge.exe, MSEDGE.EXE, msedge with no extension, microsoft-edge, and HBAND_TEST_BROWSER set alone. One family gets past the Edge refusal on Windows. isEdge decides on the path's last text element (filepath.Base(p)), but Windows resolves \".\" and \"..\" by text before it opens the file. So CHROME_BIN=<dir>\\msedge.exe\\. (also \\.\\., \\x\\.., /. and \"msedge.exe \\.\") is not refused. os.Stat finds msedge.exe as a regular file, and Browser returns the path without skipping. I checked separately that exec.Command runs a path of this form: `C:\\Windows\\System32\\cmd.exe\\.` and `cmd.exe\\x\\..` both ran cmd.exe. So Shot would start Edge, which the owner's rule and the design's \"a file whose base name is msedge.exe\" case both forbid. Fix: make isEdge decide on filepath.Abs(p), which on Windows calls GetFullPathName, the same resolution CreateProcess uses. With that fix in an overlay, the repro passes and so does the whole package. No other input shape I built broke the code. Files I read whole: internal/testutil/headless/headless.go, default_browser_test.go and edge_default_test.go.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "claim": "The recorder's doc comment says Browser may call Fatalf on the test (\"Anything else Browser asks of the test (Helper, Fatalf) goes to the real test, so a Fatal still fails it\"). After this slice Browser never calls Fatalf: every refusal is a Skip or Skipf. The comment describes the HBAND_TEST_BROWSER Fatalf path that this change removed, and suggests to a reader that Browser can still fail a test.",
+    "file": "internal/testutil/headless/default_browser_test.go",
+    "line": 13,
+    "end_line": 15,
+    "evidence": "default_browser_test.go:13-15 against headless.go:48-69, where Browser calls only Helper, Skip and Skipf.",
+    "quote": {
+     "path": "internal/testutil/headless/default_browser_test.go",
+     "line": 14,
+     "text": "// Browser asks of the test (Helper, Fatalf) goes to the real test, so a Fatal"
+    },
+    "fix": "Reword to say that anything other than Skip, Skipf and SkipNow (such as Helper) goes to the real test, and drop the Fatalf mention."
+   },
+   {
+    "id": "IN-M1",
+    "severity": "major",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": "internal/testutil/headless/headless.go",
+    "line": 74,
+    "end_line": 77,
+    "claim": "isEdge only checks the last text element of CHROME_BIN. On Windows, a path ending in a '.' or 'x\\..' segment names msedge.exe itself, so Edge gets past the refusal. Measured on this machine with an empty dummy file <tmp>\\msedge.exe: Browser returned the path without skipping for CHROME_BIN=<tmp>\\msedge.exe\\., \\.\\., \\x\\.., /. and 'msedge.exe \\.'. os.Stat resolves each of these to msedge.exe, a regular file. exec.Command runs the file such a path resolves to: `C:\\Windows\\System32\\cmd.exe\\.` and `cmd.exe\\x\\..` both ran cmd.exe and printed the echo. So CHROME_BIN=C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\\. makes Shot start Edge. That breaks criterion 5 and the design's case that a file whose base name is msedge.exe must be skipped.",
+    "evidence": "headless.go:55 `if isEdge(p) {` and :75 `base := strings.ToLower(filepath.Base(p))`; filepath.Base(`...\\msedge.exe\\.`) is \".\". Overlay probe TestReviewProbeEdgeSpellings: `msedge.exe\\.` gave got=<path> skipped=false. `exec cmd.exe\\. -> \"ran-through-dot-path\\r\\n\" err=<nil>`.",
+    "quote": {
+     "path": "internal/testutil/headless/headless.go",
+     "line": 75,
+     "text": "\tbase := strings.ToLower(filepath.Base(p))"
+    },
+    "fix": "In isEdge, resolve the path the way the OS will before taking its base name: `if a, err := filepath.Abs(p); err == nil { p = a }`, then `base := strings.ToLower(filepath.Base(p))`. On Windows, filepath.Abs calls GetFullPathName, the same normalisation CreateFile and CreateProcess apply. Keep returning the CHROME_BIN text unchanged. With this change in an overlay, the repro and the whole package pass.",
+    "class_of": "path spellings whose last text element is not the file the OS opens",
+    "threat": "accident",
+    "repro": {
+     "path": "internal/testutil/headless/edge_dot_segments_test.go",
+     "body": "package headless\n\nimport (\n\t\"fmt\"\n\t\"os\"\n\t\"path/filepath\"\n\t\"runtime\"\n\t\"strings\"\n\t\"testing\"\n)\n\n// dotRecorder stands in for the calling test so the skip can be observed.\ntype dotRecorder struct {\n\ttesting.TB\n\tskipped bool\n\tmsg     string\n}\n\nfunc (r *dotRecorder) Skip(args ...any) { r.skipped = true; r.msg = fmt.Sprint(args...) }\nfunc (r *dotRecorder) Skipf(format string, args ...any) {\n\tr.skipped = true\n\tr.msg = fmt.Sprintf(format, args...)\n}\nfunc (r *dotRecorder) SkipNow() { r.skipped = true }\n\n// Windows resolves \".\" and \"..\" in a path by its text, so C:\\...\\msedge.exe\\.\n// names msedge.exe itself: os.Stat finds it and exec starts it. Browser must\n// refuse it as Edge, as it refuses ...\\msedge.exe. Nothing is started here.\nfunc TestBrowserRefusesEdgeBehindDotSegments(t *testing.T) {\n\tif runtime.GOOS != \"windows\" {\n\t\tt.Skip(\"only Windows resolves msedge.exe\\\\. to the file itself\")\n\t}\n\tedge := filepath.Join(t.TempDir(), \"msedge.exe\")\n\tif err := os.WriteFile(edge, nil, 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tshapes := map[string]string{\n\t\t\"trailing dot\":       edge + `\\.`,\n\t\t\"two trailing dots\":  edge + `\\.\\.`,\n\t\t\"up and back\":        edge + `\\x\\..`,\n\t\t\"slash dot\":          edge + `/.`,\n\t\t\"space before slash\": edge + ` \\.`,\n\t}\n\tfor name, p := range shapes {\n\t\tt.Run(name, func(t *testing.T) {\n\t\t\tt.Setenv(\"CHROME_BIN\", p)\n\t\t\tr := &dotRecorder{TB: t}\n\t\t\tgot := Browser(r)\n\t\t\tif !r.skipped || got != \"\" {\n\t\t\t\tt.Fatalf(\"CHROME_BIN=%q names msedge.exe, yet Browser returned %q without skipping\", p, got)\n\t\t\t}\n\t\t\tif !strings.Contains(r.msg, \"CHROME_BIN\") {\n\t\t\t\tt.Fatalf(\"the skip message does not name CHROME_BIN: %q\", r.msg)\n\t\t\t}\n\t\t})\n\t}\n}\n",
+     "command": "go test -count=1 -run TestBrowserRefusesEdgeBehindDotSegments ./internal/testutil/headless/"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "Code: internal/testutil/headless/headless.go:48-69. Browser reads only CHROME_BIN, refuses Edge by name (isEdge at :74-77), skips naming CHROME_BIN on unset or empty, missing path and non-regular file, and returns exactly p otherwise. The package has no 'Program Files' path, and no Getenv other than CHROME_BIN and HBAND_TEST_ARTIFACTS (Shot, :134).\n\nTests:\n- TestBrowserIsExactlyChromeBin (default_browser_test.go:58-71): exact path returned while HBAND_TEST_BROWSER names another existing file.\n- TestBrowserSkipsUnlessChromeBinNamesAFile (:78-113): unset, empty, missing, directory, and 4 HBAND_TEST_BROWSER shapes. Each asserts skipped, an empty return and CHROME_BIN in the message.\n- TestDefaultBrowserIsNeverEdge (:118-130).\n- TestBrowserSkipEndsTheCallingTest (:133-149): a real subtest, checking Skipped() and that the caller is not reached.\n- TestBrowserNeverDefaultsToEdge (edge_default_test.go:15-45): msedge.exe as an existing file, upper case, no extension, the Linux name, and a missing msedge.exe.\n\nI re-ran all of them: pass. Each of 7 mutants, including the old headless.go, fails them. `go test -count=1 ./...` exits 0 with CHROME_BIN unset."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "default_browser_test.go and edge_default_test.go feed every shape the case names:\n- exact path: TestBrowserIsExactlyChromeBin, CHROME_BIN = fileIn(t, \"my-chrome.exe\");\n- unset: setEnv with unset=true, then os.Unsetenv;\n- missing path: filepath.Join(dir, \"no-such-chrome.exe\");\n- directory: dir;\n- base name msedge.exe: fileIn(t, \"msedge.exe\"), an existing file;\n- HBAND_TEST_BROWSER naming an existing file with CHROME_BIN unset: fileIn(t, \"old.exe\").\n\nA recording testing.TB captures the Skip message and the return value, and one real subtest checks Skipped(). The unset shape runs on a machine where Chrome and Edge sit at their standard paths: C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe exists. So the no-default rule is fed the shape criterion 2 names, and a hard-coded-fallback mutant was killed. Every code branch (empty, isEdge, Stat error, !IsRegular, success) is fed by at least one subtest."
+   }
+  ],
+  "matches_design": true,
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12213,
+   "filed": 1,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 3,
+    "changed": 3,
+    "listed": 0
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 3,
+   "read_whole": 3,
+   "deleted": [],
+   "runs": [
+    12212,
+    12213
+   ],
+   "range": {
+    "base": "789aa8dba8449839545353a8dfd71a031dc7a8c6",
+    "head": "31c388c828919a84329b09191381d98d6e3c9e8f",
+    "source": "commits",
+    "hunk_base": "789aa8dba8449839545353a8dfd71a031dc7a8c6",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [],
+   "notes": []
+  }
+ }
+}
