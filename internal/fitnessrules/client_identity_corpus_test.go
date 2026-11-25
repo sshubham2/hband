@@ -28,8 +28,9 @@ type headerCorpus struct {
 
 // loadHeaderCorpus reads testdata/client_identity_headers.json and refuses a
 // row that would test nothing: an unknown key, an empty field, a name that is
-// not one bare header name (a quote, a space or a placeholder left in it), a
-// repeated id or a name repeated in the same letter case.
+// not one bare header name (a quote, a space or a placeholder left in it), an
+// expect other than fire, quiet or hole, a repeated id or a name repeated in the
+// same letter case. It also refuses a corpus whose purpose or bounded_by is empty.
 func loadHeaderCorpus(t *testing.T) headerCorpus {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("testdata", "client_identity_headers.json"))
@@ -72,7 +73,9 @@ func loadHeaderCorpus(t *testing.T) headerCorpus {
 
 // TestClientIdentityHeaderCensus runs every name of the census through the
 // narrow forwarded-header rule, in both quote styles and three contexts, at the
-// resolver's own file and at an ordinary one.
+// resolver's own file and at an ordinary one. Every name that must fire is also
+// run at a _test.go path, where the rule must stay quiet. It then fails if the
+// census has lost a name it must hold or has fewer rows of a kind than it had.
 func TestClientIdentityHeaderCensus(t *testing.T) {
 	rules := loadRules(t, repoRoot(t))
 	narrow, ok := rules[narrowRuleName]

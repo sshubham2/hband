@@ -3,9 +3,12 @@ package fitnessrules
 import "testing"
 
 // TestForwardedFenceCatchesBareAndVersionedNames: X-Forwarded, Cf-Pseudo-IPv4 and
-// CF-Connecting-IPv6 are client-identity headers that real-IP libraries read
-// (request-ip, ipware). The rule that no Go file names a forwarded header other
-// than X-Forwarded-For must fire on each of them outside test files.
+// CF-Connecting-IPv6 are client-identity headers: request-ip and django-ipware
+// read X-Forwarded, request-ip reads Cf-Pseudo-IPv4, and Cloudflare adds both
+// Cloudflare names. The rule that no Go file names a forwarded header other
+// than X-Forwarded-For must fire on each of them, in either quote style, at an
+// ordinary non-test file (internal/server/reader.go), while X-Forwarded-For
+// stays quiet at internal/server/clientaddr.go.
 func TestForwardedFenceCatchesBareAndVersionedNames(t *testing.T) {
 	rules := loadRules(t, repoRoot(t))
 	narrow, ok := rules["no Go file names a forwarded header other than X-Forwarded-For"]
