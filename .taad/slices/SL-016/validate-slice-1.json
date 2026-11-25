@@ -1,0 +1,37 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-016",
+ "stage": "validate-slice",
+ "attempt": 1,
+ "at": "2026-11-25T19:18:09.348Z",
+ "head": "803aed21e61f25996292659a74fe3c7690240397",
+ "run_id": null,
+ "summary": "Validated by the engine on the minor lane: the full suite, the fitness rules and the bug catalog all passed in the slice's own tree. No model ran; nothing opened the application.",
+ "payload": {
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "Validated by the engine on the minor lane: the full suite, the fitness rules and the bug catalog all passed in the slice's own tree. No model ran; nothing opened the application.",
+  "checks": [
+   {
+    "what": "the project's full test suite",
+    "command": "go test -count=1 ./...",
+    "outcome": "passed",
+    "evidence": "ok  \tgithub.com/sshubham2/hband/cmd/hband\t7.074s\nok  \tgithub.com/sshubham2/hband/internal/auth\t0.209s\nok  \tgithub.com/sshubham2/hband/internal/comments\t6.591s\nok  \tgithub.com/sshubham2/hband/internal/config\t0.453s\nok  \tgithub.com/sshubham2/hband/internal/feedback\t1.982s\nok  \tgithub.com/sshubham2/hband/internal/fitnessrules\t2.498s\nok  \tgithub.com/sshubham2/hband/internal/opens\t1.390s\nok  \tgithub.com/sshubham2/hband/internal/reports\t5.678s\nok  \tgithub.com/sshubham2/hband/internal/server\t22.012s\nok  \tgithub.com/sshubham2/hband/internal/store\t1.758s\n?   \tgithub.com/sshubham2/hband/internal/testutil/e002row\t[no test files]\nok  \tgithub.com/sshubham2/hband/internal/testutil/fakegithub\t1.137s\nok  \tgithub.com/sshubham2/hband/internal/testutil/headless\t2.954s\n?   \tgithub.com/sshubham2/hband/internal/testutil/outside\t[no test files]\nok  \tgithub.com/sshubham2/hband/internal/testutil/program\t12.195s\nok  \tgithub.com/sshubham2/hband/internal/votes\t10.026s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e001_1_owner_only_admin\t4.251s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e001_2_publish_and_read\t5.407s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e001_3_hidden_and_deleted\t7.606s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e001_4_replace_keeps_date\t6.309s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e001_5_upload_refusals\t3.759s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e001_6_report_isolation\t3.703s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e002_1_show_all_lists_published\t8.183s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e002_2_show_all_row_numbers\t4.406s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e002_3_opens_counted_once\t4.713s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e002_4_proxy_visitors_hashed\t4.151s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e003_1_sign_in_and_vote\t4.864s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e004_1_comments_and_replies\t6.638s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e004_2_deep_threads_and_toggle\t14.639s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e005_1_private_feedback\t4.869s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e006_1_removal_and_placeholders\t4.996s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/e006_2_blocking_and_unblocking\t4.888s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/ported\t2.323s\nok  \tgithub.com/sshubham2/hband/tests/acceptance/suite\t0.315s"
+   },
+   {
+    "what": "the fitness rules",
+    "outcome": "passed",
+    "evidence": "pass: 40 rule(s) checked"
+   },
+   {
+    "what": "the bug catalog",
+    "outcome": "passed",
+    "evidence": "empty: 0 rows / 0 PASS"
+   }
+  ],
+  "not_reached": [
+   "the running application -- a minor-lane batch is judged by its tests, not by using it"
+  ],
+  "obligations": []
+ }
+}
