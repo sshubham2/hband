@@ -1,0 +1,121 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-014",
+ "title": "Make internal/testutil/headless take the browser from CHROME_BIN only (refusing Edge) and skip with a message naming CHROME_BIN otherwise",
+ "status": "active",
+ "branch": "slice/SL-014",
+ "opened_at": "2026-11-25T10:40:50.684Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "C1 (from HOW 1): with CHROME_BIN set to an existing browser executable, the helper returns and starts exactly that file: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C2 (from HOW 2 and WHY): with CHROME_BIN unset, the calling test is skipped (testing's Skip) with a message naming CHROME_BIN, even with Chrome or Edge installed in a standard place: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C3 (from HOW 3): with CHROME_BIN set to a path that is not an existing file, the test is skipped with a message: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C4 (from HOW 4 and WHAT): with HBAND_TEST_BROWSER set and CHROME_BIN unset, the test still skips: no fallback to any other variable or browser: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C5 (from title and HOW 5): Edge is never started, even when installed, and the helper refuses Edge: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C6 (from HOW 6 and WHAT): the helper's source holds no hard-coded browser install path and no read of any browser-path variable other than CHROME_BIN: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C7 (from HOW 7): default_browser_test.go and edge_default_test.go assert the CHROME_BIN-only rule, and `go test -count=1 ./...` passes with CHROME_BIN unset on a machine with no browser: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "C8 (from WHAT): search the whole repository (scripts, docs, CI) for other places that pick a browser path, report them, fix the ones that are the same defect, and name the ones that are a different kind of change: missing"
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T10:47:36.669Z",
+     "head": "789aa8dba8449839545353a8dfd71a031dc7a8c6",
+     "summary": "Composed by the engine from the slice manager's verdict on SC-041 (review 1188): it judged the change clear from the candidate and the code, size XS, so there was nothing for a tournament to choose between.",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T10:47:37.150Z",
+     "head": "789aa8dba8449839545353a8dfd71a031dc7a8c6",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T10:47:37.519Z",
+     "head": "789aa8dba8449839545353a8dfd71a031dc7a8c6",
+     "summary": "",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}
