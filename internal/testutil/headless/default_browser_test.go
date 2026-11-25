@@ -10,9 +10,9 @@ import (
 
 // recorder stands in for the calling test. Skip on a real *testing.T ends the
 // calling goroutine, so a test could not look at the message or at what Browser
-// returned; here Skip is only written down and Browser returns. Anything else
-// Browser asks of the test (Helper, Fatalf) goes to the real test, so a Fatal
-// still fails it.
+// returned; here Skip, Skipf and SkipNow are only written down and Browser
+// returns. Anything other than those (Helper) goes to the real test. Browser
+// never fails a test: every refusal is a skip.
 type recorder struct {
 	testing.TB
 	skipped bool
@@ -114,7 +114,7 @@ func TestBrowserSkipsUnlessChromeBinNamesAFile(t *testing.T) {
 
 // There is no default browser: with CHROME_BIN unset Browser picks none, Edge
 // least of all, even when this machine has Edge or Chrome in its standard
-// place. Browser only looks the path up here; nothing is started.
+// place. With CHROME_BIN unset Browser looks no path up, and nothing is started.
 func TestDefaultBrowserIsNeverEdge(t *testing.T) {
 	setEnv(t, "CHROME_BIN", "", true)
 	setEnv(t, "HBAND_TEST_BROWSER", "", true)
