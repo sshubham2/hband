@@ -1,0 +1,419 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-015",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-25T13:55:40.846Z",
+ "head": "845585a20063a58ee07c2eed632964af72dada2f",
+ "run_id": 12261,
+ "summary": "The design is mostly sound, and its main factual claims about the tree check out. I read them in place. cmd/hband's helpers (buildBinary, startProcIn, rewrite) are package-main test code that nothing else can import. TestBrowserSkipEndsTheCallingTest really skips a real 'caller' subtest (default_browser_test.go:133-149), so in a Chrome run it does print a SKIP that names CHROME_BIN. isEdge checks the text and its Abs and nothing else. fakegithub has SetUser and SetRedirectURI. No testutil package imports the product. The bot token list holds both 'python' and 'go-http', so a Go Visitor and Python urllib count opens the same way. There is no upgrade-insecure-requests or HSTS, so the loopback-http browser run cannot be broken by those.\n\nThree majors stop it from being clean:\n- **M1.** The C4 completeness guard is circular. The builder writes the per-source Assertions count from the same read as the rows. The one independent check is given to this critique, which runs before any edition or table exists. The design's own list for run_finish_e004_2.py, a file it did read, already leaves out exit sites, and nothing would notice.\n- **M2.** Nobody has listed the assertions of the six Python ledger bodies, though the brief asks the designer to. The build-check survey (surveys#198) had ledger access and recorded only approximate counts; it should have quoted each assertion. I have only Read, Glob and Grep, so I could not look at the six bodies myself: that is not the same as finding nothing. The C4 check the repro stage handed to this critique was therefore not made.\n- **M3.** Q-035 is a person's decision: run filepath.EvalSymlinks before the Edge name check. It is not in the tree. The design cites it, adds a second browser launch path behind isEdge, and neither builds the change nor files it.\n\nThe minors:\n- program.go is a non-test file. The existing fitness rule 'the identity provider's endpoints are read only by the config loader' would fire on it, and so would TestRulesHoldOnTheTree under `go test ./...`.\n- The new regex rules leak on the CC-001 spelling variants (a trailing comment, a backquoted string, an unlisted package, single-dash flags), and rule 3 only covers files named devtools*.\n- Visitor has no way to set request headers.\n- The repo-walk self-test races parallel packages and the engine's own writes under .taad.\n- C1 is judged from one run under added load.\n- The breaks test's mark proves the trigger was installed, not that it was hit.\n- runtime.GOROOT is deprecated (checked against pkg.go.dev).\n- SC-044 drops serve_show_all's seed.\n\nAssumed, because the report was thin: the slice brief's WHAT and HOW TO TELL IT IS DONE are the requirement.\n\nNot settled by search: whether GOFLAGS carries -overlay into a nested go build. The results did not address it. Only TestBuildTakesGOFLAGSFromTheEnvironment, which the design puts first, can settle it.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The design is mostly sound, and its main factual claims about the tree check out. I read them in place. cmd/hband's helpers (buildBinary, startProcIn, rewrite) are package-main test code that nothing else can import. TestBrowserSkipEndsTheCallingTest really skips a real 'caller' subtest (default_browser_test.go:133-149), so in a Chrome run it does print a SKIP that names CHROME_BIN. isEdge checks the text and its Abs and nothing else. fakegithub has SetUser and SetRedirectURI. No testutil package imports the product. The bot token list holds both 'python' and 'go-http', so a Go Visitor and Python urllib count opens the same way. There is no upgrade-insecure-requests or HSTS, so the loopback-http browser run cannot be broken by those.\n\nThree majors stop it from being clean:\n- **M1.** The C4 completeness guard is circular. The builder writes the per-source Assertions count from the same read as the rows. The one independent check is given to this critique, which runs before any edition or table exists. The design's own list for run_finish_e004_2.py, a file it did read, already leaves out exit sites, and nothing would notice.\n- **M2.** Nobody has listed the assertions of the six Python ledger bodies, though the brief asks the designer to. The build-check survey (surveys#198) had ledger access and recorded only approximate counts; it should have quoted each assertion. I have only Read, Glob and Grep, so I could not look at the six bodies myself: that is not the same as finding nothing. The C4 check the repro stage handed to this critique was therefore not made.\n- **M3.** Q-035 is a person's decision: run filepath.EvalSymlinks before the Edge name check. It is not in the tree. The design cites it, adds a second browser launch path behind isEdge, and neither builds the change nor files it.\n\nThe minors:\n- program.go is a non-test file. The existing fitness rule 'the identity provider's endpoints are read only by the config loader' would fire on it, and so would TestRulesHoldOnTheTree under `go test ./...`.\n- The new regex rules leak on the CC-001 spelling variants (a trailing comment, a backquoted string, an unlisted package, single-dash flags), and rule 3 only covers files named devtools*.\n- Visitor has no way to set request headers.\n- The repo-walk self-test races parallel packages and the engine's own writes under .taad.\n- C1 is judged from one run under added load.\n- The breaks test's mark proves the trigger was installed, not that it was hit.\n- runtime.GOROOT is deprecated (checked against pkg.go.dev).\n- SC-044 drops serve_show_all's seed.\n\nAssumed, because the report was thin: the slice brief's WHAT and HOW TO TELL IT IS DONE are the requirement.\n\nNot settled by search: whether GOFLAGS carries -overlay into a nested go build. The results did not address it. Only TestBuildTakesGOFLAGSFromTheEnvironment, which the design puts first, can settle it.",
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "major",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "The mapping checker cannot catch an assertion the builder fails to list.\n\nCheck (b) only requires each source's row count to equal its declared Assertions. The builder writes that number from the same in-place read that produces the rows, so an assertion missed in reading is missing from both. The design's reason still says 'the mapping checker then makes it impossible to drop an assertion without the per-source count going red'.\n\nThe one independent check is given to 'the critique has to re-read the bodies in place and compare the recorded sha256 editions'. The critique runs before the build, when no table and no edition exist, so in practice nobody does it. SC-043 compares sha256 only, which proves the text is the same, not that the table is complete.\n\nThe risk is visible already. For run_finish_e004_2.py, a file the designer did read, the design's list names the chrome() exits, the patch checks, the no-Edge check, seed L108/L121/L127, look L221, L245-247 and the watchdog. It leaves out the 'exactly one finish line' exit 4 (L65-67), the 'no epic' exit 2 (L61-63), the 'no ledger' exit 2 (L267-269) and the serve-mode port patch.\n\nThe two imported preconditions fail as follows.\n- Enumerability fails when assertions live in shared Python helpers, in loops, or in stand-in-server threads. The table then undercounts silently.\n- The frozen edition fails when a ledger body is amended after the read. Verbatim rows still pass, because they compare the file with the recorded Edition and not with the ledger, and the design never says what SC-043 does on a mismatch.",
+    "evidence": "Design reason ('The mapping checker then makes it impossible to drop an assertion without the per-source count going red'); the checker's rule (b); the run_finish_e004_2.py sources line; the cross_domain_transfer invariant marked 'fails' ('the checker verifies rows against declared counts, not against the bodies').",
+    "file": ".taad/slices/SL-008/run_finish_e004_2.py",
+    "line": 65,
+    "end_line": 67,
+    "quote": {
+     "path": ".taad/slices/SL-008/run_finish_e004_2.py",
+     "line": 65,
+     "text": "    if len(items) != 1:\n        print(f\"expected exactly one finish line for test_e004_2, found {len(items)}\", file=sys.stderr)\n        sys.exit(4)"
+    },
+    "fix": "Make completeness hold by construction.\n1. Commit each source's text at its Edition under tests/acceptance/ported/testdata/<source>.txt. Use .txt, not .py, so SC-043's no-.py check still holds.\n2. Have check() assert that sha256 of the LF-normalised snapshot equals the Edition.\n3. Have check() find the assertion sites in the snapshot mechanically:\n   - Python: \\bassert\\b, self\\.assert\\w*\\(, self\\.fail\\(, sys\\.exit\\(\n   - Go: t\\.(Fatal|Error)f?\\(\n4. Require exactly one row whose At is each site's line, and drop the hand-written Assertions field.\n5. Assign the in-place SELECT (the ledger body equals the snapshot) to code review, which runs after the build. Make 'mismatch: stop and re-map' SC-043's rule."
+   },
+   {
+    "id": "M2",
+    "severity": "major",
+    "dimension": "drift-from-design",
+    "nature": "required",
+    "claim": "Nobody has listed the assertions of the six Python ledger bodies (epics 41-44). The brief requires it: 'Whoever designs it should read each one first and list every assertion it makes.'\n\nThe design passes the read to the builder. The build-check survey (surveys#198) did read the ledger in place, ran per-body queries (q3.py) and recorded only 'approximate' counts (16/14/15/19/10/23), not the assertions. The repro stage makes this critique responsible for checking that 'every assertion in the 14 ledger finish bodies ... has a Go counterpart'. This critique has only Read, Glob and Grep, and the ledger may be read only through a mode=ro SELECT, so it could not look.\n\nThe result is that every port row for E-003..E-006 will be written and checked only by the builder, and nothing independent has ever seen the source. Lessons #928 and #951 record this exact failure. The stage that should have recorded the assertions is the build check (surveys#198), the one node with ledger access before the design.",
+    "evidence": "Design status reason: 'the six Python ledger bodies (epics 41-44) were not read at design time ... The build-check survey (surveys#198) recorded approximate assertion counts for them, not the assertions themselves'. The repro stage: 'the critique has to check that every assertion ... has a Go counterpart'.",
+    "fix": "Before the build, have a stage with ledger read access record each Python body's assertion sites verbatim (body, line, text), together with the body's sha256. That stage is the build check, or the builder's first step reviewed by code review. This becomes the testdata snapshot that M1's checker parses. Then code review compares the table with that list, not with the builder's own count."
+   },
+   {
+    "id": "M3",
+    "severity": "major",
+    "dimension": "security",
+    "nature": "required",
+    "claim": "Q-035 is a person's decision: 'Add filepath.EvalSymlinks before the name check, refusing Edge if either the written path or the resolved one names Edge', and write the hard-link and renamed-copy limit into the package comment. It is not in the tree. isEdge checks the text and filepath.Abs only, and the package comment does not state the limit.\n\nThe design cites Q-035 as a basis for its browser decisions and re-tiers the slice to high because Open is 'a second code path that starts a browser ... behind a gate that works on an untrusted-shaped string'. Yet it neither adds EvalSymlinks nor files it. Open passes on whatever isEdge accepts, so a CHROME_BIN symlink or shim called chrome.exe that points at msedge.exe starts Edge through both Shot and the new Open. That is the one bypass the person singled out as possible without intent.",
+    "evidence": "Q-035 (decided by a person); the design's key decision on the DevTools driver ('The BROWSER RULE, Q-034 and Q-035 (a person) require ...'); the retier text.",
+    "file": "internal/testutil/headless/headless.go",
+    "line": 83,
+    "end_line": 91,
+    "quote": {
+     "path": "internal/testutil/headless/headless.go",
+     "line": 83,
+     "text": "func isEdge(p string) bool {\n\tif namesEdge(p) {\n\t\treturn true\n\t}\n\tif abs, err := filepath.Abs(p); err == nil {\n\t\treturn namesEdge(abs)\n\t}\n\treturn false\n}"
+    },
+    "fix": "1. In isEdge, add `if r, err := filepath.EvalSymlinks(p); err == nil && namesEdge(r) { return true }` before the final return.\n2. Add a corpus or unit case that symlinks chrome.exe to a file named msedge.exe. Skip it when os.Symlink is not permitted on Windows.\n3. Add one package-comment sentence saying hard links and renamed copies are out of scope because CHROME_BIN is set only by the person."
+   },
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "The fitness rule 'the identity provider's endpoints are read only by the config loader' will fire on the new harness.\n\nThe rule forbids the quoted literals \"HBAND_GITHUB_URL\" and \"HBAND_GITHUB_API_URL\" in every .go file except *_test.go and internal/config/config.go. The design puts those names in internal/testutil/program/program.go, which is not a test file: Start's env contract sets 'HBAND_GITHUB_URL=HBAND_GITHUB_API_URL=fake.URL()', and Options.Env is a map[string]string. Every existing writer uses the map form (cmd/hband/main_test.go:307-308, internal/server/harness_test.go:95-96), and that form matches the rule.\n\nTestRulesHoldOnTheTree checks must_not_match with Go's regexp inside `go test ./...`, and this pattern has no lookahead, so it is enforced there. The suite would then fail C1. The other way out is to spell the name by concatenation, which hollows out the rule.",
+    "evidence": "The design's contract 'program environment and readiness'. TestRulesHoldOnTheTree (internal/fitnessrules/rules_test.go:266). The rule at .taad/fitness.yaml:123-133.",
+    "file": ".taad/fitness.yaml",
+    "line": 132,
+    "end_line": 133,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 132,
+     "text": "    - '**/*_test.go'\n    - internal/config/config.go"
+    },
+    "fix": "Add internal/testutil/program/** (or internal/testutil/**) to that rule's except_files. Add a because-line saying the must_not_import rule keeps testutil out of the binary, so it never reaches config.Load."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "class_of": "import/launch spelling variants that pass the SL-015 regex rules",
+    "threat": "accident",
+    "claim": "The five new architecture rules leak on the CC-001 variants, and two of them hold only because the builder remembers.\n- **Rules 1 and 2.** The grouped-import pattern needs end-of-line straight after the closing quote, so `\"github.com/sshubham2/hband/internal/store\" // seed` passes. A backquoted import path is legal Go and passes both patterns. The product list is closed (auth|comments|config|feedback|opens|reports|server|store|votes), so the next internal/<pkg> is not covered.\n- **Rule 4.** `os.Getenv(`CHROME_BIN`)` passes, and so do os.Environ() scans. Chromium on Windows also takes '-' and '/' switch prefixes (recalled), so \"-headless\" passes, as do \"--remote-debugging-pipe\", \"--\"+\"headless\", and 'chromium' or 'chrome' without .exe.\n- **Rule 3.** Its glob devtools*.go covers only files the builder remembers to name that way: a ws.go is unchecked.\n\nNone of the because texts names these known holes, which goes against #931.",
+    "evidence": "The design's architecture_rules, already appended to .taad/fitness.yaml:514-565. CC-001.",
+    "file": ".taad/fitness.yaml",
+    "line": 547,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 547,
+     "text": "    - \\b(?:Getenv|LookupEnv)\\(\\s*\"(?:CHROME_BIN|HBAND_TEST_BROWSER)\""
+    },
+    "fix": "1. Back rules 1 and 2 with a by-construction test in tests/acceptance/ported. It runs `go list -deps -test ./tests/acceptance/... ./internal/testutil/...` and fails on any github.com/sshubham2/hband/ package outside internal/testutil/. This catches comments, raw strings, aliases, transitive links and future packages. Keep the regex as a tripwire.\n2. Widen rule 3's files to internal/testutil/headless/*.go, except headless.go and *_test.go.\n3. In rule 4, accept [\"`] quoting and the (?:-{1,2}|/) prefixes, and add remote-debugging-pipe.\n4. List the remaining holes in each because."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "claim": "The Visitor contract cannot send request headers. Post(t, path, url.Values), Get and Upload take none.\n\nQ-019 records that the Python posts carry 'the CSRF and Origin headers it builds'. A ported 'cross-origin POST is refused' check needs Origin or Sec-Fetch-Site. The design's own amendment path for E-002 seeds opens 'through a browser User-Agent plus X-Forwarded-For from trusted 127.0.0.1'.\n\nThe builder must then bypass Visitor or grow it ad hoc. Naming X-Forwarded-For in visitor.go, a non-test file, trips the fitness rule 'no request header ever supplies scheme, host or client identity', which excepts only *_test.go and clientaddr.go.",
+    "evidence": "The design's Visitor contract; its E-001/E-002 component ('opens through a browser User-Agent plus X-Forwarded-For'); Q-019.",
+    "file": ".taad/fitness.yaml",
+    "line": 11,
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 11,
+     "text": "    - (?i)[\"`](x-forwarded-[a-z-]+|x-real-ip|forwarded)[\"`]"
+    },
+    "fix": "Give Get, Post and Upload an optional http.Header argument, or add Do(t, *http.Request) Page. Header names then stay in the _test.go callers and visitor.go names none."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "claim": "TestStartLeavesNothingInTheRepository can fail falsely. It walks the whole module root (.git aside) before and after its subtest, while `go test ./...` runs the other packages in parallel.\n\nAnything else that writes into the tree in that window turns C1's one command red without a cause in this package. Examples: the engine's records under .taad/slices/SL-015, an unamended E-001/E-002 body that makes a data dir beside itself, or a __pycache__.",
+    "evidence": "The design's harness self-tests component: 'walks the module root's files (.git aside) before and after a t.Run subtest'.",
+    "fix": "Assert structurally instead. Build and Start check every folder they create with filepath.Rel against the `go env GOMOD` directory, and Fatalf if it is inside. If a walk is kept, limit it to cmd/, internal/ and tests/, and ignore .taad."
+   },
+   {
+    "id": "m5",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "The design adds about 16 acceptance packages, each building and starting hband, to `go test ./...`. Their no-t.Parallel rule only stops parallelism inside a package; across packages they still run alongside internal/votes' TestConcurrentVotesNoBusy, which #987 records flaking under -p 4 load. C1's case check is a single run, so one green run says little about C1 under the new load.",
+    "evidence": "The design's key decision 'Acceptance packages use no t.Parallel' and its rationale citing #987; the C1 case check.",
+    "fix": "Make the C1 case run the suite three times and report a SQLITE_BUSY failure in TestConcurrentVotesNoBusy separately from an acceptance failure."
+   },
+   {
+    "id": "m6",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "defect",
+    "claim": "The breaks test's mark file does not draw the distinction the design gives it.\n\nThe mark is written when the trigger is installed, which is 'a goroutine started in init that installs the trigger once the table exists, then writes a mark'. It is not written when the guarded write meets the trigger. A trigger installed after the guarded write produces 'mark present, test passed'. That reads as 'the test missed the break' (a survivor), when the write was in fact never covered. The design's fallback ('the builder names another test of that epic') would then be applied for the wrong reason. The PIT distinction the design claims, survived versus no coverage, needs a 'fired' signal.",
+    "evidence": "The design's broken-behaviour component, step (4) ('No mark means the break was never met, which differs from a test that missed the break'), and the PIT prior art.",
+    "fix": "Make each trigger also INSERT a row into a sc042_fired table that the goroutine creates, and have the goroutine write a second 'fired' mark when that row appears. The breaks test then sorts each break into one of three cases:\n- not installed: never met;\n- installed but not fired: not covered;\n- fired and the test passed: survived."
+   },
+   {
+    "id": "m7",
+    "severity": "minor",
+    "dimension": "unfounded-assumptions",
+    "nature": "extra",
+    "claim": "Build falls back to filepath.Join(runtime.GOROOT(), \"bin\", \"go\"). runtime.GOROOT is deprecated: pkg.go.dev/runtime at go1.27.4 marks it so and recommends 'go env GOROOT'. The fallback is also dead code, because `go test` puts GOROOT/bin first on PATH (since Go 1.19).",
+    "evidence": "https://pkg.go.dev/runtime ('func GOROOT() string deprecated ... \"go env GOROOT\" to find its GOROOT'); golang/go#51473.",
+    "fix": "Drop the fallback, and Fatalf naming PATH when exec.LookPath(\"go\") fails."
+   },
+   {
+    "id": "m8",
+    "severity": "minor",
+    "dimension": "drift-from-design",
+    "nature": "extra",
+    "claim": "The follow-up SC-044 is said to replace 'run_finish_e004_2.py serve, serve_show_all.py', but what it builds seeds only DeepThread. serve_show_all.py's show-all seed has no successor, yet SC-045 deletes the file. That seed is four reports at 12/3/120, 1/1/1, 0/0/0 with a long title, and 1000/25/1000. It is the engine's way of looking at the E-002 page with large numbers.",
+    "evidence": "The design's filed_for_later item 1 ('what' compared with 'builds'), and the build-check survey's account of serve_show_all.py.",
+    "fix": "Add a show-all seed (four reports with those counts, seeded over HTTP) to SC-044's builds text, or state that the E-002 look is retired."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "Found M1: the claim that the per-source count makes a dropped assertion go red is false. Found m7: runtime.GOROOT is deprecated (checked on pkg.go.dev). Checked these outside claims and found nothing wrong:\n- Go's ProxyFromEnvironment does exempt loopback.\n- go test does put GOROOT/bin first on PATH.\n- Chrome sends Lax cookies on same-site top-level redirects between 127.0.0.1 ports. The design also has a failing check and a fallback for this.\nOne claim stays unsettled: the search did not answer whether GOFLAGS carries -overlay into a nested go build. TestBuildTakesGOFLAGSFromTheEnvironment has to run first to settle it. These code claims check out against the tree: buildBinary, startProcIn and rewrite (main_test.go:177-277), Browser and isEdge (headless.go:48-97), TestBrowserSkipEndsTheCallingTest, SecureCookies and cookieName, SetUser and SetRedirectURI, the router's routes, and no product import in testutil."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "Found m4: the repo-walk self-test races parallel packages and the engine's own writes. Found m5: C1 is judged from one run under the added cross-package load. The loopback port race is handled by the retry. Proxies are handled (Proxy: nil, --no-proxy-server, loopback exemption)."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "Found M1: C4 completeness holds only if the builder remembers it. Found m2: rule 3's devtools*.go glob holds only if the builder names its files that way. Open(t) taking no path does hold by construction, which is good."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "None: the DevTools driver uses four verbs on the standard library, which spikes 207 and 2 justified. The committed breaks test goes beyond 'seen to fail', but it reuses E-009 line 5's technique and gives C5 an unattended check. The go/parser tag check is justified by SC-043's deletion."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "Found m3: Visitor has no way to set headers (Origin, User-Agent, X-Forwarded-For), and adding X-Forwarded-For to visitor.go would trip an existing fitness rule. The Start, Open and DeepThread contracts are otherwise complete."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "Found m6: the break mark proves the trigger was installed, not that it was hit, so 'not covered' gets reported as 'survived'. A late trigger only gives a false red, never a false green. The failure paths for Start (an exit before listening, the 30 s limit, /healthz) and Open (the 15 s port file, the 30 s Call) are specified."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "Found M2: the brief's 'list every assertion' was not done, and the build-check survey should have quoted them. Found m8: SC-044's text says it replaces serve_show_all.py but builds no successor to its seed. The design correctly treats the stale '(Edge here) ... HBAND_TEST_BROWSER' stack line as retired (Q-035)."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "Found m1: the existing rule 'identity provider's endpoints are read only by the config loader' fires on program.go, and TestRulesHoldOnTheTree runs it under go test ./... Found m2: the new rules leak on the CC-001 variants. The other existing rules (the cookie literal, http.Status*, r.URL.Host, RemoteAddr, the SQL-table rules) are excepted for internal/testutil/** or *_test.go where the design needs it."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "Found M1: the mapping checker cannot see under-enumeration, and the critique that was supposed to cover the gap runs before the table exists. The cases cover the overlay passthrough, the exit before listening, the retry, the proxies, the skip paths, the frame fixtures, the narrow-width emulation and the child-process skip probe. I could not look at the six ledger Python bodies (no SQL access), so this review does not judge whether the ports are complete against them."
+   },
+   {
+    "dimension": "security",
+    "result": "Found M3: Q-035's EvalSymlinks decision, made by a person, is unimplemented, and the new Open launch path inherits the symlink bypass. Edge is otherwise refused before any launch, and Open reads no environment."
+   }
+  ]
+ },
+ "prescribed": {
+  "host": 726,
+  "at": "2026-11-25T14:28:36.703Z",
+  "runs": [
+   {
+    "run_id": 12265,
+    "resumed_from": "5a93e86d-ccb2-4fa6-887b-ee50a3a65ebd",
+    "ending": "completed",
+    "cost_usd": 2.333789,
+    "lost_resume": false
+   }
+  ],
+  "keys_sent": [
+   {
+    "finding_id": 2091,
+    "key": "M-add-1",
+    "digest": "3ed366583cc59def"
+   },
+   {
+    "finding_id": 2092,
+    "key": "M-add-2",
+    "digest": "48d7e315e0ef6882"
+   },
+   {
+    "finding_id": 2093,
+    "key": "M-add-3",
+    "digest": "a36f568a9bf04471"
+   },
+   {
+    "finding_id": 2094,
+    "key": "M-add-4",
+    "digest": "8e9ccfbf34f19a58"
+   },
+   {
+    "finding_id": 2080,
+    "key": "M1",
+    "digest": "2f658f2906e4753e"
+   },
+   {
+    "finding_id": 2081,
+    "key": "M2",
+    "digest": "552175ef5c4e3d90"
+   },
+   {
+    "finding_id": 2082,
+    "key": "M3",
+    "digest": "8cc4d2a574a1d38a"
+   },
+   {
+    "finding_id": 2083,
+    "key": "m1",
+    "digest": "78f026fd41c94ca6"
+   },
+   {
+    "finding_id": 2084,
+    "key": "m2",
+    "digest": "f0f344c6a892dc86"
+   },
+   {
+    "finding_id": 2085,
+    "key": "m3",
+    "digest": "d67c9b61c5b29f68"
+   },
+   {
+    "finding_id": 2086,
+    "key": "m4",
+    "digest": "74f36c37085c0ef9"
+   },
+   {
+    "finding_id": 2088,
+    "key": "m6",
+    "digest": "38bbba0b6f3e2ef2"
+   }
+  ],
+  "verdicts": [
+   {
+    "finding_id": 2091,
+    "key": "M-add-1",
+    "digest": "3ed366583cc59def",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "fakegithub.go:118-160 (authorize answers 302 with code+state unless DenyAtAuthorize, with no consent step) and SetUser at :85-89. cmd/hband/main_test.go:264-286 (rewrite passes non-hband.test hosts straight through; browser() is a cookie-jar client). The fake's URL() is http://127.0.0.1:port (fakegithub.go:79).",
+    "why": "Holes in both options:\n- **The fallback** ('CheckRedirect refuses /auth/github/login outside SignIn') checks only redirect hops. A Get whose first request is /auth/github/login?next=... never meets CheckRedirect. hband's 302 to the fake's authorize and the fake's 302 back to /auth/github/callback are both hops that are not /auth/github/login, so they are followed and the anonymous visitor is signed in. A port of a sign-in assertion (E-003: that hband's redirect to GitHub carries client_id, S256, state and an empty scope) needs exactly that unfollowed hop.\n- **The first option** adds GetFollow 'for final pages' with no limit. Any port that GetFollows a gated path reproduces the defect.\n- **Loopback mode:** the fake and hband are both 127.0.0.1 and differ only by port. A host test that ignores the port treats the fake as same-site.",
+    "instead": "Build the first option and close both gaps:\n1. Get, Post, Upload and Do never follow.\n2. GetFollow follows only hops whose URL.Host, port included, equals Base's host, and refuses any hop to /auth/github/login. It fails with Fatalf naming the hop.\n3. SignIn uses its own client with an unrestricted CheckRedirect.\n4. Keep the self-test: Anonymous().Get(\"/admin\") gives 303 with Location /auth/github/login?next=..., and jar.Cookies(Base) is empty, which also means no OAuth state cookie.\n5. Add a second self-test: Anonymous().GetFollow(\"/admin\") fails at the sign-in hop and leaves the jar empty."
+   },
+   {
+    "finding_id": 2092,
+    "key": "M-add-2",
+    "digest": "48d7e315e0ef6882",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "fakegithub.go in full (118-243):\n- authorize refuses on client_id (123), redirect_uri (126), response_type or empty state (129), S256 or empty challenge (132), and non-empty scope (135).\n- accessToken refuses a non-POST (177), and gives a token error for an unknown code, a wrong verifier, client_id, client_secret or redirect_uri (197-200).\n- Codes are single-use (194).\n- It does not check grant_type, and it keeps no request log.\n- Switches (26-37) holds only failure switches, and none relaxes a refusal.\nGlob: there is no _test.go in internal/testutil/fakegithub.",
+    "why": "The refusal tests are buildable, and every branch listed exists. The weak point is 'require every fake-side row to be a Helper row with a By'. check() has no way to tell a fake-side row from any other Amended row: Amended needs only a Why, and the design keeps By-less Amended rows for the msedge list and the Fetch bridge. A builder can still map a stand-in check such as 'state is echoed' or 'grant_type' to an Amended row with only a reason, and the table passes. That is the exact substitution the finding was about.\n\nAlso, a Helper row naming a fake-only test proves the fake refuses a bad request. It does not prove hband's request passes the refusal in the acceptance run. That proof comes from SignIn's Fatalf in the acceptance test, which the row does not name.",
+    "instead": "Mark each row whose Python site lies inside the stand-in GitHub class, by its At line range in the testdata snapshot (M1), as fake-side. Have check() fail on any fake-side row that is not a Helper row with a By in internal/testutil/fakegithub and a Via naming the acceptance test whose SignIn exercises it. Where fakegithub lacks a refusal the Python made (for example grant_type), add it, with a test, in this build."
+   },
+   {
+    "finding_id": 2093,
+    "key": "M-add-3",
+    "digest": "a36f568a9bf04471",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Grepped every t.Skip/Skipf/SkipNow in *_test.go:\n- On Windows, the only real skips today are TestReportScriptsNeverRun and the real 'caller' subtest of TestBrowserSkipEndsTheCallingTest (default_browser_test.go:138-142).\n- edge_dot_segments_test.go:31, chrome_bin_corpus_test.go:78, admin_reports_test.go:458 and the three internal/reports sweep tests skip only off Windows.\nRead the fix text against the design's case list.",
+    "why": "Three holes:\n1. **The text contradicts itself.** C1 requires every TestE00* that `go test -list . ./tests/acceptance/...` lists to PASS. TestE004FoldAndFitInBrowser is such a test, and with CHROME_BIN unset it must SKIP. As written, the case cannot pass. The browser test SC-046 adds later makes it worse.\n2. **Plain -v text cannot say which test a skip message belongs to.** The message is an indented log line printed before '--- SKIP: name'. 'no skip message mentions CHROME_BIN' either matches any log line naming CHROME_BIN (the corpus and Edge tests log CHROME_BIN values) or is a guess.\n3. **M3 adds a symlink test that skips when os.Symlink is not permitted,** which may happen on this machine. If its name or skip message names CHROME_BIN, the C2 whole-suite case goes red for a reason unrelated to the browser. Its allow-list entry also depends on Developer Mode.",
+    "instead": "Run both whole-suite cases with `go test -count=1 -json ./...` and parse the events. A skip is an Action=skip event with its Test and its own Output events.\n- **C1:** the set of skipped top-level tests equals the measured allow-list, which includes TestE004FoldAndFitInBrowser. Every listed TestE00* not on the allow-list has Action=pass.\n- **C2 (CHROME_BIN set to Chrome):** exit 0; TestE004FoldAndFitInBrowser, TestTabEmulatesNarrowViewport and TestReportScriptsNeverRun pass; no skip event's own Output contains CHROME_BIN.\n- Name M3's symlink test and write its skip message without the string CHROME_BIN."
+   },
+   {
+    "finding_id": 2094,
+    "key": "M-add-4",
+    "digest": "8e9ccfbf34f19a58",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "The design's mapping component: a ledger body's Edition is 'sha256 of the body text exactly as SELECTed'; an in-tree file's Edition is 'the git blob id at 845585a'. run_finish.py:134 plants bodies with encoding utf-8 and newline='\\n'. Grepped *_test.go for gofmt or format.Source: nothing, so no gofmt gate conflicts with keeping bodies Verbatim.",
+    "why": "The canonical form is fine for ledger bodies, with two gaps:\n1. **Two hash kinds are left.** In-tree sources (run_finish.py, serve_show_all.py, check_e006_1, the two guard files, run_finish_e004_2.py) keep git-blob-id Editions, which are SHA-1 over 'blob <len>\\0'+content. M1 step 2 checks that each snapshot's sha256 equals its Edition, so every in-tree source fails by construction. The other way out is for check() to shell out to git, which the design forbids.\n2. **'Hash as SELECTed' is ambiguous.** The finish column is a JSON array holding several items per epic. Hashing the raw column gives one hash per epic, not per body, and it changes when another item's text changes. M1's snapshot also says only 'LF-normalised', a second normalisation that differs from this one, so builder and checker can disagree.",
+    "instead": "Define canonical(text) once, in package ported:\n- strip a BOM;\n- CRLF to LF;\n- trim trailing newlines, then add exactly one.\nEvery Edition is sha256(canonical(text)), in-tree sources included, so git blob ids are dropped. For a ledger body, text is the JSON-decoded `body` string of its finish item, not the raw column. M1's snapshot check, check (d), code review's in-place SELECT and SC-045 all call the same function."
+   },
+   {
+    "finding_id": 2080,
+    "key": "M1",
+    "digest": "2f658f2906e4753e",
+    "verdict": "hole",
+    "severity": "major",
+    "checked": "Read .taad/slices/SL-008/run_finish_e004_2.py in full against the prescribed patterns (\\bassert\\b, self\\.assert\\w*\\(, self\\.fail\\(, sys\\.exit\\(, plus raise AssertionError/SystemExit). Read the design's porting rule for helpers and its Verbatim kind for the ten Go bodies.",
+    "why": "Completeness by construction holds only as far as the patterns reach, and they miss the assertions the finding was about.\n- **look()'s width checks are not assert statements.** The six are `results.append((width, where, wide[0] <= width, wide))` (L221), reported by `return 0 if all(r[2] for r in results) else 1` (L260) and `return 1` (L252). None of the patterns matches them.\n- **The watchdog exits with `os._exit(5)` (L204),** which `sys\\.exit\\(` does not match.\n- So the scan reports run_finish_e004_2.py complete without its C2 look assertions. run_finish.py's BASELINE failure, a `failed = ...` list then a return code, is probably missed for the same reason.\n- **Helper call sites are invisible.** The design ports a helper's assertion 'once into the matching Go helper'. A site is one line, so a Python helper such as say() or press(), called N times with different arguments, gives one row. A port that keeps the helper but drops half its calls still passes.\n- **Go bodies conflict.** The Go pattern t\\.(Fatal|Error)f?\\( applied to the ten Go bodies requires about 165 per-site rows. The design's Verbatim kind is one row per body. As written the two are irreconcilable, and t.Fail, t.FailNow and panic are not matched anyway.\n- **Comments and docstrings** that contain `assert` or `sys.exit(` force empty rows.",
+    "instead": "Keep the snapshot and the scan, and widen both what counts as a site and what is exempt from it.\n1. Python sites are \\bassert\\b, self\\.(assert\\w*|fail)\\(, \\braise\\b, \\b(sys|os)\\._?exit\\(, \\breturn\\s+[1-9]\\b and \\breturn\\b.*\\belse\\s+[1-9]\\b. Matches are taken after stripping # comments and triple-quoted strings.\n2. Any def whose span holds a site makes each call of that name in the snapshot a site too.\n3. Rows may also declare extra sites, but never remove one. Code review checks the extras against the snapshot.\n4. A Verbatim Go body is exempt from per-site rows, because its file's sha256 covers it. An Amended Go body gets per-site rows on its ledger snapshot, with t\\.(Fatal|Fatalf|Error|Errorf|Fail|FailNow)\\( and \\bpanic\\(.\n5. Editions use M-add-4's single canonical sha256, for in-tree files too."
+   },
+   {
+    "finding_id": 2081,
+    "key": "M2",
+    "digest": "552175ef5c4e3d90",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Traced the mechanism the triage relies on:\n- the builder's mode=ro SELECT is committed as the testdata snapshot;\n- check() derives the sites from it;\n- code review compares the table with the derived list.\nThat leaves three checks: tag placement (check (c), a `ported:<ID>` comment anywhere in the function's span), counts, and editions.",
+    "why": "Three holes:\n- **It inherits every gap in M1's patterns.** The derived list is independent of the builder only where the patterns are complete, and M1's entry shows they are not.\n- **Nobody is assigned to check what a Go check asserts.** check (c) proves only that a tag sits somewhere inside the named function. A Ported row whose Go statement checks something weaker than the quoted Python site, or nothing at all, passes. 'Code review compares the table with that list' checks that rows exist, not that they are faithful. Before the builder, no independent node has ever read E-003..E-006, and SC-045 deletes the Python on this table's word.\n- **The rationale names only epics 41-44.** The Amended Go bodies of 39-40 need snapshots too.",
+    "instead": "Assign code review the following, explicitly:\n1. Make the in-place SELECT of epics 39-44 and compare canonical hashes with the snapshots.\n2. For every Ported row, read the snapshot line At and the Go statement on the tagged line, and record agree or disagree per row in its review.\n3. Have check() require the `ported:<ID>` tag on the same line as, or the line just above, a t.Fatal*, t.Error* or helper-call statement, not anywhere in the span."
+   },
+   {
+    "finding_id": 2082,
+    "key": "M3",
+    "digest": "8cc4d2a574a1d38a",
+    "verdict": "hole",
+    "severity": "major",
+    "checked": "Read internal/testutil/headless/headless.go:83-91 in full:\n`if namesEdge(p) { return true }`\n`if abs, err := filepath.Abs(p); err == nil { return namesEdge(abs) }`\n`return false`\nGrepped headless tests for skips: chrome_bin_corpus_test.go:78 and edge_dot_segments_test.go:31 skip off Windows only. Nothing here measures whether this machine permits os.Symlink.",
+    "why": "Three holes:\n- **The check would be dead code.** 'Add the EvalSymlinks line before the final return' puts it just before `return false`. That line runs only when filepath.Abs fails, because on the normal path the Abs block has already returned namesEdge(abs), which is false for chrome.exe. So a CHROME_BIN symlink chrome.exe pointing at msedge.exe is still accepted: the person's Q-035 decision is not implemented, and Open adds a second launch path behind it.\n- **Its only test may never run here.** It skips when os.Symlink is not permitted. On Windows 11 Pro without Developer Mode an unelevated os.Symlink fails, so on this machine the test may always skip, and the dead code ships green.\n- **Shims are not closed.** Q-035's text says EvalSymlinks closes 'a shim or symlink called chrome'. A launcher shim (a small exe or script that starts msedge, such as Scoop's shim.exe) is not a symlink and is not closed. The package comment would then overstate what is refused.",
+    "instead": "Restructure isEdge:\n```go\nif namesEdge(p) { return true }\nif abs, err := filepath.Abs(p); err == nil && namesEdge(abs) { return true }\nif r, err := evalSymlinks(p); err == nil && namesEdge(r) { return true }\nreturn false\n```\nHere `var evalSymlinks = filepath.EvalSymlinks` is a package seam.\n1. Add a unit test that swaps the seam for a resolver returning ...\\msedge.exe. It runs on every machine, needs no privilege, and asserts Browser skips through the recorder.\n2. Keep the real os.Symlink case as a skippable extra, and run it once with -v to record whether it ran or skipped here.\n3. In the package comment, name hard links, renamed copies and launcher shims as out of scope."
+   },
+   {
+    "finding_id": 2083,
+    "key": "m1",
+    "digest": "78f026fd41c94ca6",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Re-read .taad/fitness.yaml:123-133. The pattern `\"HBAND_[A-Z_]*(GITHUB|OAUTH)[A-Z_]*(URL|ENDPOINT|HOST|API)[A-Z_]*\"` matches \"HBAND_GITHUB_URL\" and \"HBAND_GITHUB_API_URL\", and does not match HBAND_GITHUB_CLIENT_ID or HBAND_GITHUB_CLIENT_SECRET. Checked the other rules program.go could trip:\n- cookie literal: avoided by design;\n- http.Status* and Location: testutil is excepted;\n- RemoteAddr, r.Host, Go-literal HTML: testutil is excepted.\nConfirmed by grep that every existing writer of the names is a _test.go file or config.go.",
+    "why": "Excepting internal/testutil/** removes the false red, and does not open a real second reader of the endpoint variables. testutil is kept out of the product binary by the must_not_import rule (fitness.yaml:58-66), so nothing there reaches config.Load. Two caveats, neither a hole in this fix:\n- #931 says TestRulesHoldOnTheTree skips must_not_import on files with doc comments, so the guarantee the because-line leans on is enforced in full only by the engine's Fitness check.\n- The SC-044 seeded launcher will be a main package under internal/testutil. When it lands, the because-line should say 'out of the product binary', not 'out of the binary'.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2084,
+    "key": "m2",
+    "digest": "f0f344c6a892dc86",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Worked through what `go list -deps -test ./tests/acceptance/... ./internal/testutil/...` prints. With -test it includes the root packages themselves, their '.test' mains and the '[x.test]' variants. Re-read rule 3 (`\\bos\\.(?:Getenv|LookupEnv|Environ)\\(`) and rule 4 at fitness.yaml:534-556.",
+    "why": "Three holes:\n1. **The check flags itself.** As written it 'fails on any github.com/sshubham2/hband/ package outside internal/testutil/'. Every acceptance package is a module package outside internal/testutil and is in its own -deps -test list, so the check is red on its first run.\n2. **A direct database read is not caught.** 'Only over HTTP' is the slice's rule, and a link-none check on hband packages does not see an acceptance test that imports modernc.org/sqlite and reads or seeds the database directly. serve_show_all.py did exactly that, and the design names 'product-package seeding' for E-002 as a thing to replace.\n3. **Rule 3 misses method values.** Its required `\\(` misses `get := os.Getenv` and also os.ExpandEnv. Widening its glob to headless/*.go except headless.go also leaves new env reads added to headless.go itself unguarded. That residue is acceptable only if it is named in the because.",
+    "instead": "Filter the -deps output with these rules:\n- **Allowed:** github.com/sshubham2/hband/internal/testutil/... and github.com/sshubham2/hband/tests/acceptance/..., with the '.test' and bracketed variants normalised.\n- **Fail on:** any other github.com/sshubham2/hband/ package, and on modernc.org/sqlite and golang.org/x/oauth2.\n- **Where:** run go list from the `go env GOMOD` directory.\nIn rule 3, use `\\bos\\.(?:Getenv|LookupEnv|Environ|ExpandEnv)\\b`, without the `\\(`. Name in its because that headless.go is excepted and why."
+   },
+   {
+    "finding_id": 2085,
+    "key": "m3",
+    "digest": "d67c9b61c5b29f68",
+    "verdict": "holds",
+    "severity": "none",
+    "checked": "Checked Do(t, *http.Request) Page against the fitness rules:\n- the 'no request header ever supplies…' rule (fitness.yaml:8-20) excepts *_test.go, so X-Forwarded-For and Origin can be named in the _test.go callers;\n- the 'only X-Forwarded-For' rule (452-472) allows X-Forwarded-For;\n- cmd/hband's rewrite (main_test.go:264-277) shows a Visitor-built request keeps going through the jar and the Host rewrite whatever its headers are.\nChecked opens.go:147-150: both Go's default User-Agent and Python's count as bots, so the old and new checks behave the same.",
+    "why": "Do through the Visitor's own client keeps the session cookie, the hband.test rewrite and Proxy: nil, and puts no header name in visitor.go. The only condition is that Do uses the same client that never follows redirects (M-add-1) and that callers build the URL from p.Base, which is https://hband.test or http://127.0.0.1:P depending on the mode. Both are naturally part of building Do.",
+    "instead": ""
+   },
+   {
+    "finding_id": 2086,
+    "key": "m4",
+    "digest": "74f36c37085c0ef9",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Read the fix against every place the design creates a folder: Build (MkdirTemp bin), Start (data dir and working dir), headless.Open (the --user-data-dir profile from os.MkdirTemp) and the breaks test (the overlay folder from MkdirTemp). Checked filepath.Rel's behaviour on Windows (it compares case-insensitively).",
+    "why": "The structural check removes the race, and that holds. It covers only Build and Start.\n- **Not covered:** Open's Chrome profile and the breaks test's overlay folder are also MkdirTemp folders. With TMP or TEMP set inside the repository, both land in the tree, and E-009 line 4 fails the run. That is the case the old walk existed to catch.\n- **Path forms:** GetTempPath can return an 8.3 short form (C:\\Users\\SSHUB~1\\...) while `go env GOMOD` is the long form. filepath.Rel then reports 'not inside' for a folder that is inside.",
+    "instead": "Put the check in one helper, insideModule(dir) or mustBeOutsideModule(t, dir).\n1. Resolve both paths with filepath.EvalSymlinks and filepath.Abs first; on Windows that expands short names.\n2. Call it from Build, Start, headless.Open and the breaks test for every folder they create.\n3. For headless, which must not read the environment, get the module root from `go env GOMOD` through exec, or pass it in, rather than from an environment read."
+   },
+   {
+    "finding_id": 2088,
+    "key": "m6",
+    "digest": "38bbba0b6f3e2ef2",
+    "verdict": "hole",
+    "severity": "minor",
+    "checked": "Traced the timing of a break: the guarded write fires the trigger, which INSERTs into sc042_fired; the request answers 303; the test GETs and its assertion fails; Fatalf runs; cleanup kills hband (kill and wait). The goroutine polls on the design's 10 ms cycle. Checked the triage's added rule that an expected FAIL now requires 'fired'.",
+    "why": "There is a race. A write followed by one GET and a Fatalf takes a few milliseconds on loopback, and the kill at cleanup is TerminateProcess on Windows, so the goroutine gets no chance to flush. Often the row appears and the process dies before the next 10 ms poll, so no 'fired' mark is written.\n\nSuch a break was met and caught, yet it is sorted as 'installed but not fired: not covered'. Under the triage rule the breaks test then goes red at random, which makes C5's only check flaky.\n\nThe row in sc042_fired cannot be read afterwards either: it lives in the throwaway data dir, which the acceptance test deletes in its own cleanup.",
+    "instead": "Write the fired mark synchronously, inside the statement that meets the break.\n1. In the overlay's init, before main opens the store, register a Go scalar function with the driver. In modernc.org/sqlite this is sqlite.RegisterScalarFunction (recalled API, not verified: confirm it by building the overlay once). The function writes the fired mark file and returns NULL.\n2. Make each trigger body include `SELECT sc042_fired();`. SQLite allows a SELECT in a trigger program.\n3. Keep the 'installed' mark from the goroutine.\n4. If the API turns out not to exist, settle for 'fired OR the test failed', and drop the triage's rule that a FAIL needs 'fired'."
+   }
+  ],
+  "unmatched": [],
+  "unchecked": [],
+  "moved": [],
+  "annotated": [
+   "finding:2091",
+   "finding:2092",
+   "finding:2093",
+   "finding:2094",
+   "finding:2080",
+   "finding:2081",
+   "finding:2082",
+   "finding:2084",
+   "finding:2086",
+   "finding:2088"
+  ],
+  "counts": {
+   "holds": 2,
+   "hole": 10,
+   "unworkable": 0,
+   "no_verdict": 0
+  },
+  "summary": "Of the 12 prescriptions, 2 hold (m1, m3) and 10 have holes; 2 of those holes are major (M1, M3).\n\n- **M3 (major):** the EvalSymlinks line is to go 'before the final return'. In isEdge (headless.go:83-91) that `return false` only runs when filepath.Abs fails, because the Abs block already returns namesEdge(abs). So the new check would be dead code. Its only test would skip when os.Symlink is not permitted, which may be the case on this machine, so dead code can ship green.\n- **M1 (major):** the site patterns miss failure forms that are not `assert`, among them the six look width checks C2 is about (L221 and L260 of run_finish_e004_2.py) and the watchdog's os._exit(5) (L204). They also cannot see a helper's calls dropped from the port. The prescription also conflicts with one Verbatim row per Go body.\n- **M-add-4:** the canonical sha256 cannot equal the git-blob-id Editions the design gives in-tree files. It also leaves open whether the raw `finish` column or the decoded body is hashed.\n- **M-add-3:** it asks every TestE00* to PASS while allowing TestE004FoldAndFitInBrowser to SKIP, which contradicts itself. It also cannot tie a skip message to its test from -v text.\n- **m2:** the `go list -deps -test` check flags the tests/acceptance root packages themselves.\n- **m6:** the 'fired' mark is polled, and the process can be killed before a poll sees it. That makes a correct break flaky.\n- **M-add-1:** its fallback, and any GetFollow, still sign in through the fake.\n- **M-add-2:** 'fake-side rows are Helper rows' is a rule the builder has to remember; the checker cannot enforce it.\n- **M2:** it inherits M1's gaps, and nobody is assigned to check that each tagged Go check makes the same assertion as the Python it replaces.\n- **m4:** the folder check skips the DevTools profile folder and the breaks test's temp folders.\n\nI made no searches in this pass. The modernc.org/sqlite RegisterScalarFunction API proposed for m6 is recalled, not checked: building the overlay once would settle it.",
+  "why": "",
+  "round": "landed"
+ }
+}

@@ -1,0 +1,404 @@
+"""E-004, finish line 1: plain-text comments and replies at any depth show under their report and on the home page
+with the writer's GitHub login and avatar, nested beneath what they answer, top-level oldest first; typed HTML stays
+literal text; visitors and cross-report replies are refused; only the pinned owner's posts carry an 'Author' badge.
+
+Comments are posted through POST /reports/<slug>/comments (body=..., and parent=<n> to answer comment n), from the
+report page, which offers that form. A page shows each comment as an element id="comment-<n>" holding its text, its
+writer's login and avatar (an <img> whose src is the avatar_url GitHub gave), and the comments that answer it.
+
+How it runs: `go build ./cmd/hband`, started on a free port with a fresh data folder and the HBAND_* settings in
+Product, spoken to as the VPS proxy forwards a browser, with a stand-in GitHub of its own. Every POST carries the CSRF
+token of the page it is sent from (a hidden field named like csrf/xsrf/token, or a csrf meta tag as X-CSRF-Token); a
+count is a number beside its label ("3 likes", "Likes: 3", a thumb and 3).
+"""
+import base64, glob, html.parser, http.client, json, os, re, secrets, shutil, socket, subprocess, sys, tempfile, threading
+import time, unittest, warnings
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
+
+warnings.simplefilter("ignore")  # a failure speaks by its message: a traceback or warning would open this file to quote it
+threading.excepthook, sys.excepthook = (lambda a: None), (lambda k, v, tb: print(f"{k.__name__}: {v}", file=sys.stderr))
+[s.reconfigure(errors="backslashreplace") for s in (sys.stdout, sys.stderr)]
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE, EVIL, EXE, OWNER_ID = "https://hband.test", "https://evil.example", ".exe" if os.name == "nt" else "", 4242
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+
+
+def check(ok, why):
+    if not ok:
+        raise AssertionError(why)
+
+
+def mark(word):  # letters only, so no count is ever read into it
+    return word + "-" + "".join(secrets.choice("bcdfghjkmnpqrstvwxz") for _ in range(10))
+
+
+def build(work):  # the product: what `go build ./cmd/hband` makes of this tree
+    go = [g for g in (shutil.which("go"), os.path.join(os.environ.get("GOROOT") or "-", "bin", "go" + EXE),
+                      r"C:\Program Files\Go\bin\go.exe", *glob.glob(os.path.expanduser("~/sdk/go*/bin/go" + EXE))) if g and os.path.isfile(g)]
+    check(go, "no Go toolchain (PATH, GOROOT, Program Files, ~/sdk) to build ./cmd/hband with")
+    run = subprocess.run([go[0], "build", "-o", work + "/hband" + EXE, "./cmd/hband"], cwd=ROOT, capture_output=True, text=True,
+                         errors="replace", env=dict(os.environ, CGO_ENABLED="0"), timeout=780)
+    check(run.returncode == 0, f"`go build ./cmd/hband` exited {run.returncode}: {(run.stdout + run.stderr)[:2000]}")
+    return [work + "/hband" + EXE]
+
+
+class GitHub(BaseHTTPRequestHandler):  # stand-in GitHub: a code the test handed out buys a token, the token its account (/user)
+    log_message = lambda self, *a: None
+
+    def answer(self, status, body, kind="application/json"):
+        self.send_response(status)
+        self.send_header("Content-Type", kind)
+        self.end_headers()
+        self.wfile.write(body.encode())
+
+    def do_POST(self):
+        sent = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode() + "&" + urlsplit(self.path).query
+        who, token, js = self.server.codes.pop(dict(parse_qsl(sent)).get("code"), None), secrets.token_hex(16), "json" in self.headers.get("Accept", "")
+        if who is None:
+            return self.answer(400, '{"error": "bad_verification_code"}')
+        self.server.tokens[token], got = who, {"access_token": token, "token_type": "bearer", "scope": ""}
+        self.answer(200, json.dumps(got) if js else urlencode(got), "application/json" if js else "application/x-www-form-urlencoded")
+
+    def do_GET(self):
+        who = self.server.tokens.get((self.headers.get("Authorization") or "-").split()[-1])
+        self.answer(200, json.dumps(dict(who, name=who["login"], type="User"))) if who else self.answer(401, '{"message": "Bad credentials"}')
+
+
+class Node:
+    def __init__(self, tag, attrs, parent):
+        self.tag, self.attrs, self.parent, self.kids, self.data = tag, dict(attrs), parent, [], ""
+
+    def walk(self):
+        for k in self.kids:
+            yield k
+            yield from k.walk()
+
+    def text(self, skip=lambda n: False):  # what it shows a person, less the elements `skip` names
+        if self.tag == "#text":
+            return self.data
+        if self.tag in ("script", "style", "template", "textarea", "title") or skip(self):
+            return ""
+        return " ".join(" ".join(k.text(skip).split()) for k in self.kids).strip()
+
+
+def dom(text):  # a page as a tree of elements and texts, forgiving of the end tags HTML leaves out
+    at = [Node("#root", (), None)]
+
+    class Reader(html.parser.HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            while len(at) > 1 and at[-1].tag == tag in ("li", "p", "tr", "td", "option"):
+                at.pop()
+            at[-1].kids.append(Node(tag, ((k, v or "") for k, v in attrs), at[-1]))
+            if tag not in ("area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "wbr"):
+                at.append(at[-1].kids[-1])
+
+        def handle_endtag(self, tag):
+            while any(n.tag == tag for n in at[1:]) and at.pop().tag != tag:
+                pass
+
+        def handle_data(self, data):
+            at[-1].kids.append(Node("#text", (), at[-1]))
+            at[-1].kids[-1].data = data
+
+    reader = Reader(convert_charrefs=True)
+    reader.feed(text)
+    reader.close()
+    return at[0]
+
+
+def chain(n):  # the node and every element around it
+    return chain(n.parent) + [n] if n is not None else []
+
+
+class Page:
+    def __init__(self, url, r):
+        self.url, self.status, self.msg, self.text, self._dom = url, r.status, r.msg, r.read().decode("utf-8", "replace"), None
+
+    def header(self, name):
+        return self.msg.get(name) or ""
+
+    @property
+    def dom(self):
+        self._dom = self._dom or dom(self.text)
+        return self._dom
+
+
+def csrf(page):  # the page's CSRF token: hidden fields named like one, or a csrf meta tag (sent as X-CSRF-Token)
+    hid = {n.attrs["name"]: n.attrs.get("value", "") for n in list(page.dom.walk())[::-1] if n.tag == "input"
+           and n.attrs.get("type", "").lower() == "hidden" and re.search("csrf|xsrf|token", n.attrs.get("name", ""), re.I)}
+    meta = [n.attrs.get("content", "") for n in page.dom.walk() if n.tag == "meta" and re.search("csrf|xsrf", n.attrs.get("name", ""), re.I)]
+    return hid, ({"X-CSRF-Token": meta[0]} if meta else {})
+
+
+class Browser:
+    """A visitor as the VPS proxy forwards it (cookies, X-Forwarded-For, https, the public host); `seen`: every answer it got."""
+    def __init__(self, port, login=None):
+        self.port, self.login, self.jar, self.seen = port, login, {}, []
+
+    def send(self, method, url, body=None, headers=None):
+        u, c = urlsplit(urljoin(BASE + "/", url)), http.client.HTTPConnection("127.0.0.1", self.port, timeout=60)
+        h = {"Host": u.netloc, "Accept": "text/html,*/*", "User-Agent": UA, "X-Forwarded-For": "192.0.2.10", "X-Real-IP": "192.0.2.10",
+             "X-Forwarded-Proto": "https", **({"Cookie": "; ".join(f"{k}={v}" for k, v in self.jar.items())} if self.jar else {}), **(headers or {})}
+        try:
+            c.request(method, (u.path or "/") + (f"?{u.query}" if u.query else ""), body, h)
+            page = Page(u.geturl(), c.getresponse())
+        finally:
+            c.close()
+        for line in page.msg.get_all("Set-Cookie") or []:
+            name, _, value = line.split(";")[0].strip().partition("=")
+            self.jar.pop(name, None)
+            if value and not re.search(r"max-age=(0|-)|expires=[^;]*19[67]\d", line, re.I):
+                self.jar[name] = value
+        self.seen.append(page)
+        return page
+
+    def go(self, url, method="GET", body=None, headers=None):  # where the browser lands, after this site's own redirects
+        page = self.send(method, url, body, headers)
+        for _ in range(8):
+            to = urljoin(page.url, page.header("Location"))
+            if not (300 <= page.status < 400 and page.header("Location")) or urlsplit(to).netloc != "hband.test":
+                break
+            page = self.send("GET", to)
+        return page
+
+    def post(self, path, fields, page, forged=False):
+        # a form POST with the CSRF token of `page`; `forged`: sent by another site, which sets no header of its own
+        hid, meta = csrf(page)
+        h = {"Origin": EVIL, "Referer": EVIL + "/", "Sec-Fetch-Site": "cross-site"} if forged else {
+            "Origin": BASE, "Referer": page.url, "Sec-Fetch-Site": "same-origin", **meta}
+        return self.go(path, "POST", urlencode({**hid, **fields}).encode(), {"Content-Type": "application/x-www-form-urlencoded", **h})
+
+
+class Product:
+    """The server this tree builds: a free port, a fresh data folder, a stand-in GitHub, the owner pinned by user ID."""
+    def __init__(self):
+        self.work, self.proc, self.hub = tempfile.mkdtemp(prefix="hband-acceptance-"), None, ThreadingHTTPServer(("127.0.0.1", 0), GitHub)
+        self.hub.codes, self.hub.tokens, self.hub.daemon_threads, self.hub.handle_error = {}, {}, True, lambda *a: None
+        threading.Thread(target=self.hub.serve_forever, daemon=True).start()
+        self.url, self.log = f"http://127.0.0.1:{self.hub.server_address[1]}", open(self.work + "/server.log", "wb")
+        self.owner = self.account(OWNER_ID, "report-author")
+        try:
+            command = build(self.work)
+            with socket.socket() as s:
+                s.bind(("127.0.0.1", 0))
+                self.port = s.getsockname()[1]
+            os.makedirs(self.work + "/data")
+            self.proc = subprocess.Popen(command, cwd=self.work, stdout=self.log, stderr=subprocess.STDOUT, env=dict(
+                os.environ, HBAND_ADDR=f"127.0.0.1:{self.port}", HBAND_DATA_DIR=self.work + "/data", HBAND_BASE_URL=BASE,
+                HBAND_OWNER_GITHUB_ID=str(OWNER_ID), HBAND_GITHUB_CLIENT_ID="hband-test", HBAND_GITHUB_CLIENT_SECRET="hband-test-secret",
+                HBAND_GITHUB_URL=self.url, HBAND_GITHUB_API_URL=self.url, HBAND_MAX_UPLOAD_BYTES=str(10 << 20), HBAND_TRUSTED_PROXIES="127.0.0.1"))
+            for _ in range(240):
+                check(self.proc.poll() is None, f"the server exited ({self.proc.returncode}): {self.said()}")
+                try:
+                    Browser(self.port).send("GET", "/")
+                    return
+                except OSError:
+                    time.sleep(0.25)
+            check(False, f"the server did not answer in 60 s: {self.said()}")
+        except BaseException:
+            self.stop()
+            raise
+
+    def said(self):
+        self.log.flush()
+        with open(self.log.name, "rb") as fh:
+            return fh.read()[-2000:].decode("utf-8", "replace")
+
+    def stop(self):
+        if self.proc and self.proc.poll() is None:
+            self.proc.kill()
+            self.proc.wait(30)
+        self.log.close()
+        self.hub.shutdown()
+        self.hub.server_close()
+        shutil.rmtree(self.work, ignore_errors=True)
+
+    def account(self, uid, login=None):  # a GitHub account: user ID, login, avatar address
+        return {"id": uid, "login": login or mark("reader").lower(), "avatar_url": f"https://avatars.example/u/{uid}?v=4"}
+
+    def sign_in(self, who):  # a browser signed in through GitHub as `who`, from GET /auth/github/login
+        b = Browser(self.port, who["login"])
+        got = self.approve(b, b.send("GET", "/auth/github/login"), who)
+        check(got.status < 400, f"signing in as {who['login']} landed on {got.status}: {got.text[:300]}")
+        return b
+
+    def approve(self, b, start, who):
+        # GitHub's half of the sign-in `start` began (a redirect to its authorize page): it approves `who`; where `b` lands
+        to = start.header("Location")
+        check(300 <= start.status < 400 and to.startswith(self.url + "/login/oauth/authorize"),
+              f"{start.url} answered {start.status} {to!r}, not a redirect to GitHub's authorize page")
+        asked, code = dict(parse_qsl(urlsplit(to).query)), secrets.token_hex(10)
+        self.hub.codes[code], back = who, asked.get("redirect_uri") or BASE + "/auth/github/callback"
+        return b.go(back + ("&" if "?" in back else "?") + urlencode({"code": code, "state": asked.get("state", "")}))
+
+    def publish(self, owner, slug, title):  # the owner uploads a report as the admin page's form does, published now
+        hid, meta = csrf(owner.go("/admin"))
+        edge, doc = secrets.token_hex(12), f"<!doctype html><html><head><title>{title}</title></head><body><h1>{title}</h1></body></html>"
+        body = "".join(f'--{edge}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n' for k, v in {
+            **hid, "title": title, "slug": slug, "status": "published"}.items()) + f'--{edge}\r\nContent-Disposition: form-data; ' \
+            f'name="file"; filename="{slug}.html"\r\nContent-Type: text/html\r\n\r\n{doc}\r\n--{edge}--\r\n'
+        got = owner.go("/admin/reports", "POST", body.encode(), {**meta, "Origin": BASE, "Referer": BASE + "/admin",
+                                                                "Content-Type": f"multipart/form-data; boundary={edge}"})
+        check(got.status < 400, f"publishing {slug} answered {got.status}: {got.text[:300]}")
+        time.sleep(1.1)  # a second apart, so the newest is known
+
+
+class Case(unittest.TestCase):
+    def setUp(self):
+        self.app = Product()
+        self.addCleanup(self.app.stop)
+
+
+LABELS = {"likes": r"likes?|thumbs?[ _-]?ups?|upvotes?|\U0001F44D", "dislikes": r"dislikes?|thumbs?[ _-]?downs?|downvotes?|\U0001F44E",
+          "comments": r"comments?|\U0001F4AC", "opens": r"times opened|opened|opens?|views?"}
+WORDS = re.compile("|".join(rf"(?P<{k}>(?<![^\W\d_])(?:{v})(?![^\W\d_]))" for k, v in LABELS.items()) + r"|(?P<num>\d+)|[^\W\d_]+")
+BLOCKS = set("article aside br button dd div dl dt footer form h1 h2 h3 h4 h5 h6 header hr label li main nav ol p section "
+             "summary table td th tr ul".split())
+
+
+def pieces(node):  # the texts a person reads apart: split at block elements, and at , ; | and middle dots
+    out = [""]
+
+    def visit(n):
+        if n.tag == "#text":
+            out[-1] += n.data
+        elif n.tag not in ("script", "style", "template", "textarea", "title"):
+            out.extend([""] if n.tag in BLOCKS else [])
+            out[-1] += f" {n.attrs.get('aria-label', '')} {n.attrs.get('alt', '')} "
+            [visit(k) for k in n.kids]
+            out.extend([""] if n.tag in BLOCKS else [])
+    visit(node)
+    return [p for s in out for p in re.split(r"[,;|\u00b7\u2022\n]", s) if p.strip()]
+
+
+def tally(text):  # each label's numbers in a piece: the number beside each label, on the side that reads more of them
+    toks, best = [(m.lastgroup, m.group()) for m in WORDS.finditer(text.lower())], {}
+    for side in (-1, 1):
+        got, used = {}, set()
+        for i, (kind, _) in enumerate(toks):
+            j = i + side
+            while kind and 0 <= j < len(toks) and toks[j][0] == kind:
+                j += side
+            if kind not in (None, "num") and 0 <= j < len(toks) and toks[j][0] == "num" and j not in used:
+                used.add(j)
+                got.setdefault(kind, set()).add(int(toks[j][1]))
+        best = got if sum(map(len, got.values())) > sum(map(len, best.values())) else best
+    return best
+
+
+def counts(node):  # each label's numbers as `node` (a page's dom, or part of it) shows them
+    out = {k: set() for k in LABELS}
+    for p in pieces(node):
+        for k, v in tally(p).items():
+            out[k] |= v
+    return out
+
+
+def count(node, kind, where):  # the one `kind` count shown: a number beside its label ("3 likes", "Likes: 3", a thumb and 3)
+    got = counts(node)[kind]
+    check(len(got) == 1, f"{where} shows {kind} count(s) {sorted(got)}, not one number beside its label")
+    return min(got)
+
+
+def vote(b, slug, kind):  # POST /reports/<slug>/vote with vote=up|down|none, sent from the report page
+    got = b.post(f"/reports/{slug}/vote", {"vote": kind}, b.go(f"/reports/{slug}"))
+    check(got.status < 400, f"{b.login}'s vote {kind} on {slug} answered {got.status}: {got.text[:200]}")
+
+
+def dislikes(owner, slug):  # the dislike count on the owner's admin view of the report, /admin/reports/<slug>
+    return count(owner.go(f"/admin/reports/{slug}").dom, "dislikes", f"/admin/reports/{slug}")
+
+
+CID = re.compile(r"comment-(\d+)")
+
+
+def shown(page):  # {id: element} for each comment the page shows, an element id="comment-<n>", in page order
+    return {CID.fullmatch(n.attrs["id"]).group(1): n for n in page.dom.walk() if CID.fullmatch(n.attrs.get("id", ""))}
+
+
+def own(n):  # a comment's own text: its element's, less the comments nested in it
+    return " ".join(k.text(lambda x: CID.fullmatch(x.attrs.get("id", ""))) for k in n.kids)
+
+
+def find(page, text):  # the id of the comment whose own text holds `text`, or None
+    return next((i for i, n in shown(page).items() if text in own(n)), None)
+
+
+def depth(n):  # how many comments hold this one, itself counted
+    return sum(1 for a in chain(n) if CID.fullmatch(a.attrs.get("id", "")))
+
+
+def say(b, slug, text, parent=None, page=None):
+    """`b` posts `text` from `page` (default /reports/<slug>): POST /reports/<slug>/comments, answering comment `parent`.
+    The new comment's id where that page shows it."""
+    page = page or b.go(f"/reports/{slug}")
+    got = b.post(f"/reports/{slug}/comments", {"body": text, **({"parent": parent} if parent else {})}, page)
+    check(got.status < 400, f"{b.login}'s comment on {slug} answered {got.status}: {got.text[:200]}")
+    return find(b.go(page.url), text)
+
+
+def mine(n):  # the nodes of a comment's element that are its own, not its nested comments'
+    for k in n.kids:
+        if not CID.fullmatch(k.attrs.get("id", "")):
+            yield k
+            yield from mine(k)
+
+
+class E004CommentsTest(Case):
+    def test_comments_and_replies_show_as_plain_text_nested_oldest_first_with_the_author_badge_and_nothing_else_is_stored(self):
+        app, a, z = self.app, "e004-talk-alpha", "e004-talk-beta"
+        owner = app.sign_in(app.owner)
+        app.publish(owner, z, "Beta Notes")
+        app.publish(owner, a, "Alpha Notes")
+        people = [app.owner, app.account(7401), app.account(7402), app.account(4243, "report-author")]  # the last: another user ID
+        b = [owner] + [app.sign_in(p) for p in people[1:]]
+        self.assertIn(f"/reports/{a}/comments", b[1].go(f"/reports/{a}").text, "the report page offers a signed-in reader no comment form")
+        typed = ' <b>bold</b> <script>window.hbandRan=1</script> <img src=x onerror="alert(1)"> & done'
+        wrote = {}
+
+        def post(k, text, to=None):
+            i = say(b[k], a, text, to)
+            check(i, f"/reports/{a} does not show the comment {text} once it is posted")
+            wrote[i] = (text, people[k], to)
+            return i
+        first = post(1, mark("First") + typed)
+        time.sleep(1.1)
+        second = post(0, mark("Second"))
+        time.sleep(1.1)
+        third = post(3, mark("Third"))
+        post(1, mark("Deeper"), post(0, mark("Owned"), post(2, mark("Answer"), first)))
+        post(3, mark("Echo"), second)
+        far, anon, ghosts = say(b[1], z, mark("Elsewhere")), Browser(app.port), [mark("Ghost") for _ in range(3)]
+        self.assertLess(anon.post(f"/reports/{a}/comments", {"body": ghosts[0]}, anon.go(f"/reports/{a}")).status, 500)
+        self.assertLess(anon.post(f"/reports/{a}/comments", {"body": ghosts[1], "parent": first}, anon.go(f"/reports/{a}")).status, 500)
+        self.assertLess(b[1].post(f"/reports/{a}/comments", {"body": ghosts[2], "parent": far}, b[1].go(f"/reports/{a}")).status, 500)
+        for path, viewer in ((f"/reports/{a}", Browser(app.port)), ("/", Browser(app.port)), (f"/reports/{a}", owner), (f"/reports/{z}", owner)):
+            page = viewer.go(path)
+            self.assertFalse([g for g in ghosts if g in page.text], f"{path} shows a comment that should have been refused")
+            self.assertLessEqual(counts(page.dom)["comments"], {1 if path.endswith(z) else len(wrote)}, f"{path} counts a refused comment")
+            if path.endswith(z):
+                continue
+            got = shown(page)
+            for i, (text, who, to) in wrote.items():
+                n = got.get(i)
+                self.assertTrue(n is not None and text.split(" ")[0] in own(n), f"{path} does not show comment-{i}")
+                self.assertIn(who["login"], own(n), f"comment-{i} on {path} does not show its writer's GitHub login")
+                self.assertTrue([x for x in mine(n) if x.tag == "img" and x.attrs.get("src", "").startswith(who["avatar_url"].split("?")[0])],
+                                f"comment-{i} on {path} does not show its writer's GitHub avatar")
+                self.assertEqual(bool(re.search(r"(?<![\w-])author(?![\w-])", own(n), re.I)), who["id"] == OWNER_ID,
+                                 f"comment-{i} on {path} by GitHub user {who['id']}: an 'Author' badge only on the pinned owner's")
+                self.assertTrue(to is None or got.get(to) in chain(n)[:-1], f"comment-{i} on {path} is not shown beneath comment-{to}, which it answers")
+            self.assertIn(typed.strip(), own(got[first]), f"{path} does not show the HTML typed into a comment as literal text")
+            self.assertFalse([x for x in page.dom.walk() if x.tag == "b" and "bold" in x.text() or x.tag == "script" and "hbandRan" in
+                              "".join(k.data for k in x.kids) or x.attrs.get("onerror")], f"HTML typed into a comment is markup on {path}")
+            self.assertEqual([i for i in got if i in (first, second, third)], [first, second, third], f"{path} lists top-level comments out of order")
+
+
+class Plain(unittest.TextTestResult):  # a failure is told by its message alone
+    _exc_info_to_string = lambda self, err, test: f"{err[0].__name__}: {err[1]}"
+
+
+if __name__ == "__main__":
+    sys.exit(not unittest.TextTestRunner(resultclass=Plain, verbosity=2).run(
+        unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__])).wasSuccessful())

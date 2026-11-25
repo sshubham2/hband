@@ -3,6 +3,7 @@ package headless
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -130,20 +131,76 @@ func TestDefaultBrowserIsNeverEdge(t *testing.T) {
 }
 
 // Skip must really end the calling test: a real *testing.T, not the recorder.
+// That is shown in a child of this test binary, so that no skip is reported by the
+// run that is checking it (a whole-suite run with CHROME_BIN naming Chrome must
+// show no SKIP that names CHROME_BIN). The child, when HBAND_TEST_SKIP_CALLER is 1,
+// is the caller: it asks Browser with CHROME_BIN unset and logs if it gets past.
 func TestBrowserSkipEndsTheCallingTest(t *testing.T) {
-	setEnv(t, "CHROME_BIN", "", true)
-
-	var sub *testing.T
-	reached := false
-	t.Run("caller", func(st *testing.T) {
-		sub = st
-		Browser(st)
-		reached = true
-	})
-	if reached {
-		t.Fatal("the caller ran on past Browser: it was not stopped")
+	if os.Getenv("HBAND_TEST_SKIP_CALLER") == "1" {
+		Browser(t)
+		t.Log("reached past Browser")
+		return
 	}
-	if !sub.Skipped() {
-		t.Fatal("the caller was not reported as skipped")
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(exe, "-test.run=^TestBrowserSkipEndsTheCallingTest$", "-test.v", "-test.count=1")
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(strings.ToUpper(kv), "CHROME_BIN=") {
+			cmd.Env = append(cmd.Env, kv)
+		}
+	}
+	cmd.Env = append(cmd.Env, "HBAND_TEST_SKIP_CALLER=1")
+	out, err := cmd.CombinedOutput()
+	text := string(out)
+	if err != nil {
+		t.Fatalf("the caller exited with an error: %v\n%s", err, text)
+	}
+	if !strings.Contains(text, "--- SKIP: TestBrowserSkipEndsTheCallingTest") {
+		t.Fatalf("the caller was not reported as skipped:\n%s", text)
+	}
+	if !strings.Contains(text, "CHROME_BIN") {
+		t.Fatalf("the skip does not say CHROME_BIN:\n%s", text)
+	}
+	if strings.Contains(text, "reached past Browser") {
+		t.Fatalf("the caller ran on past Browser: it was not stopped:\n%s", text)
+	}
+}
+
+// A CHROME_BIN whose name does not say Edge but whose symbolic links resolve to
+// Edge is Edge. The resolver is a seam, so this runs on every machine and needs no
+// privilege to create a link.
+func TestBrowserRefusesWhatSymlinksResolveToEdge(t *testing.T) {
+	p := fileIn(t, "chrome.exe")
+	old := evalSymlinks
+	defer func() { evalSymlinks = old }()
+	evalSymlinks = func(string) (string, error) { return `C:\Program Files\Elsewhere\msedge.exe`, nil }
+	t.Setenv("CHROME_BIN", p)
+
+	r := &recorder{TB: t}
+	got := Browser(r)
+	if got != "" || !r.skipped || !strings.Contains(r.msg, "Edge") {
+		t.Fatalf("a path resolving to msedge.exe was not refused: got %q skipped=%v msg=%q", got, r.skipped, r.msg)
+	}
+}
+
+// The same with a real symbolic link, where this machine lets the test make one.
+func TestBrowserRefusesARealSymlinkToEdge(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "msedge.exe")
+	if err := os.WriteFile(target, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "chrome.exe")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("a symbolic link cannot be made here (%v), so only the resolver seam is exercised", err)
+	}
+	t.Setenv("CHROME_BIN", link)
+
+	r := &recorder{TB: t}
+	got := Browser(r)
+	if got != "" || !r.skipped || !strings.Contains(r.msg, "Edge") {
+		t.Fatalf("a symbolic link to msedge.exe was not refused: got %q skipped=%v msg=%q", got, r.skipped, r.msg)
 	}
 }
