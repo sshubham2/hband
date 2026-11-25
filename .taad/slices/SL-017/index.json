@@ -51,6 +51,94 @@
   {
    "stage": "design-slice",
    "issue": "Function name: seed (practice) or run (crossdomain)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "serve_show_all.py's four-report show-all seed: retired as the design decided. The launcher seeds only DeepThread's report; the SS-26 and SS-120 Why texts say so, and internal/server TestShowAll remains the guard on the row text."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "A sweep of temp folders left by a job kill, a retry of the staging start, and a ratchet package: not built, per the design. Each kill leaves hband-acceptance-bin, -work and -data, hband-seeded-data-* and go-build folders."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The engine's app_command repoint for project 14: an engine setting I cannot write, handed off under O-026 and follow_ups."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "A ready-line or redirect-aware readiness signal other than a TCP connect: the product opens N only after seeding, so connect equals ready."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Engine: set projects.app_command for project 14 to `go run ./internal/testutil/seeded -port {port}` before validate. Validate should read it first (mode=ro) and raise an obligation naming this action if it still holds the Python value; if SL-017 is abandoned before merge, restore `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}`."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Engine: stage the 8 deletions and the new files and commit; the ls-files check and the two .gitignore `--cached` checks pass only on the committed tree. Commit e3ee128 from my incident is unreferenced."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Run the engine's Fitness op=check on .taad/fitness.yaml before merge (no tool here, and the two rules carry a widened (?i:...) pattern in a single-quoted scalar)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Person: the finish bodies of done epics E-003..E-006 (ledger epics 41-44) still run `python tests/acceptance/*.py`; retiring or redrafting them is the owner's decision (spike 208 no-go, N-238)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "After a TerminateJobObject kill the launcher leaves hband-* folders under the leased TEMP; accepted by the design, no sweep built."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: git grep has no -x switch (it exited 129, 'unknown switch x'), so the design's `git grep -q -x -F` literal-line check cannot run. The two cases use `git grep -q --cached -E -e '^__pycache__/$'` and `'^\\*\\.pyc$'` against the index blob (m1's own alternative form)."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The run-line search's flag alternative is -[A-Za-z0-9] (accepted M-add-1); the shebang script and Python tool runners are named as holes in rule 1's because text and bounded_by instead of being searched for."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Factored the stand-in check out of run into checkStandIn and added TestEphemeralBindsNeverReachTheServingPort with testdata/ephemeral_binds.json, plus TestSeededProgramOpensAKilledWritersDataFolder for O-002. The design listed five tests and no corpus; the obligations required them."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The check scripts and the probe source are kept in .taad/slices/SL-017/checks/ so the cases do not depend on the engine's leased TEMP. The ledger-derived bodies and overlay files stay in scratch, so C-007, C-013, C-014, C-016, C-026 and C-028 need the engine to re-read the ledger and rebuild the scratch files, as the design says. The overlay and scratch paths in those test_command strings are mine, in the leased TEMP, and will not survive it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The checks ran through `pwsh -NoProfile -File`, not the engine's case runner, which I do not have. Fitness op=check was not run: no tool here, and PyYAML is absent. Local scalar tests and Python's re stand in."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: INCIDENT, repaired. My scratch 'clone' was mirrored with `robocopy /XD .git`, which does not exclude a worktree's `.git` file, so it pointed at the real repository. There I made `git add -A` and `git commit` (e3ee128, 'scratch: SL-017 tree') and `git config user.name/user.email` set to scratch values. I removed both config keys and ran `git reset --mixed 89da1ad`. HEAD is back at 89da1ad, the index equals HEAD, and the working tree holds all of the work as uncommitted changes, as the engine found it. Commit e3ee128 is now unreferenced and remains in the reflog and object store until gc. The later verification used a properly independent clone whose git dir was checked. Nothing was pushed."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: The design said neither SL-017 because text may hold an apostrophe. Rule 1's because text at .taad/fitness.yaml:593 holds one ('at the epic''s finish'), escaped as a doubled apostrophe in the single-quoted scalar. It is harmless: the engine's Fitness check loads all 42 rules, and the run-line search is unaffected. The build did not declare the departure."
+  },
+  {
+   "stage": "code-review",
+   "issue": "drift: The ledger probe source (.taad/slices/SL-017/checks/zz_probe_test.go.txt:16-19) adds a hard-coded fallback directory when ZZ_PROBE_DIR is unset. The design says the test reads ZZ_PROBE_DIR. Filed as m1."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): .gitignore (not seen: lines 1-33 of 33) -- partly-opened: seen only through a shell command: $s, foreach, git diff, git log (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 1-598 of 598) -- partly-opened: seen only through a shell command: $s, foreach, git diff, git grep, git log (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json (not seen: lines 1-709 of 709) -- partly-opened: seen only through a shell command: foreach, git diff, git grep (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/program/thread.go (not seen: lines 1-84 of 84) -- partly-opened: seen only through a shell command: foreach, git diff, git log (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): tests/acceptance/ported/rows_test.go (not seen: lines 46-402 of 402) -- partly-opened: a Read returned only part of it; seen only through a shell command: $files, foreach, get-content, git diff, git grep (measured by the engine from the review's own tool record)"
   }
  ],
  "stages": [
@@ -183,6 +271,48 @@
      },
      "changed": {},
      "details": "critique-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T22:09:17.668Z",
+     "head": "d12533b2790c0ef2328cde9c2f974f90c312b74a",
+     "summary": "Built the Go launcher internal/testutil/seeded.",
+     "caused_by": null,
+     "changed": {
+      "tests": 12,
+      "src": 1,
+      "config": 4,
+      "listed": 17,
+      "measured_by_git": 31
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-25T22:31:52.514Z",
+     "head": "d12533b2790c0ef2328cde9c2f974f90c312b74a",
+     "summary": "The code does what the design says, and every promise I checked holds when run.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
     }
    ]
   }

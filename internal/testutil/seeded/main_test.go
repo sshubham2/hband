@@ -397,6 +397,12 @@ func TestPortFlagRefusesBadValues(t *testing.T) {
 		{"-port", "99999999999999999999"},
 		{"-port", "abc"},
 		{"-port", "80x"},
+		{"-port", "0x1F90"},
+		{"-port", "0o17"},
+		{"-port", "0b1"},
+		{"-port", "1_000"},
+		{"-port", "+80"},
+		{"-port", "٨٠"},
 		{"-port", ""},
 		{"-port"},
 		{"-port", "8080", "extra"},
@@ -419,6 +425,8 @@ func TestPortFlagRefusesBadValues(t *testing.T) {
 		{[]string{"-port", "65535"}, 65535},
 		{[]string{"-port=3000"}, 3000},
 		{[]string{"--port", "4000"}, 4000},
+		{[]string{"-port", "010"}, 10},
+		{[]string{"-port", "08080"}, 8080},
 	} {
 		if got, err := parsePort(c.args, io.Discard); err != nil || got != c.want {
 			t.Errorf("parsePort(%q) = %d, %v, want %d", c.args, got, err, c.want)

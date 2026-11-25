@@ -74,7 +74,18 @@ func main() {
 func parsePort(args []string, w io.Writer) (int, error) {
 	fs := flag.NewFlagSet("seeded", flag.ContinueOnError)
 	fs.SetOutput(w)
-	port := fs.Int("port", 0, "the loopback port to serve the seeded product on (1-65535)")
+	port := 0
+	// The value is read as text and parsed as decimal: fs.Int would take it as
+	// strconv.ParseInt(s, 0, ...) does, so 010 would be port 8, 0x1F90 port 8080
+	// and 1_000 port 1000, none of them the port the caller wrote.
+	fs.Func("port", "the loopback port to serve the seeded product on (1-65535)", func(s string) error {
+		n, err := decimal(s)
+		if err != nil {
+			return err
+		}
+		port = n
+		return nil
+	})
 	if err := fs.Parse(args); err != nil {
 		return 0, err
 	}
@@ -83,12 +94,30 @@ func parsePort(args []string, w io.Writer) (int, error) {
 		fs.Usage()
 		return 0, errors.New("unexpected argument")
 	}
-	if *port <= 0 || *port > 65535 {
-		fmt.Fprintf(w, "seeded: -port must be a number from 1 to 65535, not %d\n", *port)
+	if port <= 0 || port > 65535 {
+		fmt.Fprintf(w, "seeded: -port must be a number from 1 to 65535, not %d\n", port)
 		fs.Usage()
 		return 0, errors.New("bad port")
 	}
-	return *port, nil
+	return port, nil
+}
+
+// decimal reads s as a non-negative decimal number: ASCII digits only, so no
+// sign, base prefix or digit separator.
+func decimal(s string) (int, error) {
+	if s == "" {
+		return 0, errors.New("empty: want a decimal number")
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return 0, fmt.Errorf("%q is not a decimal number", s)
+		}
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("%q is out of range", s)
+	}
+	return n, nil
 }
 
 // portOf is the port in a URL such as a stand-in's http://127.0.0.1:54321.

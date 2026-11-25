@@ -1,0 +1,506 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-017",
+ "stage": "code-review",
+ "attempt": 1,
+ "at": "2026-11-25T22:31:52.514Z",
+ "head": "d12533b2790c0ef2328cde9c2f974f90c312b74a",
+ "run_id": 12376,
+ "summary": "The code does what the design says, and every promise I checked holds when run. I read the whole of internal/testutil/seeded/main.go and main_test.go, the bind corpus, every hunk of the other changed files, the check scripts and the probe source, plus the program.go and fakegithub code the launcher relies on.\n\nWhat I ran:\n- **Launcher tests:** `go test -count=1 -v ./internal/testutil/seeded` passed 7 of 7. The killed-writer test passed and did not skip. fitnessrules and ported pass too.\n- **Done checks c7 to c13:** all exit 0 on the committed tree (d12533b).\n- **Python search:** no tracked or on-disk .py, .pyc, .pyw or .pyi file, and no shebang line naming Python. Outside the records, every 'python' mention is a bot User-Agent string or a 'Go port of the retired …' comment.\n- **Ledger gate:** I read epics 39-44 from the ledger read-only and ran the probe through an overlay. It shows 16 items against 16 ledger sources and the 6 .py files absent. Separately, all six deleted .py files, as they stood at 89da1ad, hash to the Editions pinned in rows_test.go. So the BLOCKED-ON gate holds for what was actually deleted.\n- **E-009 line 7:** the ledger body passed in 5.6 s. No hband process was left; the 4 temp folders the job kill leaves, which the contract accepts, I removed.\n- **Fresh clone without Python:** in a clone of slice/SL-017 with its own git dir, Python off PATH and PYTHON*, HBAND_* and CHROME_BIN removed, `go build` exits 0 and `go test -count=1 -p 4 ./...` passes all 33 packages. E-009 line 6's body also passed in that clone (22.8 s).\n- **Fitness op=check, which the builder could not run:** it loads all 42 rules. I planted temporary files (removed straight after; the tree is clean again). The no-Python-file rule fires on a .py at the root, under .taad/slices and under a testdata folder, so its because text ('only the engine Fitness check sees' .taad and testdata) is true. The widened exec pattern fires on `exec.CommandContext(t.Context(), \"python\", …)`, `\"C:/Python314/PYTHON.EXE\"` and a backtick `py`, and stays quiet on the pinned holes (a shell string, a variable).\n- **Run-line search:** planted spellings behave as designed. It catches `py -3 x.py`, `PYTHON.EXE x.py`, `python3.14 tools/gen.py` (with a CR) and `python -m`. It stays quiet on `happy -x`, `copy -1`, `python3 run` and `pyramid -x`.\n- **Formatting:** gofmt is clean on the LF copies of the new and changed Go files.\n\nContracts held against the code:\n- The serving line is written only after the final Start's health check.\n- A staging failure ends the scope (kill first) before the parent's Fatalf.\n- The process T runs its cleanups newest first, once, then exits 1.\n- stagingPort never returns n, and checkStandIn refuses n, an unreadable port, and an IPv6 host on n.\n- The shared HBAND_DATA_DIR is passed through Options.Env, which childEnv honours (program.go:277-284).\n- The launcher imports only outside and program.\n\nOne minor problem, in a slice-record file rather than in code or tests: the committed probe source falls back to a hard-coded path in the builder's leased TEMP when ZZ_PROBE_DIR is unset. That folder still exists, so an unset run would pass on the old 2026-11-25 copy instead of failing.\n\nTwo facts for later stages:\n- projects.app_command for project 14 still holds `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}` (read-only read). That file is gone from this tree, so any look before the engine repoints it to `go run ./internal/testutil/seeded -port {port}` fails at launch.\n- The no-Python-file rule now matches no file, so op=check lists it under 'MATCHED NO FILES' on every run. That is what the design intends, not a defect.\n\nThe slice's history (repro, build-check, two spikes, two designs, two critiques, two critique reviews, one build) is not a loop.\n\nSecond reader, for inputs: Input pass over the launcher (internal/testutil/seeded), the two SL-017 fitness rules and their corpus, and the slice's done-check scripts. Everything was probed by running code: go test with -overlay probes, git grep --no-index on crafted lines, and a throwaway git repo for pathspec case. As shipped, `go test -count=1 ./internal/testutil/seeded ./internal/fitnessrules` passes. The seven check scripts c7 to c13 all exit 0 on this tree. The engine's Fitness op=check loads all 42 rules, so the widened `(?i:...)` scalar parses. A case-insensitive search of every tracked file outside the quoted records finds no instruction to run Python, and `git ls-files ':(icase)*.py'` is empty.\n\nTwo defects were confirmed, each with a repro that fails on the shipped code:\n- **m1, the launcher's port flag:** parsePort reads -port as base-0 Go integer syntax, so `-port 010` serves on port 8, and `0x1F90`, `0o17`, `0b1` and `1_000` are accepted as ports 8080, 15, 1 and 1000.\n- **m2, the exec fitness rule:** the rule stays quiet on `exec.Command(filepath.Join(pyHome, \"python.exe\"), script)`. That is a Python literal inside the one nested call the rule says it allows. The free-threaded `python3.14t` and `pypy3` are also quiet. This is a new member of the family O-021 declared closed.\n\nTwo extras cover spellings the done-check searches miss:\n- **m3:** c10 misses a quoted interpreter path (`\"C:\\Python314\\python.exe\" -I x.py`) and the exec-array form (`[\"python\", \"-I\", \"x.py\"]`).\n- **m4:** c7's pathspec is case-sensitive even with core.ignorecase=true, so a tracked GEN.PY or tool.Py is not listed.\n\nNothing else in parsePort, portOf, checkStandIn, stagingPort, scope or processT misreads an input. The IPv6, trailing-slash, overflowing and empty URL shapes are handled, and a stand-in port that only shares N's leading or trailing digits passes, as it should. Scratch files were removed and no processes were left running.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The code does what the design says, and every promise I checked holds when run. I read the whole of internal/testutil/seeded/main.go and main_test.go, the bind corpus, every hunk of the other changed files, the check scripts and the probe source, plus the program.go and fakegithub code the launcher relies on.\n\nWhat I ran:\n- **Launcher tests:** `go test -count=1 -v ./internal/testutil/seeded` passed 7 of 7. The killed-writer test passed and did not skip. fitnessrules and ported pass too.\n- **Done checks c7 to c13:** all exit 0 on the committed tree (d12533b).\n- **Python search:** no tracked or on-disk .py, .pyc, .pyw or .pyi file, and no shebang line naming Python. Outside the records, every 'python' mention is a bot User-Agent string or a 'Go port of the retired …' comment.\n- **Ledger gate:** I read epics 39-44 from the ledger read-only and ran the probe through an overlay. It shows 16 items against 16 ledger sources and the 6 .py files absent. Separately, all six deleted .py files, as they stood at 89da1ad, hash to the Editions pinned in rows_test.go. So the BLOCKED-ON gate holds for what was actually deleted.\n- **E-009 line 7:** the ledger body passed in 5.6 s. No hband process was left; the 4 temp folders the job kill leaves, which the contract accepts, I removed.\n- **Fresh clone without Python:** in a clone of slice/SL-017 with its own git dir, Python off PATH and PYTHON*, HBAND_* and CHROME_BIN removed, `go build` exits 0 and `go test -count=1 -p 4 ./...` passes all 33 packages. E-009 line 6's body also passed in that clone (22.8 s).\n- **Fitness op=check, which the builder could not run:** it loads all 42 rules. I planted temporary files (removed straight after; the tree is clean again). The no-Python-file rule fires on a .py at the root, under .taad/slices and under a testdata folder, so its because text ('only the engine Fitness check sees' .taad and testdata) is true. The widened exec pattern fires on `exec.CommandContext(t.Context(), \"python\", …)`, `\"C:/Python314/PYTHON.EXE\"` and a backtick `py`, and stays quiet on the pinned holes (a shell string, a variable).\n- **Run-line search:** planted spellings behave as designed. It catches `py -3 x.py`, `PYTHON.EXE x.py`, `python3.14 tools/gen.py` (with a CR) and `python -m`. It stays quiet on `happy -x`, `copy -1`, `python3 run` and `pyramid -x`.\n- **Formatting:** gofmt is clean on the LF copies of the new and changed Go files.\n\nContracts held against the code:\n- The serving line is written only after the final Start's health check.\n- A staging failure ends the scope (kill first) before the parent's Fatalf.\n- The process T runs its cleanups newest first, once, then exits 1.\n- stagingPort never returns n, and checkStandIn refuses n, an unreadable port, and an IPv6 host on n.\n- The shared HBAND_DATA_DIR is passed through Options.Env, which childEnv honours (program.go:277-284).\n- The launcher imports only outside and program.\n\nOne minor problem, in a slice-record file rather than in code or tests: the committed probe source falls back to a hard-coded path in the builder's leased TEMP when ZZ_PROBE_DIR is unset. That folder still exists, so an unset run would pass on the old 2026-11-25 copy instead of failing.\n\nTwo facts for later stages:\n- projects.app_command for project 14 still holds `python -I -X utf8 .taad/slices/SL-008/run_finish_e004_2.py serve --port {port}` (read-only read). That file is gone from this tree, so any look before the engine repoints it to `go run ./internal/testutil/seeded -port {port}` fails at launch.\n- The no-Python-file rule now matches no file, so op=check lists it under 'MATCHED NO FILES' on every run. That is what the design intends, not a defect.\n\nThe slice's history (repro, build-check, two spikes, two designs, two critiques, two critique reviews, one build) is not a loop.\n\nSecond reader, for inputs: Input pass over the launcher (internal/testutil/seeded), the two SL-017 fitness rules and their corpus, and the slice's done-check scripts. Everything was probed by running code: go test with -overlay probes, git grep --no-index on crafted lines, and a throwaway git repo for pathspec case. As shipped, `go test -count=1 ./internal/testutil/seeded ./internal/fitnessrules` passes. The seven check scripts c7 to c13 all exit 0 on this tree. The engine's Fitness op=check loads all 42 rules, so the widened `(?i:...)` scalar parses. A case-insensitive search of every tracked file outside the quoted records finds no instruction to run Python, and `git ls-files ':(icase)*.py'` is empty.\n\nTwo defects were confirmed, each with a repro that fails on the shipped code:\n- **m1, the launcher's port flag:** parsePort reads -port as base-0 Go integer syntax, so `-port 010` serves on port 8, and `0x1F90`, `0o17`, `0b1` and `1_000` are accepted as ports 8080, 15, 1 and 1000.\n- **m2, the exec fitness rule:** the rule stays quiet on `exec.Command(filepath.Join(pyHome, \"python.exe\"), script)`. That is a Python literal inside the one nested call the rule says it allows. The free-threaded `python3.14t` and `pypy3` are also quiet. This is a new member of the family O-021 declared closed.\n\nTwo extras cover spellings the done-check searches miss:\n- **m3:** c10 misses a quoted interpreter path (`\"C:\\Python314\\python.exe\" -I x.py`) and the exec-array form (`[\"python\", \"-I\", \"x.py\"]`).\n- **m4:** c7's pathspec is case-sensitive even with core.ignorecase=true, so a tracked GEN.PY or tool.Py is not listed.\n\nNothing else in parsePort, portOf, checkStandIn, stagingPort, scope or processT misreads an input. The IPv6, trailing-slash, overflowing and empty URL shapes are handled, and a stand-in port that only shares N's leading or trailing digits passes, as it should. Scratch files were removed and no processes were left running.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "defect",
+    "file": ".taad/slices/SL-017/checks/zz_probe_test.go.txt",
+    "line": 16,
+    "end_line": 19,
+    "claim": "The committed source of the BLOCKED-ON ledger probe does not fail when ZZ_PROBE_DIR is unset. It falls back to a hard-coded folder in the builder's leased TEMP (taad3-runs\\12374\\sl017-build\\finish). That folder still exists on this machine, so a validator or later stage that rebuilds the probe from this file and forgets to set ZZ_PROBE_DIR gets a PASS. That pass rests on the builder's 2026-11-25 copy of the finish bodies, not on the ledger as it is then. This breaks the fail-closed property the critic's check of m4 relied on ('an unset ZZ_PROBE_DIR (0 items, not 16) ... fail[s] it'). It also departs from the design's 'The test reads ZZ_PROBE_DIR'. Today's gate is unaffected: with ZZ_PROBE_DIR set to a fresh read-only read, the probe passes 16/16, and the deleted files hash to their Editions.",
+    "evidence": "zz_probe_test.go.txt:16-19; Test-Path on the fallback folder returned True; design component 'Ledger Edition probe' says 'The test reads ZZ_PROBE_DIR'; the critic_on_this_fix for m4 lists an unset ZZ_PROBE_DIR among the ways the probe fails closed.",
+    "fix": "Remove the fallback: when ZZ_PROBE_DIR is empty, call t.Fatal(\"ZZ_PROBE_DIR is unset: quote finish_39..44.json from a mode=ro SELECT first\").",
+    "quote": {
+     "path": ".taad/slices/SL-017/checks/zz_probe_test.go.txt",
+     "line": 16,
+     "text": "\tdir := os.Getenv(\"ZZ_PROBE_DIR\")\n\tif dir == \"\" {"
+    }
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": "internal/testutil/seeded/main.go",
+    "line": 77,
+    "claim": "parsePort declares -port with fs.Int. The flag package reads that with strconv.ParseInt(s, 0, ...), so base prefixes, a leading-zero octal and digit underscores are all accepted. Measured: `-port 010` gives 8, `0010` gives 8, `0x1F90` gives 8080, `0o17` gives 15, `0b1` gives 1, `1_000` gives 1000, while `08080` is refused as a parse error. So `go run ./internal/testutil/seeded -port 010` builds, seeds and serves on 127.0.0.1:8 and prints `serving http://127.0.0.1:8/`. A consumer that named port 10 waits on a port nothing will ever bind. The parser's own comment, the contract ('a bad or missing -port: usage on stderr, exit 2') and the usage text ('the loopback port ... (1-65535)') all describe a decimal port number. TestPortFlagRefusesBadValues has no row for a leading zero or a base prefix.",
+    "evidence": "Probe through -overlay in package main: parsePort([\"-port\",\"010\"]) = 8, nil; \"0x1F90\" = 8080, nil; \"1_000\" = 1000, nil. The repro below fails with exactly those values.",
+    "fix": "Read -port as text and parse it as decimal. Either use fs.String(\"port\", ...) and strconv.Atoi, refusing a value that is not all decimal digits, or use fs.Func with the same parse. Keep the existing range check and the usage-on-refusal behaviour.",
+    "quote": {
+     "path": "internal/testutil/seeded/main.go",
+     "line": 77,
+     "text": "port := fs.Int(\"port\", 0, \"the loopback port to serve the seeded product on (1-65535)\")"
+    },
+    "repro": {
+     "path": "internal/testutil/seeded/port_decimal_test.go",
+     "body": "package main\n\nimport (\n\t\"io\"\n\t\"testing\"\n)\n\n// TestPortFlagReadsADecimalPort: -port names a decimal port. A leading zero or a\n// base prefix must not turn it into a port other than the one the caller named.\nfunc TestPortFlagReadsADecimalPort(t *testing.T) {\n\tif got, err := parsePort([]string{\"-port\", \"010\"}, io.Discard); err == nil && got != 10 {\n\t\tt.Errorf(\"parsePort(-port 010) = %d: the launcher would serve on port %d, not 10\", got, got)\n\t}\n\tfor _, v := range []string{\"0x1F90\", \"0o17\", \"0b1\", \"1_000\"} {\n\t\tif got, err := parsePort([]string{\"-port\", v}, io.Discard); err == nil {\n\t\t\tt.Errorf(\"parsePort(-port %s) = %d, want a refusal: not a decimal port number\", v, got)\n\t\t}\n\t}\n}\n",
+     "command": "go test -count=1 -run ^TestPortFlagReadsADecimalPort$ ./internal/testutil/seeded"
+    }
+   },
+   {
+    "id": "IN-m2",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": ".taad/fitness.yaml",
+    "line": 597,
+    "claim": "The rule 'no Go code starts a Python interpreter' stays quiet on `exec.Command(filepath.Join(pyHome, \"python.exe\"), script)`. That is the ordinary way to start an interpreter from a known install folder. The rule's prefix accepts a balanced nested call only BEFORE the literal, so a literal INSIDE the one nested call never reaches the `[\"`]` that follows. The because text says the rule fires on a call that 'names a Python executable as a string literal, allowing one level of nested parentheses'. Its list of holes names 'two or more levels of nested parentheses' and a name 'built by concatenation', but not one whole literal inside a single nested call. Two more members of the same family are quiet and appear neither as corpus rows nor in the hole list: `exec.Command(\"python3.14t\", ...)`, the free-threaded CPython 3.14 binary, and `exec.Command(\"pypy3\", ...)`.",
+    "class_of": "spellings of a Python interpreter name in an os/exec literal",
+    "threat": "accident",
+    "evidence": "Overlay probe in package fitnessrules, using the rule as loadRules reads it: quiet on `exec.Command(filepath.Join(dir, \"python.exe\"), \"-I\")`, on `exec.Command(filepath.Join(os.Getenv(\"LOCALAPPDATA\"), \"python.exe\"))`, on `exec.Command(\"python3.14t\", \"x\")` and on `exec.Command(\"pypy3\", \"x\")`. I also tested the fix below. With `|\\(` added, every existing pyexec corpus row keeps its expected result, 132 tracked .go files stay quiet, `exec.Command(filepath.Join(dir, \"go\"), \"build\")` and `exec.Command(filepath.Join(runtime.GOROOT(), \"bin\", \"go\"), \"vet\")` stay quiet, and the repro text fires. The repro file itself stays quiet under the widened rule, so TestRulesHoldOnTheTree is unaffected.",
+    "fix": "Let the prefix enter one unclosed nested call. Change `(?:[^()\\r\\n]|\\([^()\\r\\n]*\\))*` to `(?:[^()\\r\\n]|\\([^()\\r\\n]*\\)|\\()*` in the single-quoted scalar at fitness.yaml:597. Add the corpus fire row {\"rule\": \"no Go code starts a Python interpreter\", \"path\": \"tools/launch_test.go\", \"expect\": \"fire\", \"text\": \"exec.Command(filepath.Join(pyHome, \\\"python.exe\\\"), script)\"}. For python3.14t and pypy3, either widen the name group to `python[0-9.]*t?|pythonw|py|pypy[0-9.]*` with fire rows, or add quiet pinned-hole rows and name them in the because text and bounded_by. Then re-run the engine's Fitness op=check.",
+    "quote": {
+     "path": ".taad/fitness.yaml",
+     "line": 597,
+     "text": "exec\\.(?:Command|CommandContext|LookPath)\\((?:[^()\\r\\n]|\\([^()\\r\\n]*\\))*[\"`]"
+    },
+    "repro": {
+     "path": "internal/fitnessrules/pyexec_join_test.go",
+     "body": "package fitnessrules\n\nimport \"testing\"\n\n// TestPythonExecRuleSeesAJoinedInterpreterPath: a Python interpreter named as a\n// string literal inside the one nested call the rule allows (filepath.Join of an\n// install folder and the interpreter's file name) is a Go test starting Python.\n// The spelling is held with an escape so this file does not trip the rule itself.\nfunc TestPythonExecRuleSeesAJoinedInterpreterPath(t *testing.T) {\n\trules := loadRules(t, repoRoot(t))\n\tr, ok := rules[\"no Go code starts a Python interpreter\"]\n\tif !ok {\n\t\tt.Fatal(\"fitness.yaml has no rule named \\\"no Go code starts a Python interpreter\\\"\")\n\t}\n\ttext := \"cmd := exec.Command(filepath.Join(pyHome, \\\"p\\x79thon.exe\\\"), script)\"\n\tif fired, skipped := r.fires(\"tools/launch_test.go\", text); !fired {\n\t\tt.Errorf(\"the rule stays quiet on %s (skipped %v)\", text, skipped)\n\t}\n}\n",
+     "command": "go test -count=1 -run ^TestPythonExecRuleSeesAJoinedInterpreterPath$ ./internal/fitnessrules"
+    }
+   },
+   {
+    "id": "IN-m3",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "extra",
+    "file": ".taad/slices/SL-017/checks/c10-run-line.ps1",
+    "line": 1,
+    "claim": "The run-line done check (case 10, 'no instruction to run Python') requires a blank directly after the interpreter name. It is therefore blind to two spellings: a quoted interpreter path, which is the usual Windows form when the path has spaces, and the exec-array form used by CI and container files. A later README, CI or Dockerfile line in either form passes the done check. Measured with git grep --no-index on crafted lines. Of `\"C:\\Python314\\python.exe\" -I -X utf8 x.py serve`, `[\"python\", \"-I\", \"x.py\"]`, `command: [\"py\", \"-3\", \"run.py\"]`, `python3.14t -I x.py`, `pypy3 -m pytest`, `run python \\` (a line continuation), `& python -I x.py` and `python -I x.py`, only the last two matched. The criterion holds today: a case-insensitive grep for python across tracked files outside .taad/slices, the ported testdata and rows_test.go finds only comments, user-agent lists and the fitness texts.",
+    "class_of": "spellings the slice's done-check searches miss",
+    "threat": "accident",
+    "evidence": "git grep --no-index -n -I -i -E '<c10 pattern>' on a scratch file of the eight lines above: matches only on lines 6 and 8, exit 0.",
+    "fix": "Allow an optional closing quote and a list separator between the name and its argument. For example, replace `(\\.exe)?[[:blank:]]+` with `(\\.exe)?[\"'`]?[[:blank:],]+[\"'`]?`. Check that this stays empty on the tree, because the fitness texts and corpus rows are searched too. Alternatively, name the quoted, array and continuation forms as holes in case 10's why.",
+    "quote": {
+     "path": ".taad/slices/SL-017/checks/c10-run-line.ps1",
+     "line": 1,
+     "text": "git grep -q -I -i -E '(^|[^A-Za-z0-9_])(python[0-9.]*|pythonw|py)(\\.exe)?[[:blank:]]+(-[A-Za-z0-9]|[^[:space:]]+\\.py([^A-Za-z0-9_]|$))'"
+    }
+   },
+   {
+    "id": "IN-m4",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "extra",
+    "file": ".taad/slices/SL-017/checks/c7-ls-files.ps1",
+    "line": 1,
+    "claim": "The 'delete the Python' done check (case 7, 'any tracked .py, .pyc or .pyw file anywhere') uses plain pathspecs, and git matches those case-sensitively even when core.ignorecase=true. A tracked GEN.PY or sub/tool.Py, both Python sources on this Windows tree, is not listed, so the check exits 0. The fitness rule names an upper-case .PY as a pinned hole, but neither case 7's shape nor the check says it misses one. Today the tree has none: `git ls-files -- ':(icase)*.py' ':(icase)*.pyc' ':(icase)*.pyw' ':(icase)*.pyi'` printed nothing.",
+    "class_of": "spellings the slice's done-check searches miss",
+    "threat": "accident",
+    "evidence": "Throwaway repo in scratch, where core.ignorecase reported true, holding GEN.PY and sub/tool.Py: `git ls-files -- '*.py' '*.pyc' '*.pyw'` printed nothing, and `git ls-files -- ':(icase)*.py'` printed both files.",
+    "fix": "Use icase pathspecs: `if (git ls-files -- ':(icase)*.py' ':(icase)*.pyc' ':(icase)*.pyw') { exit 1 }; exit 0`.",
+    "quote": {
+     "path": ".taad/slices/SL-017/checks/c7-ls-files.ps1",
+     "line": 1,
+     "text": "if (git ls-files -- '*.py' '*.pyc' '*.pyw') { exit 1 }; exit 0"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/testutil/seeded/main_test.go:188-254. The poller dials N every 10 ms (200 ms timeout) and sends GET /reports/e004-look on its first connect. It requires 200, 'continue this thread' and a branch link, then wantSeeded (9 comments, ids 1..9) and the exact ready line. I ran it: PASS, 2.2 s."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "main_test.go:261-294. The staging program runs in a subtest, whose cleanups kill it. The test then dials P, requires a non-empty -wal and an -shm (or skips), and deep-compares everything served on N with the baseline. I ran it with -v: PASS, not SKIP."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "main_test.go:390-447 feeds 13 bad argument vectors to parsePort (missing, 0, -1, 65536, 20 digits, abc, 80x, empty, bare -port, a stray argument, a positional, an unknown flag), each with Usage. main() exits 2 for 4 of them. main.go:74-92."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "main_test.go:296-318: end() runs C, B, A, leaves the parent's cleanup alone, and a second end() runs nothing. Logf goes to the parent. scope.end is at main.go:228-241."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "main_test.go:320-388, three subtests. main.go:223-226 (the scope ends before the parent's Fatalf) and 270-290 (the process T runs its cleanups once, then exit(1))."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "I read E-009 item 7 from the ledger read-only and ran it via overlay with -tags e009line7: TestE009Line7GoLauncherServesTheSeededProductUntilStopped PASS in 5.57 s, 0 hband processes after, 4 hband-* folders left (removed)."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "Committed tree d12533b: c7-ls-files.ps1 exits 0. git ls-files lists no .py, .pyc, .pyw, .pyi or __pycache__ path, and there is none on disk either."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "c8-pyc-anywhere.ps1 exits 0. .gitignore has `*.pyc` (the committed blob holds the line, which c13 checks)."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "c9-pycache-any-file.ps1 exits 0 for .taad/slices/SL-099/__pycache__/anything.txt. .gitignore has `__pycache__/` (c12)."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "c10-run-line.ps1 exits 0 on the tree. I planted spellings outside the repo: `py -3 …run_finish.py`, `PYTHON.EXE x.py`, `python3.14 tools/gen.py` with a CR, `python -I …` and `python -m` match; `happy -x`, `copy -1`, `python3 run` and `pyramid -x` do not."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "go test ./tests/acceptance/ported passes in the worktree and in my fresh clone with all six .py files and both __pycache__ folders gone. ported_test.go:406-413 reads only the testdata snapshots."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "I ran it myself: a fresh clone (git dir inside the clone, HEAD d12533b), python/python3/py/pythonw unresolvable, PYTHON*, HBAND_* and CHROME_BIN removed. go build exit 0; go test -count=1 -p 4 ./... passes 33 of 33 packages."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "I re-read epics 39-44 read-only today and ran the probe: 16 items, 16 ledger sources, 0 mismatches, 6 files absent. I also hashed the six deleted files as they stood at 89da1ad (git show, then Canonical): all six equal the Editions at rows_test.go:27-32. Caveat: the probe's unset-ZZ_PROBE_DIR fallback (finding m1)."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "Void; it is replaced by the design's preconditions. TestSeededProgramOpensAKilledWritersDataFolder (main_test.go:261-294) holds the claim that the state survives the cut-over, and it passes."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "Void. The same test deep-compares the pages served from P and from N and finds them equal, so nothing served depends on the staging address."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "Void. launch's Kill plus a wait of up to 5 s (program.go:240-246) runs in stage.end() before the final Start (main.go:162-164). The killed-writer test checks that P no longer answers."
+   },
+   {
+    "key": "O-017",
+    "discharged": "yes",
+    "evidence": "Void; settled by spike 209 (go) and pinned by TestSeededProgramOpensAKilledWritersDataFolder."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": ".taad/slices/SL-017/checks/c7..c13.ps1 are plain PowerShell or single git commands, with no `$` inside a double-quoted string and a missing core.excludesFile in place of New-TemporaryFile. All exit 0 through pwsh -File. That they run through the engine's own case runner is still unproven (I do not have it either)."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "main.go:123-134 (stagingPort re-picks while p == n, at most 5 tries) and 174-184 (checkStandIn). testdata/ephemeral_binds.json has 15 rows, fed by TestEphemeralBindsNeverReachTheServingPort (PASS), covering IPv6 on N, no port, a non-numeric port, and ports that share N's leading or trailing digits."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": ".taad/fitness.yaml:588-593 has the rewritten because text, and both rules are in rules_under_test with pyfile fire, quiet and hole rows. I planted .py files and ran the engine's Fitness check: it fires at the root, under .taad/slices and under testdata, so the claim 'only the engine Fitness check sees' .taad and testdata is true."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "fitness.yaml:596 has the widened pattern, with pyexec-f001..f010 and q001..q006 in rule_spellings.json (TestRuleSpellingsCorpus passes). The engine's Fitness check evaluates it: on a planted .go file it fired on the t.Context(), C:/Python314/PYTHON.EXE and backtick `py` lines and stayed quiet on the shell-string and variable holes."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": ".taad/slices/SL-017/checks/zz_probe_test.go.txt spells the probe out, and it ran 16/16 for me. It fails on a BOM, an unmatched item, a name mismatch, a duplicate, an orphan source and a count other than 16. The hard-coded fallback for an unset ZZ_PROBE_DIR weakens it (finding m1)."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "c10 is anchored with (^|[^A-Za-z0-9_]). c11 searches for the deleted script names, skipping // lines and rows_test.go, and exits 0. The four comment mentions remain (thread.go:12, e004_2 test :8 and :232, sites_multidigit_test.go:9)."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "No code was owed. The deep-equal of the pages served from P and from N in the killed-writer test confirms that nothing served depends on the staging address."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "The nested-parentheses prefix is in fitness.yaml:596, and the t.Context() spelling is fire row pyexec-f002 (and the engine's check fires on it too). .pyw, .pyi and .PY are named as holes in rule 1's because text, with quiet rows pyfile-q002..q004."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "Handed off as an engine action, with the rollback value, in the build's follow_ups. No repository code can hold this setting. Measured read-only: projects.app_command for id 14 is still the Python value, so validate must read it first, as the hand-off asks."
+   },
+   {
+    "key": "O-027",
+    "discharged": "yes",
+    "evidence": "Same as O-001; it passes."
+   },
+   {
+    "key": "O-028",
+    "discharged": "yes",
+    "evidence": "Same as O-006; line 7 passes under go run and TerminateJobObject."
+   },
+   {
+    "key": "O-029",
+    "discharged": "yes",
+    "evidence": "Same as O-003."
+   },
+   {
+    "key": "O-030",
+    "discharged": "yes",
+    "evidence": "main_test.go:449-475 feeds an IPv4 port, a trailing slash, [::1]:80, no port, [::1] with no port, an empty URL, a non-numeric port and an overflowing port. The stand-in rows of the bind corpus cover the rest."
+   },
+   {
+    "key": "O-031",
+    "discharged": "yes",
+    "evidence": "Same as O-004."
+   },
+   {
+    "key": "O-032",
+    "discharged": "yes",
+    "evidence": "Same as O-005."
+   },
+   {
+    "key": "O-033",
+    "discharged": "yes",
+    "evidence": "Same as O-007."
+   },
+   {
+    "key": "O-034",
+    "discharged": "yes",
+    "evidence": "Same as O-008."
+   },
+   {
+    "key": "O-035",
+    "discharged": "yes",
+    "evidence": "Same as O-009."
+   },
+   {
+    "key": "O-036",
+    "discharged": "yes",
+    "evidence": "Same as O-010. fitness.yaml and rule_spellings.json are inside the search scope and the search is still quiet."
+   },
+   {
+    "key": "O-037",
+    "discharged": "yes",
+    "evidence": "c11-script-names.ps1 exits 0 on the committed tree."
+   },
+   {
+    "key": "O-038",
+    "discharged": "yes",
+    "evidence": "Same as O-013: today's read-only read gives 16/16 with the files absent, and the pre-deletion contents equal the Editions."
+   },
+   {
+    "key": "O-039",
+    "discharged": "yes",
+    "evidence": "go test -count=1 ./internal/fitnessrules passes. The corpus feeds t.Context(), a folder prefix (forward and back slashes), a version suffix, upper case, .EXE, a .py under .taad, a whitespace-only .py, .pyw, a variable and a shell string."
+   },
+   {
+    "key": "O-040",
+    "discharged": "yes",
+    "evidence": "Same as O-012, plus E-009 item 6 read from the ledger and run in my clean clone with -tags e009line6: TestE009Line6NoPythonLeftAndNoneNeeded PASS in 22.78 s."
+   },
+   {
+    "key": "O-041",
+    "discharged": "yes",
+    "evidence": "c12 and c13 use git grep --cached -E with anchored lines against the index blob and exit 0. The committed .gitignore blob ends with the `__pycache__/` and `*.pyc` lines."
+   },
+   {
+    "key": "O-042",
+    "discharged": "yes",
+    "evidence": "Independently re-done: a clone of slice/SL-017 into scratch, with the git dir verified inside it, Python off PATH; build and full suite pass (33 ok)."
+   },
+   {
+    "key": "O-043",
+    "discharged": "yes",
+    "evidence": "c10's flag alternative is -[A-Za-z0-9], and it catches `py -3 x.py` (planted). Rule 1's because text names the extensionless shebang script as a hole, which is what the decision required. The builder's account overstates the rest: 'uv, poetry, pipx, tox' appear nowhere in the tree, and the tool-runner hole ('pytest or pip') is named in rule 2's because text and the exec bounded_by, not in rule 1's."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "Row 1, a consumer connecting to N the moment it opens: TestPortOpensOnlyOnceTheThreadIsSeeded (main_test.go:188) has a TCP poller that GETs the report on its first connect while run() is still going; it passes."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "Row 2, go run then TerminateJobObject: I ran E-009 line 7's ledger body via overlay with -tags e009line7 and it passes; nothing was serving after the kill."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "Row 3, bad -port values: TestPortFlagRefusesBadValues feeds missing, 0, -1, 65536, abc and 80x, among others, and checks that main exits 2."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "Row 4, stand-in URL shapes: TestStandInPortIsReadFromItsURL feeds an IPv4 port, [::1]:80 and URLs with no port; the corpus rows feed checkStandIn with IPv6 on N."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "Row 5, the scope with several cleanups and a parent with its own: TestScopeEndsOnlyItsOwnCleanupsNewestFirst registers A, B, C on the scope and one on the parent."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "Row 6, Fatalf in the scope, at the root and inside a cleanup: TestFatalfRunsCleanupsBeforeExit has one subtest for each."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "Row 7, any tracked .py, .pyc or .pyw: c7 runs `git ls-files -- '*.py' '*.pyc' '*.pyw'` (a pathspec glob that matches at any depth, .taad included) on the committed tree and exits 0."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "Row 8, a deep .pyc outside __pycache__: c8 runs check-ignore on internal/server/left_behind.cpython-314.pyc and exits 0."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "Row 9, a non-.pyc file deep under __pycache__: c9 runs check-ignore on .taad/slices/SL-099/__pycache__/anything.txt and exits 0."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "Row 10, interpreter run lines: c10 searches the whole tree, fitness.yaml and the corpus included. I checked the regex on planted spellings (py -3, PYTHON.EXE, a CR line, python -m): it fires on those and stays quiet on the decoys."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "Row 11, a deleted script name on a non-comment line: c11 exits 0, and the only mentions left are on // comment lines."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "Row 12, ledger bodies now and .py files absent: I ran the probe on a fresh read-only read (16/16, 6 absent) and hashed the pre-deletion files against their Editions (6/6 equal)."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "Row 13, the exec and file spellings plus the pinned holes: rule_spellings.json pyexec-f001..f010, q001..q006 and pyfile-f001..f003, q001..q006 feed every shape the row names; the engine's Fitness check agrees on the ones I planted."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "Row 14, a fresh clone with Python off PATH: I ran my own clone of the committed branch (build and 33/33 packages) and E-009 line 6's body in that clone (PASS)."
+   }
+  ],
+  "matches_design": true,
+  "drift": [
+   "The design said neither SL-017 because text may hold an apostrophe. Rule 1's because text at .taad/fitness.yaml:593 holds one ('at the epic''s finish'), escaped as a doubled apostrophe in the single-quoted scalar. It is harmless: the engine's Fitness check loads all 42 rules, and the run-line search is unaffected. The build did not declare the departure.",
+   "The ledger probe source (.taad/slices/SL-017/checks/zz_probe_test.go.txt:16-19) adds a hard-coded fallback directory when ZZ_PROBE_DIR is unset. The design says the test reads ZZ_PROBE_DIR. Filed as m1."
+  ],
+  "second_round": {
+   "run_id": 12377,
+   "filed": 4,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 3,
+    "changed": 8,
+    "listed": 5
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 8,
+   "read_whole": 3,
+   "deleted": [
+    "tests/acceptance/__pycache__/run_finish.cpython-314.pyc",
+    "tests/acceptance/check_e006_1_stops_at_block.py",
+    "tests/acceptance/check_run_finish_needs_chrome_bin.py",
+    "tests/acceptance/run_finish.py",
+    "tests/acceptance/serve_show_all.py",
+    "tests/acceptance/test_run_finish_edge_guard.py"
+   ],
+   "runs": [
+    12376,
+    12377
+   ],
+   "range": {
+    "base": "89da1ad3d8055a4b6021326ca0f34b25ba7649dc",
+    "head": "d12533b2790c0ef2328cde9c2f974f90c312b74a",
+    "source": "commits",
+    "hunk_base": "89da1ad3d8055a4b6021326ca0f34b25ba7649dc",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".gitignore",
+     "state": "partly-opened",
+     "section": "lines 1-33 of 33",
+     "reason": "seen only through a shell command: $s, foreach, git diff, git log",
+     "size_lines": 33,
+     "hunks": []
+    },
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "partly-opened",
+     "section": "lines 1-598 of 598",
+     "reason": "seen only through a shell command: $s, foreach, git diff, git grep, git log",
+     "size_lines": 598,
+     "hunks": []
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "partly-opened",
+     "section": "lines 1-709 of 709",
+     "reason": "seen only through a shell command: foreach, git diff, git grep",
+     "size_lines": 709,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/program/thread.go",
+     "state": "partly-opened",
+     "section": "lines 1-84 of 84",
+     "reason": "seen only through a shell command: foreach, git diff, git log",
+     "size_lines": 84,
+     "hunks": []
+    },
+    {
+     "path": "tests/acceptance/ported/rows_test.go",
+     "state": "partly-opened",
+     "section": "lines 46-402 of 402",
+     "reason": "a Read returned only part of it; seen only through a shell command: $files, foreach, get-content, git diff, git grep",
+     "size_lines": 402,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}
