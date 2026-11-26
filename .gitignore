@@ -17,6 +17,7 @@
 
 # Go test binaries and coverage output
 *.test
+*.test.exe
 coverage.out
 
 # Editor and operating-system litter
