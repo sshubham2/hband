@@ -298,7 +298,7 @@ type avatarSample struct {
 	FirstOffColor string
 }
 
-// avatarsPerKind is how many avatars of each kind (header, byline, heading) are
+// avatarsPerKind is how many avatars of each kind (header, byline, meta, heading) are
 // looked at on a page: each is scrolled into view and photographed on its own.
 const avatarsPerKind = 2
 
@@ -596,7 +596,7 @@ func TestEveryScreenIsDesigned(t *testing.T) {
 	}
 	// An avatar in the header, in a byline and in a Blocked users heading (2rem, not
 	// 24 px) was each looked at, or the pixel check judged nothing of that kind.
-	for _, kind := range []string{"header", "byline", "heading"} {
+	for _, kind := range []string{"header", "byline", "meta", "heading"} {
 		if avatarSeen[kind] == 0 {
 			problems = append(problems, "avatar never measured in the "+kind+" of any screen")
 		}

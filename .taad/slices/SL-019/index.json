@@ -78,123 +78,27 @@
   },
   {
    "stage": "build-slice",
-   "issue": "The engine's projects.app_command still has to be repointed to `go run ./internal/testutil/seeded -port {port}`. The recorded command points at a script removed in SL-017, and the builder cannot write the ledger."
+   "issue": "The engine's projects.app_command still has to be repointed to `go run ./internal/testutil/seeded -port {port}`; the builder cannot write the ledger."
   },
   {
    "stage": "build-slice",
-   "issue": "The screens depend on the engine's browser keeping its session from one screen to the next within a pass. Attempt 3's pictures showed that (the All reports and branch screens were signed in after the sign-in step), and a pass starts anonymous (s1-phone-dark has the Sign in button). I verified the six screens in one tab in that order, not in the engine's own harness."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "The reader Home, Report, All reports and Thread branch pages were left out of `screens` by the cap of 6. If the frontend designer wants them photographed again, they need a second screen list in a later pass."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "The earlier look extras stand as filed and were not worked: the orphaned '·' in the All reports phone row, the three-row signed-in phone header, mid-word breaks in the 375 px admin table, a long login leaving its avatar alone on a row, and the seed's avatars.example CSP refusals (the owner's avatar uses that host by design, to stay on this machine)."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: Owner sign-in is a picker on the test-only stand-in GitHub rather than a session made for the browser. The engine drives a browser only by pressing visible text, so a session cannot be planted, and the stand-in used to sign in one fixed user (octocat, a reader). The stand-in now shows 'Continue as the owner' and 'Continue as a reader'. The product, the session store and the owner gate are unchanged, and an anonymous visitor stays anonymous until a link is pressed."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: The serving program is pointed at a stand-in GitHub made by the launcher before the program starts (HBAND_GITHUB_URL, HBAND_GITHUB_API_URL and the client id and secret through Options.Env). program.Start's own stand-in for that program is created and never asked. Configuring the picker after Start would leave a window in which the port answers without the links."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: `screens` is capped at 6 by the schema. It now names the four admin screens the send-back asked for, the Not allowed page, and the signed-in reader's page. The reader Home, Report, All reports and Thread branch pages, photographed and judged on the previous attempts and unchanged here, are not listed again. The signed-in reader's page is the screen where octocat's own message and the author's reply now show. The order matters: the owner signs in on the first screen, and the reader signs in on the fifth after pressing Sign out."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "deviation: This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build."
-  },
-  {
-   "stage": "build-slice",
-   "issue": "O-017 not done: Firefox and Safari: light-dark(), the frame Canvas and the avatar cover were measured only in Chrome 158. Firefox is not installed and Safari does not exist on Windows. This is a known limit of the machine, owed to validate-slice, and I did not work on it in this attempt."
+   "issue": "O-017 (Firefox and Safari) stays open as a known limit of this machine: only Chrome is driven here."
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): .taad/fitness.yaml -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/testutil/fakegithub/fakegithub.go (not seen: lines 313, 315 of 323) -- partly-opened: a Read returned only part of it; seen only as 4 Grep lines; seen only through a shell command: $s, $s (before the build), foreach (before the build), git diff (before the build), git log; 3 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): .taad/look.json -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/testutil/fakegithub/picked_id_shape_test.go (not seen: lines 1-70 of 70) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: $s, git log (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/testutil/seeded/main.go (not seen: lines 250-279, 281-324, 326-358 of 358) -- partly-opened: a Read returned only part of it; seen only as 5 Grep lines (2 before the build); seen only through a shell command: $s, $s (before the build), foreach (before the build), git diff (before the build), git log; 169 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/server/testdata/look/bare.html -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/testdata/look/probe.js -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/testdata/look/site.before.css -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/testdata/stylesheet_corpus.json -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/testutil/headless/devtools.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/testutil/headless/devtools_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/auth/owner.go (not seen: lines 101-128 of 128) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-1076, 1154-1195 of 1195) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/reader.go (not seen: lines 1-19, 96-374 of 374) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/router.go (not seen: lines 1-9, 102-196 of 196) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/server/templates/admin.html (not seen: lines 35-41 of 41) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "code-review",
-   "issue": "not read (measured): internal/testutil/fakegithub/fakegithub_test.go (not seen: lines 181-296 of 296) -- partly-opened: a Read returned only part of it; seen only through a shell command: $s, foreach, git diff (measured by the engine from the review's own tool record)"
-  },
-  {
-   "stage": "validate-slice",
-   "issue": "not reached: Firefox and Safari (O-017): light-dark(), the frame Canvas substrate and the .avatar::after cover were measured only in Chrome 158. Engines differ in whether they draw ::after on a broken <img>."
-  },
-  {
-   "stage": "validate-slice",
-   "issue": "not reached: A real phone: every phone measurement is Chrome mobile emulation (375 px in the tests, 390 px in the engine's screens), not a device."
-  },
-  {
-   "stage": "validate-slice",
-   "issue": "not reached: A real GitHub avatar loading in the running app. The seed's avatar URLs are refused by the CSP or do not resolve. The loaded-image state was seen only through TestALoadedAvatarIsLeftAlone's same-origin PNG."
-  },
-  {
-   "stage": "validate-slice",
-   "issue": "not reached: Production behind the VPS reverse proxy: whether it changes CSP or caching headers for site.css (Q-010, Q-007)."
-  },
-  {
-   "stage": "validate-slice",
-   "issue": "not reached: Owner and admin screens in the engine's app run. The seeded launcher has no owner session, so they were measured only in the look test's in-process server."
-  },
-  {
-   "stage": "validate-slice",
-   "issue": "not reached: Owner-only danger controls below the fold. The signal-colour assay sees only the viewport (N-255), and no full-page capture was run."
+   "issue": "not read (measured): internal/testutil/seeded/run_fake_test.go (not seen: lines 1-23 of 23) -- partly-opened: seen only as 3 Grep lines; seen only through a shell command: $s, git log (measured by the engine from the review's own tool record)"
   }
  ],
  "stages": [
@@ -372,6 +276,36 @@
       "measured_by_git": 10
      },
      "details": "build-slice-4.json"
+    },
+    {
+     "n": 5,
+     "state": "passed",
+     "at": "2026-11-26T10:54:19.041Z",
+     "head": "1d691a82851664989e767ae3b8ae129258464233",
+     "summary": "Fixed the two accepted defects and nothing else.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "2 defect(s) in lines this slice wrote were accepted by the code review (O-037, O-038). None weighs a lap on its own, so they go back to the builder TOGETHER, once, before validation -- instead of to the backlog and from there to a send-back at the merge. Fix exactly these with the smallest change: one scoped re-check reads only your fix. Sent back with what raised them: O-037 (fix): IN-m1 (minor): userInfo now answers with the picked account (`user := f.user; if picked != nil { user = *picked }`) for the id, login and avatar. The UserIDString and UserIDFloat switch cases still format `f.user.ID`, the account SetUser names. So when a test signs in through a picker link with either id-shape switch on, the stand-in reports the SetUser account's id. Measured: a picked owner 4242 comes back as id \"42\" (string) and as 42 (float), with the login report-author. In userInfo, change `f.user.ID` to `user.ID` in the UserIDString and UserIDFloat cases. [shown by a failing run] The engine ran the code review's test for this, internal/testutil/fakegithub/picked_id_shape_test.go, with `go test -count=1 -run ^TestPickedUserKeepsItsIDUnderIDShapeSwitches$ ./internal/testutil/fakegithub/`, and it FAILED. Put that test at internal/testutil/fakegithub/picked_id_shape_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestPickedUserKeepsItsIDUnderIDShapeSwitches$ ./internal/testutil/fakegithub/` again in your tree, and that run is what closes this; your word does not. The test: package fakegithub import ( \"encoding/json\" \"net/http\" \"net/url\" \"strings\" \"testing\" ) // A picked account keeps its own id under the id-shape switches: /user answers // the picked choice's id as a string or a float, never the id SetUser named. func TestPickedUserKeepsItsIDUnderIDShapeSwitches(t *testing.T) { for _, tc := range []struct { name string set func(*Switches) want any }{ {\"string\", func(s *Switches) { s.UserIDString = true }, \"4242\"}, {\"float\", func(s *Switches) { s.UserIDFloat = true }, float64(4242)}, } { t.Run(tc.name, func(t *testing.T) { f := New(cid, secret, redirect) defer f.Close() f.OfferChoices(Choice{Label: \"Continue as the owner\", User: User{ID: 4242, Login: \"report-author\"}}) f.Configure(tc.set) q := authQuery(func(q url.Values) { q.Set(\"pick\", \"0\") }) resp, err := noFollow().Get(f.URL() + \"/login/oauth/authorize?\" + q.Encode()) if err != nil { t.Fatal(err) } resp.Body.Close() back, _ := url.Parse(resp.Header.Get(\"Location\")) code := back.Query().Get(\"code\") if resp.StatusCode != http.StatusFound || code == \"\" { t.Fatalf(\"pick=0 answered %d %q, want a 302 with a code\", resp.StatusCode, resp.Header.Get(\"Location\")) } form := url.Values{\"client_id\": {cid}, \"client_secret\": {secret}, \"redirect_uri\": {redirect}, \"code\": {code}, \"code_verifier\": {\"verifier\"}} req, _ := http.NewRequest(http.MethodPost, f.URL()+\"/login/oauth/access_token\", strings.NewReader(form.Encode())) req.Header.Set(\"Content-Type\", \"application/x-www-form-urlencoded\") req.Header.Set(\"Accept\", \"application/json\") tr, err := http.DefaultClient.Do(req) if err != nil { t.Fatal(err) } var tok struct { AccessToken string `json:\"access_token\"` } json.NewDecoder(tr.Body).Decode(&tok) tr.Body.Close() if tok.AccessToken == \"\" { t.Fatal(\"no token\") } ureq, _ := http.NewRequest(http.MethodGet, f.URL()+\"/user\", nil) ureq.Header.Set(\"Authorization\", \"Bearer \"+tok.AccessToken) ur, err := http.DefaultClient.Do(ureq) if err != nil { t.Fatal(err) } defer ur.Body.Close() var who map[string]any if err := json.NewDecoder(ur.Body).Decode(&who); err != nil { t.Fatal(err) } if who[\"id\"] != tc.want || who[\"login\"] != \"report-author\" { t.Fatalf(\"/user for the picked owner answered id %#v login %#v, want id %#v login report-author\", who[\"id\"], who[\"login\"], tc.want) } }) } } O-038 (fix): IN-m2 (minor): run() now starts the serving program pointed at the launcher's own stand-in GitHub (HBAND_GITHUB_URL = fake.URL() through Options.Env). It returns `final`, whose Fake field is still the stand-in program.Start made for itself, which the serving program never asks. Every caller of the returned *program.Program that goes through p.Fake therefore talks to the wrong stand-in: p.SignIn and p.Owner call p.Fake.SetUser, Approve checks that the sign-in redirect starts with p.Fake.URL(), and p.Fake.TokenCalls counts there. Measured: the serving program redirected sign-in to http://127.0.0.1:52408/login/oauth/authorize while the returned p.Fake.URL() was http://127.0.0.1:52409. Before this build the returned Program's Fake was the one its program used. In run(), after `final := program.Start(...)`, set `final.Fake = fake`, so the returned Program names the stand-in its program signs in through. Alternatively, document that the returned Program's Fake and SignIn must not be used. [shown by a failing run] The engine ran the code review's test for this, internal/testutil/seeded/run_fake_test.go, with `go test -count=1 -run ^TestRunReturnsTheStandInItsProgramUses$ ./internal/testutil/seeded/`, and it FAILED. Put that test at internal/testutil/seeded/run_fake_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestRunReturnsTheStandInItsProgramUses$ ./internal/testutil/seeded/` again in your tree, and that run is what closes this; your word does not. The test: package main import ( \"io\" \"net/http\" \"strings\" \"testing\" ) // The program run returns names, as its Fake, the stand-in GitHub that program // actually signs in through, so a caller's p.Fake (SignIn, Approve, TokenCalls) // talks to the same stand-in the program redirects to. func TestRunReturnsTheStandInItsProgramUses(t *testing.T) { p := run(t, testPort(t), io.Discard) start := p.Anonymous().Get(t, \"/auth/github/login\") if start.Status < 300 || start.Status >= 400 { t.Fatalf(\"GET /auth/github/login answered %d, want a redirect\", start.Status) } if !strings.HasPrefix(start.Location, p.Fake.URL()+\"/login/oauth/authorize\") { t.Fatalf(\"the serving program sends sign-in to %q, but the Program run returned names its stand-in as %s\", start.Location, p.Fake.URL()) } _ = http.StatusOK }",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-033",
+       "O-034",
+       "O-035",
+       "O-036",
+       "O-037",
+       "O-038"
+      ]
+     },
+     "changed": {
+      "tests": 4,
+      "listed": 4,
+      "measured_by_git": 8
+     },
+     "details": "build-slice-5.json"
     }
    ]
   },
@@ -379,7 +313,7 @@
    "stage": "code-review",
    "title": "Code review",
    "order": 8,
-   "state": "passed",
+   "state": "sent back",
    "attempts": [
     {
      "n": 1,
@@ -437,8 +371,27 @@
      "summary": "This was a stale-scope re-read of build 4 (f83e789..571ae37).",
      "caused_by": {
       "kind": "revoke",
+      "why": "wrong",
+      "reason": "Restarted from build-slice by a person: The owner says the current look reads like a finance reporting interface, and hband is a blog. Design it again as a blog people enjoy reading: the reader pages (home, All reports, a report and its thread) lead with the writing -- a confident title, the author and date, a comfortable reading measure and type, calm spacing, and comments that read as a conversation rather than a form. Before deciding the look, search for well-liked blogs and publications and take inspiration from their qualities, never copy them. The /admin pages stay a quiet working admin in the same look. Everything the slice already owes still holds: light and dark, WCAG AA contrast, one shared stylesheet, system fonts only, no script beyond thread.js, and Blocked users and the forbidden page on the same look.",
+      "cause": "person",
+      "stage": "restart",
+      "from": [
+       "restart"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-4.json"
+    },
+    {
+     "n": 5,
+     "state": "passed",
+     "at": "2026-11-26T10:57:14.739Z",
+     "head": "1d691a82851664989e767ae3b8ae129258464233",
+     "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 5:20pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
+     "caused_by": {
+      "kind": "revoke",
       "why": "stale",
-      "reason": "code-review passed on 2026-11-26T10:12:48.221Z, and build-slice has judged since (2026-11-26T10:40:12.635Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "reason": "code-review passed on 2026-11-26T10:51:22.219Z, and build-slice has judged since (2026-11-26T10:57:09.924Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
       "cause": "knock-on",
       "stage": "build-slice",
       "from": [
@@ -446,7 +399,26 @@
       ]
      },
      "changed": {},
-     "details": "code-review-4.json"
+     "details": "code-review-5.json"
+    },
+    {
+     "n": 6,
+     "state": "unrecorded",
+     "at": "2026-11-26T11:50:11.680Z",
+     "head": "",
+     "summary": "I re-checked the one fix batch (571ae37..1d691a8).",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "Restarted from build-slice by a person: The owner says the current look reads like a finance reporting interface, and hband is a blog. Design it again as a blog people enjoy reading: the reader pages (home, All reports, a report and its thread) lead with the writing -- a confident title, the author and date, a comfortable reading measure and type, calm spacing, and comments that read as a conversation rather than a form. Before deciding the look, search for well-liked blogs and publications and take inspiration from their qualities, never copy them. The /admin pages stay a quiet working admin in the same look. Everything the slice already owes still holds: light and dark, WCAG AA contrast, one shared stylesheet, system fonts only, no script beyond thread.js, and Blocked users and the forbidden page on the same look.",
+      "cause": "person",
+      "stage": "restart",
+      "from": [
+       "restart"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-6.json"
     }
    ]
   },
@@ -454,7 +426,7 @@
    "stage": "validate-slice",
    "title": "Validate",
    "order": 9,
-   "state": "failed",
+   "state": "waiting",
    "attempts": [
     {
      "n": 1,
@@ -475,6 +447,16 @@
      "caused_by": null,
      "changed": {},
      "details": "validate-slice-2.json"
+    },
+    {
+     "n": 3,
+     "state": "waiting",
+     "at": "2026-11-26T12:01:44.001Z",
+     "head": "1d691a82851664989e767ae3b8ae129258464233",
+     "summary": "stopped by s2.shubh2@gmail.com: The owner wants the screens designed again in a blog direction before this look is validated.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-3.json"
     }
    ]
   }

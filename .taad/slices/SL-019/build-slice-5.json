@@ -1,0 +1,98 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "build-slice",
+ "attempt": 5,
+ "at": "2026-11-26T10:54:19.041Z",
+ "head": "1d691a82851664989e767ae3b8ae129258464233",
+ "run_id": 12492,
+ "summary": "Fixed the two accepted defects and nothing else. In the stand-in GitHub, the id-as-string and id-as-float switches now format the picked account's id (user.ID), not the one SetUser names. In the seeded launcher, run() now sets final.Fake = fake, so the returned Program names the stand-in its program signs in through. run()'s doc comment now says that SignIn, Owner and Approve do not sign anyone in against the picker, and that a caller follows the picker's link as screens_test's signInBy does. Both engine tests are in the tree as given. Each fails with its fix taken out and passes with it, and the full suite exits 0.",
+ "payload": {
+  "status": "complete",
+  "summary": "Fixed the two accepted defects and nothing else. In the stand-in GitHub, the id-as-string and id-as-float switches now format the picked account's id (user.ID), not the one SetUser names. In the seeded launcher, run() now sets final.Fake = fake, so the returned Program names the stand-in its program signs in through. run()'s doc comment now says that SignIn, Owner and Approve do not sign anyone in against the picker, and that a caller follows the picker's link as screens_test's signInBy does. Both engine tests are in the tree as given. Each fails with its fix taken out and passes with it, and the full suite exits 0.",
+  "files": [
+   {
+    "path": "internal/testutil/fakegithub/fakegithub.go",
+    "change": "modified",
+    "why": "O-037: the UserIDString and UserIDFloat cases of userInfo format user.ID (the picked account when there is one) instead of f.user.ID."
+   },
+   {
+    "path": "internal/testutil/fakegithub/picked_id_shape_test.go",
+    "change": "added",
+    "why": "O-037: the engine's TestPickedUserKeepsItsIDUnderIDShapeSwitches, as given."
+   },
+   {
+    "path": "internal/testutil/seeded/main.go",
+    "change": "modified",
+    "why": "O-038: run() sets final.Fake = fake after program.Start, and its doc comment says what the returned Program can and cannot do for sign-in."
+   },
+   {
+    "path": "internal/testutil/seeded/run_fake_test.go",
+    "change": "added",
+    "why": "O-038: the engine's TestRunReturnsTheStandInItsProgramUses, as given."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-037",
+    "done": true,
+    "how": "In userInfo the UserIDString and UserIDFloat cases now use user.ID, so a picked owner 4242 comes back as \"4242\" and as 4242.0 with login report-author. The test is at internal/testutil/fakegithub/picked_id_shape_test.go as given and passes under `go test -count=1 -run ^TestPickedUserKeepsItsIDUnderIDShapeSwitches$ ./internal/testutil/fakegithub/`. With the two lines put back to f.user.ID it fails, answering id \"42\" and 42.",
+    "mutation": {
+     "file": "internal/testutil/fakegithub/fakegithub.go",
+     "find": "id = fmt.Sprintf(\"%q\", fmt.Sprint(user.ID))",
+     "replace": "id = fmt.Sprintf(\"%q\", fmt.Sprint(f.user.ID))",
+     "test_command": "go test -count=1 -run ^TestPickedUserKeepsItsIDUnderIDShapeSwitches$ ./internal/testutil/fakegithub/"
+    }
+   },
+   {
+    "key": "O-038",
+    "done": true,
+    "how": "run() sets final.Fake = fake right after program.Start, so p.Fake.URL() is the stand-in the serving program redirects sign-in to. The test is at internal/testutil/seeded/run_fake_test.go as given and passes under `go test -count=1 -run ^TestRunReturnsTheStandInItsProgramUses$ ./internal/testutil/seeded/`. With the line removed it fails: sign-in goes to :56202 while p.Fake is :56203. run()'s doc comment now says that SignIn, Owner and Approve do not sign anyone in against the picker, and that a caller signs in by following the picker's link as signInBy does.",
+    "mutation": {
+     "file": "internal/testutil/seeded/main.go",
+     "find": "\tfinal.Fake = fake\r\n",
+     "replace": "",
+     "test_command": "go test -count=1 -run ^TestRunReturnsTheStandInItsProgramUses$ ./internal/testutil/seeded/"
+    }
+   }
+  ],
+  "mandatory": [],
+  "cases": [],
+  "tests": [
+   {
+    "command": "go test -count=1 -run ^TestPickedUserKeepsItsIDUnderIDShapeSwitches$ ./internal/testutil/fakegithub/",
+    "outcome": "passed",
+    "note": "Both subtests (string, float) pass."
+   },
+   {
+    "command": "go test -count=1 -run ^TestRunReturnsTheStandInItsProgramUses$ ./internal/testutil/seeded/",
+    "outcome": "passed",
+    "note": "Runs the real launcher; the sign-in redirect starts with p.Fake.URL()."
+   },
+   {
+    "command": "the same two commands with each fix undone in an overlay copy under the temp folder (user.ID back to f.user.ID; the final.Fake line removed)",
+    "outcome": "passed",
+    "note": "These checks are meant to fail, and did. The first answered id \"42\" and 42 for the picked owner 4242. The second reported sign-in going to http://127.0.0.1:56202 while p.Fake named :56203. The repo files were not touched."
+   },
+   {
+    "command": "go test -count=1 -p 4 ./... (CHROME_BIN set, TAAD3_HOME and HBAND_TEST_ARTIFACTS in scratch)",
+    "outcome": "passed",
+    "note": "Exit 0; every package ok, including internal/server, the seeded and fakegithub packages and all tests/acceptance packages. The only non-ok lines were the two [no test files] packages."
+   },
+   {
+    "command": "gofmt -d on LF copies of the four Go files; go vet ./internal/testutil/...",
+    "outcome": "passed",
+    "note": "Clean. The files are CRLF in the working tree like the rest of the repo. Leftover hband-* temp folders were removed and no seeded or hband process remains."
+   }
+  ],
+  "screens": [],
+  "app": null,
+  "architecture": [],
+  "deviations": [],
+  "not_built": [],
+  "follow_ups": [
+   "The engine's projects.app_command still has to be repointed to `go run ./internal/testutil/seeded -port {port}`; the builder cannot write the ledger.",
+   "O-017 (Firefox and Safari) stays open as a known limit of this machine: only Chrome is driven here."
+  ]
+ }
+}

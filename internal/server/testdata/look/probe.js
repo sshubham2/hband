@@ -18,8 +18,8 @@
     return [...document.querySelectorAll("img.avatar")].filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility === "visible");
   },
 
-  // avatars lists up to `per` drawn avatars of each kind (the header's, a byline's, a
-  // Blocked users heading's) by their place in drawnAvatars, and whether each one's
+  // avatars lists up to `per` drawn avatars of each kind (the header's, a byline's, the
+  // report author's under the title, a Blocked users heading's) by their place in drawnAvatars, and whether each one's
   // image failed to load. A pixel check in the caller judges what is painted inside
   // each box: the probe cannot read pixels, and a broken image's glyph is not in the
   // DOM or in any computed style.
@@ -27,7 +27,7 @@
     const kinds = {};
     const list = [];
     this.drawnAvatars().forEach((el, i) => {
-      const kind = el.closest(".site-header") ? "header" : el.closest(".byline") ? "byline" : el.closest(".blocked-account h2") ? "heading" : "other";
+      const kind = el.closest(".site-header") ? "header" : el.closest(".byline") ? "byline" : el.closest(".meta") ? "meta" : el.closest(".blocked-account h2") ? "heading" : "other";
       kinds[kind] = (kinds[kind] || 0) + 1;
       if (kinds[kind] <= per) list.push({ i, kind, broken: el.complete && el.naturalWidth === 0, pending: !el.complete });
     });
