@@ -9,6 +9,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -118,6 +119,7 @@ type lookState struct {
 	shots    bool // owner screens, held to the signal-colour assay
 	forced   bool // re-measured with hover and focus forced on every control
 	adminNav bool // the page is an admin page, so it draws the sidebar, and no other page does
+	avatars  bool // the page draws avatars whose image is missing, which are judged by their pixels
 }
 
 const refuseUpload = `(() => { const f = document.querySelector('form[action="/admin/reports"]'); f.noValidate = true;
@@ -285,6 +287,101 @@ func (b *lookBrowser) dump(dir, state, viewport, scheme string, width int) {
 	}
 }
 
+// avatarSample is what one drawn avatar's circle holds: how many of the pixels well
+// inside it are not the colour wanted there, out of how many were looked at.
+type avatarSample struct {
+	Kind          string
+	Broken        bool
+	Pending       bool
+	X, Y          float64
+	Off, Total    int
+	FirstOffColor string
+}
+
+// avatarsPerKind is how many avatars of each kind (header, byline, heading) are
+// looked at on a page: each is scrolled into view and photographed on its own.
+const avatarsPerKind = 2
+
+// avatarSamples counts, for the first few avatars of each kind on the page, the
+// pixels inside the circle (2.5 CSS px in from the edge, so the ring and the
+// anti-aliased rim are left out) that are not want, within 2 per channel. Each one
+// is scrolled to the middle of the viewport and photographed there, so its box and
+// the picture come from the same layout: a whole-page capture drops the scrollbar
+// and moves a centred column under the box that was measured.
+func (b *lookBrowser) avatarSamples(want [3]int) []avatarSample {
+	b.t.Helper()
+	var found struct {
+		List []struct {
+			I       int
+			Kind    string
+			Broken  bool
+			Pending bool
+		} `json:"list"`
+	}
+	b.tab.Eval(b.js+".avatars("+strconv.Itoa(avatarsPerKind)+")", &found)
+	var out []avatarSample
+	for _, a := range found.List {
+		var box struct{ X, Y, W, H, IW float64 }
+		b.tab.Eval(b.js+".avatarBox("+strconv.Itoa(a.I)+")", &box)
+		img := shoot(b.t, b.tab)
+		// The picture is in device pixels: a mobile viewport has a device scale of its own.
+		scale := float64(img.Bounds().Dx()) / box.IW
+		s := avatarSample{Kind: a.Kind, Broken: a.Broken, Pending: a.Pending, X: box.X, Y: box.Y}
+		cx, cy, rad := (box.X+box.W/2)*scale, (box.Y+box.H/2)*scale, (math.Min(box.W, box.H)/2-2.5)*scale
+		for py := int(math.Floor(cy - rad)); py <= int(math.Ceil(cy+rad)); py++ {
+			for px := int(math.Floor(cx - rad)); px <= int(math.Ceil(cx+rad)); px++ {
+				dx, dy := float64(px)+0.5-cx, float64(py)+0.5-cy
+				if dx*dx+dy*dy > rad*rad {
+					continue
+				}
+				r, g, bl, _ := img.At(px, py).RGBA()
+				got := [3]int{int(r >> 8), int(g >> 8), int(bl >> 8)}
+				s.Total++
+				if !within(got, want, 2) {
+					if s.Off == 0 {
+						s.FirstOffColor = hexOf(got)
+					}
+					s.Off++
+				}
+			}
+		}
+		out = append(out, s)
+	}
+	b.tab.Eval(`window.scrollTo(0, 0)`, nil)
+	return out
+}
+
+// avatarPass judges the avatars of the page in front of it. A missing or refused
+// image is a plain --surface-2 circle with its ring (the look's Avatar component):
+// no pixel inside the circle may be anything else, which is what a broken-image
+// glyph would be. It returns what is wrong, and how many avatars of each kind it
+// looked at.
+func (b *lookBrowser) avatarPass(dark bool) (problems []string, kinds map[string]int) {
+	b.t.Helper()
+	i := 0
+	if dark {
+		i = 1
+	}
+	r, g, bl := hexRGB(b.tok["surface-2"][i])
+	kinds = map[string]int{}
+	samples := b.avatarSamples([3]int{r, g, bl})
+	if len(samples) == 0 {
+		return []string{"avatars: no avatar was drawn on a page that should draw some, so nothing was measured"}, kinds
+	}
+	for _, s := range samples {
+		switch {
+		case s.Pending:
+			problems = append(problems, fmt.Sprintf("avatars: the %s avatar at %.0f,%.0f is still loading: its state is not settled", s.Kind, s.X, s.Y))
+		case !s.Broken:
+			problems = append(problems, fmt.Sprintf("avatars: the %s avatar at %.0f,%.0f loaded, but the seed points every avatar at a 404", s.Kind, s.X, s.Y))
+		case s.Off > 0:
+			problems = append(problems, fmt.Sprintf("avatars: %d of %d pixels inside the %s avatar at %.0f,%.0f are not the %s fill (first %s): a broken-image glyph shows", s.Off, s.Total, s.Kind, s.X, s.Y, hexOf([3]int{r, g, bl}), s.FirstOffColor))
+		}
+		kinds[s.Kind]++
+	}
+	return problems, kinds
+}
+
 // shoot is a screenshot of the viewport.
 func shoot(t *testing.T, tab *headless.Tab) image.Image {
 	t.Helper()
@@ -360,7 +457,7 @@ func TestEveryScreenIsDesigned(t *testing.T) {
 		{name: "anonymous all reports", w: w, path: "/reports"},
 		{name: "anonymous branch", w: w, path: w.branch, scripts: 1, capped: true},
 		{name: "reader home", w: w, sid: w.reader, path: "/", scripts: 1, capped: true},
-		{name: "reader report", w: w, sid: w.reader, path: "/reports/x", scripts: 1, capped: true, forced: true},
+		{name: "reader report", w: w, sid: w.reader, path: "/reports/x", scripts: 1, capped: true, forced: true, avatars: true},
 		{name: "reader report after sending feedback", w: w, sid: w.reader, path: "/reports/x#feedback-sent", scripts: 1, capped: true},
 		{name: "reader all reports", w: w, sid: w.reader, path: "/reports"},
 		{name: "reader branch", w: w, sid: w.reader, path: w.branch, scripts: 1, capped: true, forced: true},
@@ -368,9 +465,9 @@ func TestEveryScreenIsDesigned(t *testing.T) {
 		{name: "owner report", w: w, sid: w.owner, path: "/reports/x", scripts: 1, capped: true, shots: true, forced: true},
 		{name: "owner admin", w: w, sid: w.owner, path: "/admin", shots: true, forced: true, adminNav: true},
 		{name: "owner admin after a refused upload", w: w, sid: w.owner, refuse: true, shots: true, adminNav: true},
-		{name: "owner admin report", w: w, sid: w.owner, path: "/admin/reports/x", shots: true, forced: true, adminNav: true},
+		{name: "owner admin report", w: w, sid: w.owner, path: "/admin/reports/x", shots: true, forced: true, adminNav: true, avatars: true},
 		{name: "owner admin report of a draft", w: w, sid: w.owner, path: "/admin/reports/draft", shots: true, adminNav: true},
-		{name: "owner blocked users", w: w, sid: w.owner, path: "/admin/blocked", shots: true, forced: true, adminNav: true},
+		{name: "owner blocked users", w: w, sid: w.owner, path: "/admin/blocked", shots: true, forced: true, adminNav: true, avatars: true},
 		{name: "owner empty home", w: we, sid: we.owner, path: "/"},
 		{name: "owner empty all reports", w: we, sid: we.owner, path: "/reports"},
 		{name: "owner empty admin", w: we, sid: we.owner, path: "/admin", adminNav: true},
@@ -384,6 +481,7 @@ func TestEveryScreenIsDesigned(t *testing.T) {
 	viewports := []vp{{"desktop 1280", 1280, 900, false}, {"phone 375", 375, 812, true}}
 
 	seen := map[string]int{}
+	avatarSeen := map[string]int{}
 	minText, texts, controls := 99.0, 0, 0
 	htmlBg := map[string][2]string{}
 	var problems []string
@@ -434,6 +532,13 @@ func TestEveryScreenIsDesigned(t *testing.T) {
 			for _, st := range states {
 				b.visit(st)
 				record(st, v, scheme, dark, "closed", b.measure(st, dark, v.w, v.mobile))
+				if st.avatars {
+					lines, kinds := b.avatarPass(dark)
+					note(st, v, scheme, "avatars", lines)
+					for kind, n := range kinds {
+						avatarSeen[kind] += n
+					}
+				}
 				var details float64
 				tab.Eval(`document.querySelectorAll('details').length`, &details)
 				if details > 0 {
@@ -487,6 +592,13 @@ func TestEveryScreenIsDesigned(t *testing.T) {
 	for _, role := range roleSeen {
 		if seen[role] == 0 {
 			problems = append(problems, "role never measured on any screen: "+role)
+		}
+	}
+	// An avatar in the header, in a byline and in a Blocked users heading (2rem, not
+	// 24 px) was each looked at, or the pixel check judged nothing of that kind.
+	for _, kind := range []string{"header", "byline", "heading"} {
+		if avatarSeen[kind] == 0 {
+			problems = append(problems, "avatar never measured in the "+kind+" of any screen")
 		}
 	}
 	sort.Strings(problems)
@@ -561,5 +673,105 @@ func TestLookProbeSeesTheStylesheetBeforeTheDesign(t *testing.T) {
 	t.Logf("the stylesheet before the design at 375 px: scrollWidth %v, innerWidth %v", sw, iw)
 	if sw <= 375 || !codes(res)["fit"] {
 		t.Errorf("the old /admin/reports/x at 375 px reads scrollWidth %v and flags %v: the fit check cannot fail", sw, codes(res))
+	}
+}
+
+// serveStylesheet makes the harness answer /static/site.css with css, in place of the
+// real file, so a probe can be run on a stylesheet with a rule taken out.
+func serveStylesheet(h *harness, css []byte) {
+	inner := h.current()
+	h.mu.Lock()
+	h.handler = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/static/site.css" {
+			rw.Header().Set("Content-Type", "text/css; charset=utf-8")
+			rw.Write(css)
+			return
+		}
+		inner.ServeHTTP(rw, r)
+	})
+	h.mu.Unlock()
+}
+
+// The avatar check has to be able to fail. A missing avatar image is drawn by Chrome
+// as a broken-image glyph, and the stylesheet covers it with the plain --surface-2
+// circle of the look (.avatar::after). Take that rule out and the pixel check must
+// find the glyph in a header avatar, a byline avatar and a Blocked users heading.
+func TestAvatarProbeSeesABrokenImageGlyph(t *testing.T) {
+	css, err := staticFS.ReadFile("static/site.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule := regexp.MustCompile(`(?m)^\.avatar::after \{[^}]*\}\r?\n`)
+	if !rule.Match(css) {
+		t.Fatal("site.css has no .avatar::after rule to take out: the cover of a missing avatar image is not where this test looks")
+	}
+	w := seedLook(t)
+	serveStylesheet(w.h, rule.ReplaceAll(css, nil))
+	b := newLookBrowser(t)
+	b.tab.Viewport(1280, 900, false)
+	for _, dark := range []bool{false, true} {
+		b.setScheme(dark)
+		for _, st := range []lookState{
+			{name: "reader report", w: w, sid: w.reader, path: "/reports/x"},
+			{name: "owner blocked users", w: w, sid: w.owner, path: "/admin/blocked"},
+		} {
+			b.visit(st)
+			problems, kinds := b.avatarPass(dark)
+			t.Logf("without .avatar::after, dark=%v, %s: avatars looked at %v, %d problems", dark, st.name, kinds, len(problems))
+			if len(problems) == 0 {
+				t.Errorf("%s (dark %v): the stylesheet without the avatar cover is not flagged: the avatar check cannot fail", st.name, dark)
+			}
+			for _, p := range problems {
+				if !strings.Contains(p, "glyph shows") {
+					t.Errorf("%s (dark %v): flagged for something other than the glyph: %s", st.name, dark, p)
+				}
+			}
+		}
+	}
+}
+
+// The cover over a missing avatar image must not hide an image that loaded: Chrome
+// draws ::after on an img only while its image is broken. A real photo, served from
+// the site's own origin, is the one thing in the header's circle.
+func TestALoadedAvatarIsLeftAlone(t *testing.T) {
+	h := newHarness(t, false)
+	const photo = "/static/test-avatar-photo.png"
+	want := color.RGBA{200, 60, 140, 255}
+	im := image.NewRGBA(image.Rect(0, 0, 48, 48))
+	for y := 0; y < 48; y++ {
+		for x := 0; x < 48; x++ {
+			im.Set(x, y, want)
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, im); err != nil {
+		t.Fatal(err)
+	}
+	sid := h.mintUser(store.User{GitHubID: 5, Login: "viewer", AvatarURL: photo})
+	inner := h.current()
+	h.mu.Lock()
+	h.handler = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == photo {
+			rw.Header().Set("Content-Type", "image/png")
+			rw.Write(buf.Bytes())
+			return
+		}
+		inner.ServeHTTP(rw, r)
+	})
+	h.mu.Unlock()
+	b := newLookBrowser(t)
+	b.tab.Viewport(1280, 900, false)
+	for _, dark := range []bool{false, true} {
+		b.setScheme(dark)
+		b.visit(lookState{name: "all reports with a photo", w: &lookWorld{h: h}, sid: sid, path: "/reports"})
+		samples := b.avatarSamples([3]int{int(want.R), int(want.G), int(want.B)})
+		if len(samples) == 0 {
+			t.Fatalf("dark %v: no avatar was drawn in the header", dark)
+		}
+		for _, s := range samples {
+			if s.Broken || s.Pending || s.Off != 0 || s.Total == 0 {
+				t.Errorf("dark %v: the %s avatar is broken %v, pending %v, and %d of %d pixels are not the photo (first %s): the cover hides a loaded image", dark, s.Kind, s.Broken, s.Pending, s.Off, s.Total, s.FirstOffColor)
+			}
+		}
 	}
 }

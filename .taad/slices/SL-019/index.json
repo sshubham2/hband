@@ -78,7 +78,7 @@
   },
   {
    "stage": "build-slice",
-   "issue": "The /admin pages and Blocked users are not in `screens`: the engine's seeded product signs in only as a non-owner, so it can reach the Not allowed page but not the admin pages, and `screens` holds at most 6. TestEveryScreenIsDesigned measures all three as the owner, in both schemes, at both widths, with details open."
+   "issue": "The seeded launcher was not extended with an owner session, a draft report, feedback with author replies and a blocked account (design plan item 11). Its browser sign-in is the stand-in's octocat, a non-owner, and its tests pin the nine-comment e004-look seed. So /admin, /admin/reports/<slug> and /admin/blocked are not in `screens` (it also holds at most 6). TestEveryScreenIsDesigned measures all of them as the owner, light and dark, at 1280 and 375, with details open, and I looked at their screenshots."
   },
   {
    "stage": "build-slice",
@@ -86,19 +86,23 @@
   },
   {
    "stage": "build-slice",
-   "issue": "No confirmation step on 'Delete this report permanently', and /admin keeps its own owner line and Sign out beside the shared header's. The design filed both for a person because they change behaviour or content."
+   "issue": "Delete this report permanently has no confirmation step; it is a one-step filled danger button. A confirmation would be new behaviour and stays filed for a person."
   },
   {
    "stage": "build-slice",
-   "issue": "The engine's Fitness op=check was not run: the builder cannot. The three new rules are plain YAML scalars with no ': ' or ' #' in them, and the repo's lenient loader and corpus tests load them."
+   "issue": "The engine's own Fitness op=check with its real YAML parser was not run; the builder cannot. This attempt did not touch .taad/fitness.yaml, and TestRulesHoldOnTheTree passes."
   },
   {
    "stage": "build-slice",
-   "issue": "Q-012's decided enforcement (a fitness rule forbidding `<script` in report.html and layout.html) does not exist in fitness.yaml, and thread.js is loaded on the found home, report and branch pages. This slice moved the tag into internal/layout/templates/base.html and pinned it there in TestEveryPageTakesTheShell. A person should say whether Q-012 is amended to 'thread.js is the one allowed site script' or whether a fitness rule should also be written."
+   "issue": "With --bg #ffffff and #131416 now almost exactly Chrome's own canvas (#ffffff, #121212), TestReportFrameKeepsItsOwnCanvas can no longer tell `iframe { background-color: Canvas }` from the site surface showing through: removing the Canvas line would still pass. The test's control (A under dark, outside #131416 against inside #ffffff) still shows it can see differences. A row that serves a stylesheet with a different --bg would pin it again."
   },
   {
    "stage": "build-slice",
-   "issue": "On the /admin table at 375 px, the word 'published' breaks mid-word ('publishe/d') because body cells use overflow-wrap: anywhere, which is what keeps the page from scrolling sideways. A fix could be a narrower Status column or a different wrap rule on that cell, if somebody wants it."
+   "issue": "Q-012's decided enforcement (a fitness rule forbidding `<script` in report.html and layout.html) does not exist in fitness.yaml, and thread.js loads on the found home, report and branch pages. The tag now lives in internal/layout/templates/base.html and is pinned there by TestEveryPageTakesTheShell. A person should say whether Q-012 is amended to 'thread.js is the one allowed site script'."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The engine's projects.app_command still has to be repointed to `go run ./internal/testutil/seeded -port {port}`. To photograph the admin screens, the seeded launcher needs a way to sign in as the owner (fakegithub SetUser on the serving program) and a draft, feedback with replies and a blocked account in its seed."
   },
   {
    "stage": "build-slice",
@@ -106,39 +110,203 @@
   },
   {
    "stage": "build-slice",
-   "issue": "The engine's app command was Python-launcher based (#13 of the design); this build reports `go run ./internal/testutil/seeded -port {port}`. The engine's projects.app_command still has to be repointed by the engine for the photographs."
+   "issue": "Architecture: internal/server (C-001) also imports internal/layout (C-008); only the C-002 edge fits in this report's three edits."
   },
   {
    "stage": "build-slice",
-   "issue": "Architecture: internal/server (C-001) also imports internal/layout (C-008). Only the C-002 edge fits in this report's three architecture edits."
+   "issue": "deviation: admin_report.html: 'Nothing visible on this report.' keeps its bare <p> and is styled through `.moderation > h2 + p:last-child`, not class=\"empty-inline\" as the plan said, because remove_test.go:731 pins the exact string `<p>Nothing visible on this report.</p>`. The plan's own rule is to bind by selector where a test pins the markup. The other empty notes got their classes."
   },
   {
    "stage": "build-slice",
-   "issue": "deviation: forbidden.html defines its \"header\" after page-end, not before page-start: TestEveryPageTakesTheShell requires a page to open with page-start, and the design's own contract said both. admin.html's uploadform already sits after page-end the same way."
+   "issue": "deviation: probe.js exempts `.admin-nav a` from the 3:1 control-boundary check. The sidebar's current page is marked by weight and a --surface-2 tint (1.1:1 against the page, by the look's own tokens), which is state, not a control edge. The link text is still judged for 4.5:1, the current item's fill is role-checked, and the sidebar is checked to be one row inside 375 px."
   },
   {
    "stage": "build-slice",
-   "issue": "deviation: .replies uses border-left: 1px solid; border-left-color: var(--thread) instead of leaving the shorthand with var(--thread) as M-add-1 said. phone_test reads the shorthand identically (a 1 px width; border-left-color is not read), so the 'no var() in an edge shorthand' rule has no exemption."
+   "issue": "deviation: The plan's note that /admin 'keeps its own owner line and Sign out' (filed for a person in the first design) is superseded: this look's plan deletes the owner line, Sign out and back links from admin.html, and the shared header and sidebar carry them. main_test.go still finds @the-owner in /admin through the header's 'Signed in as'."
   },
   {
    "stage": "build-slice",
-   "issue": "deviation: The forced hover pass applies the 3:1 boundary check only to controls that had a fill or edge at rest (tracked in a WeakSet). Quiet buttons (the header's Sign out) take a deliberately subtle --surface-2 hover tint, which is a change of state, not a boundary. Text contrast still applies to every forced control."
+   "issue": "deviation: internal/testutil/seeded is unchanged, so the app command seeds the e004-look thread and signs in as a non-owner only. The plan asked for an owner session, a draft, feedback with replies and a blocked account in the seed; I did not extend it (see not_built)."
   },
   {
    "stage": "build-slice",
-   "issue": "deviation: lintStylesheet also refuses clip-path (same class as the frame-reach properties), url(), transition and animation, which the design only listed as rules for later slices."
+   "issue": "deviation: This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build. The accepted finding M-add-1 still holds: every edge is a literal width and style plus a *-color longhand, so an engine without light-dark() draws currentColor edges and no fills."
   },
   {
-   "stage": "build-slice",
-   "issue": "deviation: Added an optional page dump to TestEveryScreenIsDesigned, written only when HBAND_TEST_ARTIFACTS is set (an existing test setting), so a person can look at the screens. The test judges nothing from it."
+   "stage": "code-review",
+   "issue": "drift: site.css does not mute the help paragraphs of the Upload and Replace sections. The look says the Upload a report section is 'an admin h2, the muted help, and the upload form' and that Replace has 'muted help and the upload form card'. internal/server/static/site.css:255 (`.upload > p, .upload > form, form[action='/admin/reports'] { max-width: 44rem; }`) sets only a width, so admin.html's 'One self-contained .html file…' paragraph and admin_report.html's 'Uploading under this slug…' paragraph render in --text at body size. Only the code hint inside the form is muted (line 261)."
   },
   {
-   "stage": "build-slice",
-   "issue": "deviation: Added fire/quiet corpus rows and a bounded_by entry for the three new fitness rules in internal/fitnessrules/testdata/rule_spellings.json. The fitnessrules tests did not require them, but a glob such as internal/layout/**/*.go is otherwise untested."
+   "stage": "code-review",
+   "issue": "not read (measured): .taad/look.json -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
   },
   {
-   "stage": "build-slice",
-   "issue": "deviation: The design says a browser without light-dark() 'falls back to the browser-default look'. The built CSS follows the accepted finding M-add-1 instead: transparent fills, controls and panels keeping literal-width currentColor edges, and the focus ring surviving. This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build."
+   "stage": "code-review",
+   "issue": "not read (measured): .taad/fitness.yaml (not seen: lines 1-626 of 626) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/auth/forbidden_test.go (not seen: lines 1-58 of 58) -- partly-opened: seen only through a shell command: foreach, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/auth/owner.go (not seen: lines 1-128 of 128) -- partly-opened: seen only through a shell command: foreach, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/auth/templates/forbidden.html (not seen: lines 1-11 of 11) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json (not seen: lines 1-736 of 736) -- partly-opened: seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/layout/layout.go (not seen: lines 1-16 of 16) -- partly-opened: seen only through a shell command: foreach, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/layout/templates/base.html (not seen: lines 1-17 of 17) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: $s, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-1195 of 1195) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: foreach, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/reader.go (not seen: lines 1-374 of 374) -- partly-opened: seen only as 7 Grep lines; seen only through a shell command: foreach, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/router.go (not seen: lines 1-196 of 196) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: foreach, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/templates/branch.html (not seen: lines 1-8 of 8) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/headless/devtools.go (not seen: lines 1-342 of 342) -- partly-opened: seen only as 35 Grep lines; seen only through a shell command: foreach, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/headless/devtools_test.go (not seen: lines 1-251 of 251) -- partly-opened: seen only through a shell command: foreach, git diff (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/server/testdata/stylesheet_corpus.json: searched for :root rows only, not read whole. My judgment of it rests on TestStylesheetCorpus passing and on the rows I saw."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/testutil/headless/devtools.go: read only the changed hunk (drainLoads, Submit, Navigate), not the whole file."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not reviewed: internal/fitnessrules/testdata/rule_spellings.json: read only the first 60 lines of the slice's diff (the bounded_by entry and the new shell, layout and frame-restyle rows), not the whole file."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Firefox and Safari: light-dark() support and the iframe Canvas substrate were measured only in Chrome 158 (O-017)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A real phone: every phone measurement is Chrome mobile emulation at 375 px (engine screens at 390), not a device."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The 'image loaded' avatar state: the seed's avatar URLs are refused by the CSP (avatars.example) or do not resolve (avatars.githubusercontent.com), so a real GitHub avatar inside the ring was never seen."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Production behind the VPS reverse proxy: whether the proxy adds or changes CSP or caching headers that affect site.css (Q-010, Q-007) was not checked."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Owner/admin screens in the running app: the seeded launcher signs in only as a non-owner, so the admin pages were seen only through the look test's in-process server, not the engine's app run."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Owner-only danger controls below the fold: the signal-colour screenshot assay sees only the 900 px viewport (N-255), and I did not run a full-page capture."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s1-wide-light.png: Every byline avatar shows Chrome's broken-image glyph inside the ring. The Avatar's 'image missing or refused' state must be a plain --surface-2 circle with its ring, never a broken-image glyph. Cover it in site.css: .avatar{position:relative} plus .avatar::after{content:'';position:absolute;inset:0;border-radius:50%;background-color:var(--surface-2)}."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s1-phone-light.png: Every byline avatar shows the broken-image glyph instead of the designed plain --surface-2 circle with its ring. Use the same .avatar::after cover as for the wide picture."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s1-wide-dark.png: Every byline avatar shows the broken-image glyph (a green and white picture icon) on the dark circle. The design wants a plain --surface-2 (#26272b) circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s1-phone-dark.png: Every byline avatar shows the broken-image glyph instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s2-wide-light.png: Every byline avatar shows Chrome's broken-image glyph. The Avatar's missing-image state should be a plain --surface-2 circle with its ring. Cover it with .avatar::after over a position:relative .avatar."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s2-phone-light.png: Every byline avatar shows the broken-image glyph instead of the designed plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s2-wide-dark.png: Every byline avatar shows the broken-image glyph on the dark circle instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s2-phone-dark.png: Every byline avatar shows the broken-image glyph instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s3-wide-light.png: The signed-in header avatar and every byline avatar show Chrome's broken-image glyph. The design's missing-image state is a plain --surface-2 circle with its ring, never a glyph."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s3-phone-light.png: The header avatar and every byline avatar show the broken-image glyph instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s3-wide-dark.png: The header avatar and every byline avatar show the broken-image glyph on the dark circle instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s3-phone-dark.png: The header avatar and every byline avatar show the broken-image glyph instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s4-wide-light.png: The signed-in header avatar shows Chrome's broken-image glyph. The design's missing-image state is a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s4-phone-light.png: The header avatar shows the broken-image glyph instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s4-wide-dark.png: The header avatar shows the broken-image glyph on the dark circle instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s4-phone-dark.png: The header avatar shows the broken-image glyph instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s5-wide-light.png: The header avatar and every byline avatar in the thread show Chrome's broken-image glyph instead of the designed plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s5-phone-light.png: The header avatar and every byline avatar show the broken-image glyph instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s5-wide-dark.png: The header avatar and every byline avatar show the broken-image glyph on the dark circle instead of a plain --surface-2 circle with its ring."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "look falls short [not-as-designed] on .taad-scratch/screens/s5-phone-dark.png: The header avatar and every byline avatar show the broken-image glyph instead of a plain --surface-2 circle with its ring."
   }
  ],
  "stages": [
@@ -238,6 +406,30 @@
       "measured_by_git": 33
      },
      "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-26T09:01:54.382Z",
+     "head": "662548f7acf9e867d90e20da49b0947b5aa12c4f",
+     "summary": "Rebuilt the look to the new editorial design without touching the shell or reader markup.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "Restarted from build-slice by a person: The owner wants a different look: Ghost-like in spirit, without the bloat. The reader pages (a thread, All reports) read like an editorial publication: confident headline type, a roomy reading measure, calm generous spacing, and All reports as a clean list of titles with their date and status. The /admin pages work like a quiet publishing admin: a left sidebar (Reports, Blocked users, View site), a reports list with status pills, and each page's main action at the top right. No bloat: one stylesheet, system fonts only, no web fonts, no script beyond thread.js. Take Ghost's qualities only, never its theme, brand, assets or code. Everything the slice already owes still holds: light and dark, WCAG AA contrast, and Blocked users and the forbidden page on the same look.",
+      "cause": "person",
+      "stage": "restart",
+      "from": [
+       "restart"
+      ]
+     },
+     "changed": {
+      "src": 7,
+      "tests": 1,
+      "listed": 8,
+      "measured_by_git": 12
+     },
+     "details": "build-slice-2.json"
     }
    ]
   },
@@ -245,17 +437,45 @@
    "stage": "code-review",
    "title": "Code review",
    "order": 8,
-   "state": "waiting",
+   "state": "passed",
    "attempts": [
     {
      "n": 1,
-     "state": "waiting",
+     "state": "passed",
      "at": "2026-11-26T08:15:07.340Z",
-     "head": "2847afdd9ed03debb1cee951d639afe22c4fbb20",
+     "head": "662548f7acf9e867d90e20da49b0947b5aa12c4f",
      "summary": "stopped by s2.shubh2@gmail.com: The owner wants a different look: a Ghost-like editorial publishing interface without the bloat.",
      "caused_by": null,
      "changed": {},
      "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "unrecorded",
+     "at": "2026-11-26T09:16:29.641Z",
+     "head": "",
+     "summary": "I reviewed the whole slice from c5e4180 to 662548f: the shell package, the auth and server wiring, every changed template, site.css, the stylesheet, shell and look tests, probe.js, the frame test and headless.Submit.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-2.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "failed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "failed",
+     "at": "2026-11-26T09:39:28.219Z",
+     "head": "30e2068c784b83191b3d1f6ebb47f3f351e3e6f1",
+     "summary": "The slice's machinery holds up when run.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
     }
    ]
   }
