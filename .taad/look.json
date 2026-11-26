@@ -1,137 +1,137 @@
 {
- "character": "A calm, editorial reading room for one author's HTML reports and the small community that reads and discusses them. The site's own chrome recedes: warm paper and ink neutrals, one confident blue, hairline cards and no shadows, so the report in its frame is what the eye lands on. The admin side is the same room for one expert. It is denser and tabular, and danger is kept rare and unmistakable.",
+ "character": "A quiet editorial publication for one author's HTML reports and the few people who read and discuss them. White paper and near-black ink, confident serif headlines, a roomy centred reading column and calm, generous spacing. Colour is kept for links, the keyboard focus ring, status and danger, so the report in its frame is what the eye lands on. The admin is the same house's back office for one expert: sans-serif, a left sidebar, list-first pages with the page's main action at the top right, hairline cards and no shadows. Danger is rare and unmistakable.",
  "colours": [
   {
    "name": "--bg",
-   "light": "#f7f6f3",
-   "dark": "#161513",
-   "use": "Page background on html, behind everything that is not a card. Warm paper in light, warm near-black in dark."
+   "light": "#ffffff",
+   "dark": "#131416",
+   "use": "Page background on html, behind everything that is not a card. White paper in light, matching the report frame's own white canvas. Neutral near-black in dark."
   },
   {
    "name": "--surface",
    "light": "#ffffff",
-   "dark": "#1f1e1b",
-   "use": "The raised surface: site header bar, panels and cards, the data table, text inputs, neutral buttons."
+   "dark": "#1b1c1f",
+   "use": "The raised surface: the site header bar, admin cards (dl, inbox messages, moderation items, blocked accounts, the upload form), and text inputs and neutral buttons. In light it equals the page, and a hairline separates it. In dark it is one step up from --bg."
   },
   {
    "name": "--surface-2",
-   "light": "#efede8",
-   "dark": "#2a2925",
-   "use": "The sunken surface: table header row and row hover, author-reply blocks, empty states, inline code, the avatar placeholder, the hover fill of neutral and quiet buttons."
+   "light": "#f4f4f2",
+   "dark": "#26272b",
+   "use": "The sunken tint: hover fills of quiet and neutral buttons and of table rows, the current sidebar item, the draft pill, empty states, inline code and the avatar placeholder."
   },
   {
    "name": "--text",
-   "light": "#1c1b19",
-   "dark": "#ecebe6",
-   "use": "Body text, headings, logins, nav links, text on notices and tints. 15.9:1 on --bg (light), 15.3:1 (dark); 14.7:1 and 12.2:1 on --surface-2."
+   "light": "#15171a",
+   "dark": "#ececea",
+   "use": "Body text, headings, logins, nav and sidebar links, report titles, text on notices and tints. Light: 17.96:1 on bg and surface, 16.3:1 on surface-2. Dark: 15.58:1 on bg, 14.41:1 on surface, 12.61:1 on surface-2."
   },
   {
    "name": "--text-muted",
-   "light": "#5f5d58",
-   "dark": "#aeaba3",
-   "use": "Hints, meta lines, times, bylines, table headers, dt labels, disclosure text, empty-state text. Worst case on --surface-2: 5.62:1 (light), 6.35:1 (dark)."
+   "light": "#5c5f66",
+   "dark": "#a2a5ac",
+   "use": "Meta lines, hints, times, bylines, table headers, dt labels, disclosure text, the draft pill, the admin lede and empty-state text. Light: 6.40:1 on bg, 5.81:1 on surface-2, 5.56:1 on accent-soft, 5.62:1 on danger-soft and ok-soft. Dark: 7.47:1 on bg, 6.91:1 on surface, 6.05:1 on surface-2, 6.22:1 on danger-soft."
   },
   {
    "name": "--border",
-   "light": "#84817a",
-   "dark": "#7d7a72",
-   "use": "Edges of controls: buttons, inputs, selects, textareas, the file-selector button. At least 3:1 on every surface: light 3.32 (surface-2), 3.60 (bg), 3.89 (surface); dark 3.40, 4.26, 3.89."
+   "light": "#84878d",
+   "dark": "#7a7d84",
+   "use": "The edge of every control: neutral buttons, inputs, selects, textareas and the file-selector button. Light: 3.60:1 on bg and surface, 3.27:1 on surface-2. Dark: 4.47:1 on bg, 4.13:1 on surface, 3.62:1 on surface-2."
   },
   {
    "name": "--divider",
-   "light": "#e0ddd6",
-   "dark": "#36342f",
-   "use": "Decorative hairlines: card edges, the header's bottom edge, table rules, report frame edge, list separators, avatar ring. Never the only edge of a control."
+   "light": "#e5e5e2",
+   "dark": "#2d2f33",
+   "use": "Decorative hairlines: the header's bottom edge, the votes bar, the All reports list rules, table rules, card edges, the page-head rule, the report frame edge and the avatar ring. Never the only edge of a control."
   },
   {
    "name": "--thread",
-   "light": "#cfccc4",
-   "dark": "#4e4c46",
-   "use": "The 1px reply line down the left of .replies. Decorative structure, a step stronger than --divider."
+   "light": "#d0d1cd",
+   "dark": "#45474d",
+   "use": "The 1px reply line down the left of .replies, one step stronger than --divider."
   },
   {
    "name": "--link",
    "light": "#1f4fbf",
-   "dark": "#90b4ff",
-   "use": "Every link and link-like text. Visited links are the same colour. Light 6.63:1 on bg, 6.13:1 on surface-2; dark 8.83:1 and 7.04:1."
+   "dark": "#8fb3ff",
+   "use": "Inline links (Link to this report, Back to the full report, continue this thread, links in hints and in the blocked lists). Visited links keep the same colour. Light: 7.17:1 on bg, 6.51:1 on surface-2, 6.23:1 on accent-soft. Dark: 8.83:1 on bg, 8.16:1 on surface, 7.15:1 on surface-2."
   },
   {
    "name": "--accent",
-   "light": "#1f4fbf",
-   "dark": "#90b4ff",
-   "use": "Primary button fill, badge text, the author-reply edge, the brand mark, accent-color for native checkboxes. 7.17:1 (light) and 8.06:1 (dark) as a fill against --surface."
+   "light": "#15171a",
+   "dark": "#ececea",
+   "use": "Ink. The fill of every primary button and of the Author badge, and the colour of the author-reply edge. Primary actions are ink, as in a printed page. Boundary contrast is 17.96:1 on bg in light and 15.58:1 in dark."
   },
   {
    "name": "--accent-hover",
-   "light": "#1a429e",
-   "dark": "#b2cbff",
-   "use": "Primary button fill on hover, and the link colour while pressed (:active)."
+   "light": "#33363b",
+   "dark": "#ffffff",
+   "use": "The primary button fill on hover, and the link colour while pressed (:active). --on-accent on it: 12.13:1 in light, 18.42:1 in dark."
   },
   {
    "name": "--on-accent",
    "light": "#ffffff",
-   "dark": "#0f1d3d",
-   "use": "Text on an --accent or --accent-hover fill. 7.17:1 and 9.06:1 (light); 8.04:1 and 10.19:1 (dark)."
+   "dark": "#131416",
+   "use": "Text on an --accent or --accent-hover fill: 17.96:1 and 12.13:1 in light, 15.58:1 and 18.42:1 in dark."
   },
   {
    "name": "--accent-soft",
-   "light": "#e8eefb",
-   "dark": "#1e2a45",
-   "use": "Fill of the Author badge and of ::selection. --accent on it: 6.16:1 (light), 6.90:1 (dark). --text on it: 14.8:1 and 11.9:1."
+   "light": "#ebeffa",
+   "dark": "#1e2638",
+   "use": "The ::selection fill. --accent on it: 15.6:1 in light, 12.78:1 in dark. --text-muted on it: 5.56:1 and 6.13:1."
   },
   {
    "name": "--danger",
    "light": "#b42318",
    "dark": "#ffa198",
-   "use": "Fill of the danger buttons; text of the Remove and Block summaries and of the blocked badge; the edge of the confirm tray and of error notices. Light 6.08:1 on bg, 5.62:1 on surface-2, 5.78:1 on danger-soft; dark 9.39, 7.49 and 7.89."
+   "use": "The fill of danger buttons (Remove for everyone, Block @login, Delete this report permanently). Also the text of the Remove and Block summaries and of the blocked badge, and the edge of the confirm tray, error notices and invalid fields. Light: 6.57:1 on bg, 5.97:1 on surface-2, 5.78:1 on danger-soft. Dark: 9.48:1 on bg, 8.77:1 on surface, 7.68:1 on surface-2, 7.89:1 on danger-soft."
   },
   {
    "name": "--danger-hover",
    "light": "#941b11",
    "dark": "#ffc2ba",
-   "use": "Danger button fill on hover. --on-danger on it: 8.66:1 (light), 10.91:1 (dark)."
+   "use": "The danger button fill on hover. --on-danger on it: 8.66:1 in light, above 10:1 in dark."
   },
   {
    "name": "--on-danger",
    "light": "#ffffff",
    "dark": "#3d0c07",
-   "use": "Text on a --danger fill. 6.57:1 (light), 8.61:1 (dark)."
+   "use": "Text on a --danger fill: 6.57:1 in light, 8.62:1 in dark."
   },
   {
    "name": "--danger-soft",
    "light": "#fcedeb",
    "dark": "#3a1d19",
-   "use": "Fill of the error notice, the confirm tray and the blocked badge. --text on it: 15.1:1 and 12.8:1."
+   "use": "The fill of the error notice, the open confirm tray and the blocked badge. --text on it: 15.78:1 in light, 12.96:1 in dark."
   },
   {
    "name": "--ok",
    "light": "#17663a",
    "dark": "#86d3a2",
-   "use": "Success: the left edge of the 'Sent to the author.' notice and of .notice.ok. On ok-soft: 6.16:1 (light), 8.01:1 (dark)."
+   "use": "Success and live status: the left edge of 'Sent to the author.' and of .notice.ok, and the text and dot of the 'published' pill. On ok-soft: 6.16:1 in light, 8.02:1 in dark."
   },
   {
    "name": "--ok-soft",
    "light": "#e8f3ec",
    "dark": "#17301f",
-   "use": "Fill of success notices. --text on it: 15.1:1 (light), 11.9:1 (dark)."
+   "use": "The fill of success notices and of the 'published' pill. --text on it: 15.79:1 in light, 12.0:1 in dark."
   },
   {
    "name": "--warning",
    "light": "#8a5300",
    "dark": "#f0c06a",
-   "use": "Warning: the edge of .notice.warning. No screen uses it today; it exists so a later warning has a designed home. On warning-soft: 5.75:1 (light), 8.50:1 (dark); on bg 5.86:1 and 10.8:1."
+   "use": "The edge of .notice.warning. No screen uses it today. On warning-soft: 5.75:1 in light, 8.50:1 in dark."
   },
   {
    "name": "--warning-soft",
    "light": "#fdf3e1",
    "dark": "#33290f",
-   "use": "Fill of .notice.warning. --text on it: 15.6:1 (light), 12.0:1 (dark)."
+   "use": "The fill of .notice.warning. --text on it: 15.6:1 in light, 12.0:1 in dark."
   },
   {
    "name": "--focus",
    "light": "#1f4fbf",
-   "dark": "#90b4ff",
-   "use": "The keyboard focus ring on every focusable element, and the border of a focused input. At least 3:1 on every surface (light 6.13 or more, dark 7.04 or more)."
+   "dark": "#8fb3ff",
+   "use": "The keyboard focus ring on every focusable element, and the border of a focused input. It is blue, so it never blends into an ink or danger fill. At least 6.51:1 on every surface in light and 7.15:1 in dark."
   },
   {
    "name": "Canvas (system colour, not a token)",
@@ -144,201 +144,251 @@
   {
    "name": "--font-sans",
    "value": "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
-   "use": "Everything: body, headings, controls (set explicitly on button, input, select and textarea, never by font: inherit). Only installed fonts: nothing is fetched, and CSP default-src 'self' would refuse a webfont anyway."
+   "use": "All UI and all running text: body, comments, controls (set explicitly on button, input, select and textarea), the header nav, and every admin heading. Installed fonts only, since CSP default-src 'self' refuses webfonts."
+  },
+  {
+   "name": "--font-serif",
+   "value": "Charter, 'Bitstream Charter', 'Sitka Heading', 'Iowan Old Style', Georgia, serif",
+   "use": "The editorial voice, for display only: the brand wordmark, reader page titles (main.reader h1), reader section heads (main.reader h2) and the titles in the All reports list. All installed system faces: Charter on Apple, Sitka or Georgia on Windows, Georgia or the default serif elsewhere. Never used for body text or in the admin main."
   },
   {
    "name": "--font-mono",
    "value": "ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, Menlo, 'Liberation Mono', monospace",
-   "use": "Inline code (the target=\"_blank\" hint on the upload form) and any later pre."
+   "use": "Inline code, the slug cells of the admin table, and the SHA-256 dd."
   },
   {
    "name": "--text-xs",
    "value": ".75rem (12px)",
-   "use": "Badges, table header cells, the uppercase eyebrow h3 in blocked-account cards"
+   "use": "Badges, status pills, table header cells (uppercase), and the eyebrow h3 in blocked-account cards."
   },
   {
    "name": "--text-sm",
    "value": ".875rem (14px)",
-   "use": "Bylines, hints, meta lines, labels, buttons, nav, disclosures, table body, dt, notices' small text, the file input"
+   "use": "Buttons, nav, sidebar items, bylines, meta lines, hints, labels, disclosures, notices, table body, dt, and the file input."
   },
   {
    "name": "--text-md",
    "value": "1rem (16px)",
-   "use": "Body text, comment bodies, inputs, selects and textareas (16px so phones do not zoom on focus), page-level empty states. html, body, main, section, article, .comment, .comments, .body and .replies never set a font-size."
+   "use": "Body text, comment bodies, inputs, selects and textareas (16px, so phones do not zoom on focus), admin title links in the table, and empty states. html, body, main, section, article, .comment, .comments, .body and .replies never set a font-size."
   },
   {
    "name": "--text-lg",
    "value": "1.125rem (18px)",
-   "use": "h3, report card titles, the brand, stats (likes, comment count, tallies), blocked-account headings"
+   "use": "The admin lede, the vote stats (.likes, .comment-count), .tally, and blocked-account headings."
   },
   {
    "name": "--text-xl",
    "value": "1.375rem (22px)",
-   "use": "h2 section headings"
+   "use": "The brand wordmark and admin h2 section heads."
   },
   {
    "name": "--text-2xl",
-   "value": "clamp(1.625rem, 1.3rem + 1.4vw, 2.25rem): 26px at 375, 36px at 1280",
-   "use": "h1 page and report titles"
+   "value": "clamp(1.375rem, 1.2rem + .6vw, 1.75rem): 22px at 375, 27px at 1280",
+   "use": "Reader section heads (Feedback for the author, Comments, Thread) and the titles in the All reports list, in serif."
+  },
+  {
+   "name": "--text-3xl",
+   "value": "clamp(1.75rem, 1.55rem + .8vw, 2.25rem): 28px at 375, 35px at 1280",
+   "use": "Admin page titles in the page head, and the Not allowed h1, in sans."
+  },
+  {
+   "name": "--text-display",
+   "value": "clamp(2.125rem, 1.25rem + 3.75vw, 3.5rem): 34px at 375, 56px at 1280",
+   "use": "Reader page titles (the report title, All reports, hband on the empty home), in serif."
   },
   {
    "name": "weights",
-   "value": "400 regular, 600 strong, 700 brand/title",
-   "use": "400 for text and inputs. 600 for labels, buttons, disclosures, logins, stats, h2, h3, th, dt and badges. 700 for h1 and the brand."
+   "value": "400 regular, 500 medium, 600 strong, 700 bold",
+   "use": "400 for text and inputs. 500 for header nav links and sidebar items. 600 for buttons, labels, disclosures, logins, stats, th, dt, badges, pills, admin h2 and the current sidebar item. 700 for every h1, reader h2, list titles and the brand."
   },
   {
    "name": "--leading",
-   "value": "1.6",
-   "use": "Body and comment text, textareas"
+   "value": "1.65",
+   "use": "Body, comment bodies, feedback bodies and textareas."
   },
   {
    "name": "--leading-tight",
    "value": "1.25",
-   "use": "Headings, buttons, inputs, bylines, badges (1.4 for badges)"
+   "use": "Buttons, inputs, bylines, nav, the table, and admin headings."
+  },
+  {
+   "name": "--leading-display",
+   "value": "1.1",
+   "use": "Reader h1 and the serif section heads (1.2 for list titles)."
   },
   {
    "name": "tracking",
-   "value": "h1 -0.015em; h2 and brand -0.01em; table header .04em uppercase; eyebrow h3 .06em uppercase; badge .02em",
-   "use": "Tightens large type and opens small caps"
+   "value": "display -0.02em; --text-3xl and --text-2xl -0.01em; table header .05em uppercase; eyebrow h3 .06em uppercase; badge and pill .02em",
+   "use": "Tightens large type and opens small caps."
   },
   {
    "name": "numerals",
    "value": "font-variant-numeric: tabular-nums",
-   "use": "Stats (.likes, .comment-count, .tally), the data table, dd values, the report card numbers line"
+   "use": "Stats, .tally, the admin table, dd values and the All reports numbers line."
   },
   {
    "name": "headings",
    "value": "text-wrap: balance on h1, h2 and h3",
-   "use": "Long report titles break into even lines"
+   "use": "Long report titles break into even lines."
   }
  ],
  "space": [
   {
    "name": "--space-1",
    "value": ".25rem (4px)",
-   "use": "Byline to body, the tray's top margin, gap inside a report card, row gap in bylines"
+   "use": "Byline to body (the pinned .body margin), the tray's top margin, gap between sidebar items."
   },
   {
    "name": "--space-2",
    "value": ".5rem (8px)",
-   "use": "Label to its field, gap between buttons, column gap in bylines, chevron to text, header vertical padding"
+   "use": "Label to its field, gap between buttons, byline column gap, chevron to text, header row gap."
   },
   {
    "name": "--space-3",
    "value": ".75rem (12px)",
-   "use": "Textarea to its button, notice and tray padding, author-reply padding, list item padding, quiet button side padding"
+   "use": "Textarea to its button, notice and tray padding, h1 to the meta line, sidebar item side padding, admin table cell padding."
   },
   {
    "name": "--space-4",
    "value": "1rem (16px)",
-   "use": "Button side padding, gap between cards and between form rows, nav gap, own-feedback separators"
+   "use": "Button side padding, gap between form rows and between cards, h2 to its content, own-feedback separators."
   },
   {
    "name": "--space-5",
    "value": "1.5rem (24px)",
-   "use": "Before h3 and eyebrows, below the meta line, between stats, the dl column gap, page-level empty-state side padding"
+   "use": "Gap between stats, padding under the page head, the header nav column gap, the dl column gap, the All reports row padding."
   },
   {
    "name": "--space-6",
    "value": "2rem (32px)",
-   "use": "Between page sections: votes, feedback, comments, inbox, moderation, and every h2's top margin"
+   "use": "Page head to content on admin pages, and the comment form to the first comment."
   },
   {
    "name": "--space-7",
    "value": "3rem (48px)",
-   "use": "Vertical padding of page-level empty states"
+   "use": "Report frame to the votes bar, and the vertical padding of page-level empty states."
+  },
+  {
+   "name": "--space-8",
+   "value": "4rem (64px)",
+   "use": "The forbidden page's top padding, and main's bottom padding."
+  },
+  {
+   "name": "--space-section",
+   "value": "clamp(3rem, 2.25rem + 2.5vw, 4rem): 48px at 375, 64px at 1280",
+   "use": "Between reader sections (votes bar to Feedback, Feedback to Comments). Used only in margin-top longhands."
+  },
+  {
+   "name": "--space-head",
+   "value": "clamp(2rem, 1.5rem + 1.5vw, 3rem): 32px at 375, 43px at 1280",
+   "use": "From the reader meta line to the report frame, and from the All reports legend to the list."
   },
   {
    "name": "--panel-pad",
    "value": "clamp(1rem, .5rem + 1.5vw, 1.5rem): 16px at 375, 24px at 1280",
-   "use": "Padding inside every panel and card"
+   "use": "Padding inside admin cards and the upload form."
   },
   {
    "name": "--control-h",
    "value": "2.5rem (40px)",
-   "use": "Minimum height of every button, input, select, file-selector button, disclosure summary, toggle and continue link. This is the tap target."
+   "use": "Minimum height of every button, input, select and file-selector button."
+  },
+  {
+   "name": "--disclosure-h",
+   "value": "2rem (32px)",
+   "use": "Minimum height of summaries, the replies toggle and the continue link: above the WCAG 2.2 AA 24px target, and calmer in a deep thread."
   },
   {
    "name": "gutter",
-   "value": "1rem literal on main (padding: 1.5rem 1rem 4rem)",
-   "use": "The page's side gutter at every width: 32px in total, which the 360px thread model reads. Never a token or calc() there."
+   "value": "1rem literal a side on main (padding: 1.5rem 1rem 4rem)",
+   "use": "The page's side gutter at every width: 32px in total, which the 360px thread model reads. main's shorthand always stays literal. Other vertical values are padding-top or padding-bottom longhands."
   },
   {
    "name": "page widths",
-   "value": "main 48rem; main.reader and main[data-hband-admin] 72rem (content 70rem)",
-   "use": "Centred columns. 48rem is for the Not allowed page and any later plain page."
+   "value": "main.reader 72rem (70rem of content); .admin 72rem (13rem sidebar plus main); plain main 40rem",
+   "use": "Centred columns. The header's inset puts its content on the same 70rem edges."
+  },
+  {
+   "name": "reading measure",
+   "value": "40rem, written as a literal",
+   "use": "Centred with margin-left and margin-right auto: the votes bar, the feedback section, the comments section, the branch thread, the All reports list, and the reader empty states."
+  },
+  {
+   "name": "headline measure",
+   "value": "48rem",
+   "use": "Centred reader h1, meta line and legend."
+  },
+  {
+   "name": "admin measure",
+   "value": "44rem",
+   "use": "Admin cards, the dl, the inbox, moderation, blocked accounts, the lede and the upload form, left-aligned in the admin main. The table and the preview frame take the full width."
   },
   {
    "name": "header inset",
    "value": "padding-inline max(1rem, (100% - 70rem) / 2)",
-   "use": "Puts the header's content on the same edges as the 70rem reader and admin content at every width"
-  },
-  {
-   "name": "measure",
-   "value": "46rem, written as a literal in rules because .comments is a thread box",
-   "use": "Reading measure, left-aligned in the wide column: .votes, .feedback, .comments, .legend, .feedback-inbox, .moderation, .blocked-account, dl, main[data-hband-admin] > p, the upload form. Form rows inside the upload form: 32rem."
+   "use": "Puts the header's content on the edges of the 70rem reader column and of the .admin container's content."
   },
   {
    "name": "thread geometry (unchanged)",
-   "value": ".replies margin-left .75rem + padding-left .5rem + 1px line = 21px per level; .comment margin 1rem 0",
-   "use": "A level-5 body keeps 259px at 375 and 244px at 360"
+   "value": ".replies margin-left .75rem + padding-left .5rem + a 1px line = 21px a level; .comment margin 1.25rem 0",
+   "use": "A level-5 body keeps 259px at 375 and 244px at 360."
   }
  ],
  "shape": [
   {
    "name": "--radius-sm",
    "value": ".375rem (6px)",
-   "use": "Buttons, inputs, selects, textareas, file-selector button, inline code, notices (right corners only), author-reply blocks, the confirm tray, inline empty states"
+   "use": "Buttons, inputs, selects, textareas, the file-selector button, sidebar items, inline code, the confirm tray, inline empty states, and the right corners of notices and author replies."
   },
   {
    "name": "--radius",
-   "value": ".625rem (10px)",
-   "use": "Panels and cards, the data table, the detail list, both report frames, page-level empty states"
+   "value": ".5rem (8px)",
+   "use": "Admin cards, the dl, the upload form, both report frames and page-level empty states."
   },
   {
    "name": "--radius-pill",
    "value": "999px",
-   "use": "Badges and the brand mark"
+   "use": "Badges and status pills."
   },
   {
    "name": "avatar",
    "value": "border-radius 50%",
-   "use": "Every avatar"
+   "use": "Every avatar."
   },
   {
    "name": "hairline",
-   "value": "1px solid var(--divider)",
-   "use": "Card and panel edges, the header's bottom edge, table rules, list separators, the report frame edge"
+   "value": "1px solid var(--divider), written as a literal width and style with a border-*-color longhand",
+   "use": "The header's bottom edge, the votes bar's top and bottom, the All reports list rules, table rules, card edges, the page-head rule, own-feedback separators and the report frame edge."
   },
   {
    "name": "control edge",
    "value": "1px solid var(--border)",
-   "use": "Neutral buttons, inputs, selects, textareas, the file-selector button. Primary and danger buttons take a 1px edge in their own fill colour."
+   "use": "Neutral buttons, inputs, selects, textareas and the file-selector button. Primary and danger buttons take a 1px edge in their own fill colour."
   },
   {
    "name": "notice edge",
-   "value": "4px solid, in the notice's role colour, on the left only",
-   "use": "Notices: .error, .feedback-sent, .notice.*"
+   "value": "4px solid on the left only, in the notice's role colour",
+   "use": ".error, .feedback-sent and .notice.*"
   },
   {
    "name": "reply edge",
-   "value": "3px solid var(--accent), on the left only",
-   "use": "The author's reply (.feedback-reply)"
+   "value": "2px solid var(--accent) on the left only",
+   "use": "The author's reply (.feedback-reply), drawn like a pull-quote rule in ink."
   },
   {
    "name": "thread line",
-   "value": "1px solid var(--thread), on the left only",
+   "value": "1px solid var(--thread) on the left only",
    "use": ".replies"
   },
   {
    "name": "tray edge",
    "value": "1px solid var(--danger)",
-   "use": "The open confirm tray of the two-step Remove and Block"
+   "use": "The open confirm tray of the two-step Remove and Block."
   },
   {
    "name": "focus ring",
    "value": "outline: 2px solid var(--focus); outline-offset: 2px",
-   "use": "Every :focus-visible element. Text inputs also turn their border to --focus. Never removed."
+   "use": "Every :focus-visible element. Text inputs, selects and textareas also turn their border --focus. It is never removed."
   },
   {
    "name": "avatar ring",
@@ -348,43 +398,67 @@
   {
    "name": "shadows",
    "value": "none",
-   "use": "Elevation comes from --surface against --bg plus a hairline. There are no translucent colours anywhere, and nothing on the report frames but border, radius and Canvas."
+   "use": "Elevation comes from hairlines and --surface. There is no translucent colour anywhere, and nothing on the report frames but border, radius and Canvas."
   },
   {
    "name": "pressed",
    "value": "transform: translateY(1px)",
-   "use": "Every button and the file-selector button while :active. No transitions and no animations."
+   "use": "Every button and the file-selector button while :active. There are no transitions and no animations."
   }
  ],
  "components": [
   {
    "name": "Site header",
-   "look": "A full-width bar: --surface fill, 1px --divider bottom edge, min-height 3.5rem. Padding: --space-2 top and bottom, max(1rem, (100% - 70rem) / 2) at the sides. Flex, wrapping, justify-content space-between, align-items center, gap --space-2 vertical and --space-4 horizontal. The Brand is on the left. The nav on the right is a wrapping flex row with gap --space-2/--space-4, at --text-sm and min-width 0, holding:\n- 'All reports' and 'Admin' as nav links: --text, weight 400, no underline;\n- the Avatar (24px);\n- '.who' ('Signed in as @login'): --text-muted, overflow-wrap anywhere, min-width 0;\n- Sign out as a Quiet button.\nSigned out, the nav holds 'All reports' and 'Sign in with GitHub' as a Primary button. .site-header form has margin 0.",
+   "look": "A full-width bar:\n- --surface fill, a 1px --divider bottom edge, min-height 4rem;\n- padding --space-3 top and bottom, max(1rem, (100% - 70rem) / 2) at the sides;\n- flex, wrapping, justify-content space-between, align-items center, gap --space-2 vertical and --space-5 horizontal.\n\nThe Brand sits on the left. The nav on the right is a wrapping flex row (gap --space-2 vertical, 1.25rem horizontal) at --text-sm, with min-width 0. It holds:\n- 'All reports' and, for the owner, 'Admin' as nav links: --text, weight 500, no underline;\n- the Avatar at 24px;\n- '.who' ('Signed in as @login'): --text-muted, overflow-wrap anywhere, min-width 0;\n- Sign out as a Quiet button.\n\nSigned out, it holds 'All reports' and 'Sign in with GitHub' as a Primary button. .site-header form has margin 0. The markup of the \"header\" define is byte-unchanged.",
    "states": [
-    "signed out: All reports + the primary Sign in with GitHub",
-    "signed in reader: All reports, avatar, muted 'Signed in as @login', quiet Sign out",
-    "owner: as signed in, plus the Admin link before Sign out",
-    "no avatar URL: the who text without an image",
-    "nav link hover: underline 1px at offset .2em",
+    "signed out: All reports, then the ink 'Sign in with GitHub' button",
+    "signed-in reader: All reports, avatar, muted 'Signed in as @login', quiet Sign out",
+    "owner: as signed in, with the Admin link before Sign out",
+    "no avatar URL: the who text alone",
+    "nav link hover: a 1px underline at offset .25em",
     "keyboard focus: the 2px --focus ring at offset 2px on the brand, each link and Sign out",
     "39-character login: the who text breaks anywhere inside the nav, and the page never widens",
-    "brand-only (Not allowed page): the bar with the Brand alone",
+    "brand only (Not allowed page): the bar holds the Brand alone",
     "phone: the nav wraps onto a second row under the brand, left-aligned"
    ]
   },
   {
    "name": "Brand",
-   "look": "'hband' at --text-lg, weight 700, letter-spacing -0.01em, in --text with no underline. display inline-flex, align-items center, gap --space-2. Before it, a ::before 'band' mark: content '', 1rem by .375rem, --radius-pill, --accent fill.",
+   "look": "'hband' as a wordmark: --font-serif, --text-xl, weight 700, letter-spacing -0.01em, --text, no underline, line-height 1. It has no mark or icon.",
    "states": [
-    "hover: text unchanged and no underline; the mark takes --accent-hover",
-    "keyboard focus: the focus ring around the word and the mark"
+    "hover: a 2px underline at offset .2em, colour unchanged",
+    "keyboard focus: the focus ring"
+   ]
+  },
+  {
+   "name": "Admin sidebar",
+   "look": "nav.admin-nav (aria-label 'Admin'), drawn by the shared \"admin-nav\" define. It holds three links: Reports (/admin), Blocked users (/admin/blocked) and View site (/).\n\nThe nav is the first child of .admin:\n- flex 1 1 13rem;\n- display flex, flex-wrap wrap, gap .125rem;\n- padding 2rem 1rem 0.\n\nEach link:\n- display flex, align-items center;\n- flex 1 1 calc((20rem - 100%) * 999). This stacks the links in a column while the nav is narrower than 20rem (the desktop sidebar) and lays them in one row when the nav wraps to full width on a phone;\n- white-space nowrap, min-height 2.25rem, padding 0 --space-3, --radius-sm;\n- --text-sm, weight 500, --text, no underline.\n\nThere is no fill and no edge on the nav itself.",
+   "states": [
+    "current page (aria-current=page): --surface-2 fill and weight 600. Reports on /admin and /admin/reports/<slug>; Blocked users on /admin/blocked",
+    "hover: --surface-2 fill",
+    "pressed: colour --accent-hover",
+    "keyboard focus: the focus ring around the item",
+    "desktop (1280): a 13rem column left of the page, its items aligned with the header brand",
+    "phone (375): one row of three items above the page head, sharing the width; below 20rem of nav width (a 320px phone) they stack"
+   ]
+  },
+  {
+   "name": "Page head (admin)",
+   "look": "div.page-head at the top of each admin main:\n- display flex, flex-wrap wrap, align-items center, justify-content space-between;\n- gap --space-3 vertical and --space-5 horizontal;\n- margin 0 0 --space-6, padding-bottom --space-5, and a 1px --divider bottom edge.\n\nChildren:\n- An optional .crumb: a Back link, --text-sm, flex-basis 100%, margin 0.\n- The h1: --font-sans, --text-3xl, weight 700, letter-spacing -0.01em, line-height --leading-tight, margin 0, flex 1 1 18rem, min-width 0.\n- The page's main action (an a.primary, or a form holding a button) at the right: flex none, margin 0.",
+   "states": [
+    "/admin: the 'Reports' title and the ink 'Upload a report' action at the top right",
+    "/admin/reports/<slug> (draft): the crumb '‹ Reports', the title, and the ink 'Publish' action at the top right",
+    "/admin/reports/<slug> (published): the same, with a neutral 'Unpublish' action",
+    "/admin/blocked: the title alone, with no action",
+    "long title: balances over two lines while the action stays on the right",
+    "phone: the title fills the first line and the action wraps under it, left-aligned"
    ]
   },
   {
    "name": "Link",
-   "look": "Colour --link; visited links are the same colour, never purple. Underline 1px at offset .2em. Written as :where(a) so every component can override it at no specificity cost. Variants:\n- Nav link: --text, no underline.\n- Card title link: --text, no underline, inside a report card h2.\n- Back link (.back): inline-flex, with a left chevron ::before (the Disclosure chevron rotated 135deg).\n- Continue link (.continue): --text-sm, 600, inline-flex, min-height --control-h.",
+   "look": "Colour --link, with a 1px underline at offset .2em. Visited links keep the same colour and are never purple. It is written as :where(a), so every variant overrides it at no specificity cost.\n\nVariants:\n- **Nav and sidebar link:** --text, no underline.\n- **Title link** (All reports h2, the admin table's first column): --text, no underline.\n- **Meta link** (.meta a): --text-muted with the underline.\n- **Back link** (.back): inline-flex, with a left-pointing ::before chevron (the Disclosure chevron rotated 135deg).\n- **Continue link** (.continue): --text-sm, weight 600, inline-flex, min-height --disclosure-h.",
    "states": [
-    "hover: underline thickness 2px; nav and card-title links gain the underline",
+    "hover: the underline thickens to 2px; title links and nav links gain a 1px underline; meta links turn --text",
     "pressed (:active): colour --accent-hover",
     "visited: unchanged",
     "keyboard focus: the focus ring"
@@ -392,27 +466,27 @@
   },
   {
    "name": "Primary button",
-   "look": "The one main action of a form. --accent fill, 1px --accent edge, --on-accent text at --text-sm weight 600, line-height --leading-tight. min-height --control-h, padding 0 --space-4, --radius-sm. Bound to: .primary, .signin (an anchor, made inline-flex with no underline), .comments > form button, .reply form button, .feedback form button, .feedback-inbox form button, form[action='/admin/reports'] button.",
+   "look": "The one main action of a page or form, in ink:\n- --accent fill, 1px --accent edge, --on-accent text;\n- --text-sm, weight 600, line-height --leading-tight;\n- min-height --control-h, padding 0 --space-4, --radius-sm, cursor pointer.\n\nBound to:\n- .primary on a button or anchor;\n- .signin;\n- .comments > form button;\n- .reply form button;\n- .feedback form button;\n- .feedback-inbox form button;\n- form[action='/admin/reports'] button.\n\nAn anchor (.signin, a.primary) is inline-flex, align-items center, with no underline.",
    "states": [
     "hover: --accent-hover fill and edge",
     "pressed: translateY(1px)",
-    "keyboard focus: the --focus ring at offset 2px, with a --bg gap between ring and fill",
+    "keyboard focus: the --focus ring at offset 2px, with a page-coloured gap between the ring and the fill",
     "disabled: --surface-2 fill, --text-muted text, --divider edge, cursor not-allowed, no hover"
    ]
   },
   {
    "name": "Neutral button",
-   "look": "The secondary action. Written as :where(button), with every state inside :where() so that class-bound buttons always win. --surface fill, 1px --border edge, --text at --text-sm weight 600, min-height --control-h, padding 0 --space-4, --radius-sm, cursor pointer. It never sets display. Used for Thumbs up, Thumbs down and Take back my vote, Sign out in the admin main and on the Not allowed page, Publish, Unpublish and Unblock.",
+   "look": "The secondary action. It is written as :where(button), with every state inside :where(), so class-bound buttons always win:\n- --surface fill, 1px --border edge, --text;\n- --text-sm, weight 600, min-height --control-h, padding 0 --space-4, --radius-sm.\n\nIt never sets display. Used for: Thumbs up, Thumbs down, Take back my vote, Unpublish, Unblock, and Sign out on the Not allowed page.",
    "states": [
     "hover: --surface-2 fill",
     "pressed: edge --text-muted, translateY(1px)",
     "keyboard focus: the focus ring",
-    "disabled: --surface-2 fill, --text-muted text, --divider edge, not-allowed"
+    "disabled: --surface-2 fill, --text-muted text, --divider edge, cursor not-allowed"
    ]
   },
   {
    "name": "Quiet button",
-   "look": "A ghost button for chrome: no fill, no border, --text at --text-sm weight 600, padding 0 --space-3, min-height --control-h, --radius-sm. Bound to .quiet and .site-header button (the header's Sign out).",
+   "look": "A ghost button for chrome:\n- no fill, no border, --text;\n- --text-sm, weight 600, padding 0 --space-3, min-height --control-h, --radius-sm.\n\nBound to .quiet and .site-header button (the header's Sign out).",
    "states": [
     "hover: --surface-2 fill",
     "pressed: translateY(1px)",
@@ -421,31 +495,31 @@
   },
   {
    "name": "Danger button",
-   "look": "The same metrics as the Primary button: --danger fill, 1px --danger edge, --on-danger text. Bound to button.danger (button only, so .notice.danger never takes it), .remove form button, .block form button and form[action$='/delete'] button. It comes after the primary rule.",
+   "look": "The same metrics as the Primary button, with a --danger fill, a 1px --danger edge and --on-danger text.\n\nBound to:\n- button.danger (buttons only, so .notice.danger never takes it);\n- .remove form button;\n- .block form button;\n- form[action$='/delete'] button.\n\nIt is written after the primary rule.",
    "states": [
     "hover: --danger-hover fill and edge",
     "pressed: translateY(1px)",
-    "keyboard focus: the --focus ring (blue, so it never blends into the danger fill)",
+    "keyboard focus: the blue --focus ring",
     "disabled: --surface-2 fill, --text-muted text, --divider edge"
    ]
   },
   {
    "name": "Disclosure",
-   "look": "A text-button for summary and button.toggle: no fill, no border, padding 0, min-height --control-h, --text-sm weight 600, --text-muted.\n- summary keeps display:flex with align-items center, gains width fit-content and max-width 100%, uses list-style none, and hides ::-webkit-details-marker.\n- .toggle never sets display; the hidden guard owns it.\n- The chevron is a ::before: content '', display inline-block, flex none, .45em square, 2px right and bottom borders in currentColor, rotate(-45deg) so it points right, margin-right --space-2, vertical-align middle.\n- details[open] > summary::before and .toggle[aria-expanded='true']::before rotate(45deg), so they point down.",
+   "look": "A text-button for summary and button.toggle:\n- no fill, no border, padding 0;\n- min-height --disclosure-h;\n- --text-sm, weight 600, --text-muted.\n\nsummary keeps display:flex with align-items center, width fit-content and max-width 100%, list-style none, and a hidden ::-webkit-details-marker. .toggle never sets display; the hidden guard owns it.\n\nThe chevron is a ::before:\n- content '', display inline-block, flex none;\n- a .45em square with 2px right and bottom borders in currentColor;\n- rotate(-45deg), so it points right;\n- margin-right --space-2.\n\ndetails[open] > summary::before and .toggle[aria-expanded='true']::before rotate(45deg), so they point down.",
    "states": [
-    "closed or folded: muted text, chevron pointing right ('Reply', 'Show replies')",
-    "open or expanded: chevron pointing down; the Reply summary turns --text ('Hide replies' when expanded)",
-    "hover: --text, underline at offset .2em, no fill",
+    "closed or folded: muted text with the chevron pointing right ('Reply', 'Show replies')",
+    "open or expanded: the chevron points down; an open Reply summary turns --text ('Hide replies')",
+    "hover: --text, underlined at offset .2em, no fill",
     "keyboard focus: the focus ring around the text",
     "toggle before thread.js runs: not drawn (hidden guard)"
    ]
   },
   {
    "name": "Two-step destructive control",
-   "look": "<details class='remove|block'>, markup unchanged.\n- Step 1 is the summary as a Disclosure in --danger, with a --danger chevron ('Remove', 'Block').\n- Step 2, the open form, is a confirm tray: --danger-soft fill, 1px --danger edge, --radius-sm, padding --space-3, margin --space-1 0 --space-3, width fit-content, max-width 100%. It holds the Danger button ('Remove for everyone', 'Block @login').\nNo display is set on the details element.",
+   "look": "<details class='remove|block'>, with the markup unchanged.\n\nStep 1 is the summary, drawn as a Disclosure in --danger with a --danger chevron ('Remove', 'Block').\n\nStep 2 is the open form, a confirm tray:\n- --danger-soft fill, 1px --danger edge, --radius-sm;\n- padding --space-3, margin --space-1 0 --space-3;\n- width fit-content, max-width 100%.\n\nThe tray holds the Danger button ('Remove for everyone', 'Block @login'). No display is set on the details element.",
    "states": [
-    "closed: danger summary only",
-    "summary hover: danger text plus underline",
+    "closed: the danger summary only",
+    "summary hover: danger text with an underline",
     "open: the tray appears under the summary with the filled confirm",
     "confirm hover: --danger-hover",
     "keyboard focus: the ring on the summary, then on the confirm",
@@ -454,18 +528,18 @@
   },
   {
    "name": "Text input",
-   "look": "input[type=text] (and type-less inputs): --surface fill, 1px --border, --radius-sm, min-height --control-h, padding --space-2 --space-3, --text-md weight 400 in --font-sans, --text, line-height --leading-tight, max-width 100%. Inside a Form row it is width 100%.",
+   "look": "input[type=text] and type-less inputs:\n- --surface fill, 1px --border, --radius-sm;\n- min-height --control-h, padding --space-2 --space-3;\n- --text-md, weight 400, --font-sans, --text, line-height --leading-tight;\n- max-width 100%.\n\nInside a Form row it is width 100%. There is no placeholder text.",
    "states": [
     "hover: edge --text-muted",
     "keyboard focus: edge --focus plus the focus ring",
     "error (:user-invalid after the person has edited it): edge --danger",
     "disabled: --surface-2 fill, --text-muted text, --divider edge",
-    "empty: no placeholder text; the label above says what goes in"
+    "empty: blank; the label above says what goes in"
    ]
   },
   {
    "name": "Textarea",
-   "look": "The same box as the Text input, plus line-height --leading, min-height 6rem and resize vertical. In comment, reply, feedback and inbox forms it is display block, width 100%, max-width 100% and margin 0 0 --space-3, through the pinned '.comments textarea, .feedback textarea, .feedback-inbox textarea {' rule. That rule no longer says font: inherit, so it never inherits a label's 600 weight.",
+   "look": "The same box as the Text input, with line-height --leading, min-height 6rem and resize vertical.\n\nIn the comment, reply, feedback and inbox forms it is display block, width 100%, max-width 100% and margin 0 0 --space-3. That comes through the pinned '.comments textarea, .feedback textarea, .feedback-inbox textarea {' rule, which never says font: inherit.",
    "states": [
     "hover: edge --text-muted",
     "keyboard focus: edge --focus plus the focus ring",
@@ -475,82 +549,102 @@
   },
   {
    "name": "Select",
-   "look": "The same box as the Text input. appearance is left as is, so Chrome keeps its own dropdown arrow, drawn in the current scheme. Width 100% inside a Form row.",
+   "look": "The same box as the Text input. appearance is left alone, so Chrome draws its own arrow in the current scheme. Width 100% inside a Form row.",
    "states": [
     "hover: edge --text-muted",
     "keyboard focus: edge --focus plus the ring",
-    "open: the browser's own list, in the scheme from color-scheme",
+    "open: the browser's own list, in the scheme set by color-scheme",
     "disabled: --surface-2 fill, --text-muted"
    ]
   },
   {
    "name": "File picker",
-   "look": "input[type=file]: --text-sm, --text-muted for 'No file chosen' and the chosen name, max-width 100%, justify-self start inside a Form row. Its ::file-selector-button is drawn as a Neutral button: --surface fill, 1px --border, --radius-sm, min-height --control-h, padding 0 --space-4, font inherit at weight 600, --text, margin-right --space-3.",
+   "look": "input[type=file]: --text-sm, --text-muted for 'No file chosen' and for the chosen name, max-width 100%, justify-self start inside a Form row.\n\nIts ::file-selector-button is drawn as a Neutral button:\n- --surface fill, 1px --border, --radius-sm;\n- min-height --control-h, padding 0 --space-4;\n- font inherit at weight 600, --text;\n- margin-right --space-3.",
    "states": [
     "hover: the selector button takes --surface-2",
     "keyboard focus: the focus ring around the whole input",
     "file chosen: its name in --text-muted beside the button",
-    "phone: the name wraps under the button and the input never exceeds the row"
+    "phone: the name wraps under the button, and the input never exceeds the row"
    ]
   },
   {
    "name": "Checkbox and radio",
-   "look": "Not in today's markup; designed for later. A native control, 1.125rem square, margin 0, accent-color --accent. Its label is a Form row variant: display inline-flex, align-items center, gap --space-2, weight 400 (label:has(> input[type=checkbox], > input[type=radio])).",
+   "look": "Not in today's markup; designed for later. A native control, 1.125rem square, margin 0, with accent-color --accent (ink).\n\nIts label (label:has(> input[type=checkbox], > input[type=radio])) is inline-flex, align-items center, gap --space-2, weight 400.",
    "states": [
-    "checked: --accent fill drawn by the browser",
+    "checked: an ink fill drawn by the browser",
     "keyboard focus: the focus ring",
     "disabled: the browser's dimmed control and a --text-muted label"
    ]
   },
   {
-   "name": "Form row",
-   "look": "Every label wraps its control. label is display grid with gap --space-2, --text-sm, weight 600, --text: the label's words sit above the control and the control fills the row. In the upload form, each row is a p with margin 0 0 --space-4, each label is capped at 32rem, and the help paragraph (form[action='/admin/reports'] p:not(:has(label, button))) is --text-sm --text-muted.",
+   "name": "Form row and errors",
+   "look": "Every label wraps its control. label is display grid, with gap --space-2, --text-sm, weight 600 and --text: the label's words sit above the control.\n\nIn the upload form:\n- each row is a p with margin 0 0 --space-4;\n- labels are capped at 32rem;\n- the help paragraph (form[action='/admin/reports'] p:not(:has(label, button))) is --text-sm --text-muted.\n\nA refusal by the server is the danger Notice (p.error, role=alert) directly under the page head.",
    "states": [
     "field error: the field's danger edge (:user-invalid)",
-    "refused by the server: the danger Notice above the form (p.error, role=alert), with the form refilled",
+    "refused upload: the danger notice under the page head, with the form below refilled",
     "keyboard focus: the field's ring; the label is unchanged"
    ]
   },
   {
-   "name": "Panel",
-   "look": "The card: --surface fill, 1px --divider, --radius, padding --panel-pad (16px at 375, 24px at 1280), no shadow. A panel's first child has margin-top 0 and its last child margin-bottom 0. Bound to .panel, .votes, .feedback, .report-row, .mod, .blocked-account, .feedback-inbox .feedback-message, .comments > form, form[action='/admin/reports'] and dl. Never qualified by article or section, and never added to the pinned '.comments, .feedback, .feedback-inbox {' rule.",
+   "name": "Card",
+   "look": "The admin card:\n- --surface fill, 1px --divider edge, --radius;\n- padding --panel-pad (16px at 375, 24px at 1280);\n- no shadow.\n\nA card's first child has margin-top 0 and its last child margin-bottom 0.\n\nBound to: .panel, dl, form[action='/admin/reports'], .feedback-inbox .feedback-message, .mod and .blocked-account. Cards appear on admin pages only. The reader pages are unboxed.",
    "states": [
     "static: no hover and no focus of its own; its links and controls carry those"
    ]
   },
   {
-   "name": "Stat",
-   "look": ".likes, .comment-count and .tally: --text-lg, weight 600, --text, tabular-nums, margin 0. Stats sit side by side with a column gap of --space-5: the votes panel is a wrapping flex row aligned on the baseline, and .tally is inline-block with margin-right --space-5.",
+   "name": "Votes bar",
+   "look": "section.votes in the reading column:\n- margin-top --space-7 after the frame;\n- padding 1.25rem 0, with 1px --divider top and bottom edges (longhands);\n- display flex, flex-wrap wrap, align-items baseline, gap --space-2 vertical and --space-5 horizontal.\n\n.likes and .comment-count are stats: --text-lg, weight 600, --text, tabular-nums, margin 0. .your-vote and .vote-hint follow inline as muted --text-sm hints with margin 0.\n\nThe vote form takes flex-basis 100%: a wrapping row of Neutral buttons with gap --space-2 and margin 0.",
    "states": [
-    "singular and plural wording come from the markup unchanged"
+    "signed out: '3 likes   2 comments   Sign in to vote.' on one line",
+    "signed in, not voted: the stats, then Thumbs up and Thumbs down",
+    "voted: the stats, 'Your vote: thumbs up.', then three buttons including Take back my vote",
+    "singular wording ('1 like') comes from the markup unchanged",
+    "phone: the stats and hint wrap, and the buttons wrap onto a second row if needed"
    ]
   },
   {
    "name": "Notice",
-   "look": "A block with padding --space-3 --space-4, margin --space-3 0, a 4px left edge, radius 0 --radius-sm --radius-sm 0 and --text text. Never sets display. Variants:\n- Neutral (.notice): --surface-2 fill, --text-muted edge.\n- Danger (.notice.danger and .error): --danger-soft fill, --danger edge.\n- Success (.notice.ok and .feedback-sent): --ok-soft fill, --ok edge.\n- Warning (.notice.warning): --warning-soft fill, --warning edge.",
+   "look": "A block with padding --space-3 --space-4, margin --space-3 0, a 4px left edge, radius 0 --radius-sm --radius-sm 0, and --text text at --text-sm. It never sets display.\n\nVariants:\n- neutral (.notice): --surface-2 fill, --text-muted edge;\n- danger (.notice.danger, .error): --danger-soft fill, --danger edge;\n- success (.notice.ok, .feedback-sent): --ok-soft fill, --ok edge;\n- warning (.notice.warning): --warning-soft fill, --warning edge.",
    "states": [
-    "'Sent to the author.': not drawn until the URL fragment is #feedback-sent, then the success notice under the form",
-    "refused action (p.error role=alert): the danger notice at the top of the admin page, under its links",
-    "long message: wraps; the edge runs its full height"
+    "'Sent to the author.': not drawn until the URL fragment is #feedback-sent, then the success notice under the feedback form",
+    "refused action (p.error role=alert): the danger notice under the admin page head",
+    "long message: wraps, and the edge runs its full height"
    ]
   },
   {
    "name": "Hint",
-   "look": "Secondary text: --text-sm, --text-muted. Bound to .hint, .meta, .legend, .vote-hint, .comment-hint, .feedback-hint, .feedback-note, .your-vote and .reply-to. Every time element is --text-muted. A link inside a hint stays --link.",
+   "look": "Secondary text: --text-sm, --text-muted.\n\nBound to: .hint, .meta, .legend, .vote-hint, .comment-hint, .feedback-hint, .feedback-note, .your-vote and .reply-to. Every time element is --text-muted. A link inside a hint stays --link, except inside .meta, where it is the meta link.",
    "states": [
-    "no interaction; a link inside follows the Link states"
+    "static; a link inside follows the Link states"
    ]
   },
   {
-   "name": "Badge",
-   "look": "An inline-flex pill: padding .0625rem .5rem, --radius-pill, --text-xs, weight 600, letter-spacing .02em, line-height 1.4. Default ('Author'): --accent text on --accent-soft. Danger ('blocked', .feedback-inbox .feedback-message > .byline .badge): --danger text on --danger-soft. No border.",
+   "name": "Lede",
+   "look": "The intro paragraph of an admin page (.lede): --text-lg, --text-muted, line-height --leading, max-width 44rem, margin 0 0 --space-6.",
    "states": [
     "static"
    ]
   },
   {
+   "name": "Badge",
+   "look": "An inline-flex pill: padding .0625rem .5rem, --radius-pill, --text-xs, weight 600, letter-spacing .02em, line-height 1.4, no border.\n- Default ('Author'): an ink pill, --accent fill with --on-accent text, the editorial mark of the author.\n- Danger ('blocked', .feedback-inbox .feedback-message > .byline .badge): --danger text on --danger-soft.",
+   "states": [
+    "static"
+   ]
+  },
+  {
+   "name": "Status pill",
+   "look": "span.pill.pill-<status> in the admin table and the dl:\n- inline-flex, align-items center, gap .375rem;\n- padding .125rem .5rem .125rem .4375rem, --radius-pill;\n- --text-xs, weight 600, letter-spacing .02em, text-transform capitalize, white-space nowrap.\n\nA ::before dot: content '', .375rem circle, currentColor fill (background-color: currentColor).\n- .pill-published: --ok text on --ok-soft.\n- .pill-draft: --text-muted text on --surface-2.\nThe word comes from the data unchanged.",
+   "states": [
+    "published: an ok-tinted 'Published' pill with an ok dot",
+    "draft: a grey 'Draft' pill with a muted dot",
+    "phone: the pill never breaks, and its cell wraps around it"
+   ]
+  },
+  {
    "name": "Avatar",
-   "look": "A 24px circle (from its width and height attributes), border-radius 50%, --surface-2 placeholder fill, ring box-shadow 0 0 0 1px --divider, object-fit cover, vertical-align middle, flex none. 2rem in a blocked-account heading.",
+   "look": "A 24px circle (from its width and height attributes), border-radius 50%, a --surface-2 placeholder fill, the avatar ring, object-fit cover, vertical-align middle, flex none. It is 2rem in a blocked-account heading.",
    "states": [
     "image loaded: the photo inside the ring",
     "image missing or refused (alt=''): a plain --surface-2 circle with its ring, never a broken-image glyph"
@@ -558,82 +652,83 @@
   },
   {
    "name": "Byline",
-   "look": ".byline: flex, wrapping, align-items center, gap --space-1 vertical and --space-2 horizontal, --text-sm, line-height --leading-tight, --text-muted. Its items in order: Avatar, then .login (600, --text, overflow-wrap anywhere), then Badge, then time (--text-muted). 'You wrote <time>' uses the same byline.",
+   "look": ".byline: flex, wrapping, align-items center, gap --space-1 vertical and --space-2 horizontal, --text-sm, line-height --leading-tight, --text-muted.\n\nItems: the Avatar, then .login (weight 600, --text, overflow-wrap anywhere), then a Badge, then the time (--text-muted). 'You wrote <time>' uses the same byline.",
    "states": [
-    "long login: breaks anywhere and the badge and time wrap to the next line",
-    "removed comment: no byline, the placeholder instead"
+    "long login: breaks anywhere, and the badge and time wrap to the next line",
+    "removed comment: no byline; the placeholder instead"
    ]
   },
   {
    "name": "Comment thread",
-   "look": "Unboxed, on --bg, so no comment wrapper ever gains horizontal padding, border or width.\n- .comment: margin 1rem 0.\n- Byline, then .body: --text-md --text, margin .25rem 0, pre-wrap, wrapping anywhere, overflow clip.\n- The Reply Disclosure; when open, its form holds a Textarea and the Primary 'Post reply' (form margin --space-1 0 --space-3).\n- For the owner, the Two-step destructive control.\n- The toggle Disclosure ('Hide replies' / 'Show replies').\n- .replies is indented .75rem with .5rem padding and a 1px --thread line.\n- Placeholder (.removed): --text-sm --text-muted italic.\n- At the cap, .cut holds the Continue link 'continue this thread →'.",
+   "look": "Unboxed on the page, inside the 40rem column. No comment wrapper ever gains horizontal padding, border or width.\n- .comment: margin 1.25rem 0.\n- Byline, then .body: --text-md, --text, line-height --leading, margin .25rem 0, pre-wrap, wrapping anywhere, overflow clip.\n- The Reply Disclosure; open, its form holds a Textarea and the Primary 'Post reply', with form margin --space-1 0 --space-3.\n- For the owner, the Two-step destructive control.\n- The toggle Disclosure.\n- .replies: indented .75rem, with .5rem padding and a 1px --thread line.\n- The placeholder (.removed): --text-sm, --text-muted, italic.\n- At the cap, .cut holds the Continue link 'continue this thread →'.\n\nAbove the thread, the comment form (signed in) is unboxed: a label with its Textarea, then the Primary 'Post comment', with margin 0 0 --space-6.",
    "states": [
-    "before thread.js: toggles not drawn and every thread open",
-    "folded: 'Show replies' with a right chevron and the replies hidden ([hidden])",
+    "signed out: the muted 'Sign in to comment.' hint, then the thread",
+    "before thread.js: no toggles drawn, every thread open",
+    "folded: 'Show replies' with a right chevron; the replies hidden ([hidden])",
     "expanded: 'Hide replies' with a down chevron",
-    "reply open: textarea and Post reply under the summary",
-    "owner: Remove under Reply; open: the danger tray",
-    "removed comment with visible replies: the italic 'comment removed' line, then its replies",
-    "depth cap: 'continue this thread →' at tap height",
+    "reply open: the textarea and Post reply under the summary",
+    "owner: Remove under Reply; open, the danger tray",
+    "removed comment with visible replies: the italic 'comment removed', then its replies",
+    "depth cap: 'continue this thread →' at 32px tap height",
     "unbroken 300-character body or 39-character login: wraps inside the 244px body at 360",
     "no comments: the inline Empty state 'No comments yet.'"
    ]
   },
   {
    "name": "Feedback message",
-   "look": "Reader side (.own-feedback li.feedback-message): an unbulleted list. Each message has a 1px --divider top edge, padding-top --space-4 and margin-top --space-4, a 'You wrote <time>' Byline and the body. The author's reply (.feedback-reply) is a --surface-2 block with a 3px --accent left edge, radius 0 --radius-sm --radius-sm 0, padding --space-3 --space-4 and margin-top --space-3, holding an Author Badge, a time and the body. Admin side (.feedback-inbox .feedback-message): each message is a Panel with a Byline (avatar, login, a danger 'blocked' Badge, time), its body, its author replies (as above) and a reply form (Textarea plus the Primary 'Send reply', form margin-top --space-3).",
+   "look": "**Reader side** (.own-feedback li.feedback-message):\n- an unbulleted list;\n- each message has a 1px --divider top edge, padding-top --space-4 and margin-top --space-4, a 'You wrote <time>' Byline, and the body.\n\n**The author's reply** (.feedback-reply):\n- no fill, a 2px --accent (ink) left edge;\n- padding .25rem 0 .25rem --space-4, margin-top --space-3;\n- holds the ink Author Badge, a time and the body, like a pull quote.\n\n**Admin side** (.feedback-inbox .feedback-message): each message is a Card holding:\n- a Byline (avatar, login, the danger 'blocked' Badge, time);\n- its body;\n- its author replies (as above);\n- a reply form (a Textarea plus the Primary 'Send reply', form margin-top --space-3).",
    "states": [
     "no own messages: the list is absent",
-    "a message with no reply: the body only",
-    "one or more author replies: stacked blocks with the accent edge",
+    "message with no reply: the body only",
+    "one or more author replies: stacked, ink-edged blocks",
     "blocked sender (inbox): the danger 'blocked' badge in the byline",
     "no feedback (inbox): the inline Empty state"
    ]
   },
   {
    "name": "Report frame",
-   "look": "iframe: display block, max-width 100%, 1px --divider edge, --radius, background-color Canvas. Nothing else, ever: no color-scheme, filter, opacity, blend or shadow on the frame or any ancestor below :root. The reader frame (.report-frame) is width 100% of the 70rem column, height 80vh, min-height 24rem. The admin preview takes the same look with its height attribute (600).",
+   "look": "iframe: display block, max-width 100%, a 1px --divider edge, --radius, background-color Canvas. Nothing else, ever: no color-scheme, filter, opacity, blend or shadow on the frame or on any ancestor below :root.\n\nThe reader frame (.report-frame) is width 100% of the 70rem column, height 80vh, min-height 24rem, like a full-bleed feature image under the title. The admin preview has the same look at its height attribute (600).",
    "states": [
     "a report with no background (light): white, exactly as it looks alone",
     "a report with its own dark rule (dark): its own dark background",
-    "a light-only report viewed in dark: Chrome's opaque white canvas inside a dark page, as alone",
+    "a light-only report viewed in dark: Chrome's opaque white canvas inside the dark page, as it looks alone",
     "keyboard focus on the frame: the focus ring"
    ]
   },
   {
-   "name": "Report card grid",
-   "look": "ol.report-list: no bullets, padding 0, display grid, grid-template-columns repeat(auto-fill, minmax(min(100%, 20rem), 1fr)), gap --space-4: three columns at 1280 and one at 375. Each .report-row is a Panel laid out as a flex column with gap --space-1:\n- h2 at --text-lg 600, margin 0, wrapping anywhere, with the title link in --text and no underline;\n- .numbers at --text-sm, --text, tabular-nums ('3 likes · 2 comments · 10 views');\n- .published at --text-sm --text-muted, with margin-top auto so it sits at the card's foot.",
+   "name": "Report list",
+   "look": "ol.report-list: no bullets, padding 0, max-width 40rem, centred (margin-left and margin-right auto), with a 1px --divider top edge.\n\nEach li.report-row:\n- display flex, flex-wrap wrap, align-items baseline;\n- column-gap --space-3, row-gap .375rem;\n- padding --space-5 0, and a 1px --divider bottom edge.\n\nInside each row:\n- **h2:** flex-basis 100%, margin 0, --font-serif, --text-2xl, weight 700, line-height 1.2, letter-spacing -0.01em, overflow-wrap anywhere, with the title link in --text and no underline.\n- **.published:** order 1, --text-sm, --text-muted.\n- **.numbers:** order 2, --text-sm, --text-muted, tabular-nums. When the row has a date, it is preceded by a ::before '\\00b7' with margin-right --space-3, through .report-row:has(> .published) > .numbers::before.\n\nThe row reads: title, then 'Published 2 January 2026 · 3 likes · 2 comments · 10 views'.",
    "states": [
-    "title hover: underline",
+    "title hover: a 1px underline at offset .15em",
     "title keyboard focus: the ring",
-    "long title: wraps",
-    "no publish date: the card ends at the numbers line",
-    "one report: a single card in the first column",
+    "long title: balances and wraps",
+    "no publish date: only the numbers line, with no dot",
+    "many reports: an even hairline list, newest first, no cap",
     "no reports or unavailable: the page-level Empty state under the legend"
    ]
   },
   {
    "name": "Data table",
-   "look": "table: width 100%, border-collapse separate, border-spacing 0, margin --space-3 0, --surface fill, 1px --divider, --radius, --text-sm, tabular-nums. th and td: padding --space-2 vertical and clamp(.375rem, 1.5vw, .75rem) horizontal, left-aligned, vertical-align top, 1px --divider bottom rule. thead th: --surface-2 fill, --text-xs 600 uppercase at .04em, --text-muted, wrapping only between words (overflow-wrap normal). The top corner cells are rounded at --radius minus 1px, and so are the bottom corners of the last row. The last row has no bottom rule. Body cells inherit overflow-wrap anywhere.",
+   "look": "The admin reports list as a quiet table:\n- width 100%, border-collapse separate, border-spacing 0, margin 0;\n- no fill and no outer border;\n- --text-sm, tabular-nums.\n\nth and td:\n- padding --space-3 vertical and clamp(.375rem, 1.5vw, .75rem) horizontal;\n- left-aligned, vertical-align middle, a 1px --divider bottom rule.\n\nthead th: padding-top and padding-bottom --space-2; --text-xs, weight 600, uppercase at .05em, --text-muted; overflow-wrap normal.\n\nColumns:\n- **Title:** the link at --text-md, weight 600, --text, no underline.\n- **Slug:** --font-mono at .8125rem, --text-muted.\n- **Status:** the Status pill.\n- **First published:** --text-muted.\n- **Size:** --text-muted, with th and td right-aligned.\n\nBody cells inherit overflow-wrap anywhere.",
    "states": [
     "row hover: every cell of the row takes --surface-2",
-    "link in a cell: Link states",
+    "title link hover: underline; keyboard focus: the ring",
     "long slug or title: breaks anywhere inside its cell",
-    "phone (343px): all five columns stay visible, side padding drops to 6px, headers wrap between words, and the page never scrolls sideways",
-    "no rows: the table is absent and the page-level Empty state shows instead"
+    "phone (343px of content): all five columns stay, side padding drops to 6px, headers wrap between words, and the page never scrolls sideways",
+    "no rows: the table is absent and the page-level Empty state 'No reports yet.' shows instead"
    ]
   },
   {
    "name": "Detail list",
-   "look": "dl as a Panel: display grid, grid-template-columns max-content minmax(0, 1fr), align-items baseline, gap --space-2 vertical and --space-5 horizontal, max-width 46rem, margin --space-5 0. dt: --text-sm 600 --text-muted. dd: margin 0, min-width 0, overflow-wrap anywhere, tabular-nums, --text.",
+   "look": "dl as a Card:\n- display grid, grid-template-columns max-content minmax(0, 1fr), align-items baseline;\n- gap --space-3 vertical and --space-5 horizontal;\n- max-width 44rem, margin 0 0 --space-6.\n\ndt: --text-sm, weight 600, --text-muted.\ndd: margin 0, min-width 0, overflow-wrap anywhere, tabular-nums, --text. The Status dd holds the Status pill. The SHA-256 dd uses --font-mono at .8125rem.",
    "states": [
-    "64-character SHA-256: wraps inside its column (3 lines at 375) and never widens the page",
-    "'never' for an unpublished report: plain text"
+    "64-character SHA-256: wraps inside its column (three lines at 375) and never widens the page",
+    "'never' for a never-published report: plain text"
    ]
   },
   {
    "name": "Plain list",
-   "look": "ul and ol default to padding-left --space-5. The designed lists drop their bullets and padding: .report-list, .own-feedback, .blocked-comments and .blocked-feedback. In the blocked lists each li has padding --space-3 0 and a 1px --divider top edge; its time is display block, --text-sm --text-muted; its span.body is --text; its 'removed' span is the italic muted placeholder; and its Remove is the Two-step destructive control.",
+   "look": "ul and ol default to padding-left --space-5. The designed lists drop their bullets and padding: .report-list, .own-feedback, .blocked-comments and .blocked-feedback.\n\nIn the blocked lists, each li has:\n- padding --space-3 0 and a 1px --divider top edge;\n- its time as display block, --text-sm, --text-muted;\n- its span.body in --text;\n- its 'removed' span as the italic muted placeholder;\n- its Remove as the Two-step destructive control.",
    "states": [
     "long list: even separators, no cap",
     "empty: the inline Empty state ('No comments.', 'No feedback.')"
@@ -641,26 +736,26 @@
   },
   {
    "name": "Empty state",
-   "look": "Page-level: --surface-2 fill, --radius, padding --space-7 --space-5, margin-top --space-5, --text-md --text-muted, centred. Bound to .empty, main.reader > h1:first-child + p:last-child (home empty and unavailable), .legend + p:last-child (All reports empty and unavailable) and main[data-hband-admin] > p:last-child ('No reports yet.', 'Nobody is blocked.').\nInline: --surface-2 fill, --radius-sm, padding --space-3 --space-4, margin --space-2 0 0, --text-sm --text-muted, left-aligned. Bound to .empty-inline, .no-comments, .feedback-inbox > h2 + p:last-child, .moderation > h2 + p:last-child and .blocked-account > h3 + p.",
+   "look": "**Page-level** (.empty, main.reader > h1:first-child + p:last-child, .legend + p:last-child):\n- --surface-2 fill, --radius;\n- padding --space-7 --space-5;\n- --text-md, --text-muted, centred.\nIn reader pages it sits in the 40rem column (margin-left and margin-right auto, margin-top --space-head).\n\n**Inline** (.empty-inline, .no-comments):\n- --surface-2 fill, --radius-sm;\n- padding --space-3 --space-4, margin --space-2 0 0;\n- --text-sm, --text-muted, left-aligned.",
    "states": [
     "static; the text comes from the markup unchanged"
    ]
   },
   {
    "name": "Code",
-   "look": "Inline code: --font-mono at .875em, --surface-2 fill, --radius-sm, padding .0625rem .3125rem, --text. pre is not shown today; for later: --font-mono, --text-sm, padding --space-3 --space-4, --surface-2, --radius-sm, overflow-x auto, so it scrolls inside itself and never widens the page.",
+   "look": "Inline code: --font-mono at .875em, --surface-2 fill, --radius-sm, padding .0625rem .3125rem, --text.\n\npre is not shown today. For later: --font-mono, --text-sm, padding --space-3 --space-4, --surface-2, --radius-sm, overflow-x auto, so it scrolls inside itself and never widens the page.",
    "states": [
     "static"
    ]
   },
   {
-   "name": "Page title and headings",
-   "look": "h1: --text-2xl, 700, --leading-tight, letter-spacing -0.015em, text-wrap balance, margin 0 0 --space-2.\n.meta under it: a Hint with margin 0 0 --space-5.\nh2: --text-xl, 600, -0.01em, margin --space-6 0 --space-3 (0 on top when first in a panel).\nh3: --text-lg 600, margin --space-5 0 --space-2.\nEyebrow h3 inside .blocked-account: --text-xs 600, uppercase at .06em, --text-muted.\np: margin --space-3 0.",
+   "name": "Headings",
+   "look": "**Reader title** (main.reader > h1):\n- --font-serif, --text-display, weight 700, line-height --leading-display, letter-spacing -0.02em;\n- text-wrap balance, centred, max-width 48rem;\n- margin 0 auto --space-3.\nIts .meta follows: centred, max-width 48rem, margin 0 auto --space-head.\n\n**Reader section head** (main.reader h2): --font-serif, --text-2xl, weight 700, line-height 1.2, letter-spacing -0.01em, margin 0 0 --space-4.\n\n**Admin h2:** --font-sans, --text-xl, weight 600, letter-spacing -0.01em, margin 2.5rem 0 --space-4.\n\n**h3:** --font-sans, --text-lg, weight 600, margin --space-5 0 --space-2.\n\n**Eyebrow h3** (inside .blocked-account): --text-xs, weight 600, uppercase at .06em, --text-muted.\n\n**Not allowed h1:** --font-sans, --text-3xl, weight 700, margin 0 0 --space-4.\n\np: margin --space-3 0.",
    "states": [
-    "long report title: balanced over two or three lines; 26px on a phone"
+    "long report title: balanced over two or three lines; 34px on a phone, 56px on a desktop"
    ]
   }
  ],
- "layout": "html carries --bg.\n\nHeader and columns:\n- The Site header spans the full width. Its content is inset with padding-inline max(1rem, (100% - 70rem) / 2), so it lines up with the content of the 70rem column at every width.\n- main is centred: 72rem at most on the reader pages (main.reader) and the admin pages (main[data-hband-admin]), so 70rem of content inside a literal 1rem gutter; 48rem on any other page (the Not allowed page). Padding is 1.5rem top, 1rem sides, 4rem bottom.\n- Wide things take the whole 70rem column: the report frame, the admin preview frame, the admin reports table and the report card grid.\n- Reading things are held to a 46rem measure, left-aligned under them: the votes, feedback and comments sections, the legend, admin paragraphs, the upload form (its rows capped at 32rem), the detail list, the inbox, moderation and blocked-account cards.\n\nVertical rhythm: 32px between page sections and before every h2; 24px before a card's sub-heading and below the meta line; 16px between cards and between form rows; 12px from a textarea to its button; 8px from a label to its field; 4px from a byline to its body.\n\nPhone width: the stylesheet may hold no at-rules, so nothing switches at a breakpoint. What must change does it through wrapping and intrinsic sizing:\n- the header's nav wraps under the brand;\n- vote buttons, bylines and nav items wrap;\n- the card grid falls from three columns at 1280 to one at 375 (auto-fill, minmax(min(100%, 20rem), 1fr));\n- panel padding goes from 24px to 16px, h1 from 36px to 26px, and table cell side padding from 12px to 6px (each by clamp());\n- every long word (logins, slugs, the SHA-256, unbroken comment bodies) breaks anywhere, so nothing widens the page.\n\nAt 375 the content is 343px wide and a panel's inside 309px. A level-5 comment keeps 259px (244px at 360). There is no horizontal scroll on any screen.",
- "foundation": "Every visual decision lives in one file, internal/server/static/site.css, served same-origin at /static/site.css (staticFS) under the unchanged siteCSP (style-src 'self'). It is ordered: line 1 `:root { color-scheme: light dark; }`; a second :root holding every token (colours as light-dark(#hex, #hex), type, space, shape); the [hidden]:not(:target) guard; the element baseline; the components bound to today's classes, elements and form actions; and the page parts, including the pinned rule texts. It has no at-rule, so dark mode comes only from light-dark() under color-scheme, which follows the visitor's prefers-color-scheme.\n\nThe single <link> to it sits in the \"head\" partial of internal/layout/templates/base.html, embedded by internal/layout/layout.go (layout.FS). \"page-start\" (doctype, html, head, the ThreadScript-gated thread.js tag, body, and the consuming set's \"header\") and \"page-end\" open and close every page.\n- internal/server parses layout.FS and then its own templates through parsePages() in internal/server/router.go. Its header stays the \"header\" define in internal/server/templates/layout.html.\n- internal/auth/owner.go parses layout.FS and then internal/auth/templates/forbidden.html, which defines a brand-only \"header\".\n\nEvery page template takes the look through page-start and page-end, with no own head, no style block and no style attribute: report.html, branch.html, all_reports.html, admin.html, admin_report.html, admin_blocked.html and forbidden.html. comments.html and feedback.html are partials inside report.html and branch.html. A later page gets the look by opening with page-start and closing with page-end, and a later colour is a new light-dark() token in the :root block plus a row in TestStylesheetTokens."
+ "layout": "html carries --bg. The Site header spans the full width, with its content inset by max(1rem, (100% - 70rem) / 2).\n\n**Reader pages** (main.reader): main is centred, at most 72rem, padding 1.5rem 1rem 4rem (literal), plus padding-top clamp(2rem, 1rem + 3vw, 4rem) as a longhand.\n- At the top, centred in 48rem: the serif display title and the muted meta line (or the legend on All reports).\n- The report frame takes the whole 70rem column, like a feature image.\n- Everything that is read sits in one centred 40rem column: the votes bar, Feedback, Comments, the branch thread, the All reports list, and the empty states.\n- Sections are unboxed, separated by --space-section (48 to 64px) and hairlines.\n\n**Admin pages:** below the header is div.admin, at most 72rem, centred, display flex, flex-wrap wrap, align-items flex-start.\n- It holds the Admin sidebar (flex 1 1 13rem) and main[data-hband-admin] (flex 999 1 40rem, max-width none, margin 0, padding 1.5rem 1rem 4rem, padding-top 2rem).\n- Each main opens with the Page head (title left, main action right). Below it come the list-first content (the table or cards, 44rem for cards and forms, full width for the table and preview), then secondary sections.\n\n**Other pages** (the Not allowed page): main is centred at 40rem, with padding-top --space-8.\n\n**Vertical rhythm:**\n- 48 to 64px between reader sections; 40px from an admin h2 to the previous section; 32px under the admin page head;\n- 24px between rows of the All reports list (each row has 24px of padding);\n- 16px between cards and between form rows; 12px from a textarea to its button; 8px from a label to its field; 4px from a byline to its body.\n\n**Phone width.** There are no at-rules, so nothing switches at a breakpoint. Everything changes through wrapping and intrinsic sizing:\n- the header nav wraps under the brand;\n- on admin pages the sidebar wraps above main and becomes one row of three items (the switcher flex-basis);\n- the admin page head's action wraps under its title;\n- vote buttons, bylines and the All reports meta line wrap;\n- type sizes, panel padding, section gaps and table cell padding shrink through clamp(): titles 56px to 34px, sections 64px to 48px, cells 12px to 6px;\n- every long word (logins, slugs, the SHA-256, unbroken comment bodies) breaks anywhere.\n\nAt 375 the content is 343px wide, a card's inside is 309px, and a level-5 comment keeps 259px (244px at 360). No screen scrolls sideways.",
+ "foundation": "**The stylesheet.** Every visual decision lives in one file, internal/server/static/site.css, served same-origin at /static/site.css (staticFS) under the unchanged siteCSP (style-src 'self'). Its order:\n1. Line 1: `:root { color-scheme: light dark; }`.\n2. A second :root holding every token: colours as light-dark(#hex6, #hex6), the font families, the type scale, space and shape.\n3. The `[hidden]:not(:target) { display: none !important; }` guard.\n4. The element baseline.\n5. The components, bound to today's classes, elements and form actions, plus the new admin classes (.admin, .admin-nav, .page-head, .crumb, .pill, .pill-published, .pill-draft, .lede, .empty, .empty-inline, .upload).\n6. The page parts, including every pinned rule text.\n\nThe file has no at-rule, so dark mode comes only from light-dark() under color-scheme, which follows the visitor's prefers-color-scheme.\n\n**The shell.** The single <link> to the stylesheet sits in the \"head\" partial of internal/layout/templates/base.html, which internal/layout/layout.go embeds (layout.FS). \"page-start\" (doctype, html, head, the ThreadScript-gated thread.js tag, body, and the consuming set's \"header\") and \"page-end\" open and close every page:\n- internal/server parses layout.FS and then its own templates through parsePages() in internal/server/router.go. Its \"header\" define in internal/server/templates/layout.html stays byte-unchanged.\n- The same file gains one new define, \"admin-nav\": the sidebar, called with the current section as its dot.\n- internal/auth/owner.go parses layout.FS and then internal/auth/templates/forbidden.html, which defines a brand-only \"header\".\n\n**The pages.** Every page template takes the look through page-start and page-end, with no own head, no style block and no style attribute:\n- report.html, branch.html and all_reports.html are byte-unchanged, so they keep the reader byte-identity proof.\n- admin.html, admin_report.html and admin_blocked.html wrap their main in `<div class=\"admin\">` after `{{template \"admin-nav\" \"<section>\"}}`.\n- forbidden.html.\n- comments.html and feedback.html are partials inside report.html and branch.html.\n\nA later page gets the look by opening with page-start and closing with page-end. A later admin page also takes the .admin wrapper and admin-nav. A later colour is a new light-dark() token in :root plus a row in TestStylesheetTokens."
 }
