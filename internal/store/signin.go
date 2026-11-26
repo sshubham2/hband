@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -22,6 +24,20 @@ type SignInArgs struct {
 	NewTokenHash string
 	ExpiresAt    time.Time
 	Now          time.Time
+}
+
+// User reads the account sign-in last saw for githubID. ok is false when that
+// account has never signed in: a missing account is an answer, not an error.
+func (s *Store) User(ctx context.Context, githubID int64) (u User, ok bool, err error) {
+	err = s.db.QueryRowContext(ctx, `SELECT github_id, login, avatar_url FROM users WHERE github_id = ?`, githubID).
+		Scan(&u.GitHubID, &u.Login, &u.AvatarURL)
+	if errors.Is(err, sql.ErrNoRows) {
+		return User{}, false, nil
+	}
+	if err != nil {
+		return User{}, false, fmt.Errorf("read user: %w", err)
+	}
+	return u, true, nil
 }
 
 // SignIn records a sign-in in ONE transaction: it upserts the user, deletes

@@ -1,0 +1,543 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "build-slice",
+ "attempt": 1,
+ "at": "2026-11-26T07:44:46.855Z",
+ "head": "2847afdd9ed03debb1cee951d639afe22c4fbb20",
+ "run_id": 12457,
+ "summary": "Built the design system and moved every page onto one shell. The site now has one site.css (a light-dark() hex token table, no at-rules, 22 colour tokens plus type, space and shape scales, element baseline, components, page parts) and a new internal/layout package whose page-start and page-end are taken by all 7 page templates: the three reader pages, the three admin pages and the forbidden page. The reader, empty and unavailable states render byte-identical after CRLF normalisation (20 of 20 compared before and after). `go test -count=1 ./...` passes with CHROME_BIN set; the one failure on a first run was the known TestConcurrentVotesNoBusy SQLITE_BUSY flake, which passed on re-run. Five new tests cover it: the 18-state look matrix at 1280 and a true 375 px mobile viewport (plus 360 px for the thread), light and dark, with every details opened and hover and focus forced; the report-frame canvas test; the stylesheet token and corpus tests; and the shell and forbidden-page tests. I kept the pre-existing fitness.yaml change: it holds the design's three rules and I changed nothing in it.",
+ "payload": {
+  "status": "complete",
+  "summary": "Built the design system and moved every page onto one shell. The site now has one site.css (a light-dark() hex token table, no at-rules, 22 colour tokens plus type, space and shape scales, element baseline, components, page parts) and a new internal/layout package whose page-start and page-end are taken by all 7 page templates: the three reader pages, the three admin pages and the forbidden page. The reader, empty and unavailable states render byte-identical after CRLF normalisation (20 of 20 compared before and after). `go test -count=1 ./...` passes with CHROME_BIN set; the one failure on a first run was the known TestConcurrentVotesNoBusy SQLITE_BUSY flake, which passed on re-run. Five new tests cover it: the 18-state look matrix at 1280 and a true 375 px mobile viewport (plus 360 px for the thread), light and dark, with every details opened and hover and focus forced; the report-frame canvas test; the stylesheet token and corpus tests; and the shell and forbidden-page tests. I kept the pre-existing fitness.yaml change: it holds the design's three rules and I changed nothing in it.",
+  "files": [
+   {
+    "path": "internal/layout/layout.go",
+    "change": "added",
+    "why": "package layout: embed-only FS holding the shell templates"
+   },
+   {
+    "path": "internal/layout/templates/base.html",
+    "change": "added",
+    "why": "defines head (moved verbatim), page-start (header + ThreadScript-gated thread.js) and page-end"
+   },
+   {
+    "path": "internal/layout/layout_test.go",
+    "change": "added",
+    "why": "TestEveryPageTakesTheShell (walks internal/**/templates, script-tag pins) and TestShellCheckerSeesEachFault (planted faults)"
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "rewritten as the one design system: tokens, hidden guard, baseline, controls, components, page parts; pinned rule texts kept"
+   },
+   {
+    "path": "internal/server/router.go",
+    "change": "modified",
+    "why": "parsePages() parses layout.FS first, then templateFS; newApp uses it"
+   },
+   {
+    "path": "internal/server/reader.go",
+    "change": "modified",
+    "why": "ThreadScript() on pageData (false) and readerData (HasReport)"
+   },
+   {
+    "path": "internal/server/templates/layout.html",
+    "change": "modified",
+    "why": "keeps only the header define; head moved to the shell"
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "change": "modified",
+    "why": "shell lines replaced by page-start/page-end; body unchanged"
+   },
+   {
+    "path": "internal/server/templates/branch.html",
+    "change": "modified",
+    "why": "shell lines replaced by page-start/page-end; body unchanged"
+   },
+   {
+    "path": "internal/server/templates/all_reports.html",
+    "change": "modified",
+    "why": "shell lines replaced by page-start/page-end; body unchanged"
+   },
+   {
+    "path": "internal/server/templates/admin.html",
+    "change": "modified",
+    "why": "shell lines only; gains the shared header; uploadform define stays after page-end"
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "change": "modified",
+    "why": "shell lines only; gains the shared header"
+   },
+   {
+    "path": "internal/server/templates/admin_blocked.html",
+    "change": "modified",
+    "why": "shell lines only; gains the shared header"
+   },
+   {
+    "path": "internal/auth/owner.go",
+    "change": "modified",
+    "why": "forbiddenPage parsed from layout.FS + forbiddenFS; executed with forbiddenData{Title, Login}"
+   },
+   {
+    "path": "internal/auth/templates/forbidden.html",
+    "change": "modified",
+    "why": "drops its own head; page-start/page-end; defines a brand-only header"
+   },
+   {
+    "path": "internal/auth/forbidden_test.go",
+    "change": "added",
+    "why": "TestForbiddenPageTakesTheShell for empty and escaped logins"
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "change": "modified",
+    "why": "TestThreadTenThousandTiming setup line is parsePages(); the now-unused html/template import removed; no assertion changed"
+   },
+   {
+    "path": "internal/testutil/headless/devtools.go",
+    "change": "modified",
+    "why": "Tab.Submit(expr): drains loads, evals, waits for the landed document; drainLoads shared with Navigate"
+   },
+   {
+    "path": "internal/testutil/headless/devtools_test.go",
+    "change": "modified",
+    "why": "TestTabSubmitWaitsForTheRedirectedPage"
+   },
+   {
+    "path": "internal/server/look_test.go",
+    "change": "added",
+    "why": "TestEveryScreenIsDesigned and the old-stylesheet sensitivity test; seeded world, browser driver, optional page dumps"
+   },
+   {
+    "path": "internal/server/frame_test.go",
+    "change": "added",
+    "why": "TestReportFrameKeepsItsOwnCanvas: reports A, B, C in the frame vs opened alone, light and dark, plus the site-surface control"
+   },
+   {
+    "path": "internal/server/stylesheet_test.go",
+    "change": "added",
+    "why": "lintStylesheet, TestStylesheetTokens (WCAG pair table, token use) and TestStylesheetCorpus"
+   },
+   {
+    "path": "internal/server/testdata/stylesheet_corpus.json",
+    "change": "added",
+    "why": "114 fire/quiet rows for colour literals, frame-reach, edge colour and the token table"
+   },
+   {
+    "path": "internal/server/testdata/look/bare.html",
+    "change": "added",
+    "why": "the browser's own look per scheme, with no stylesheet"
+   },
+   {
+    "path": "internal/server/testdata/look/probe.js",
+    "change": "added",
+    "why": "page-side measurements: fit, default-look, contrast, roles, hidden states, thread width, focus ring"
+   },
+   {
+    "path": "internal/server/testdata/look/site.before.css",
+    "change": "added",
+    "why": "the stylesheet before the slice, served in place of site.css to prove the checks can fail"
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "change": "modified",
+    "why": "pre-existing uncommitted change kept: the design's three architecture rules (layout imports no product package; no page template carries a shell or inline style; the site never restyles the report frame)"
+   },
+   {
+    "path": "internal/fitnessrules/testdata/rule_spellings.json",
+    "change": "modified",
+    "why": "fire/quiet rows, a bounded_by entry and rules_under_test names for the three new rules"
+   },
+   {
+    "path": ".taad/slices/SL-019/checks/no-skip.ps1",
+    "change": "added",
+    "why": "runs one named test with -v and fails on SKIP or a missing PASS line"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "done": true,
+    "how": "TestEveryScreenIsDesigned sets prefers-color-scheme dark through Emulation.setEmulatedMedia on all 18 states at both widths. It asserts every check in dark, and asserts html background differs between schemes. A mutation that weakened a token pair failed it in dark."
+   },
+   {
+    "key": "O-002",
+    "done": true,
+    "how": "TestEveryScreenIsDesigned runs /admin/reports/x (64-hex SHA-256), /admin (5-column table, file input) and a 39-character login in the header at a true 375 px mobile viewport. It compares scrollWidth with the requested width and asserts innerWidth == 375. Making dd white-space:nowrap in site.css produced scrollWidth 694 and failed it."
+   },
+   {
+    "key": "O-003",
+    "done": true,
+    "how": "Every pass is repeated with every details opened: Remove and Block on the owner report, admin report and populated Blocked users, and Reply at the depth cap. Role assertions require the confirm buttons to compute the danger fill and each primary role its accent fill. The run measured 176 Remove, 104 Block and 312 Reply controls."
+   },
+   {
+    "key": "O-004",
+    "done": true,
+    "how": "The owner states (report, /admin, refused-upload /admin, /admin/reports/x, /admin/blocked) are captured with Page.captureScreenshot at 1280 in both schemes with details open, then headless.Count asserts 0 pixels within 8 of #ff0000 and of #00ff00."
+   },
+   {
+    "key": "O-005",
+    "done": true,
+    "how": "Existing TestStaticThreadScript passes. TestEveryScreenIsDesigned also asserts the script-tag count per state: 1 on found home, report and branch, 0 on the empty home, show-all, admin and the forbidden page."
+   },
+   {
+    "key": "O-006",
+    "done": true,
+    "how": "The probe asserts #feedback-sent has no client rects unless location.hash is #feedback-sent, which is reached through about:blank. It also re-hides each button.toggle and reads display none. Adding .feedback-sent{display:block} after removing the guard failed it with 'drawn=true, want false'."
+   },
+   {
+    "key": "O-007",
+    "done": true,
+    "how": "TestThreadFitsPhoneWidth passes unchanged (level 5 has 244 px at 360). TestEveryScreenIsDesigned adds a 360 px pass on the branch and report pages and asserts at least one .comment .body at depth 5 is 240 px or wider. The seeded chain is 12 levels deep and the branch page is the report page's own continue link."
+   },
+   {
+    "key": "O-008",
+    "done": true,
+    "how": "TestReportFrameKeepsItsOwnCanvas, report A under light: frame #ffffff, alone #ffffff, site around the frame #f7f6f3. Spike 3's leak is gone."
+   },
+   {
+    "key": "O-009",
+    "done": true,
+    "how": "TestReportFrameKeepsItsOwnCanvas, report B under dark: frame #204060, alone #204060. The report's own @media rule still applies, because color-scheme is never set below :root."
+   },
+   {
+    "key": "O-010",
+    "done": true,
+    "how": "TestReportFrameKeepsItsOwnCanvas, report C: #ffffff in light and #121212 in dark, equal to alone. Chrome's own canvas supplies the substrate through iframe background-color: Canvas."
+   },
+   {
+    "key": "O-011",
+    "done": true,
+    "how": "TestForbiddenPageTakesTheShell executes forbiddenPage for an empty login and for 'octo<b>&cat'. It asserts the title, one site.css link, the sentence, the brand-only header, the escaped login, no data-hband-admin and no script."
+   },
+   {
+    "key": "O-012",
+    "done": true,
+    "how": "The 'owner admin after a refused upload' state is a real Chrome form POST: noValidate, an invalid slug, then Tab.Submit. The test asserts the answer carries p.error[role=alert], then runs the full probe on it at both widths and both schemes."
+   },
+   {
+    "key": "O-013",
+    "done": true,
+    "how": "TestStylesheetTokens runs lintStylesheet on the real site.css and checks the WCAG pair table. Each pair is logged in both schemes; the lowest is 3.32:1 against a 3.0 bar, and text pairs are at least 5.41:1. It also checks that every colour token a rule reads appears in some pair row, except divider and thread. TestStylesheetCorpus plants undefined var, literals, color-scheme off :root and signal-near tokens."
+   },
+   {
+    "key": "O-014",
+    "done": true,
+    "how": "TestEveryPageTakesTheShell walks internal/**/templates, finds all 7 pages and requires page-start first and page-end once. TestShellCheckerSeesEachFault plants 15 faults against it."
+   },
+   {
+    "key": "O-018",
+    "done": true,
+    "how": "The probe compares scrollWidth with the requested width and asserts innerWidth == the request on mobile. On desktop it compares scrollWidth with clientWidth. TestLookProbeSeesTheStylesheetBeforeTheDesign serves the pre-slice stylesheet and requires scrollWidth > 375 and a 'fit' violation. It logs 600/600 and pins no number.",
+    "mutation": {
+     "file": "internal/server/testdata/look/probe.js",
+     "find": "        if (de.scrollWidth > args.width) bad(\"fit\", de, \"scrollWidth \" + de.scrollWidth + \" > \" + args.width);\n        if (innerWidth !== args.width) bad(\"fit\", de, \"innerWidth \" + innerWidth + \" != \" + args.width + \": the layout viewport widened to fit the page\");",
+     "replace": "        if (de.scrollWidth > innerWidth) bad(\"fit\", de, \"scrollWidth \" + de.scrollWidth + \" > \" + innerWidth);",
+     "test_command": "go test -count=1 -run ^TestLookProbeSeesTheStylesheetBeforeTheDesign$ ./internal/server/"
+    }
+   },
+   {
+    "key": "O-019",
+    "done": true,
+    "how": "The default-look judgement uses painted properties only. Links must differ in colour. Buttons, inputs, selects, textareas and the file-selector button must differ in fill, border style, border colour or radius. A summary must differ in colour or not be a list-item. th and td must differ in colour, fill or bottom edge. The .remove and .block summaries are role-checked for the danger colour. The pre-slice stylesheet is flagged on link, button, text input, select, textarea, th and td.",
+    "mutation": {
+     "file": "internal/server/testdata/look/probe.js",
+     "find": "        return { bg: s.backgroundColor, bs: s.borderTopStyle, bw: s.borderTopWidth, bc: s.borderTopColor, r: s.borderTopLeftRadius };\n      };\n      const painted = [\"bg\", \"bs\", \"bc\", \"r\"];",
+     "replace": "        return { bg: s.backgroundColor, bs: s.borderTopStyle, bw: s.borderTopWidth, bc: s.borderTopColor, r: s.borderTopLeftRadius, pad: s.paddingTop + \" \" + s.paddingLeft };\n      };\n      const painted = [\"bg\", \"bs\", \"bc\", \"r\", \"pad\"];",
+     "test_command": "go test -count=1 -run ^TestLookProbeSeesTheStylesheetBeforeTheDesign$ ./internal/server/"
+    }
+   },
+   {
+    "key": "O-020",
+    "done": true,
+    "how": "Every state is opened as a new document by Navigate('about:blank') first. #feedback-sent is reached that way after a server-side feedback POST. The refused upload goes through the new headless.Tab.Submit(expr), which drains loads, evals, then waits for the landed document's load with Navigate's timeout and closed cases. It never polls Eval across the navigation. TestTabSubmitWaitsForTheRedirectedPage covers Submit.",
+    "mutation": {
+     "file": "internal/server/look_test.go",
+     "find": "\tb.tab.Navigate(\"about:blank\")\n\tif st.refuse {",
+     "replace": "\tif st.refuse {",
+     "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+    }
+   },
+   {
+    "key": "O-021",
+    "done": true,
+    "how": "The probe takes depth as 1 + the number of .replies ancestors and asserts every .comment .body at depth 5 is 240 px or wider. It records atCap and fails if no body sits at the cap on a page that should have one. The chain is 12 levels deep (more than 2x the cap), and the branch page comes from the report page's own continue link. It runs at 375 on report and branch and at 360 on the branch page. Adding :where(.comment){padding:0 1rem} gave 84 px and failed it, while the static phone test stayed blind to it.",
+    "mutation": {
+     "file": "internal/server/static/site.css",
+     "find": ".comment { margin: 1rem 0; }",
+     "replace": ".comment { margin: 1rem 0; }\n:where(.comment) { padding: 0 1rem; }",
+     "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+    }
+   },
+   {
+    "key": "O-022",
+    "done": true,
+    "how": "lintStylesheet scans every declaration value outside :root for hex, colour functions, the whole CSS Color 4 named and system colour lists (Canvas only in a frame rule). It strips quoted strings and var(--x) first. Inside :root, every custom property not in an exact-name list of type, space and shape tokens must be light-dark(#rrggbb, #rrggbb), two different values and not near a signal colour. The corpus has 38 colour-literal and 19 token-table rows, fire and quiet. With the named-colour list disabled, rows such as lit-named-white fail.",
+    "corpus": "internal/server/testdata/stylesheet_corpus.json",
+    "mutation": {
+     "file": "internal/server/stylesheet_test.go",
+     "find": "if namedColours[l] || (systemColours[l]",
+     "replace": "if false || (systemColours[l]",
+     "test_command": "go test -count=1 -run ^TestStylesheetCorpus$ ./internal/server/"
+    }
+   },
+   {
+    "key": "O-023",
+    "done": true,
+    "how": "lintStylesheet strips vendor prefixes and refuses filter, backdrop-filter, mix-blend-mode, opacity, mask, mask-* and clip-path anywhere in site.css. It also refuses color-scheme anywhere but :root and keeps the frame-rule property allow-list. The corpus covers ancestor, child-selector and attribute-selector spellings, -webkit- and -moz- prefixes, mask longhands and the frame's own rules, with quiet look-alikes. Narrowing the matcher to filter alone fails the corpus.",
+    "corpus": "internal/server/testdata/stylesheet_corpus.json",
+    "mutation": {
+     "file": "internal/server/stylesheet_test.go",
+     "find": "^(filter|backdrop-filter|mix-blend-mode|opacity|mask|mask-.*|clip-path)$",
+     "replace": "^(filter)$",
+     "test_command": "go test -count=1 -run ^TestStylesheetCorpus$ ./internal/server/"
+    }
+   },
+   {
+    "key": "O-024",
+    "done": true,
+    "how": "Every border and outline edge in site.css is a literal width and style, then a *-color longhand carrying the token. This includes .replies, which phone_test reads identically. lintStylesheet refuses var() inside any border, border-side, logical border or outline shorthand, and refuses a shorthand that follows a *-color longhand in the same rule. :focus-visible is outline: 2px solid; outline-color: var(--focus). Not caught: a later rule elsewhere restating a border shorthand.",
+    "mutation": {
+     "file": "internal/server/stylesheet_test.go",
+     "find": "if edgeShorthandRE.MatchString(prop) {",
+     "replace": "if false && edgeShorthandRE.MatchString(prop) {",
+     "test_command": "go test -count=1 -run ^TestStylesheetCorpus$ ./internal/server/"
+    }
+   },
+   {
+    "key": "O-025",
+    "done": true,
+    "how": "TestEveryScreenIsDesigned forces :hover, then :focus-visible, on every link, button, summary, field and table row of 6 states per scheme through CSS.forcePseudoState, and re-runs the contrast check. A forced focus ring must exist and be 3:1. The static pair table gained the prescribed rows and the check that every used colour token is in a row. A button:hover rule that outranked the primary hover gave 1.37:1 text and failed.",
+    "mutation": {
+     "file": "internal/server/static/site.css",
+     "find": ".primary:hover, .signin:hover, .comments > form button:hover, ",
+     "replace": "button:hover, .primary:hover, .signin:hover, .comments > form button:hover, ",
+     "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+    }
+   },
+   {
+    "key": "O-026",
+    "done": true,
+    "how": "TestEveryPageTakesTheShell uses a case-insensitive script match on every template under internal/**/templates via WalkDir. It requires base.html to hold exactly one script tag, the exact gated substring {{if .ThreadScript}}<script src=\"/static/thread.js\" defer></script>. TestShellCheckerSeesEachFault plants upper-case, mixed-case, a second tag in base.html, an ungated tag and a nested package folder. The disagreement between Q-012's decided enforcement and the thread.js tag is reported under follow_ups.",
+    "mutation": {
+     "file": "internal/layout/layout_test.go",
+     "find": "regexp.MustCompile(`(?i)<script`)",
+     "replace": "regexp.MustCompile(`<script`)",
+     "test_command": "go test -count=1 -run ^TestShellCheckerSeesEachFault$ ./internal/layout/"
+    }
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-002",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-003",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-004",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-005",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestStaticThreadScript",
+    "test_command": "go test -count=1 -run ^TestStaticThreadScript$ ./internal/server/"
+   },
+   {
+    "key": "C-006",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-007",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestThreadFitsPhoneWidth",
+    "test_command": "go test -count=1 -run ^TestThreadFitsPhoneWidth$ ./internal/server/"
+   },
+   {
+    "key": "C-008",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReportFrameKeepsItsOwnCanvas",
+    "test_command": "go test -count=1 -run ^TestReportFrameKeepsItsOwnCanvas$ ./internal/server/"
+   },
+   {
+    "key": "C-009",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReportFrameKeepsItsOwnCanvas",
+    "test_command": "go test -count=1 -run ^TestReportFrameKeepsItsOwnCanvas$ ./internal/server/"
+   },
+   {
+    "key": "C-010",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReportFrameKeepsItsOwnCanvas",
+    "test_command": "go test -count=1 -run ^TestReportFrameKeepsItsOwnCanvas$ ./internal/server/"
+   },
+   {
+    "key": "C-011",
+    "test_name": "github.com/sshubham2/hband/internal/auth.TestForbiddenPageTakesTheShell",
+    "test_command": "go test -count=1 -run ^TestForbiddenPageTakesTheShell$ ./internal/auth/"
+   },
+   {
+    "key": "C-012",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-013",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestStylesheetTokens",
+    "test_command": "go test -count=1 -run ^TestStylesheetTokens$ ./internal/server/"
+   },
+   {
+    "key": "C-014",
+    "test_name": "github.com/sshubham2/hband/internal/layout.TestEveryPageTakesTheShell",
+    "test_command": "go test -count=1 -run ^TestEveryPageTakesTheShell$ ./internal/layout/"
+   }
+  ],
+  "mandatory": [
+   {
+    "id": "Q-012",
+    "met": "yes",
+    "where": "Plain forms and no reader JavaScript stay as decided. thread.js is the one site script, behind {{if .ThreadScript}} in internal/layout/templates/base.html. Enforcement is now TestEveryPageTakesTheShell and TestShellCheckerSeesEachFault in internal/layout/layout_test.go (case-insensitive, whole internal/**/templates walk). Hidden plus :target remains the state mechanism: [hidden]:not(:target) in site.css."
+   }
+  ],
+  "architecture": [
+   {
+    "block": "C-008",
+    "kind": "paths",
+    "add": [
+     "internal/layout/**"
+    ],
+    "why": "New package internal/layout (layout.go, templates/base.html, layout_test.go) holds the shared head, page-start and page-end that every page template takes; no block's globs matched it."
+   },
+   {
+    "block": "C-008",
+    "kind": "line",
+    "find": "Layout must work on phones.",
+    "replace": "Layout must work on phones. Every page, the admin pages and the Not allowed page included, takes its look from one stylesheet, internal/server/static/site.css, whose colours are light-dark() tokens that follow the visitor's prefers-color-scheme, and its document shell from internal/layout.",
+    "why": "site.css is now a token table (:root of light-dark(#hex, #hex)) with no at-rules; all 7 page templates open with page-start and close with page-end (TestEveryPageTakesTheShell); the admin pages now draw the shared header."
+   },
+   {
+    "block": "C-002",
+    "kind": "depends",
+    "add": [
+     "C-008"
+    ],
+    "why": "internal/auth/owner.go imports internal/layout to build forbiddenPage (template.ParseFS(layout.FS, ...)) for the Not allowed page; internal/layout imports only embed, so there is no cycle."
+   }
+  ],
+  "screens": [
+   {
+    "name": "Home page",
+    "open": "/"
+   },
+   {
+    "name": "Report page",
+    "open": "/reports/e004-look"
+   },
+   {
+    "name": "Report page, signed in as a reader",
+    "open": "/reports/e004-look",
+    "steps": [
+     "Sign in with GitHub"
+    ]
+   },
+   {
+    "name": "All reports",
+    "open": "/reports"
+   },
+   {
+    "name": "Thread branch page",
+    "open": "/reports/e004-look",
+    "steps": [
+     "continue this thread →"
+    ]
+   },
+   {
+    "name": "Not allowed page",
+    "open": "/admin"
+   }
+  ],
+  "app": {
+   "command": "go run ./internal/testutil/seeded -port {port}",
+   "url": "http://127.0.0.1:{port}/"
+  },
+  "tests": [
+   {
+    "command": "go test -count=1 ./... (CHROME_BIN set)",
+    "outcome": "passed",
+    "note": "Every package ok. The first run failed only internal/votes TestConcurrentVotesNoBusy with SQLITE_BUSY (the known flake, #987). It passed on the next full run and alone. The acceptance packages and ./internal/server (35 s) are included."
+   },
+   {
+    "command": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestReportFrameKeepsItsOwnCanvas$' -Pkg ./internal/server/",
+    "outcome": "passed",
+    "note": "Six patches match standalone: A light #ffffff, A dark #ffffff, B dark #204060, C dark #121212. The site surface #f7f6f3 and #161513 never shows through. With CHROME_BIN unset the script exits 1 on the skip."
+   },
+   {
+    "command": "go test -count=1 -v -run 'TestEveryScreenIsDesigned|TestLookProbeSees' ./internal/server/",
+    "outcome": "passed",
+    "note": "18 states x 2 widths x 2 schemes: 5928 texts judged (lowest 5.62:1) and 1300 controls; all 11 roles seen. The pre-slice stylesheet reads scrollWidth 600 at 375 and is flagged on link, button, input, select, textarea, th and td."
+   },
+   {
+    "command": "manual mutations of site.css (muted text too pale, dd nowrap, :where(.comment) padding, guard removed, button:hover over primary, danger buttons unbound)",
+    "outcome": "passed",
+    "note": "Each made TestEveryScreenIsDesigned fail with the expected violation (e.g. 1046 contrast problems; 694 px overflow at 375; body 84 px at the cap). site.css was restored byte-identical by hash."
+   },
+   {
+    "command": "verify the 9 reported mutations (O-018..O-026) against their tests",
+    "outcome": "passed",
+    "note": "Each fails its named test and the file was restored. O-022 first used a replacement that did not compile; I changed it to one that does and re-ran it red."
+   },
+   {
+    "command": "go test -count=1 ./internal/layout/ ./internal/auth/ ./internal/fitnessrules/ ./internal/testutil/headless/ and go vet ./...",
+    "outcome": "passed",
+    "note": "The fitnessrules corpus loads the three new rules with 25 new rows. The Fitness op=check with a real YAML parser could not be run by the builder (#971)."
+   },
+   {
+    "command": "scratch render of 24 states before and after (CRLF-normalised sha256)",
+    "outcome": "passed",
+    "note": "20 of 20 reader, empty-home and unavailable states are byte-identical. The three admin pages differ by the added header, and the forbidden page by the added header (its head bytes are identical). The scratch test was deleted."
+   },
+   {
+    "command": "go build -o seeded.exe ./internal/testutil/seeded; seeded.exe -port 18431; HTTP GETs and headless Chrome screenshots, 1280 px, both schemes",
+    "outcome": "passed",
+    "note": "The real product serves site.css (20763 B, text/css), thread.js and the pages, all 200. The CSP is unchanged, the report page carries 1 script tag and 0 style attributes, and the sandbox attribute on the iframe is unchanged. I looked at the screenshots: header bar, card grid, framed report on its own canvas, and dark scheme all draw. The process tree was killed afterwards."
+   },
+   {
+    "command": "HBAND_TEST_ARTIFACTS=<scratch> go test -run TestEveryScreenIsDesigned ./internal/server/ (72 PNGs), viewed owner report, admin report, /admin phone dark and the Not allowed page phone",
+    "outcome": "passed",
+    "note": "Looked right in the pictures. One cosmetic point: at 375 px the word 'published' breaks as 'publishe/d' in the Status column of the /admin table (see follow_ups)."
+   }
+  ],
+  "deviations": [
+   "forbidden.html defines its \"header\" after page-end, not before page-start: TestEveryPageTakesTheShell requires a page to open with page-start, and the design's own contract said both. admin.html's uploadform already sits after page-end the same way.",
+   ".replies uses border-left: 1px solid; border-left-color: var(--thread) instead of leaving the shorthand with var(--thread) as M-add-1 said. phone_test reads the shorthand identically (a 1 px width; border-left-color is not read), so the 'no var() in an edge shorthand' rule has no exemption.",
+   "The forced hover pass applies the 3:1 boundary check only to controls that had a fill or edge at rest (tracked in a WeakSet). Quiet buttons (the header's Sign out) take a deliberately subtle --surface-2 hover tint, which is a change of state, not a boundary. Text contrast still applies to every forced control.",
+   "lintStylesheet also refuses clip-path (same class as the frame-reach properties), url(), transition and animation, which the design only listed as rules for later slices.",
+   "Added an optional page dump to TestEveryScreenIsDesigned, written only when HBAND_TEST_ARTIFACTS is set (an existing test setting), so a person can look at the screens. The test judges nothing from it.",
+   "Added fire/quiet corpus rows and a bounded_by entry for the three new fitness rules in internal/fitnessrules/testdata/rule_spellings.json. The fitnessrules tests did not require them, but a glob such as internal/layout/**/*.go is otherwise untested.",
+   "The design says a browser without light-dark() 'falls back to the browser-default look'. The built CSS follows the accepted finding M-add-1 instead: transparent fills, controls and panels keeping literal-width currentColor edges, and the focus ring surviving. This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build."
+  ],
+  "not_built": [
+   "The /admin pages and Blocked users are not in `screens`: the engine's seeded product signs in only as a non-owner, so it can reach the Not allowed page but not the admin pages, and `screens` holds at most 6. TestEveryScreenIsDesigned measures all three as the owner, in both schemes, at both widths, with details open.",
+   "Firefox and Safari were not run (O-017, owed to validate): only Chrome is driven here.",
+   "No confirmation step on 'Delete this report permanently', and /admin keeps its own owner line and Sign out beside the shared header's. The design filed both for a person because they change behaviour or content.",
+   "The engine's Fitness op=check was not run: the builder cannot. The three new rules are plain YAML scalars with no ': ' or ' #' in them, and the repo's lenient loader and corpus tests load them."
+  ],
+  "follow_ups": [
+   "Q-012's decided enforcement (a fitness rule forbidding `<script` in report.html and layout.html) does not exist in fitness.yaml, and thread.js is loaded on the found home, report and branch pages. This slice moved the tag into internal/layout/templates/base.html and pinned it there in TestEveryPageTakesTheShell. A person should say whether Q-012 is amended to 'thread.js is the one allowed site script' or whether a fitness rule should also be written.",
+   "On the /admin table at 375 px, the word 'published' breaks mid-word ('publishe/d') because body cells use overflow-wrap: anywhere, which is what keeps the page from scrolling sideways. A fix could be a narrower Status column or a different wrap rule on that cell, if somebody wants it.",
+   "Cross-rule ordering of border shorthands (a later rule restating `border: 1px solid` after another rule set border-color to a token) is caught only inside one rule. A browser assertion that every bordered control's edge colour differs from its text colour would close it.",
+   "The engine's app command was Python-launcher based (#13 of the design); this build reports `go run ./internal/testutil/seeded -port {port}`. The engine's projects.app_command still has to be repointed by the engine for the photographs.",
+   "Architecture: internal/server (C-001) also imports internal/layout (C-008). Only the C-002 edge fits in this report's three architecture edits."
+  ]
+ }
+}

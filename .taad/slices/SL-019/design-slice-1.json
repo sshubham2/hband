@@ -1,0 +1,756 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "design-slice",
+ "attempt": 1,
+ "at": "2026-11-26T06:13:22.423Z",
+ "head": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+ "run_id": 12445,
+ "summary": "",
+ "payload": {
+  "status": "complete",
+  "selection_rationale": "Both proposals agree on the core, and that core rests on measurements:\n- One site.css whose dark mode is light-dark() hex tokens. phone_test.go:141 refuses any '@', and spike 2 measured light-dark() flipping and reading back as rgb() for hex.\n- A leaf internal/layout package parsed by both internal/server and internal/auth. Spike 5 measured no import cycle, tests passing and identical bytes.\n- The admin pages take the shared header. Spike 4 measured 33/33 packages passing.\n- `background-color: Canvas` on the iframe, with no color-scheme set on anything below :root. This answers spike 3's no-go.\n\nWhere the proposals differ, I chose by what the tree says:\n- **Shell shape.** I took practice's head / page-start / page-end, with the header inside page-start and thread.js gated by a ThreadScript() method. I read the shell lines of report.html, branch.html and all_reports.html, and their newlines line up. Those pages therefore render byte-identical to today once CRLF is normalised, which is the cheapest proof that content did not change. Crossdomain moves the script tag and adds a color-scheme meta, which changes reader bytes for no user-visible gain.\n- **A defect in crossdomain's version.** TestThreadTenThousandTiming (comment_test.go:1132) parses templateFS on its own and executes report.html. Once report.html calls page-start, which lives in layout.FS, that test errors. Practice's parsePages(), plus a one-line setup change, is needed whichever shell shape is chosen.\n- **Markup.** I took crossdomain's frozen page bodies. Tests pin `<button type=\"submit\">Send reply</button>`, the Block and Remove regexes, the Author and blocked badges and the preview iframe tag, so those controls must get their roles from selectors anyway. Upload and Delete are not pinned (I grepped). Binding them through their form actions keeps one mechanism: both upload forms post to /admin/reports, and delete posts to …/delete. It also keeps one checkable invariant: no page body changes except its shell lines.\n- **Hidden states.** I took crossdomain's `[hidden]:not(:target) { display: none !important; }`. It is a structural guard that closes the class (#974). Practice's 'no display on these hooks' source check is a spelling tripwire of the kind that never converges (#939, #1008).\n- **Proof.** I merged both browser checks:\n  - from practice: the details-open pass, the owner-page signal-colour assay (#978) and the refused-upload notice reached by a real form POST;\n  - from crossdomain: the embedded-equals-standalone frame oracle and the role assertions.\n  Crossdomain's declared-pair contrast table goes into practice's TestStylesheetTokens, so states the seed cannot reach are still covered.\n\nPractice raised over_engineering_flag on internal/layout and on the browser matrix. I kept both:\n- The brief names the forbidden page and asks that no page carry its own head. Spike 5 measured the package route as a go.\n- The details-open and owner passes are the only places the two-step controls and owner-only styles are ever rendered (#978).\n\nThe flag's trim (keep forbidden.html's own head and pin it byte-equal) is recorded as the alternative in taste_disagreements.",
+  "components": [
+   {
+    "name": "Token layer",
+    "lives_at": "internal/server/static/site.css",
+    "responsibility": "The one place colours, type, spacing and radii are defined.\n- Line 1 stays `:root { color-scheme: light dark; }`.\n- A second `:root {` rule holds the tokens. Every colour token is written exactly `light-dark(#rrggbb, #rrggbb)` (opaque hex, light then dark, two different values).\n\nColour roles, with practice's starting values:\n- --bg #f6f5f1/#131316\n- --surface #ffffff/#1c1c21\n- --surface-2 #efeee9/#26262c\n- --text #1b1b1f/#e6e6ea\n- --text-muted #5c5c66/#a6a6b0\n- --border #85858e/#75757f (control edge, 3:1)\n- --divider #dddcd5/#34343c (decorative)\n- --thread #c4c3bc/#4a4a53 (reply line)\n- --link #0b57d0/#8ab4f8\n- --accent #0b57d0/#8ab4f8\n- --accent-hover #0a4cb5/#a8c7fa\n- --on-accent #ffffff/#0b1a33\n- --accent-soft #e8eefb/#1d2a44\n- --danger #b3261e/#ffb4ab\n- --on-danger #ffffff/#410e0b\n- --danger-soft #fbe9e7/#3a1a18\n- --ok #146c2e/#8fd19e\n- --ok-soft #e6f2e9/#15301d\n- --focus #0b57d0/#8ab4f8\n\nType tokens:\n- --font-sans: system-ui, sans-serif\n- --font-mono: ui-monospace, Consolas, monospace\n- --text-xs .75rem, --text-sm .875rem, --text-md 1rem, --text-lg 1.125rem, --text-xl 1.375rem\n- --text-2xl: clamp(1.5rem, 1.25rem + 1.25vw, 2rem)\n- --leading 1.5, --leading-tight 1.25\n\nSpacing: --space-1 .25rem, -2 .5rem, -3 .75rem, -4 1rem, -5 1.5rem, -6 2rem, -7 3rem.\nRadius and size: --radius-sm .25rem, --radius .5rem, --radius-pill 999px, --control-h 2.5rem.\n\nThe frontend designer may retune any value. TestStylesheetTokens and TestEveryScreenIsDesigned are the authority on whether a value is acceptable. No token name or comment contains the words red, green or lime, or `rgb(`.",
+    "key_interactions": "Every later rule reads colour only through var(--…). The one exception is the system colour Canvas in the frame rule. TestStylesheetTokens parses this block and checks the contrast of the declared pairs in each scheme."
+   },
+   {
+    "name": "Hidden guard and element baseline",
+    "lives_at": "internal/server/static/site.css",
+    "responsibility": "Hidden guard: `[hidden]:not(:target) { display: none !important; }`. No component rule can reveal the pre-script `.toggle`, a folded `.replies` or the unsent `#feedback-sent` note. The pinned `#feedback-sent:target { display: block; }` still reveals the note on its fragment.\n\nReset: `*, *::before, *::after { box-sizing: border-box; }`.\n\nRoot and body:\n- html: background var(--bg), color var(--text), accent-color var(--accent).\n- body: margin 0, font var(--font-sans), line-height var(--leading), overflow-wrap anywhere, so cells, dd, labels and logins can shrink at 375.\n- No font-size is set on html, body, main, section, article, .comments, .comment or .replies.\n\nText:\n- h1 to h3 on the type scale.\n- a and a:visited use var(--link), with underline offset .2em, thicker on hover. There is no purple visited colour.\n- :focus-visible: 2px solid var(--focus), offset 2px.\n\nControls:\n- button: surface fill, 1px var(--border), radius, min-height var(--control-h), font inherit, surface-2 on hover. It never sets display.\n- input[type=text], select, textarea: surface fill, 1px var(--border), radius, padding, font inherit, max-width 100%.\n- input[type=file]: max-width 100%, with ::file-selector-button drawn as the neutral button.\n- label: weight 600.\n\nData:\n- table: width 100%, collapsed borders.\n- th, td: padded, divider bottom border, vertical-align top. thead th is muted and small on surface-2.\n- dl: grid of max-content and minmax(0,1fr). `dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }` fixes the measured 595 px SHA-256 overflow.\n- code: mono on surface-2. time: muted.\n\nThe layer uses no url(), no transitions, no animations and no translucent colours.",
+    "key_interactions": "Element rules sit under :where() wherever a component must override them without a specificity fight. They never use the selectors TestThreadFitsPhoneWidth reads for horizontal space."
+   },
+   {
+    "name": "Component layer",
+    "lives_at": "internal/server/static/site.css",
+    "responsibility": "Each component is one selector group: a generic class kept for new markup, plus the hooks already in today's markup.\n\nButtons:\n- **Primary:** `.primary, .signin, .comments > form button, .reply form button, .feedback form button, .feedback-inbox form button, form[action=\"/admin/reports\"] button`. Accent fill with on-accent text.\n- **Danger confirm:** `.danger, .remove form button, .block form button, form[action$=\"/delete\"] button`. Danger fill with on-danger text, placed after primary.\n- **Quiet text-button:** `.toggle`, `summary`, `.site-header button`. No fill, a tap target of var(--control-h), and display never set. The summaries keep today's display:flex and get a CSS-border chevron in ::before (content \"\"), rotated when the details is open.\n\nPanels: `.panel, .votes, .feedback, .report-row, .mod, .blocked-account, .feedback-inbox .feedback-message, .comments > form`. Surface fill, 1px divider, radius, padding var(--space-4). Each panel is its own rule, never the pinned `.comments, .feedback, .feedback-inbox {` rule, and never qualified by article or section.\n\nNotices: `.notice`, `.notice.ok`, `.notice.danger`.\n- `.error` is the danger notice and `.feedback-sent` the ok notice: a soft tint with a 4px left edge in the role colour. Notices never set display.\n- Hints are muted --text-sm: `.vote-hint, .comment-hint, .feedback-hint, .feedback-note, .no-comments, .legend, .meta, .your-vote, .reply-to`.\n- Placeholders are muted italic: `.removed, .cut`.\n\nBadge: `.badge` is a pill, --text-xs, weight 600, accent text on accent-soft. The 'blocked' badge (`.feedback-inbox .feedback-message > .byline .badge`) takes the danger text on the danger-soft tint.\n\nAvatar: `.avatar` is a circle with a 1px divider ring on a surface-2 placeholder.\n\nLists: `.report-list, .own-feedback, .blocked-comments, .blocked-feedback` have no bullets and are spaced.\n\nTwo-step destructive control:\n- Step 1: `.remove > summary, .block > summary` take danger text.\n- Step 2: `.remove[open] > form, .block[open] > form` become a danger-soft box with a 1px danger edge, holding the filled danger confirm.",
+    "key_interactions": "Bound to frozen markup through the hook map contract. The look test's role assertions check that each bound button computes its role's fill on the seeded screens."
+   },
+   {
+    "name": "Page-part layer and frame substrate",
+    "lives_at": "internal/server/static/site.css",
+    "responsibility": "Site header:\n- `.site-header` is a surface bar with a divider bottom edge, flex-wrap and a gap.\n- `.brand` is weight 700 with no underline.\n- `.site-header nav a:not(.signin)` is text-coloured.\n- `.who` is muted and breaks anywhere.\n\nMain:\n- `main { max-width: 48rem; margin: 0 auto; padding: 1rem 1rem 3rem; }`. The gutter stays 32 px in literal rem.\n- `main.reader { max-width: 72rem; }` and `main[data-hband-admin] { max-width: 64rem; }`.\n\nReport frame:\n- `.report-frame` keeps its sizing (display block, width 100%, height 80vh, min-height 24rem).\n- `iframe { border: 1px solid var(--divider); border-radius: var(--radius); background-color: Canvas; }`.\n- Rules naming iframe or .report-frame declare only display, width, height, min-height, max-width, margin*, border* and background*.\n\nVotes: `.likes` and `.comment-count` large at weight 600; the vote form keeps flex-wrap.\n\nThread:\n- `.comment` keeps vertical margin only.\n- `.replies { margin-left: .75rem; padding-left: .5rem; border-left: 1px solid var(--thread); }`, so the indent stays 21 px and level 5 keeps 244 px at 360.\n- `.byline` is flex-wrap, small and muted; `.login` is text-coloured with `overflow-wrap: anywhere`.\n- `.body` keeps `margin: .25rem 0; white-space: pre-wrap; overflow-wrap: anywhere; overflow: clip;`.\n- `.continue` is a tap-sized link.\n- The thread stays unboxed: no horizontal padding, border or width on comment wrappers, in any spelling.\n\nFeedback and admin:\n- `.feedback-reply` is a surface-2 block with a 3px accent left edge.\n- `.tally` is weight 600 and `.reply-to` is muted.\n\nPinned rule texts kept verbatim at line start:\n- `.login {`, `.body {`, `.replies {`\n- `.replies[hidden] { display: none; }`\n- `#feedback-sent:target { display: block; }`\n- `.comments, .feedback, .feedback-inbox {` (vertical only)\n- `.comments textarea, .feedback textarea, .feedback-inbox textarea {`\n- `.feedback-message {`, `.feedback-reply {`, `.own-feedback {`, `.feedback-inbox form {`",
+    "key_interactions": "TestThreadFitsPhoneWidth, TestCommentStyles, TestFeedbackOwnerList and the other TestFeedback* tests read these rules unchanged. TestReportFrameKeepsItsOwnCanvas pins the substrate."
+   },
+   {
+    "name": "Shared page shell package",
+    "lives_at": "internal/layout",
+    "responsibility": "New package.\n\nlayout.go is `package layout`, imports only embed, and holds `//go:embed templates/*.html` and `var FS embed.FS`.\n\ntemplates/base.html defines exactly three templates:\n- **\"head\"**: moved verbatim from internal/server/templates/layout.html:1-4 (charset, viewport, `<title>{{.Title}}</title>`, the one stylesheet link).\n- **\"page-start\"**: `<!doctype html>`, `<html lang=\"en\">`, `<head>`, `{{template \"head\" .}}`, then `{{if .ThreadScript}}<script src=\"/static/thread.js\" defer></script>` and a newline, then `</head>`, `<body>`, `{{template \"header\" .}}`. Its newlines are placed so today's report, branch and show-all bytes come out unchanged.\n- **\"page-end\"**: `</body>` and `</html>`.\n\nIt never emits data-hband-admin, a style block or a style attribute. It does not define \"header\": each consuming set defines its own.",
+    "key_interactions": "internal/server and internal/auth parse it first. Because it sits under templates/, the fitness rule 'no sign-in control is ever a form' (internal/**/templates/**) covers it. It is owned by C-008 Reader Site."
+   },
+   {
+    "name": "Server template wiring",
+    "lives_at": "internal/server/router.go",
+    "responsibility": "- router.go gains `parsePages()`: `template.Must(template.Must(template.ParseFS(layout.FS, \"templates/*.html\")).ParseFS(templateFS, \"templates/*.html\"))`. newApp's pages field uses it.\n- internal/server/templates/layout.html keeps only its \"header\" define, byte-unchanged.\n- reader.go adds `func (pageData) ThreadScript() bool { return false }` and `func (d readerData) ThreadScript() bool { return d.HasReport }`.\n- comment_test.go:1132, in TestThreadTenThousandTiming, changes its one setup line to `pages := parsePages()`. No assertion changes.",
+    "key_interactions": "The found home and report pages and the branch page (readerData with HasReport true) load thread.js exactly as today. The empty and unavailable home, show-all (showData) and admin (adminData) load none. TestStaticThreadScript and feedback_test's no-<script-on-admin pin hold."
+   },
+   {
+    "name": "Reader and admin templates onto the shell",
+    "lives_at": "internal/server/templates/",
+    "responsibility": "In report.html, branch.html and all_reports.html, the doctype/html/head/body/header lines become `{{template \"page-start\" .}}` and the closing lines become `{{template \"page-end\" .}}`. Nothing else changes, and comments.html and feedback.html are untouched.\n\nadmin.html, admin_report.html and admin_blocked.html get the same shell lines, so each gains the shared site header in the body. `<main data-hband-admin>` and every byte of each body stay, including admin.html's own '@login (owner)' line and Sign out form, the preview iframe tag and the uploadform partial. No class, attribute or text is added to any page body.\n\nBuild proof: a scratch before/after render, compared by sha256 after normalising CRLF to LF, of every reader state must be equal for every pair. The states are anonymous, reader and owner on /, /reports/<slug>, /reports and the branch page, plus the empty and unavailable home. For the admin pages, the template diff must touch only the shell lines.",
+    "key_interactions": "This protects TestReaderPagesShareOneLayout, TestShowAll and e002row (#979), the branch_test strings, the unblock, remove and feedback markup pins, and TestE004FoldAndFitInBrowser."
+   },
+   {
+    "name": "Forbidden page onto the shell",
+    "lives_at": "internal/auth/owner.go",
+    "responsibility": "owner.go builds forbiddenPage as `template.Must(template.Must(template.ParseFS(layout.FS, \"templates/*.html\")).ParseFS(forbiddenFS, \"templates/forbidden.html\")).Lookup(\"forbidden.html\")`, the shape spike 5 proved.\n\nIt executes with `forbiddenData{Title: \"Not allowed - hband\", Login: v.Login}`, which has `ThreadScript() bool { return false }`.\n\nforbidden.html:\n- drops its own head;\n- defines its own \"header\" as a brand-only bar: `<header class=\"site-header\">` with `<a class=\"brand\" href=\"/\">hband</a>`;\n- wraps the unchanged `<main>` content in page-start and page-end.\n\nRequireOwner's decision order, status codes, Cache-Control and the plain-403 fallback on an execute error are unchanged.",
+    "key_interactions": "The rendered head bytes are unchanged, because the title moves from the template literal into data. The body gains the brand bar. auth_test.go and admin_test.go still see the sentence and no data-hband-admin."
+   },
+   {
+    "name": "Static source checks",
+    "lives_at": "internal/server/stylesheet_test.go, internal/layout/layout_test.go, internal/auth/forbidden_test.go",
+    "responsibility": "**TestStylesheetTokens** (internal/server) reads static/site.css from staticFS with comments stripped and checks:\n1. Every colour custom property in :root matches `light-dark(#hex6, #hex6)` with two different values.\n2. No hex, hsl(, hwb(, lab(, lch(, oklab(, oklch(, color(, color-mix( or light-dark( appears outside :root. Canvas appears only in an iframe or .report-frame rule.\n3. Every var(--x) used is defined in :root.\n4. No token is within ±8 per channel of #ff0000 or #00ff00 in either scheme.\n5. color-scheme appears exactly once, in :root, as 'light dark'.\n6. Rules naming iframe or .report-frame use only the allowed properties.\n7. A Go table of declared pairs meets WCAG relative-luminance ratios in each scheme, with every ratio logged:\n   - 4.5 for text pairs: text, text-muted and link on bg, surface and surface-2; danger on bg, surface and danger-soft; text on danger-soft and ok-soft; ok on ok-soft; accent on accent-soft; on-accent on accent; on-danger on danger.\n   - 3.0 for boundary pairs: border, accent, danger and focus on bg, surface and surface-2.\n\n**TestEveryPageTakesTheShell** (internal/layout) walks every */templates/*.html under internal/. A file with non-blank text outside its {{define}} blocks is a page. It must open with `{{template \"page-start\" .}}` and contain `{{template \"page-end\" .}}` exactly once. base.html must hold exactly one site.css link and no data-hband-admin.\n\n**TestForbiddenPageTakesTheShell** (internal/auth) executes forbiddenPage for Login '' and 'octo<b>&cat'. It asserts:\n- the result contains `<title>Not allowed - hband</title>`, one site.css link, the 'cannot open admin pages' sentence, the escaped login and the brand link;\n- it contains no data-hband-admin and no <script.",
+    "key_interactions": "These run without a browser. The ban on per-page shells is the fitness rule in architecture_rules, which TestRulesHoldOnTheTree also runs."
+   },
+   {
+    "name": "Browser look check",
+    "lives_at": "internal/server/look_test.go (with internal/server/testdata/look/bare.html and probe.js)",
+    "responsibility": "**TestEveryScreenIsDesigned** uses newHarness(t, false) on its real listener and headless.Open (CHROME_BIN only). Sessions come from mint/mintUser and are set with Network.setCookie. AvatarURLs point at a same-origin 404, so Chrome never leaves the machine.\n\nSeed, through the existing helpers and routes:\n- the owner, a reader with a 39-character login, and a second reader who is later blocked;\n- one published and one draft report;\n- a chain deeper than threadDepthCap, an owner comment (Author badge), a 300-character unbroken body, and a removed comment with a visible reply;\n- a reader vote; reader feedback with an owner reply;\n- a comment and feedback from the second reader, who is then blocked.\n\nStates:\n- anonymous: /, /reports/<slug>, /reports, the branch page;\n- reader: /, /reports/<slug>, /reports/<slug>#feedback-sent, /reports, the branch page, GET /admin (the forbidden page);\n- owner: /reports/<slug>, /admin, /admin after a refused upload, /admin/reports/<slug>, /admin/blocked;\n- a second, empty harness as the owner: /, /reports, /admin/blocked.\n\nThe refused upload is a real Chrome form POST: Eval fills title and an invalid slug, sets noValidate and calls submit(), then polls for p.error.\n\nPasses: each state is navigated at 1280x900 and at 375x812 mobile. Per width, the scheme is set to light, then dark, with Emulation.setEmulatedMedia. Pages with details get a second pass with every details opened.\n\nEach pass runs probe.js and asserts:\n- (a) 0 <style> elements and 0 [style] attributes; document.styleSheets is exactly /static/site.css; the <script count is 1 on the found reader and branch pages and 0 elsewhere.\n- (b) No visible a[href], button, non-hidden input, select, textarea, summary, th or td matches the bare.html element of the same tag and type in the same scheme on all of: color, background-color, border-top style/width/colour, border-radius, text-decoration-line, font-family, font-size, padding-top and padding-left. A file input is judged on ::file-selector-button.\n- (c) documentElement.scrollWidth <= innerWidth.\n- (d) Every text-bearing element is at least 4.5:1 against its nearest opaque ancestor background. Every filled or bordered control reaches at least 3:1 (the larger of fill and border against its parent). A non-rgb colour, or a background with 0<alpha<1, fails as unmeasurable.\n- (e) html's background is opaque and differs between the two schemes. This also proves the live scheme switch took effect.\n- (f) #feedback-sent has no client rects unless the fragment targets it. Each button.toggle, given hidden again by Eval, computes display none.\n- (g) Role checks: the confirm buttons in .remove and .block and the Delete button compute the danger fill; the Upload, Post, Reply, Send and sign-in controls compute the accent fill.\n- (h) Desktop Page.captureScreenshot of the owner's reader page and the three admin pages, in both schemes and with details open, has 0 pixels within 8 of #ff0000 or #00ff00 (headless.Count).",
+    "key_interactions": "It reuses the headless Tab API (#1001) and the build check's differential method. Whether the look reads as 'designed' stays the person's check already on the backlog; this test does not judge it."
+   },
+   {
+    "name": "Frame substrate check",
+    "lives_at": "internal/server/look_test.go",
+    "responsibility": "**TestReportFrameKeepsItsOwnCanvas.** The owner publishes three reports:\n- A: no background and no color-scheme;\n- B: an `@media (prefers-color-scheme: dark)` html background of #204060;\n- C: `:root { color-scheme: light dark }` and no background.\n\nUnder light and under dark, at 1280x1000, it captures /reports/<slug> and takes the mean of a 5x5 patch inside the frame's empty right edge, located from the frame's bounding rect. It captures /raw/<slug> opened alone at the same offset. The two patches must agree within ±8 per channel.\n\nSensitivity control: for A under dark, the patch outside the frame (the site's dark --bg) must differ from the inside patch by more than 8. This proves the test can see the site surface.",
+    "key_interactions": "It turns spike 3's no-go into a pinned invariant. In light, A and C are the cases that tell the Canvas fix apart from a site --bg showing through."
+   }
+  ],
+  "contracts": [
+   {
+    "name": "layout.FS and the shell templates \"head\", \"page-start\", \"page-end\"",
+    "kind": "function",
+    "notes": "Every page file in internal/server/templates and internal/auth/templates starts with `{{template \"page-start\" .}}` and ends with `{{template \"page-end\" .}}`.\n\nThe value passed must provide:\n- .Title (string);\n- .ThreadScript (bool, a field or a method);\n- whatever the consuming set's own \"header\" reads.\n\nServer pages pass pageData or a type that embeds it (readerData, showData, adminData). The forbidden page passes forbiddenData.\n\nEach consumer parses layout.FS first and its own templates second. base.html defines only head, page-start and page-end. Server layout.html defines only header, and forbidden.html defines its own header.",
+    "error_cases": "A data type missing Title or ThreadScript, or a set with no \"header\", is an execution error:\n- a.render logs it and answers 500 'internal error' before any byte is written;\n- RequireOwner falls back to a plain 403 'Forbidden'.\nThe look test and TestForbiddenPageTakesTheShell catch both.",
+    "auth_model": "Presentation only. data-hband-admin is never in the shell, only on the admin templates' <main>."
+   },
+   {
+    "name": "ThreadScript() bool",
+    "kind": "function",
+    "notes": "pageData returns false. readerData returns HasReport: true on the found home and report pages and on the branch page (readBranch builds readerData with HasReport true), false on the empty and unavailable home. It is the only switch for the thread.js tag.",
+    "error_cases": "Dropping the readerData override silently drops thread.js, and TestStaticThreadScript fails. Overriding it on showData or adminData puts a script on show-all or admin, which TestStaticThreadScript or feedback_test fails."
+   },
+   {
+    "name": "forbiddenData",
+    "kind": "function",
+    "notes": "An auth-internal struct with `Title string` (the constant 'Not allowed - hband') and `Login string`. `ThreadScript() bool` returns false. It replaces struct{ Login string } at RequireOwner's Execute call. The head bytes are unchanged; the body gains the brand-only header.",
+    "error_cases": "An execute error keeps today's plain 403 'Forbidden'.",
+    "auth_model": "Unchanged: it is rendered only for a signed-in non-owner, after the identify-error and anonymous branches."
+   },
+   {
+    "name": "site.css token contract",
+    "kind": "ui",
+    "notes": "The token names are listed under Token layer.\n\nRules for later slices:\n- A new colour is a new `light-dark(#hex6, #hex6)` token in :root plus a row in TestStylesheetTokens' pair table.\n- No colour literal appears outside :root, except Canvas in the frame rule.\n- No token name or comment says red, green or lime, or rgb(.\n- color-scheme stays on :root only.\n- No at-rule of any kind: no @media, @layer, @import or @font-face.\n- The thread boxes are html, body, main, section, article, *, .comment, .comments, .body, .reader, .branch and .replies. On them, horizontal margin, padding and border stay literal px, rem or em, and tokens appear there only in colour positions or vertical longhands.\n- No font-size on those boxes.\n- No url(), no translucent colour, no transition and no animation (reduced motion cannot be honoured without an at-rule).\n\nA browser without light-dark() resolves the colour tokens to nothing and falls back to today's browser-default look.",
+    "error_cases": "TestStylesheetTokens fails on an undefined var(), a stray literal, color-scheme off :root, a signal-near token or a pair below the bar. An '@', a colour word or rgb( fails the existing TestThreadFitsPhoneWidth and TestCommentStyles."
+   },
+   {
+    "name": "Component hook map (frozen markup)",
+    "kind": "ui",
+    "notes": "Generic classes for new markup: .primary, .danger, .panel, .notice (.notice.ok, .notice.danger), .badge, .avatar.\n\nToday's markup binds to the same components through these hooks, and no class is added:\n- **Primary:** .signin, `.comments > form button`, `.reply form button`, `.feedback form button`, `.feedback-inbox form button`, `form[action=\"/admin/reports\"] button` (Upload and Replace).\n- **Danger confirm:** `.remove form button`, `.block form button`, `form[action$=\"/delete\"] button`.\n- **Quiet:** .toggle, summary, `.site-header button`.\n- **Panels:** .votes, .feedback, .report-row, .mod, .blocked-account, `.feedback-inbox .feedback-message`, `.comments > form`.\n- **Notices:** .error (danger), .feedback-sent (ok), the hint classes, .removed and .cut.\n- **Data:** table, th, td, dl, dt, dd.\n- **Badges:** .badge, and the inbox 'blocked' badge in danger.\n- **Frame:** iframe, .report-frame.\n\nRoles follow routes, and the brief freezes routes.",
+    "error_cases": "A later template edit that moves a form out of its context silently drops its role. The role assertions (g) in TestEveryScreenIsDesigned catch it on the seeded screens."
+   },
+   {
+    "name": "Two-step destructive control",
+    "kind": "ui",
+    "notes": "The markup stays exactly `<details class=\"remove|block\"><summary>Remove|Block</summary><form ...><button type=\"submit\">Remove for everyone|Block @login</button></form></details>` in comments.html, admin_report.html and admin_blocked.html.\n- Step 1: the summary is a quiet, danger-coloured text-button with a var(--control-h) tap target.\n- Step 2: the open form is a danger-soft box with the filled danger confirm.\n\nNo display is set on the details element.\n\n'Delete this report permanently' is a one-step filled danger button. Giving it a confirmation would be new behaviour, so that is filed for a person.",
+    "error_cases": "The details-open pass fails on a confirm at the browser default, under 3:1, without the danger fill, or wider than 375 px."
+   },
+   {
+    "name": "Report frame substrate",
+    "kind": "ui",
+    "notes": "The only site styling that touches the frame is the iframe border, the radius, `background-color: Canvas` and .report-frame sizing.\n- Canvas resolves under the frame element's inherited `light dark` scheme.\n- Where the report's scheme matches the site's, the report's canvas is transparent and Canvas reproduces its standalone white or #121212.\n- Where they differ, Chrome paints an opaque canvas (spike 3 measured this).\n\nNever on the frame or on any ancestor below :root: color-scheme, filter, backdrop-filter, opacity or mix-blend-mode. Neither iframe tag changes.",
+    "error_cases": "If TestReportFrameKeepsItsOwnCanvas fails with Canvas, the fallback is light --bg #ffffff. That is a palette change only: light becomes exact, and the remaining difference is a report that opts into dark showing the site's dark --bg."
+   },
+   {
+    "name": "go test -count=1 -run '^TestEveryScreenIsDesigned$' ./internal/server/ (run through .taad/slices/SL-019/checks/no-skip.ps1)",
+    "kind": "cli",
+    "notes": "It needs CHROME_BIN and skips through headless.Browser otherwise. The validator runs it as `pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestEveryScreenIsDesigned$' -Pkg ./internal/server/`. That script runs `go test -count=1 -v`, exits 1 if the output holds '--- SKIP' or lacks '--- PASS: <name>', and otherwise passes go test's exit code through (#1009). The same script runs TestReportFrameKeepsItsOwnCanvas.",
+    "error_cases": "Each failure names the state, viewer, scheme, width, details pass, element path and the property or ratio."
+   },
+   {
+    "name": "go test -count=1 -run '^TestReportFrameKeepsItsOwnCanvas$' ./internal/server/",
+    "kind": "cli",
+    "notes": "It needs CHROME_BIN and runs through no-skip.ps1. It prints each patch's mean, inside the frame and standalone, for each report and scheme.",
+    "error_cases": "It fails if the site surface shows through the frame (spike 3 V1, light) or if a report's own scheme flips (spike 3 V2). If /raw/<slug> opened top-level does not render, the builder compares against Chrome's canvas for the scheme instead (#ffffff light; #121212 for C under dark) and says so."
+   },
+   {
+    "name": "Static checks and the full suite",
+    "kind": "cli",
+    "notes": "These run without a browser:\n- `go test -count=1 -run '^TestStylesheetTokens$' ./internal/server/`\n- `go test -count=1 -run '^TestEveryPageTakesTheShell$' ./internal/layout/`\n- `go test -count=1 -run '^TestForbiddenPageTakesTheShell$' ./internal/auth/`\n\nThe guard for 'routes, content and behaviour unchanged' is `go test -count=1 ./...` with CHROME_BIN set. Every existing assertion must pass unedited. The only test edit is TestThreadTenThousandTiming's setup line.",
+    "error_cases": "TestConcurrentVotesNoBusy flakes SQLITE_BUSY under load (#987). Re-run ./internal/votes/ alone before calling it a regression."
+   }
+  ],
+  "key_decisions": [
+   {
+    "decision": "Dark mode is light-dark(light, dark) values in :root custom properties, driven by the existing `color-scheme: light dark` and so by prefers-color-scheme. There are no at-rules and no theme switch.",
+    "reversibility": "cheap",
+    "rationale": "phone_test.go:141 fails on any '@'. Spike 2 measured light-dark() flipping, persisting across Navigate and reading back as rgb() through var() in Chrome 158. The reporter ruled out a switch."
+   },
+   {
+    "decision": "Every colour token is opaque 6-digit hex, with no alpha, shadows-with-alpha or color-mix. Names and comments avoid red, green, lime and rgb(. Danger is #b3261e/#ffb4ab and ok is #146c2e/#8fd19e, both far from the signal colours.",
+    "reversibility": "cheap",
+    "rationale": "The colour-word regex (comment_test.go:1193, feedback_test.go:949) and the ±8 signal assay (#941) forbid the obvious spellings. Spike 2 showed oklch() reads back as oklch(), which a computed-style contrast check cannot do arithmetic on."
+   },
+   {
+    "decision": "Page bodies are frozen: no class, attribute or text is added to any template body. Components bind to existing classes, elements, structural context and form-action attribute selectors. The generic .primary, .danger, .panel and .notice classes exist in the stylesheet for later markup.",
+    "reversibility": "cheap",
+    "rationale": "Tests pin exact tag text on the Send reply, Block and Remove buttons, both badges, the report rows and the preview iframe, so their roles must come from selectors whatever is chosen. Using the same mechanism for the unpinned Upload and Delete keeps one invariant a diff can check: only shell lines change."
+   },
+   {
+    "decision": "The shell (head, page-start, page-end) lives in a new embed-only package, internal/layout. internal/server and internal/auth parse it first, and it is owned by C-008 Reader Site.",
+    "reversibility": "expensive",
+    "rationale": "forbidden.html is parsed in package auth from its own embed.FS (owner.go:15), so it cannot reach the server's partials. Spike 5 measured no cycle, the auth, server and fitnessrules tests passing, and identical bytes. Undoing this means moving three defines back and restoring two own-heads. The rejected trim keeps forbidden.html's head and pins it byte-equal."
+   },
+   {
+    "decision": "page-start carries the header and gates the thread.js tag on .ThreadScript. Reader pages render byte-identical to today after CRLF normalisation. TestThreadTenThousandTiming's one setup line becomes parsePages().",
+    "reversibility": "cheap",
+    "rationale": "Byte identity is the strongest cheap proof of 'content and behaviour unchanged', and the shell lines of the three reader templates line up for it. The test edit is forced by any shell in another package: that test parses templateFS alone and executes report.html."
+   },
+   {
+    "decision": "A structural hidden guard, `[hidden]:not(:target) { display: none !important; }`, replaces any per-hook 'never set display' rule.",
+    "reversibility": "cheap",
+    "rationale": "With script-src 'self' and Q-012 open, hidden plus :target is the only state mechanism (#968). The guard keeps the pre-script toggle and the unsent note invisible whatever a component sets, without a spelling tripwire. The pinned :target rule still reveals the note."
+   },
+   {
+    "decision": "The report frame substrate is `iframe { background-color: Canvas }`. color-scheme is never set below :root, and the frame never gets filter, opacity or blend.",
+    "reversibility": "cheap",
+    "rationale": "This answers spike 3's no-go. In V1 the site's tinted bg painted through a background-less report in light. In V2, color-scheme on the frame flipped the report's own prefers-color-scheme. TestReportFrameKeepsItsOwnCanvas pins it, and the fallback is light --bg #ffffff."
+   },
+   {
+    "decision": "Admin pages take the full shared header and keep admin.html's own owner line and Sign out form, so /admin shows two sign-out controls. The forbidden page gets a brand-only header.",
+    "reversibility": "cheap",
+    "rationale": "Spike 4 proved the header include safe. Deleting admin.html's own controls is unpinned but is a content change the brief forbids, so it is filed for a person. auth has only the login, and growing site navigation in the owner gate's 403 page adds surface for nothing."
+   },
+   {
+    "decision": "The thread stays unboxed and its geometry is unchanged: a 1rem gutter, a .75rem/.5rem/1px indent, and no font-size on the thread boxes.",
+    "reversibility": "cheap",
+    "rationale": "Level 5 has 244 px at 360 against a 240 minimum. TestThreadFitsPhoneWidth's selector reader can be bypassed by spellings like :where(.comment), so the design forbids horizontal space on comment wrappers outright. The 360 and 375 browser fits back it up."
+   },
+   {
+    "decision": "The contrast bar is WCAG 2.2 AA in both schemes: 4.5:1 for all text with no large-text relief, and 3:1 for control boundaries and the focus ring. It is enforced statically on declared token pairs and in Chrome on computed styles. The browser checks live in internal/server, not tests/acceptance.",
+    "reversibility": "cheap",
+    "rationale": "The reporter proposed AA, and one bar keeps the checker free of font-size logic. The static pairs cover states the seed cannot reach. In-package tests can mint owner and reader sessions and seed blocked accounts and replies without a breaks row (#1000), while still driving real Chrome over HTTP."
+   }
+  ],
+  "proposals": [
+   {
+    "designer": "practice",
+    "selected": "core",
+    "note": "Taken from practice:\n- the shell shape (head, page-start with header and the ThreadScript gate, page-end);\n- parsePages() and the TestThreadTenThousandTiming setup fix;\n- forbiddenData;\n- the palette and token names;\n- the browser matrix: details-open pass, owner signal assay (#978), refused-upload notice;\n- the reader byte-identity proof.\n\nDropped: its class attributes on Upload and Delete, and its 'no display on hooks' source check. Its over_engineering_flag on internal/layout was weighed and declined, with reasons."
+   },
+   {
+    "designer": "crossdomain",
+    "selected": "partial",
+    "note": "Taken from crossdomain:\n- frozen page bodies with form-action role selectors;\n- the structural [hidden] guard;\n- the declared-pair contrast table (folded into TestStylesheetTokens);\n- the frame-rule property allow-list;\n- body overflow-wrap: anywhere;\n- the embedded-equals-standalone frame oracle;\n- role assertions.\n\nDropped: moving thread.js into main, the color-scheme meta and the 'brand' partial. It also missed TestThreadTenThousandTiming's lone templateFS parse, which would have errored."
+   }
+  ],
+  "coherence_check": "There are two proposals, and pieces of both are composed here. I checked these seams for contradictory invariants:\n\n1. **Shell data contract.** Crossdomain's frame read only .Title and moved thread.js into main. Practice's page-start reads .ThreadScript. Keeping practice's means every data type must answer ThreadScript. pageData's method covers readerData, showData and adminData through embedding, and readerData overrides it. forbiddenData, in the other package, was redesigned to carry Title, Login and ThreadScript() false. Crossdomain's 'Title only' contract was dropped, not shipped alongside.\n\n2. **Test-set parse.** TestThreadTenThousandTiming (comment_test.go:1132) parses templateFS on its own and executes report.html. Under either shell, report.html calls a template in layout.FS. Crossdomain did not account for this; the composed design fixes it with parsePages() and a one-line setup change, and no assertion changes.\n\n3. **Roles without classes.** Practice's role assertions were written against .primary/.danger classes on Upload and Delete. With frozen markup, those roles come from `form[action=\\\"/admin/reports\\\"] button` and `form[action$=\\\"/delete\\\"] button`. The look test's role checks are therefore phrased per hook, not per class. I confirmed both upload forms come from the one uploadform partial posting to /admin/reports, and that Delete posts to …/delete.\n\n4. **Hidden guard against the pins.** `[hidden]:not(:target) { display: none !important; }` does not match a targeted element, so the pinned `#feedback-sent:target { display: block; }` still reveals the note. `.replies[hidden] { display: none; }` stays, as TestCommentStyles requires. TestThreadFitsPhoneWidth's wrap() reduces the guard's selector to an empty subject, so it is not read as a thread box. Practice's per-hook display check was dropped as redundant rather than kept as a second mechanism.\n\n5. **One header per template set.** base.html defines no \\\"header\\\". The server set's header is layout.html's, byte-unchanged; the auth set's header is forbidden.html's brand bar. layout.html loses its \\\"head\\\" define, so no name is defined twice in one set.\n\n6. **Canvas against the literal ban.** Practice allowed Canvas anywhere; crossdomain allowed it only in the frame rule. The tighter rule is kept, and the frame-rule allow-list is shared by TestStylesheetTokens and the fitness rule.\n\n7. **Byte identity on a CRLF tree.** The tree is CRLF on disk (spike 5), so a newly written base.html may embed LF. The reader before/after proof therefore compares after normalising CRLF to LF.\n\n8. **Sensitivity control and the fallback.** Practice's control (A in light must show the site --bg outside the frame) would become vacuous if the light --bg fallback to #ffffff were taken. It was moved to A under dark, which discriminates under either palette.\n\nNo decidable disagreement forces a re-synthesis:\n- The Canvas substrate's losing answer changes one palette value.\n- The live scheme switch's losing answer changes test structure, and assertion (e) detects it.\n- If the 375 fix's losing answer stands, the change stays inside the CSS.\n\nNot contested by anyone: both designers independently chose light-dark() tokens, internal/layout, Canvas under the frame and AA. Those pieces have survived no disagreement, only the spikes.\n\nArchitecture rules: three, each guarding a seam this design settles.",
+  "screens": [
+   {
+    "name": "Site header (every page)",
+    "changes": "Becomes a designed bar on every reader page, and now also on the three admin pages, with the same content as today:\n- the brand link and All reports;\n- signed in: avatar, 'Signed in as @login', the Admin link for the owner, and a Sign out button;\n- signed out: the Sign in with GitHub anchor, shown as the primary button.\n\nIt must wrap without horizontal scroll at 375 with a 39-character login. On the Not allowed page it is the brand link alone."
+   },
+   {
+    "name": "Home page (/)",
+    "changes": "Found state: the same content as the report page. Empty state: 'hband' and 'No reports yet.' on the designed surface, with no script. Unavailable state: the same message as today, styled."
+   },
+   {
+    "name": "Report page (/reports/<slug>)",
+    "changes": "Every part keeps its markup and gets the designed look:\n- Title and meta line (date, permalink).\n- The report frame, bordered and rounded, with the report's own canvas behind it and never the site's surface.\n- The likes and comments counts as a stat panel.\n- The vote controls: Thumbs up, Thumbs down and Take back as buttons, 'Your vote' as a hint, 'Sign in to vote' as a hint.\n- The feedback panel: the hint or note, the textarea and the primary Send button, the 'Sent to the author.' ok notice shown only on #feedback-sent, and the sender's own messages with the author's replies (Author badge, accent edge).\n- Comments: the comment form panel, then the unboxed thread with its bylines (avatar, login, Author badge, time), bodies, the Reply disclosure opening a reply form, the owner's two-step Remove (danger summary, then a danger-soft box with the filled confirm), 'Hide/Show replies', the 'comment removed' placeholder and 'continue this thread'.\n\nThis is checked for anonymous, reader and owner viewers, in light and dark, at 1280 and 375."
+   },
+   {
+    "name": "All reports (/reports)",
+    "changes": "The legend as a hint. Each report row becomes a card: title link, the numbers line (likes, comments, views) and the published date. The empty and unavailable messages are styled. Row markup and text are unchanged (TestShowAll, #979)."
+   },
+   {
+    "name": "Thread branch page (/reports/<slug>/comments/<id>)",
+    "changes": "The title, the 'Back to the full report' link and the 'Thread' section use the same thread components as the report page. A level-5 reply must fit at 360 and 375."
+   },
+   {
+    "name": "Admin (/admin)",
+    "changes": "Gains the shared header. The page's own owner line, Sign out and back links stay.\n- The refused-action notice (p.error) becomes a danger notice.\n- The upload form gets form rows and labels, text inputs, the status select, the file input with a styled button, and the primary Upload button.\n- The reports table becomes a designed table (muted header row, dividers) that fits 375 without page scroll."
+   },
+   {
+    "name": "Admin report page (/admin/reports/<slug>)",
+    "changes": "Gains the shared header.\n- The details list becomes a two-column grid in which the 64-character SHA-256 wraps. Today it scrolls the page to 595 px at 375.\n- The vote tallies, and the feedback inbox cards with their 'blocked' badge, author replies and the reply textarea with the primary Send reply.\n- Moderation cards with bylines, 'in reply to' hints, and the two-step Remove and Block.\n- The preview frame, styled like the reader frame.\n- Publish and Unpublish as neutral buttons, Replace through the shared upload form, and Delete as a one-step filled danger button."
+   },
+   {
+    "name": "Blocked users (/admin/blocked)",
+    "changes": "Gains the shared header. The intro text is styled.\n- Each blocked account is a card: avatar and login heading, blocked time, a neutral Unblock button, the 'What it posted' list with 'removed' placeholders and the two-step Remove, and the 'What it sent you' list.\n- 'Nobody is blocked.' when empty."
+   },
+   {
+    "name": "Not allowed page (403 for a signed-in non-owner at /admin)",
+    "changes": "Takes the shared shell and a brand-only header bar. Its text, the 'Back to the site' link and the Sign out button are unchanged but styled. It never carries data-hband-admin."
+   }
+  ],
+  "cases": [
+   {
+    "behaviour": "show every screen in its designed look",
+    "shape": "the visitor's OS asks for dark (prefers-color-scheme: dark)",
+    "why": "The tokens resolve through light-dark(). A token defined as a single value, or a rule bypassing var(), stays light, or falls back to the browser's dark default under dark. Assertion (e) also catches a live scheme switch that did not take effect.",
+    "check": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestEveryScreenIsDesigned$' -Pkg ./internal/server/"
+   },
+   {
+    "behaviour": "fit every screen on a phone",
+    "shape": "a 375 CSS px mobile viewport on /admin/reports/<slug>, with a 64-hex SHA-256, the 5-column table on /admin, the file input and a 39-character login in the header",
+    "why": "The survey measured scrollWidth 595 at 375 on this page. Without dd min-width 0 and overflow-wrap anywhere, the mobile layout viewport widens and the whole page scrolls sideways.",
+    "check": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestEveryScreenIsDesigned$' -Pkg ./internal/server/"
+   },
+   {
+    "behaviour": "confirm a destructive action in two steps",
+    "shape": "every details element opened: Remove and Block on the owner's report page, the admin report page and a populated Blocked users page, and the Reply form at the depth cap",
+    "why": "The confirm buttons and reply forms exist only inside open details, so a closed-only pass never measures them. The owner's two-step has never been rendered in a browser (#978), and the danger roles are bound by context selectors that a missed context leaves at the browser default.",
+    "check": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestEveryScreenIsDesigned$' -Pkg ./internal/server/"
+   },
+   {
+    "behaviour": "read a report as its author",
+    "shape": "the owner signed in on /reports/<slug> and the admin pages, captured as screenshots in both schemes",
+    "why": "The signal-colour assay in TestReportScriptsNeverRun is anonymous only. A danger or ok token drifting near #ff0000 or #00ff00 on owner-only controls would go unseen (#941, #978).",
+    "check": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestEveryScreenIsDesigned$' -Pkg ./internal/server/"
+   },
+   {
+    "behaviour": "load the collapse script only where a thread is drawn",
+    "shape": "no report published (empty home), alongside the found home, report and branch pages",
+    "why": "page-start emits thread.js only when ThreadScript() is true. If readerData's override is lost, the found pages lose the toggle. If showData or the empty home answer true, a script appears where TestStaticThreadScript forbids one.",
+    "check": "go test -count=1 -run '^TestStaticThreadScript$' ./internal/server/"
+   },
+   {
+    "behaviour": "keep hidden states hidden until they apply",
+    "shape": "#feedback-sent on /reports/<slug> without the fragment and with it, and each button.toggle re-hidden by Eval",
+    "why": "A component rule that sets display on .feedback-sent or a button would show 'Sent to the author.' before anything was sent, or a toggle before the script runs (#968). The [hidden]:not(:target) guard must hold, and the :target rule must still reveal the note.",
+    "check": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestEveryScreenIsDesigned$' -Pkg ./internal/server/"
+   },
+   {
+    "behaviour": "read a deep thread on a phone",
+    "shape": "a comment at threadDepthCap (level 5) at 360 px",
+    "why": "There are only 4 px to spare (244 against 240). Any horizontal space a new component puts on a comment wrapper, or a var() or calc() in the indent, breaks the fit or the model.",
+    "check": "go test -count=1 -run '^TestThreadFitsPhoneWidth$' ./internal/server/"
+   },
+   {
+    "behaviour": "show a report in the reader frame exactly as it looks alone",
+    "shape": "report A sets neither a background nor color-scheme, viewed under light",
+    "why": "Spike 3 V1 measured the site's tinted --bg showing through the frame here. This is the case that tells the Canvas substrate apart from a leak.",
+    "check": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestReportFrameKeepsItsOwnCanvas$' -Pkg ./internal/server/"
+   },
+   {
+    "behaviour": "show a report in the reader frame exactly as it looks alone",
+    "shape": "report B has its own @media (prefers-color-scheme: dark) background, viewed under dark",
+    "why": "Spike 3 V2 measured color-scheme on the frame element switching off the report's own dark rule. A background or scheme lever on the frame must never change the report's media queries.",
+    "check": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestReportFrameKeepsItsOwnCanvas$' -Pkg ./internal/server/"
+   },
+   {
+    "behaviour": "show a report in the reader frame exactly as it looks alone",
+    "shape": "report C opts into color-scheme light dark with no background, viewed under both schemes",
+    "why": "The schemes match, so the frame canvas is transparent and the iframe element's Canvas is what shows. It must equal Chrome's own canvas for that scheme (#121212 in dark), which is the recalled half of the substrate claim.",
+    "check": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestReportFrameKeepsItsOwnCanvas$' -Pkg ./internal/server/"
+   },
+   {
+    "behaviour": "refuse a non-owner at the admin door",
+    "shape": "a signed-in non-owner, with an empty login and with one that needs escaping ('octo<b>&cat')",
+    "why": "The page is now parsed across two FSes with a new data type. A missing Title or ThreadScript drops to the plain 403. No existing test pins the 'Not allowed - hband' title (spike 5), and the marker must stay off.",
+    "check": "go test -count=1 -run '^TestForbiddenPageTakesTheShell$' ./internal/auth/"
+   },
+   {
+    "behaviour": "tell the owner an upload was refused",
+    "shape": "an upload POSTed by real Chrome from the /admin form with an invalid slug (noValidate), answered with admin.html carrying p.error",
+    "why": "The danger notice exists only on a refused action, so no GET shows it. A same-origin browser POST through CrossOriginProtection has never been exercised (#978).",
+    "check": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestEveryScreenIsDesigned$' -Pkg ./internal/server/"
+   },
+   {
+    "behaviour": "keep the design system in one table",
+    "shape": "a var() naming an undefined token, a hex or hsl literal outside :root, color-scheme outside :root, a token within ±8 of a signal colour, or a declared pair below 4.5 or 3.0",
+    "why": "An undefined token silently drops its declaration and leaves the element at the browser default (Tailor). A stray literal skips the dark value. Pairs the seed cannot render, such as some notice tints, are judged only here.",
+    "check": "go test -count=1 -run '^TestStylesheetTokens$' ./internal/server/"
+   },
+   {
+    "behaviour": "give every page the one shell",
+    "shape": "a page template that does not open with page-start or close with page-end, in either templates directory",
+    "why": "A page that bypasses the shell loses the stylesheet link, the header or the script gate. Per-page head, style and style= are refused by the fitness rule, so this test covers the positive half.",
+    "check": "go test -count=1 -run '^TestEveryPageTakesTheShell$' ./internal/layout/"
+   }
+  ],
+  "architecture_rules": [
+   {
+    "name": "the shared page shell knows nothing of the product",
+    "files": "internal/layout/**/*.go",
+    "must_not_import": [
+     "github.com/sshubham2/hband*"
+    ],
+    "because": "internal/server and internal/auth both import internal/layout, and auth holds the owner gate. A product import here risks an import cycle and puts server knowledge into the gate's 403 page. TestRulesHoldOnTheTree skips must_not_import on files that open with a doc comment (#931), so the engine's Fitness check is the guard of record."
+   },
+   {
+    "name": "no page template carries its own document shell or inline style",
+    "files": "internal/**/templates/**",
+    "must_not_match": [
+     "(?i)<(!doctype|html|head|body|meta|link|style)\\b",
+     "(?i)\\sstyle\\s*="
+    ],
+    "except_files": [
+     "internal/layout/templates/base.html"
+    ],
+    "because": "A page with its own head drifts from the one stylesheet link, the title shape and the script gate. siteCSP's style-src 'self' silently drops a style attribute or block, so that element stays at the browser default with no error anywhere."
+   },
+   {
+    "name": "the site never restyles the report frame's colours or scheme",
+    "files": "internal/server/static/site.css",
+    "must_not_match": [
+     "(?i)(iframe|\\.report-frame)[^{}]*\\{[^{}]*\\b(color-scheme|filter|mix-blend-mode|opacity)\\s*:"
+    ],
+    "because": "Spike report-frame-canvas-under-site-surface (V2) measured that color-scheme on the frame element changes the report's own prefers-color-scheme, and filter, opacity or blend repaint the report's pixels. Either makes site styling reach into the report, which the isolation constraint forbids. color-scheme on an ancestor below :root is refused by TestStylesheetTokens."
+   }
+  ],
+  "code_claims": [
+   {
+    "path": "internal/server/phone_test.go",
+    "symbol": "TestThreadFitsPhoneWidth",
+    "claim": "It strips CSS comments, fails if site.css contains any '@', and requires at least 240 px for a comment at threadDepthCap at 360 px, computed from main's padding and the .replies indent."
+   },
+   {
+    "path": "internal/server/phone_test.go",
+    "symbol": "cssPx",
+    "claim": "It accepts only a number with optional px, rem or em (rem and em counted as 16 px) or auto, and calls t.Fatalf on anything else, such as var(), calc() or a percentage."
+   },
+   {
+    "path": "internal/server/phone_test.go",
+    "symbol": "boxOf",
+    "claim": "For border shorthands it takes the width from the values that match a length and skips the rest, so `border-left: 1px solid var(--thread)` reads as 1 px. It never reads margin-block or padding-block, and it fatals on width, min-width, inline-size, position and float."
+   },
+   {
+    "path": "internal/server/phone_test.go",
+    "symbol": "wrap",
+    "claim": "It classifies a selector by its last compound with attribute and pseudo parts stripped. html, body, article and section (with classes), '*', and subjects ending in .comment, .comments, .body, .reader or .branch must carry zero horizontal space; .replies is read as the indent and main as the gutter."
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "symbol": "TestCommentStyles",
+    "claim": "It requires a line-start `.body {` rule with overflow: clip, overflow-wrap: anywhere and white-space: pre-wrap, no 'display' in the `.replies {` rule, the exact text `.replies[hidden] { display: none; }`, and no match of the #f00/#0f0, red/lime/green or rgba?( regex in the served stylesheet."
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "symbol": "TestThreadTenThousandTiming",
+    "claim": "It parses templateFS's templates/*.html on its own with template.ParseFS and executes report.html, so every template report.html calls must be reachable from that one parse."
+   },
+   {
+    "path": "internal/server/comment_test.go",
+    "symbol": "badgeMarkup",
+    "claim": "It pins the Author badge markup as `<span class=\"badge\">Author</span>`."
+   },
+   {
+    "path": "internal/server/feedback_test.go",
+    "symbol": "TestFeedbackOwnerList",
+    "claim": "It requires site.css to contain the selector texts `.feedback-reply {`, `.own-feedback {` and `.feedback-inbox form {`."
+   },
+   {
+    "path": "internal/server/feedback_test.go",
+    "symbol": "feedback-sent:target",
+    "claim": "It requires the served stylesheet to contain the exact text `#feedback-sent:target { display: block; }`."
+   },
+   {
+    "path": "internal/server/feedback_test.go",
+    "symbol": "Send reply",
+    "claim": "It pins the owner's inbox reply button as the exact markup `<button type=\"submit\">Send reply</button>`."
+   },
+   {
+    "path": "internal/server/unblock_test.go",
+    "symbol": "Block @",
+    "claim": "It matches the block control with a regexp over `<details class=\"block\">`, `<summary>Block</summary>`, the block form and `<button type=\"submit\">Block @<login></button>`, so a class on that button would break it."
+   },
+   {
+    "path": "internal/server/remove_test.go",
+    "symbol": "Remove for everyone",
+    "claim": "It matches the remove confirm with a regexp ending in `/remove\">`, then `<button type=\"submit\">Remove for everyone</button>`, `</form>` and `</details>`."
+   },
+   {
+    "path": "internal/server/admin_reports_test.go",
+    "symbol": "allow-popups-to-escape-sandbox",
+    "claim": "It pins the admin preview iframe's opening as the exact string `<iframe sandbox=\"allow-popups allow-popups-to-escape-sandbox\" referrerpolicy=\"no-referrer\" src=\"/admin/reports/my-report/raw\"`."
+   },
+   {
+    "path": "internal/server/branch_test.go",
+    "symbol": "TestStaticThreadScript",
+    "claim": "It requires `<script src=\"/static/thread.js\" defer></script>` exactly once and exactly one `<script` on the reader and branch pages, and no `<script` on the empty home page. It counts occurrences rather than pinning where the tag sits."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "siteCSP",
+    "claim": "The site policy is style-src 'self', img-src 'self' plus https://avatars.githubusercontent.com, and default-src 'self' with no font-src, so inline styles and data: images or fonts are blocked."
+   },
+   {
+    "path": "internal/server/router.go",
+    "symbol": "templateFS",
+    "claim": "templateFS embeds templates/*.html, and newApp parses all of it into one html/template set stored in the app's pages field."
+   },
+   {
+    "path": "internal/server/templates/layout.html",
+    "symbol": "header",
+    "claim": "layout.html defines the \"head\" partial (charset, viewport, {{.Title}}, the site.css link) and the \"header\" partial. Signed in, the header shows avatar, 'Signed in as @login', an Admin link for the owner and a logout form; signed out, the sign-in anchor built from SignInNext."
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "symbol": "thread.js",
+    "claim": "report.html writes its own doctype, html, head and body around the head and header partials. It loads thread.js in the head only when HasReport is true, and holds the reader iframe with class report-frame and sandbox=\"allow-popups allow-popups-to-escape-sandbox\" from /raw/<slug>."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "symbol": "readerData",
+    "claim": "readerData embeds pageData and has a HasReport field, showData embeds pageData, and the branch page builds its data with HasReport: true."
+   },
+   {
+    "path": "internal/server/admin.go",
+    "symbol": "adminData",
+    "claim": "adminData embeds pageData, and adminPage fills it with the title, SignedIn true and a Viewer whose IsOwner is true."
+   },
+   {
+    "path": "internal/auth/owner.go",
+    "symbol": "forbiddenPage",
+    "claim": "The forbidden page is parsed from its own embed FS (forbiddenFS) and executed in RequireOwner with struct{ Login string } for a signed-in non-owner, falling back to a plain 403 'Forbidden' on an execute error."
+   },
+   {
+    "path": "internal/auth/templates/forbidden.html",
+    "symbol": "Not allowed - hband",
+    "claim": "The forbidden page writes its own complete head with the literal title 'Not allowed - hband' and its own stylesheet link."
+   },
+   {
+    "path": "internal/server/templates/admin.html",
+    "symbol": "uploadform",
+    "claim": "admin.html has its own owner line and Sign out form, a reports table without a class, and defines the \"uploadform\" partial, a multipart form posting to /admin/reports that admin_report.html reuses for Replace."
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "symbol": "SHA256",
+    "claim": "It prints the report's SHA-256 in a plain dd, has an unclassed preview iframe, and has a one-step delete form posting to /admin/reports/<slug>/delete."
+   },
+   {
+    "path": "internal/server/templates/comments.html",
+    "symbol": "toggle",
+    "claim": "Each replies toggle is rendered as `<button type=\"button\" class=\"toggle\" hidden ...>` with aria-controls pointing at its .replies block, which thread.js reveals."
+   },
+   {
+    "path": "internal/server/templates/feedback.html",
+    "symbol": "feedback-sent",
+    "claim": "The 'Sent to the author.' note is a p with id feedback-sent, class feedback-sent and the hidden attribute, and only the stylesheet's :target rule reveals it."
+   },
+   {
+    "path": "internal/server/static/site.css",
+    "symbol": ".replies",
+    "claim": "Line 1 is `:root { color-scheme: light dark; }`. The indent is `.replies { margin-left: .75rem; padding-left: .5rem; border-left: 1px solid #8884; }`, main's padding is 1rem, and #8884 is the file's only colour."
+   },
+   {
+    "path": ".taad/fitness.yaml",
+    "symbol": "only the audited templates contain a frame element",
+    "claim": "It fires on `<iframe`, `<frame`, `<fencedframe`, `<object` or `<embed` in non-Go files under internal/ outside report.html, admin_report.html and testdata, so a CSS `iframe {` selector does not fire it but the text `<iframe` in a CSS comment would."
+   },
+   {
+    "path": "internal/server/harness_test.go",
+    "symbol": "newHarness",
+    "claim": "newHarness(t, useTLS) runs the whole app on a real httptest listener, and mint and mintUser create live sessions whose cookie value a browser can carry."
+   },
+   {
+    "path": "internal/testutil/headless/devtools.go",
+    "symbol": "Open",
+    "claim": "Open starts the CHROME_BIN browser and returns a Tab whose Call, Viewport, Navigate and Eval drive it over a stdlib DevTools client."
+   }
+  ],
+  "outside_claims": [
+   {
+    "claim": "In Chrome 158, light-dark() used directly or through a var() custom property flips with Emulation.setEmulatedMedia prefers-color-scheme, the setting persists across Navigate, and getComputedStyle reads hex or hsl() sources back as rgb() strings.",
+    "evidence": "measured",
+    "source": "spike light-dark-flips-and-reads-back-in-headless-chrome (go)",
+    "if_wrong": "The dark design and the computed-style contrast check both collapse."
+   },
+   {
+    "claim": "An oklch() source reads back from getComputedStyle as an oklch(...) string, not rgb().",
+    "evidence": "measured",
+    "source": "spike light-dark-flips-and-reads-back-in-headless-chrome",
+    "if_wrong": "Nothing breaks; the claim only motivates hex-only tokens."
+   },
+   {
+    "claim": "Chrome paints an opaque canvas behind an embedded document whose used color-scheme differs from the frame element's, and leaves it transparent (showing what is behind the frame) when they match.",
+    "evidence": "measured",
+    "source": "spike report-frame-canvas-under-site-surface V1 (light: site bg shows through; dark: opaque white)",
+    "if_wrong": "The substrate reasoning fails, and TestReportFrameKeepsItsOwnCanvas would show it."
+   },
+   {
+    "claim": "Setting color-scheme on the iframe element changes the embedded report's own prefers-color-scheme.",
+    "evidence": "measured",
+    "source": "spike report-frame-canvas-under-site-surface V2 (report B's dark rule stopped painting)",
+    "if_wrong": "The frame fitness rule would be over-strict but harmless."
+   },
+   {
+    "claim": "`background-color: Canvas` on the iframe element is what shows through a transparent embedded canvas, and Canvas resolves to the browser's own canvas for the frame element's used scheme (white in light, #121212 in dark in Chrome).",
+    "evidence": "recalled",
+    "source": "memory (CSS Color Adjustment / CSS Color 4 system colours); #121212 as Chrome's dark canvas measured in spike 3 V0",
+    "if_wrong": "Report A or C differs from standalone in light. The fallback, light --bg #ffffff, is a palette change only and needs no re-synthesis."
+   },
+   {
+    "claim": "A light-dark() value inside a custom property that a browser does not support makes the property invalid at computed-value time, so the declarations using it fall back to inherited or initial values: today's browser-default look rather than a broken page.",
+    "evidence": "recalled",
+    "source": "memory (CSS Custom Properties, invalid at computed-value time)",
+    "if_wrong": "Older Firefox or Safari could render something worse than today's look. Only Chrome is measurable here, which is a known limit."
+   },
+   {
+    "claim": "CSP style-src 'self' blocks style attributes and inline <style> blocks, and default-src 'self' with no font-src blocks data: fonts.",
+    "evidence": "recalled",
+    "source": "memory (CSP Level 3); the policy string itself measured by the survey (router.go siteCSP)",
+    "if_wrong": "The style= and <style> ban would still be a design rule, just less forced."
+   },
+   {
+    "claim": "Emulation.setEmulatedMedia applied to an already-loaded page restyles it without a reload.",
+    "evidence": "recalled",
+    "source": "memory (Chrome DevTools Protocol)",
+    "if_wrong": "The look test must navigate once per scheme. Assertion (e) (html background differs between schemes) detects a stale read, so the test cannot pass vacuously."
+   },
+   {
+    "claim": "Headless Chrome carries a minted session set by Network.setCookie on the in-process httptest harness, and Runtime evaluation through Eval runs on pages served under siteCSP.",
+    "evidence": "measured",
+    "source": "build check survey: go test -overlay TestSurveyAdminLook (owner and non-owner pages) and drive.ps1 probe.js on seeded pages",
+    "if_wrong": "The signed-in and owner screens could not be measured in the browser."
+   },
+   {
+    "claim": "Page.captureScreenshot includes the pixels of the out-of-process sandboxed iframe.",
+    "evidence": "measured",
+    "source": "spike report-frame-canvas-under-site-surface (patches read inside the frame)",
+    "if_wrong": "The frame substrate check could not see inside the frame."
+   },
+   {
+    "claim": "overflow-wrap: anywhere lowers min-content width, so table cells, grid dd items and flex items can shrink below their longest word instead of widening the page.",
+    "evidence": "recalled",
+    "source": "memory (CSS Text 3)",
+    "if_wrong": "/admin/reports/<slug> or /admin still scrolls at 375, which assertion (c) reports. The fix stays inside the CSS, for example table-layout or an overflow on the table."
+   },
+   {
+    "claim": "WCAG 2.2 AA requires 4.5:1 for normal text (SC 1.4.3) and 3:1 for UI component boundaries and focus indicators (SC 1.4.11), using the relative-luminance formula.",
+    "evidence": "recalled",
+    "source": "memory (WCAG 2.2)",
+    "if_wrong": "The stated bar would be mislabelled. The numbers chosen remain at least as strict as AA."
+   }
+  ],
+  "cross_domain_transfer": {
+   "source_domain": "Colour-managed print production (crossdomain: rendering intents, paper-white simulation, day/night palette tables) and native UI toolkits' appearance-aware semantic colours (practice)",
+   "pattern": "The host's own chrome is re-rendered for each viewing condition from one symbolic palette table: light and dark are a table swap, and symbols never name raw colours. Embedded foreign artwork is reproduced absolute-colorimetrically. The host never remaps it, and only lays the artwork's own substrate (the system Canvas) beneath it. The proof oracle is 'proof equals original': embedded pixels must match the same report opened alone.",
+   "transfer_found": true,
+   "rationale": "The slice has exactly that structure. The site must look designed under two viewing conditions, the report must look as it does standalone under both, and the one measured no-go was a substrate leak. Selected from it:\n- the palette table with per-pair contrast checked statically (folded into TestStylesheetTokens);\n- Canvas under the frame, with color-scheme never set on the frame;\n- the embedded-equals-standalone oracle (TestReportFrameKeepsItsOwnCanvas).",
+   "invariants": [
+    {
+     "precondition": "The report is a separate colour context the site cannot restyle.",
+     "status": "holds",
+     "evidence": "/raw sends rawCSP (sandbox, no 'self' in style-src), so site.css never loads inside it. The sandbox omits allow-same-origin."
+    },
+    {
+     "precondition": "Where the report's canvas is transparent, the host surface shows through.",
+     "status": "holds",
+     "evidence": "Spike 3, V1 light A: inside #f3f1ea equals outside #f3f1ea."
+    },
+    {
+     "precondition": "Where the schemes differ, the browser lays an opaque canvas in the report's own scheme.",
+     "status": "holds",
+     "evidence": "Spike 3, V1 dark A: inside #ffffff over an outside of #131316."
+    },
+    {
+     "precondition": "Setting the report's viewing condition from the container (color-scheme on the frame) is neutral.",
+     "status": "fails",
+     "evidence": "Spike 3 V2 flipped report B's own dark rule. That lever is banned by an architecture rule and by TestStylesheetTokens."
+    },
+    {
+     "precondition": "Canvas on the frame element equals the report's standalone canvas in every matched-scheme case, and does not change the report's media queries.",
+     "status": "must-verify",
+     "evidence": "Recalled. Settled by TestReportFrameKeepsItsOwnCanvas (A, B, C × light, dark), with light --bg #ffffff as the fallback."
+    },
+    {
+     "precondition": "Every host colour goes through the table, and the swap is atomic on prefers-color-scheme.",
+     "status": "holds",
+     "evidence": "Spike 2: tokens flip together and persist. TestStylesheetTokens refuses literals outside :root and undefined var()."
+    },
+    {
+     "precondition": "The declared token pairs cover every pair that actually renders.",
+     "status": "must-verify",
+     "evidence": "TestEveryScreenIsDesigned computes the real ratio for every visible text element and control on 18 seeded states in both schemes."
+    },
+    {
+     "precondition": "Firefox and Safari treat light-dark() and the frame canvas the same way.",
+     "status": "must-verify",
+     "evidence": "Not measurable on this machine: only Chrome is driven here (CHROME_BIN). This is a known limit, not an ask."
+    }
+   ]
+  },
+  "prior_art": [
+   {
+    "pattern": "Design tokens as custom properties, preferring built-ins (currentColor, system colours) over repetition; dark mode and theming browser-generated UI (color-scheme, accent-color) in the token layer; :is()/:where() instead of duplicated rules.",
+    "where": "https://github.com/GoogleChrome/modern-web-guidance/blob/c573f6c31cc3b77ba117464dbdd7ef9f303a8751/skills/modern-web-guidance/guides/css/css.md",
+    "authority": "official",
+    "basis": "cited"
+   },
+   {
+    "pattern": "A theme that styles only layout leaves native elements (links, tables, form controls) at browser defaults; the baseline must style native HTML elements from the tokens.",
+    "where": "https://git.drupalcode.org/project/cordwainer_theme/-/work_items/3628090",
+    "authority": "oss",
+    "basis": "cited"
+   },
+   {
+    "pattern": "An unknown token is silently dropped and the element renders unstyled with no error. This is the motivation for TestStylesheetTokens' defined-var() and no-literal checks.",
+    "where": "https://docs.tailor.tech/app-shell/concepts/styling-theming.html",
+    "authority": "official",
+    "basis": "cited"
+   },
+   {
+    "pattern": "A token palette needs a component vocabulary and one app shell layered on it, or pages drift into one-off rules.",
+    "where": "https://kilncms.dev/docs/design-language",
+    "authority": "community",
+    "basis": "cited"
+   },
+   {
+    "pattern": "One classless stylesheet with custom-property tokens, light and dark, covering forms, tables and details, with no build step. Its prefers-color-scheme at-rule is replaced here by light-dark().",
+    "where": "https://css.adbr.dev/",
+    "authority": "oss",
+    "basis": "cited"
+   },
+   {
+    "pattern": "An embedded document whose used color-scheme differs from its frame element's gets an opaque canvas; matching schemes leave it transparent.",
+    "where": "CSS Color Adjustment Module Level 1 (W3C)",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "ICC absolute-colorimetric intent: simulate the source's paper white on the destination rather than mapping source white onto destination white.",
+    "where": "ICC.1 colour management specification",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Text contrast 4.5:1 (SC 1.4.3) and non-text contrast 3:1 for component boundaries and focus (SC 1.4.11).",
+    "where": "WCAG 2.2 (W3C)",
+    "authority": "official",
+    "basis": "recalled"
+   },
+   {
+    "pattern": "Go html/template layouts in one parsed set use shared open/close partials called by every page, rather than per-page Clone with a redefined content block.",
+    "where": "Go html/template idiom (standard library docs)",
+    "authority": "community",
+    "basis": "recalled"
+   }
+  ],
+  "stack_chosen": [
+   {
+    "area": "ui",
+    "choice": "Site styling is one hand-written, same-origin stylesheet, internal/server/static/site.css:\n- custom-property tokens with light-dark() for dark mode;\n- no at-rules;\n- no CSS preprocessor, framework or build step;\n- the system-ui font stack and no webfont.\n\nEvery page's document shell comes from internal/layout's html/template partials.",
+    "why": "The stack block names net/http and html/template, but not how pages are styled or shelled. The pins (no '@', no rgb(), literal thread lengths) and siteCSP rule out the usual alternatives. The next slice that adds a page must take page-start and page-end and extend this file's token table, not start a second stylesheet."
+   }
+  ],
+  "whats_new": [
+   "internal/server/static/site.css rewritten in this order: color-scheme :root, token :root, hidden guard, element baseline, components, page parts. The pinned rule texts are kept verbatim and the thread geometry is unchanged.",
+   "internal/layout/layout.go: package layout, imports only embed, `//go:embed templates/*.html`, `var FS embed.FS`",
+   "internal/layout/templates/base.html: \"head\" (moved verbatim), \"page-start\" (with the header and the ThreadScript-gated thread.js), \"page-end\"",
+   "internal/server/router.go: parsePages(), which parses layout.FS then templateFS and is used by newApp",
+   "internal/server/reader.go: ThreadScript() on pageData (false) and on readerData (HasReport)",
+   "internal/server/templates/layout.html reduced to its unchanged \"header\" define",
+   "report.html, branch.html, all_reports.html, admin.html, admin_report.html, admin_blocked.html: shell lines replaced by page-start and page-end; bodies unchanged",
+   "internal/auth/owner.go: forbiddenPage parsed with layout.FS and executed with forbiddenData{Title, Login}; forbidden.html drops its own head and defines a brand-only header",
+   "internal/server/look_test.go: TestEveryScreenIsDesigned and TestReportFrameKeepsItsOwnCanvas, with testdata/look/bare.html and probe.js",
+   "internal/server/stylesheet_test.go: TestStylesheetTokens, covering token shape, literals, defined var(), signal distance, color-scheme placement, the frame allow-list and the WCAG pair table",
+   "internal/layout/layout_test.go: TestEveryPageTakesTheShell; internal/auth/forbidden_test.go: TestForbiddenPageTakesTheShell",
+   "comment_test.go:1132 (TestThreadTenThousandTiming): setup line changed to parsePages(), no assertion touched",
+   "Three .taad/fitness.yaml rules (architecture_rules), with because-prose single-quoted and apostrophes doubled (#971), plus any corpus rows the fitnessrules tests require. The engine's Fitness op=check must run on them before build ends, which the builder cannot run.",
+   ".taad/slices/SL-019/checks/no-skip.ps1: runs one named test with -v and fails on SKIP or a missing PASS line",
+   "Stated contrast bar: WCAG 2.2 AA, 4.5:1 for all text and 3:1 for control boundaries and focus, in light and dark"
+  ],
+  "whats_reused": [
+   "internal/testutil/headless Open and Tab (Call, Viewport, Navigate, Eval) and Count, CHROME_BIN only (#1001, #940: the CDP viewport, not Shot, for 375 px)",
+   "The internal/server harness: newHarness's real listener, mint/mintUser sessions, h.serve POSTs, and grow from branch_test.go for a thread deeper than threadDepthCap",
+   "The build check's differential method: each control's computed style compared with a bare same-scheme page",
+   "Spike results: light-dark() behaviour (2), the admin header include (4), the layout package shared by auth and server (5), and frame canvas behaviour V0, V1 and V2 (3)",
+   "Every existing class and element hook in the reader and admin markup, used as component bindings without edits",
+   "adminData's and showData's embedded pageData, which already satisfies the header partial and now ThreadScript",
+   "thread.js unchanged; it still depends on `.replies[hidden] { display: none; }`",
+   "staticFS and the FileServerFS route serving /static/site.css same-origin under the unchanged siteCSP",
+   "The existing guards, unchanged: TestThreadFitsPhoneWidth, TestCommentStyles, TestFeedback* and TestFeedbackOwnerList, TestStaticThreadScript, TestReaderPagesShareOneLayout, TestShowAll, TestReportScriptsNeverRun, TestE004FoldAndFitInBrowser, the marker tests and every tests/acceptance package"
+  ],
+  "taste_disagreements": [
+   "Thread script: kept in the head behind a ThreadScript() method, giving byte-identical reader pages (practice, chosen), or the tag moved into main, giving a simpler data contract (crossdomain).",
+   "Header: inside page-start, so no page can forget it, with forbidden.html defining its own brand-only header (practice, chosen); or called by each page, with a shared \"brand\" partial (crossdomain).",
+   "Admin roles: class=\"primary\" on Upload and class=\"danger\" on Delete (practice), or frozen markup with form-action selectors (crossdomain, chosen). Neither button is pinned by a test, so this is a judgement of explicitness against one uniform 'bodies unchanged' rule.",
+   "Head: add `<meta name=\"color-scheme\" content=\"light dark\">` to avoid a white flash before the CSS loads (crossdomain), or keep the head verbatim for byte identity (practice, chosen).",
+   "Hidden states: a structural [hidden]:not(:target) guard (crossdomain, chosen), or a source check banning display on hidden-carrying hooks (practice).",
+   "internal/layout as a package (both, chosen), or practice's flagged trim: forbidden.html keeps its own head, pinned byte-equal to the server's \"head\", with no new package and no test edit, at the cost of the brief's 'no page carries its own head' bar.",
+   "Decoration: an avatar ring drawn with an opaque box-shadow and a CSS-border chevron on summaries. These are left to the frontend designer within the token contract."
+  ],
+  "filed_for_later": [
+   {
+    "what": "Decide whether /admin should drop its own '@login (owner)' line and Sign out form, now that the shared header shows both.",
+    "why": "Removing them is a content change, which the brief's 'must not change content' forbids in this slice. Spike 4 variant B measured that no test pins them, so it is a one-line follow-up once someone decides.",
+    "who": "person"
+   },
+   {
+    "what": "Decide whether 'Delete this report permanently' should gain a confirmation step like the two-step Remove.",
+    "why": "It is the only irreversible action with no misclick guard (#978), but adding a step is new behaviour, which the brief excludes. This slice gives it the danger look only.",
+    "who": "person"
+   }
+  ],
+  "retier": {
+   "tier": "high",
+   "why": "Report isolation is one of this project's declared high-risk pieces. This design changes what paints behind the sandboxed report frame, and spike 3 measured site styling reaching into the report in two ways. It also changes how the owner gate (auth.RequireOwner) builds and renders its 403 page, and it introduces a cross-package template contract (internal/layout, parsed by server and auth, with Title and ThreadScript) that every later page must satisfy."
+  },
+  "reason": "I composed one design from both proposals. Practice supplies the core: the shell shape, the ThreadScript gate, the test-setup fix, the browser matrix and forbiddenData. Crossdomain supplies frozen markup, the hidden guard, the contrast pair table, the frame allow-list and the frame oracle. The proposals disagreed only on taste; nothing reality must settle would change a boundary."
+ }
+}

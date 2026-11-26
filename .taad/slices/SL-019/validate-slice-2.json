@@ -1,0 +1,408 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "validate-slice",
+ "attempt": 2,
+ "at": "2026-11-26T10:16:31.462Z",
+ "head": "f83e789074307fb11a6ae8b77b8bc1c23c098a34",
+ "run_id": 12481,
+ "summary": "The one defect this validation sent back is fixed. Before the fix, Chrome drew its broken-image glyph inside the avatar ring when the image was missing or refused. Now that avatar is the plain --surface-2 circle the look asks for, and I measured it rather than taking the build's word.\n\n**Engine screenshots of the running seeded app (taken at 15:46, after f83e789).** I opened all 24. No avatar shows the glyph:\n- header avatars, whose GitHub URL does not resolve;\n- byline avatars, whose avatars.example URL the CSP refuses;\n- every deep-thread avatar.\n\nPixel samples at avatar centres read exactly #f4f4f2 in light and #26272b in dark, which are the two values of --surface-2. That holds on home, the signed-in report, All reports and the branch page, at wide and phone widths.\n\n**Mutations in a scratch copy.** I ran each one against the look test:\n- With the `.avatar::after` rule removed, TestEveryScreenIsDesigned fails with 32 problems, e.g. '186 of 282 pixels inside the header avatar … (first #f1f6fe): a broken-image glyph shows'.\n- With the cover's fill changed from --surface-2 to --surface, it fails with '282 of 282 pixels … not the #26272b fill'.\n\nSo the check needs exactly the designed fill, not just any cover.\n\n**Everything else still holds on this tree:**\n- `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0 in 53.5 s, with 34 packages ok.\n- The 11 browser, avatar and stylesheet tests pass in real Chrome 158 with no SKIP: 20 states × 2 widths × 2 schemes; 6232 texts judged, lowest contrast 5.78:1; 1352 controls; all roles seen.\n- The frame oracle passes: A/B/C equal the report opened alone, and B keeps its own dark #204060.\n- The level-5 comment has 244 px at a 360 px width.\n- The sensitivity test still sees scrollWidth 600 on the pre-slice stylesheet.\n- Fitness holds all 45 rules.\n- Build 3 changed only site.css (2 lines), probe.js and look_test.go. The seed is unchanged since c5e4180.\n\n**Already-filed look extras, still present (not new):**\n- On a phone, a deep byline's avatar sits alone on its own row.\n- The signed-in phone header wraps to three rows, with Sign out indented.\n- All reports on a phone starts its counts line with an orphaned '·', and the gap around that '·' is uneven on desktop.\n\n**New and cosmetic:** at 1× in dark, the faint 1 px divider ring loses its diagonals and looks dashed. It still reads as a circle.\n\nThe engine marked the Not allowed page 'unusable' because it answers 403. That status is intended and pinned, and the page is drawn in the designed look.\n\n**Not reached:**\n- Firefox and Safari (O-017). They are not on this machine.\n- A real phone.\n- A real GitHub avatar loading in the running app.\n- The production proxy.\n\nThere is no loop. Build 2 was a person's restart; build 3 was this validation's send-back, and it changed src.",
+ "payload": {
+  "status": "complete",
+  "verdict": "passes",
+  "contact": "code",
+  "summary": "The one defect this validation sent back is fixed. Before the fix, Chrome drew its broken-image glyph inside the avatar ring when the image was missing or refused. Now that avatar is the plain --surface-2 circle the look asks for, and I measured it rather than taking the build's word.\n\n**Engine screenshots of the running seeded app (taken at 15:46, after f83e789).** I opened all 24. No avatar shows the glyph:\n- header avatars, whose GitHub URL does not resolve;\n- byline avatars, whose avatars.example URL the CSP refuses;\n- every deep-thread avatar.\n\nPixel samples at avatar centres read exactly #f4f4f2 in light and #26272b in dark, which are the two values of --surface-2. That holds on home, the signed-in report, All reports and the branch page, at wide and phone widths.\n\n**Mutations in a scratch copy.** I ran each one against the look test:\n- With the `.avatar::after` rule removed, TestEveryScreenIsDesigned fails with 32 problems, e.g. '186 of 282 pixels inside the header avatar … (first #f1f6fe): a broken-image glyph shows'.\n- With the cover's fill changed from --surface-2 to --surface, it fails with '282 of 282 pixels … not the #26272b fill'.\n\nSo the check needs exactly the designed fill, not just any cover.\n\n**Everything else still holds on this tree:**\n- `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0 in 53.5 s, with 34 packages ok.\n- The 11 browser, avatar and stylesheet tests pass in real Chrome 158 with no SKIP: 20 states × 2 widths × 2 schemes; 6232 texts judged, lowest contrast 5.78:1; 1352 controls; all roles seen.\n- The frame oracle passes: A/B/C equal the report opened alone, and B keeps its own dark #204060.\n- The level-5 comment has 244 px at a 360 px width.\n- The sensitivity test still sees scrollWidth 600 on the pre-slice stylesheet.\n- Fitness holds all 45 rules.\n- Build 3 changed only site.css (2 lines), probe.js and look_test.go. The seed is unchanged since c5e4180.\n\n**Already-filed look extras, still present (not new):**\n- On a phone, a deep byline's avatar sits alone on its own row.\n- The signed-in phone header wraps to three rows, with Sign out indented.\n- All reports on a phone starts its counts line with an orphaned '·', and the gap around that '·' is uneven on desktop.\n\n**New and cosmetic:** at 1× in dark, the faint 1 px divider ring loses its diagonals and looks dashed. It still reads as a circle.\n\nThe engine marked the Not allowed page 'unusable' because it answers 403. That status is intended and pinned, and the page is drawn in the designed look.\n\n**Not reached:**\n- Firefox and Safari (O-017). They are not on this machine.\n- A real phone.\n- A real GitHub avatar loading in the running app.\n- The production proxy.\n\nThere is no loop. Build 2 was a person's restart; build 3 was this validation's send-back, and it changed src.",
+  "checks": [
+   {
+    "what": "Whole suite with real Chrome",
+    "command": "$env:TAAD3_HOME=<scratch>\\taadhome; $env:HBAND_TEST_ARTIFACTS=<scratch>\\art; go test -count=1 -p 4 ./... (CHROME_BIN=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe; 9262 MB free before)",
+    "outcome": "passed",
+    "evidence": "exit 0 in 53.5 s. 34 'ok' packages. The only other lines were two '[no test files]' (testutil/e002row, testutil/outside). No FAIL."
+   },
+   {
+    "what": "The slice's browser, avatar and stylesheet tests run in real Chrome, not skipped",
+    "command": "go test -count=1 -v -run '^(TestEveryScreenIsDesigned|TestAvatarProbeSeesABrokenImageGlyph|TestALoadedAvatarIsLeftAlone|TestReportFrameKeepsItsOwnCanvas|TestLookProbeSeesTheStylesheetBeforeTheDesign|TestStylesheetTokens|TestStylesheetCorpus|TestThreadFitsPhoneWidth|TestCommentStyles|TestStaticThreadScript|TestReportScriptsNeverRun)$' ./internal/server/",
+    "outcome": "passed",
+    "evidence": "exit 0, all 11 PASS, no SKIP.\n- Look test: '20 states x 2 widths x 2 schemes measured; 6232 texts (lowest 5.78:1) and 1352 controls judged'.\n- Avatar sensitivity test: without .avatar::after it flags reader report (byline:2, header:1) and owner Blocked users (header:1, heading:1) in both schemes.\n- TestALoadedAvatarIsLeftAlone: PASS.\n- Pre-slice stylesheet at 375: scrollWidth 600, innerWidth 600.\n- 'a comment at level 5 has 244 px at 360 px'."
+   },
+   {
+    "what": "Avatar look test fails when the cover rule is removed (independent mutation)",
+    "command": "robocopy of the worktree to scratch; removed the `.avatar::after { ... }` line from site.css; go test -count=1 -run '^TestEveryScreenIsDesigned$' ./internal/server/",
+    "outcome": "passed",
+    "evidence": "The test failed, as expected (exit 1). '32 problems', e.g. 'owner admin report | desktop 1280 | dark | avatars: 186 of 282 pixels inside the header avatar at 833,20 are not the #26272b fill (first #f1f6fe): a broken-image glyph shows'. The same holds for byline avatars (first #a3a3a3) and in light (#f4f4f2 fill)."
+   },
+   {
+    "what": "Avatar look test needs exactly the --surface-2 fill, not just any cover (independent mutation)",
+    "command": "same scratch copy; the ::after background changed from var(--surface-2) to var(--surface); same test",
+    "outcome": "passed",
+    "evidence": "The test failed, as expected (exit 1). 32 problems, e.g. '282 of 282 pixels inside the header avatar ... are not the #26272b fill (first #1b1c1f)', and in light 'not the #f4f4f2 fill (first #ffffff)'. site.css was restored in the copy, and the copy was deleted."
+   },
+   {
+    "what": "Missing or refused avatars in the running seeded app are the plain --surface-2 circle (engine screenshots)",
+    "command": "Opened all 24 .taad-scratch/screens PNGs (written 15:46, after the f83e789 commit at 15:24). Sampled 9x9 pixels at avatar centres with System.Drawing. Zoomed crops of a dark header avatar and a light byline avatar at 6x.",
+    "outcome": "passed",
+    "evidence": "Every sampled pixel was a single colour:\n- s1-wide-light byline: f4f4f2\n- s1-wide-dark byline: 26272b\n- s1-phone-light and s1-phone-dark deep byline: f4f4f2 and 26272b\n- s3-wide-light header: f4f4f2\n- s5-wide-light header: f4f4f2\n- s4-wide-dark header column: 26272b\n\nThese are exactly --surface-2 light-dark(#f4f4f2, #26272b). The crops show a plain disc with its ring and no glyph. This covers both production failure modes the console shows: the CSP-refused avatars.example image and the ERR_NAME_NOT_RESOLVED GitHub image."
+   },
+   {
+    "what": "Architecture rules on the tree",
+    "command": "Fitness op=check",
+    "outcome": "passed",
+    "evidence": "'45 rule(s) checked against 154 parsed file(s) ... Every declared rule holds.' The only rule that matches no files is the no-.py rule (**/*.py), which is its intended state."
+   },
+   {
+    "what": "Build 3 changed only what was sent back",
+    "command": "git diff --stat 30e2068 f83e789; git diff 30e2068 f83e789 -- internal/server/static/site.css",
+    "outcome": "passed",
+    "evidence": "Code changes: site.css (+2/-1: `position: relative` on .avatar, plus the new `.avatar::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background-color: var(--surface-2); }`), probe.js (+30) and look_test.go (+218). Everything else in the diff is .taad slice records. Templates, routes, CSP and the iframe are unchanged."
+   },
+   {
+    "what": "Not allowed page, which the engine marked unusable because the app answered 403",
+    "command": "Looked at s6-wide-light, s6-phone-light, s6-wide-dark, s6-phone-dark; TestForbiddenPageTakesTheShell is in the full suite",
+    "outcome": "passed",
+    "evidence": "403 for a signed-in non-owner is the intended status, pinned by the auth tests. The page shows the brand-only header, the 'Not allowed' heading, the sentence, the login, the link and a styled Sign out in both schemes and widths."
+   },
+   {
+    "what": "The stylesheet satisfies the site's CSP in a real browser",
+    "command": "read the engine's console capture for the 6 screens",
+    "outcome": "passed",
+    "evidence": "There is no style-src violation. The only console errors are img-src refusals of avatars.example, ERR_NAME_NOT_RESOLVED for avatars.githubusercontent.com/u/42, and the intended 403."
+   },
+   {
+    "what": "Seeded app's avatar URLs are refused by the CSP (console errors on reader screens)",
+    "command": "git diff c5e4180 HEAD -- internal/testutil/seeded | Measure-Object -Line",
+    "outcome": "failed",
+    "nature": "pre-existing",
+    "evidence": "0 diff lines: the seed is unchanged by this slice. Its avatars.example URLs are refused by img-src. This is a property of the test seed, not of this slice's code, and the refused images now draw as the designed plain circle."
+   },
+   {
+    "what": "Look extras the attempt-1 validation already filed, re-seen on this tree",
+    "command": "looked at s1/s2/s3/s5 phone, s3/s4/s5 phone headers, s4 wide and phone",
+    "outcome": "failed",
+    "nature": "extra",
+    "evidence": "All already filed in attempt 1; nothing new here:\n- On a phone, the 45-character login leaves the deepest byline's avatar alone on a row.\n- The signed-in phone header wraps to three rows, and Sign out is indented about 12 px from All reports.\n- On a phone, All reports starts its counts line with an orphaned '·', and on desktop the gap around that '·' is wider than around the other separators.\n\nNothing overflows, and every control is readable."
+   },
+   {
+    "what": "Dark-scheme avatar ring at 1x",
+    "command": "6x nearest-neighbour crop of s4-wide-dark.png header avatar",
+    "outcome": "failed",
+    "nature": "extra",
+    "evidence": "The 1 px --divider box-shadow ring on the #26272b disc is so faint on the dark header that its diagonal segments almost vanish, so at 1x DPR the ring looks dashed. It still reads as a circle. This is cosmetic, and nobody required it."
+   },
+   {
+    "what": "Firefox and Safari treat light-dark() and the frame canvas the same way (O-017)",
+    "command": "none: only CHROME_BIN is provided on this machine",
+    "outcome": "not-run",
+    "evidence": "Firefox is not installed (attempt 1 checked both Program Files locations). Safari does not exist on Windows. Edge must not be started here. This is a known limit of this machine."
+   }
+  ],
+  "criteria": [
+   {
+    "criterion": "1. show every screen in its designed look — when the visitor's OS asks for dark (prefers-color-scheme: dark)",
+    "met": "yes",
+    "how": "TestEveryScreenIsDesigned emulates dark on all 20 states at 1280 and 375 and passed here in real Chrome. I viewed 12 dark engine captures. The tokens flip, the controls are styled, missing avatars are the dark --surface-2 #26272b disc (pixel-sampled), and the report keeps its own canvas."
+   },
+   {
+    "criterion": "2. fit every screen on a phone — 375 CSS px mobile viewport on /admin/reports/<slug> (64-hex SHA-256), the 5-column /admin table, the file input and a 39-character login",
+    "met": "yes",
+    "how": "TestEveryScreenIsDesigned passes. It compares scrollWidth with the requested 375 and asserts innerWidth == 375. The sensitivity test still flags the pre-slice stylesheet (scrollWidth 600). Mid-word breaks in the admin table and the 320 px overflow (N-254) were filed earlier."
+   },
+   {
+    "criterion": "3. confirm a destructive action in two steps — every details opened: Remove and Block on owner report, admin report, populated Blocked users, Reply at the depth cap",
+    "met": "yes",
+    "how": "TestEveryScreenIsDesigned passes. The verbose log's role map shows the accent post-reply role 312 times, along with the danger confirm roles, the same counts attempt 1 recorded (176 Remove, 104 Block)."
+   },
+   {
+    "criterion": "4. read a report as its author — owner on /reports/<slug> and the admin pages, screenshots in both schemes",
+    "met": "yes",
+    "how": "The owner states are captured at 1280 in light and dark inside TestEveryScreenIsDesigned (89 artifacts were written to my scratch folder), and the test passes. The signal-colour assay sees only the viewport (N-255, waived)."
+   },
+   {
+    "criterion": "5. load the collapse script only where a thread is drawn — empty home vs found home, report and branch",
+    "met": "yes",
+    "how": "TestStaticThreadScript passes. TestEveryScreenIsDesigned's per-state script-tag counts pass."
+   },
+   {
+    "criterion": "6. keep hidden states hidden until they apply — #feedback-sent with and without the fragment; button.toggle re-hidden by Eval",
+    "met": "yes",
+    "how": "TestEveryScreenIsDesigned passes, including the after-feedback states and the toggle re-hide assertion."
+   },
+   {
+    "criterion": "7. read a deep thread on a phone — level 5 comment at 360 px",
+    "met": "yes",
+    "how": "TestThreadFitsPhoneWidth: 'a comment at level 5 has 244 px at 360 px'. The look test's level-5 ≥ 240 px check passes."
+   },
+   {
+    "criterion": "8. report A in the frame equals alone, under light",
+    "met": "yes",
+    "how": "TestReportFrameKeepsItsOwnCanvas: frame-a light, in the frame #ffffff, alone #ffffff. In attempt 1 a scratch --bg of #f3f1ea proved the Canvas line is what keeps it, and frame and iframe rules are unchanged since."
+   },
+   {
+    "criterion": "9. report B (own dark @media background) in the frame equals alone, under dark",
+    "met": "yes",
+    "how": "frame-b dark: in the frame #204060, alone #204060, site #131416."
+   },
+   {
+    "criterion": "10. report C (color-scheme light dark, no background) in the frame equals alone, both schemes",
+    "met": "yes",
+    "how": "frame-c: light #ffffff = #ffffff, dark #121212 = #121212."
+   },
+   {
+    "criterion": "11. refuse a non-owner at the admin door — empty login and 'octo<b>&cat'",
+    "met": "yes",
+    "how": "TestForbiddenPageTakesTheShell passes in the full suite. The engine's s6 captures show the styled Not allowed page in both schemes and widths, with the intended 403."
+   },
+   {
+    "criterion": "12. tell the owner an upload was refused — real Chrome POST from /admin with an invalid slug (noValidate), admin.html with p.error",
+    "met": "yes",
+    "how": "The refused-upload state in TestEveryScreenIsDesigned passes. TestTabSubmitWaitsForTheRedirectedPage passes in the full suite."
+   },
+   {
+    "criterion": "13. keep the design system in one table — undefined var(), hex/hsl outside :root, color-scheme outside :root, token near a signal colour, declared pair below 4.5 or 3.0",
+    "met": "yes",
+    "how": "TestStylesheetTokens and TestStylesheetCorpus pass with the new rule, which uses tokens only. Attempt 1's mutations showed the pair check fails at 2.56:1 and 1.47:1. The :root and nesting gaps are carried as SC-059/060/061."
+   },
+   {
+    "criterion": "14. give every page the one shell — a page template that does not open with page-start or close with page-end, in either templates directory",
+    "met": "yes",
+    "how": "TestEveryPageTakesTheShell and TestShellCheckerSeesEachFault pass in the full suite. Fitness holds all 45 rules. No template changed in build 3."
+   },
+   {
+    "criterion": "Every reader screen (home and /reports/<slug> with frame, likes, votes, comments, feedback box with own messages and author replies; show-all; branch page), signed in and signed out, shows the designed look",
+    "met": "person-run",
+    "how": "A person runs `go run ./internal/testutil/seeded -port 18479` and opens /, /reports/e004-look, /reports and the 'continue this thread' page in Chrome, signed out and then signed in. They do this with Windows in light and then in dark mode, at desktop width and in a 375 px phone view. Each page must match .taad/look.json: serif headlines, a centred reading column, hairline sections, styled buttons and fields, and plain grey avatar circles with no broken-image icon. The feedback box with author replies is reached through `HBAND_TEST_ARTIFACTS=<folder> go test -run TestEveryScreenIsDesigned ./internal/server/` (files reader-report-after-sending-feedback-*)."
+   },
+   {
+    "criterion": "Every /admin screen (admin.html, admin_report.html, admin_blocked.html) and the forbidden page shows the designed look, with tables, destructive buttons and the two-step remove",
+    "met": "person-run",
+    "how": "The seeded launcher has no owner session. A person sets CHROME_BIN, runs `HBAND_TEST_ARTIFACTS=<folder> go test -count=1 -run TestEveryScreenIsDesigned ./internal/server/` and opens <folder>/look/owner-*.png and reader-at-the-admin-door-*.png. They must show the left sidebar, status pills, the hairline table, the danger trays with the Remove and Block confirms, plain avatar circles (including the 2rem Blocked users heading) and the Not allowed page, in both schemes."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-017",
+    "verified": "cannot-tell",
+    "evidence": "Only Chrome 158 (CHROME_BIN) is on this machine. Firefox is not installed, Safari does not exist on Windows, and Edge must not be started. light-dark(), the iframe Canvas substrate and the new img ::after cover (which relies on how an engine draws a broken image) were measured in Chrome only. This is a known limit, not an ask."
+   }
+  ],
+  "planned": [],
+  "not_reached": [
+   "Firefox and Safari (O-017): light-dark(), the frame Canvas substrate and the .avatar::after cover were measured only in Chrome 158. Engines differ in whether they draw ::after on a broken <img>.",
+   "A real phone: every phone measurement is Chrome mobile emulation (375 px in the tests, 390 px in the engine's screens), not a device.",
+   "A real GitHub avatar loading in the running app. The seed's avatar URLs are refused by the CSP or do not resolve. The loaded-image state was seen only through TestALoadedAvatarIsLeftAlone's same-origin PNG.",
+   "Production behind the VPS reverse proxy: whether it changes CSP or caching headers for site.css (Q-010, Q-007).",
+   "Owner and admin screens in the engine's app run. The seeded launcher has no owner session, so they were measured only in the look test's in-process server.",
+   "Owner-only danger controls below the fold. The signal-colour assay sees only the viewport (N-255), and no full-page capture was run."
+  ],
+  "screens": [
+   {
+    "screen": "s1-wide-light.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s1-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "deepest comment byline",
+      "what": "The long login wraps and leaves the avatar alone on its own row, with the date on a third row (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s1-wide-dark.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s1-phone-dark.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "deepest comment byline",
+      "what": "The avatar sits alone on a row above the wrapped login (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s2-wide-light.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s2-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "deepest comment byline",
+      "what": "The avatar sits alone on a row above the wrapped 'wwww…' login (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s2-wide-dark.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s2-phone-dark.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "deepest comment byline",
+      "what": "The avatar sits alone on a row above the wrapped login (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s3-wide-light.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s3-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "site header",
+      "what": "The signed-in header wraps to three rows, and 'Sign out' starts about 12 px right of 'All reports' (already filed)."
+     },
+     {
+      "where": "deepest comment byline",
+      "what": "The avatar sits alone on a row above the wrapped login (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s3-wide-dark.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s3-phone-dark.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "site header",
+      "what": "Three-row header with 'Sign out' indented relative to 'All reports' (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s4-wide-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "report row meta",
+      "what": "The '·' after the date has a much wider gap than the '·' separators between the counts (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s4-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "report row meta",
+      "what": "The counts line begins with an orphaned '·' (already filed)."
+     },
+     {
+      "where": "site header",
+      "what": "Three-row header with 'Sign out' indented (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s4-wide-dark.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "header avatar",
+      "what": "At 1x the faint 1 px ring on the dark disc loses its diagonals and reads as a dashed circle (cosmetic)."
+     },
+     {
+      "where": "report row meta",
+      "what": "Uneven gap around the first '·' (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s4-phone-dark.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "report row meta",
+      "what": "An orphaned '·' starts the counts line (already filed)."
+     },
+     {
+      "where": "site header",
+      "what": "'Sign out' is indented about 12 px from 'All reports' on its own row (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s5-wide-light.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s5-phone-light.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "site header",
+      "what": "Three-row header with 'Sign out' indented (already filed)."
+     },
+     {
+      "where": "deepest comment byline",
+      "what": "The avatar sits alone on a row above the wrapped long login (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s5-wide-dark.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "avatars in header and bylines",
+      "what": "At 1x the faint ring on the dark disc reads as dashed (cosmetic)."
+     }
+    ]
+   },
+   {
+    "screen": "s5-phone-dark.png",
+    "looked": "yes",
+    "problems": [
+     {
+      "where": "site header",
+      "what": "Three-row header with 'Sign out' indented (already filed)."
+     },
+     {
+      "where": "deepest comment byline",
+      "what": "The avatar is alone on its own row (already filed)."
+     }
+    ]
+   },
+   {
+    "screen": "s6-wide-light.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s6-phone-light.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s6-wide-dark.png",
+    "looked": "yes",
+    "problems": []
+   },
+   {
+    "screen": "s6-phone-dark.png",
+    "looked": "yes",
+    "problems": []
+   }
+  ]
+ }
+}

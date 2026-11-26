@@ -7,12 +7,29 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+
+	"github.com/sshubham2/hband/internal/layout"
 )
 
 //go:embed templates/forbidden.html
 var forbiddenFS embed.FS
 
-var forbiddenPage = template.Must(template.ParseFS(forbiddenFS, "templates/forbidden.html"))
+// forbiddenPage is the Not allowed page: internal/layout's shell, parsed first,
+// and this package's own template, which defines the brand-only "header" the
+// shell calls.
+var forbiddenPage = template.Must(template.Must(template.ParseFS(layout.FS, "templates/*.html")).ParseFS(forbiddenFS, "templates/forbidden.html")).Lookup("forbidden.html")
+
+// forbiddenData feeds forbidden.html and the shell around it. The title is a
+// constant, and no thread is drawn, so no script is loaded.
+type forbiddenData struct {
+	Title string
+	Login string
+}
+
+// ThreadScript is false: the Not allowed page loads no site script.
+func (forbiddenData) ThreadScript() bool { return false }
+
+const forbiddenTitle = "Not allowed - hband"
 
 // IsOwner is the only allow rule in the program: the pinned owner ID must be
 // positive and equal to the signed-in GitHub ID. It is recomputed on every
@@ -66,7 +83,7 @@ func RequireOwner(h http.Handler) http.Handler {
 		}
 		if !v.IsOwner {
 			var page bytes.Buffer
-			if err := forbiddenPage.Execute(&page, struct{ Login string }{v.Login}); err != nil {
+			if err := forbiddenPage.Execute(&page, forbiddenData{Title: forbiddenTitle, Login: v.Login}); err != nil {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}

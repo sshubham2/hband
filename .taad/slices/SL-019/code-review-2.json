@@ -1,0 +1,620 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "code-review",
+ "attempt": 2,
+ "at": "2026-11-26T09:16:29.641Z",
+ "head": "f83e789074307fb11a6ae8b77b8bc1c23c098a34",
+ "run_id": 12466,
+ "summary": "I reviewed the whole slice from c5e4180 to 662548f: the shell package, the auth and server wiring, every changed template, site.css, the stylesheet, shell and look tests, probe.js, the frame test and headless.Submit. I ran the checks myself:\n- `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0, every package ok.\n- The browser tests run for real in verbose mode and pass: TestEveryScreenIsDesigned (20 states, 6232 texts, lowest 5.78:1, every role seen), TestReportFrameKeepsItsOwnCanvas, TestLookProbeSeesTheStylesheetBeforeTheDesign (600 px at 375), TestStylesheetTokens and TestStylesheetCorpus.\n- The engine's Fitness check holds all 45 rules with the real YAML parser.\n- gofmt on the committed Go files and go vet are clean.\n- site.before.css is byte-identical to c5e4180's stylesheet.\n- Reading the templates, the reader pages render the same bytes as before.\n\nThe shell contract holds: page-start, page-end and the ThreadScript gate, forbiddenData, one header per template set, and the admin-nav string dot. The design and look are built as planned, apart from the departures the builder declared and one small look drift.\n\nThree scratch probes (run through -overlay; nothing written to the repo) found these:\n1. lintStylesheet skips the colour-literal check for ordinary properties on a `:root` rule. `:root { color: black }` and `:root { background-color: #ffffff }` pass the lint, so the class the build declared closed has another member. The repro fails now, and passes with a one-line fix that keeps TestStylesheetTokens and TestStylesheetCorpus green.\n2. The owner signal-colour screenshots capture only the 900 px viewport. With --danger and --danger-soft set to pure red, the screenshot sees 0 red pixels on the owner's /reports/x (all 14 owner-only danger elements start at 1888 px), on /admin/reports/x and on the draft page. Only /admin/blocked sees them (12121 pixels).\n3. Removing `background-color: Canvas` still passes all six frame cases, as the builder said. The behaviour it protects still holds, because --bg is now about the same as Chrome's own canvas.\n\nTwo items are owed and not written:\n- No test feeds the planned case shape 'a declared pair below 4.5 or 3.0'.\n- The seeded app launcher (plan item 11) was not extended. The builder declared this.\n\nSecond reader, for inputs: Input pass over the whole slice (c5e4180..662548f). The production side holds against the inputs I built and ran:\n- **Largest data the forms allow, at a true 375 px.** 200-character unbroken titles, 80-character slugs, 1000-character unbroken comment and feedback bodies and 39-character logins all fit, with scrollWidth equal to innerWidth (375). Checked on the reader report, All reports, /admin, /admin/reports for a published report and a draft, and Blocked users.\n- **Line endings.** Fresh clones with core.autocrlf=true (CRLF) and false (LF) both pass the slice's template, shell, forbidden-page, stylesheet and corpus tests.\n- **Data types.** Every page rendered through page-start receives a type that embeds pageData or is forbiddenData, so .Title and ThreadScript always resolve.\n- **Tab.Submit.** It drains the buffered load channel (capacity 32), so a fast load event cannot be lost.\n\nThe defects are in the stylesheet linter the slice declared closed for two families (m3 and m4). Both were confirmed by running, and each repro fails on the reviewed commit:\n1. **Nested rules.** parseCSS reads rules with a regex that cannot nest braces. A declaration written beside a nested rule (CSS nesting, which Chrome 158 applies) is never linted. I measured `main { opacity: .5; & > p {} filter: invert(1); }` computing opacity 0.5 and filter invert(1) in Chrome, while lintStylesheet says nothing. That reopens the frame-reach ban and the colour-literal ban.\n2. **Plain colour declarations on :root.** A declaration on :root that is not a custom property skips the colour-literal check, so `:root { background-color: white }` passes.\n\nOne extra, measured: at 320 px, /admin (331) and /admin/reports/<slug> (323) scroll sideways. `.admin > main` is a flex item whose min-width stays auto. Everything fits at 340 px and up.\n\nReading pass: The three remaining files hold nothing new to file.\n- **`internal/server/testdata/look/bare.html` (lines 1-14):** one of each kind of element the probe judges against the browser's defaults: link, button, text input, select, textarea, file input, summary, th and td. It has no stylesheet, and its `color-scheme` meta lets the dark-scheme defaults apply. That matches what the probe's `bare()` reads.\n- **`internal/server/testdata/look/site.before.css` (lines 1-48):** the stylesheet as it was before the slice. Earlier I compared it with `git show c5e4180:internal/server/static/site.css` and it is identical, so the sensitivity test really runs against the old look.\n- **`internal/server/testdata/stylesheet_corpus.json` (lines 1-117):**\n  - It covers the four classes TestStylesheetCorpus requires (colour-literals, frame-reach, edge-colour, token-table), each with rows that must fire and rows that must stay quiet, and every lint code is fired by some row.\n  - No row puts an ordinary property such as `color: black` on a `:root` rule. That is the gap already filed as m1 and IN-m2, so it adds nothing new.\n  - No row plants a contrast pair below 4.5 or 3.0, which fits the already-filed m3: the pair check is outside `lintStylesheet`.\n  - No row contradicts the fix proposed for m1. I ran that fix earlier and the corpus test still passed.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "I reviewed the whole slice from c5e4180 to 662548f: the shell package, the auth and server wiring, every changed template, site.css, the stylesheet, shell and look tests, probe.js, the frame test and headless.Submit. I ran the checks myself:\n- `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0, every package ok.\n- The browser tests run for real in verbose mode and pass: TestEveryScreenIsDesigned (20 states, 6232 texts, lowest 5.78:1, every role seen), TestReportFrameKeepsItsOwnCanvas, TestLookProbeSeesTheStylesheetBeforeTheDesign (600 px at 375), TestStylesheetTokens and TestStylesheetCorpus.\n- The engine's Fitness check holds all 45 rules with the real YAML parser.\n- gofmt on the committed Go files and go vet are clean.\n- site.before.css is byte-identical to c5e4180's stylesheet.\n- Reading the templates, the reader pages render the same bytes as before.\n\nThe shell contract holds: page-start, page-end and the ThreadScript gate, forbiddenData, one header per template set, and the admin-nav string dot. The design and look are built as planned, apart from the departures the builder declared and one small look drift.\n\nThree scratch probes (run through -overlay; nothing written to the repo) found these:\n1. lintStylesheet skips the colour-literal check for ordinary properties on a `:root` rule. `:root { color: black }` and `:root { background-color: #ffffff }` pass the lint, so the class the build declared closed has another member. The repro fails now, and passes with a one-line fix that keeps TestStylesheetTokens and TestStylesheetCorpus green.\n2. The owner signal-colour screenshots capture only the 900 px viewport. With --danger and --danger-soft set to pure red, the screenshot sees 0 red pixels on the owner's /reports/x (all 14 owner-only danger elements start at 1888 px), on /admin/reports/x and on the draft page. Only /admin/blocked sees them (12121 pixels).\n3. Removing `background-color: Canvas` still passes all six frame cases, as the builder said. The behaviour it protects still holds, because --bg is now about the same as Chrome's own canvas.\n\nTwo items are owed and not written:\n- No test feeds the planned case shape 'a declared pair below 4.5 or 3.0'.\n- The seeded app launcher (plan item 11) was not extended. The builder declared this.\n\nSecond reader, for inputs: Input pass over the whole slice (c5e4180..662548f). The production side holds against the inputs I built and ran:\n- **Largest data the forms allow, at a true 375 px.** 200-character unbroken titles, 80-character slugs, 1000-character unbroken comment and feedback bodies and 39-character logins all fit, with scrollWidth equal to innerWidth (375). Checked on the reader report, All reports, /admin, /admin/reports for a published report and a draft, and Blocked users.\n- **Line endings.** Fresh clones with core.autocrlf=true (CRLF) and false (LF) both pass the slice's template, shell, forbidden-page, stylesheet and corpus tests.\n- **Data types.** Every page rendered through page-start receives a type that embeds pageData or is forbiddenData, so .Title and ThreadScript always resolve.\n- **Tab.Submit.** It drains the buffered load channel (capacity 32), so a fast load event cannot be lost.\n\nThe defects are in the stylesheet linter the slice declared closed for two families (m3 and m4). Both were confirmed by running, and each repro fails on the reviewed commit:\n1. **Nested rules.** parseCSS reads rules with a regex that cannot nest braces. A declaration written beside a nested rule (CSS nesting, which Chrome 158 applies) is never linted. I measured `main { opacity: .5; & > p {} filter: invert(1); }` computing opacity 0.5 and filter invert(1) in Chrome, while lintStylesheet says nothing. That reopens the frame-reach ban and the colour-literal ban.\n2. **Plain colour declarations on :root.** A declaration on :root that is not a custom property skips the colour-literal check, so `:root { background-color: white }` passes.\n\nOne extra, measured: at 320 px, /admin (331) and /admin/reports/<slug> (323) scroll sideways. `.admin > main` is a flex item whose min-width stays auto. Everything fits at 340 px and up.\n\nReading pass: The three remaining files hold nothing new to file.\n- **`internal/server/testdata/look/bare.html` (lines 1-14):** one of each kind of element the probe judges against the browser's defaults: link, button, text input, select, textarea, file input, summary, th and td. It has no stylesheet, and its `color-scheme` meta lets the dark-scheme defaults apply. That matches what the probe's `bare()` reads.\n- **`internal/server/testdata/look/site.before.css` (lines 1-48):** the stylesheet as it was before the slice. Earlier I compared it with `git show c5e4180:internal/server/static/site.css` and it is identical, so the sensitivity test really runs against the old look.\n- **`internal/server/testdata/stylesheet_corpus.json` (lines 1-117):**\n  - It covers the four classes TestStylesheetCorpus requires (colour-literals, frame-reach, edge-colour, token-table), each with rows that must fire and rows that must stay quiet, and every lint code is fired by some row.\n  - No row puts an ordinary property such as `color: black` on a `:root` rule. That is the gap already filed as m1 and IN-m2, so it adds nothing new.\n  - No row plants a contrast pair below 4.5 or 3.0, which fits the already-filed m3: the pair check is outside `lintStylesheet`.\n  - No row contradicts the fix proposed for m1. I ran that fix earlier and the corpus test still passed.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "claim": "lintStylesheet skips every check after the root branch for any ordinary (non-custom) property in a rule whose selector is exactly `:root`. Its `if root { if !strings.HasPrefix(prop, \"--\") { continue } ...` skips the colour-literal check (and the edge-shorthand checks) for `:root { color: black }` or `:root { background-color: #ffffff }`. Such a literal stays fixed when the scheme flips. Because `:root` (0,1,0) outranks `html` (0,0,1), it would even override `html { background-color: var(--bg) }`. O-022 claimed the class 'colour literal spellings outside the token table' closed, and this member gets past the static check. Measured: lintStylesheet returns [] for both stylesheets.",
+    "class_of": "colour literal spellings outside the token table",
+    "threat": "accident",
+    "file": "internal/server/stylesheet_test.go",
+    "line": 233,
+    "end_line": 236,
+    "quote": {
+     "path": "internal/server/stylesheet_test.go",
+     "line": 233,
+     "text": "\t\t\tif root {\n\t\t\t\tif !strings.HasPrefix(prop, \"--\") {\n\t\t\t\t\tcontinue\n\t\t\t\t}"
+    },
+    "evidence": "I ran the repro through -overlay: it fails with 'lint says [], want a colour-literal finding' for both stylesheets. With the root branch changed to `if root && strings.HasPrefix(prop, \"--\") {`, the repro, TestStylesheetTokens and TestStylesheetCorpus all pass.",
+    "fix": "Replace `if root { if !strings.HasPrefix(prop, \"--\") { continue } ... }` with `if root && strings.HasPrefix(prop, \"--\") { ... }`, so ordinary declarations on :root fall through to the colour-literal and edge checks. Add these rows to internal/server/testdata/stylesheet_corpus.json, class colour-literals:\n- fire: {\"id\": \"lit-root-ordinary-property\", \"class\": \"colour-literals\", \"css\": \":root { color-scheme: light dark; }\\n:root { --bg: light-dark(#ffffff, #131416); color: black; }\", \"fires\": [\"colour-literal\"]}\n- fire: {\"id\": \"lit-root-beside-the-scheme\", \"class\": \"colour-literals\", \"css\": \":root { color-scheme: light dark; background-color: #ffffff; }\", \"fires\": [\"colour-literal\"]}",
+    "repro": {
+     "path": "internal/server/stylesheet_root_literal_test.go",
+     "body": "package server\n\nimport \"testing\"\n\n// An ordinary property on a :root rule colours the page as surely as one on html\n// (and outranks it), and a literal there stays put when the scheme flips: it is a\n// colour outside the token table like any other, and the lint has to say so.\nfunc TestStylesheetLintSeesALiteralOnRoot(t *testing.T) {\n\tfor _, css := range []string{\n\t\t\":root { color-scheme: light dark; }\\n:root { --bg: light-dark(#ffffff, #131416); color: black; }\",\n\t\t\":root { color-scheme: light dark; background-color: #ffffff; }\\n:root { --bg: light-dark(#ffffff, #131416); }\",\n\t} {\n\t\tfound := false\n\t\tcodes := codesOf(lintStylesheet(css))\n\t\tfor _, c := range codes {\n\t\t\tif c == \"colour-literal\" {\n\t\t\t\tfound = true\n\t\t\t}\n\t\t}\n\t\tif !found {\n\t\t\tt.Errorf(\"%q: lint says %v, want a colour-literal finding\", css, codes)\n\t\t}\n\t}\n}\n",
+     "command": "go test -count=1 -run ^TestStylesheetLintSeesALiteralOnRoot$ ./internal/server/"
+    }
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "The owner signal-colour assay in TestEveryScreenIsDesigned (case 'read a report as its author', #941/#978) screenshots only the 1280x900 viewport (`shoot` calls Page.captureScreenshot with no clip and no captureBeyondViewport). The owner-only controls it exists to check sit below the fold. On the owner's /reports/x, all 14 Remove summaries and trays start at 1888 px. On /admin/reports/x, the moderation Remove and Block controls and the Delete button are below the fold, and so is everything on the draft page. A danger or danger-soft token at pure #ff0000 would pass the assay on three of the four owner screens. Today only the static nearSignal lint on tokens keeps signal colours out.",
+    "file": "internal/server/look_test.go",
+    "line": 448,
+    "end_line": 455,
+    "quote": {
+     "path": "internal/server/look_test.go",
+     "line": 448,
+     "text": "\t\t\t\tif !v.mobile && st.shots {\n\t\t\t\t\timg := shoot(t, tab)"
+    },
+    "evidence": "Scratch probe through -overlay: serving site.css with --danger and --danger-soft planted as #ff0000/#fe0000, owner, 1280x900, details open, then the assay's own shoot + headless.Count(…, 8):\n- /reports/x: 0 red pixels (14 danger elements, first at 1888 px);\n- /admin/reports/x: 0;\n- /admin/reports/draft: 0;\n- /admin/blocked: 12121 (in light) and 12211 (in dark).",
+    "fix": "For the assay, capture the whole page the way `dump` already does: captureBeyondViewport with a clip of scrollHeight. Alternatively, scroll each `.remove`, `.block` and `form[action$=\"/delete\"]` into view and shoot each time. Keep `shoot` as it is for the frame test, which reads patches at viewport coordinates."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "nature": "required",
+    "claim": "Case 'keep the design system in one table' names the shape 'a declared pair below 4.5 or 3.0', and no test feeds it. TestStylesheetTokens runs the pair loop and the check that every colour token a rule reads has a pair row only over the real site.css. TestStylesheetCorpus plants faults only into lintStylesheet, which has no pair or coverage code (its codes list has none). So nothing shows that the pair check, or the check that every used token has a row, can fail. The case's own check command (`-run '^TestStylesheetTokens$'`) feeds none of the planned fault shapes.",
+    "file": "internal/server/stylesheet_test.go",
+    "line": 381,
+    "end_line": 413,
+    "evidence": "In stylesheet_test.go, lines 381-413 iterate pairRows over tokenTable(real css) only. The lintStylesheet code list at lines 478-479 has no pair code. No corpus row carries a contrast fault.",
+    "fix": "Factor the pair loop and the 'token read but in no row' loop into a `pairProblems(css string) []string`, and call it from TestStylesheetTokens. Add a test that plants a :root with --text-muted light #aaaaaa (below 4.5 on bg) and --border light #dddddd (below 3.0), and a rule reading a colour token that no row names. Assert that each is reported, and that the real site.css reports nothing."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "required",
+    "claim": "Plan item 11 asks for a seeded app start with an owner session, published and draft reports, a deep thread, feedback with replies and a blocked account, so that the engine can photograph the reader, admin, Blocked users and Not allowed screens. It was not built: internal/testutil/seeded is unchanged and signs the browser in as the non-owner octocat. The frontend designer's photograph-based review has no way to reach /admin, /admin/reports/<slug>, /admin/blocked or the forbidden page. The builder declared this. The only owner-side pictures are the ones the builder dumped through HBAND_TEST_ARTIFACTS and judged itself.",
+    "file": "internal/testutil/seeded",
+    "evidence": "git diff c5e4180 662548f --stat lists no file under internal/testutil/seeded. The build's not_built and deviations entries say so.",
+    "fix": "Extend seeded's run() so the serving program can sign the browser in as the owner (the fakegithub stand-in user switch). Seed a draft, reader feedback with an author reply and a blocked account alongside the e004-look thread its tests pin, leaving that thread unchanged."
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "claim": "lintStylesheet never sees a declaration that sits in the same block as a nested rule (CSS nesting). cssRuleRE matches only brace-free blocks. For `main.reader { opacity: .5; & > h1 { margin: 0; } }` it skips the outer block and parses the inner one with the selector `opacity: .5; & > h1`. The outer declarations, before or after the nested block, are dropped without a word. Chrome 158 applies them: measured, `main { opacity: .5; & > p { margin: 0; } filter: invert(1); }` computes opacity 0.5 and filter invert(1), and `.b { color: white; &:hover {...} }` computes white text. So the whole-file bans that O-023 (frame-reach: filter, opacity, mask, clip-path on any ancestor of the report frame) and O-022 (colour literals outside the token table) declared closed can both be passed by any rule that also holds a nested rule. color-scheme on the frame passes the same way: `iframe { color-scheme: light; &:hover { margin: 0 } }` is silent. Nothing else catches the frame case. TestThreadFitsPhoneWidth refuses only '@', the fitness regex needs iframe or .report-frame in the selector, and the frame oracle ignores changes within ±8, so `opacity: .97` on main.reader would pass every check. A comment marker inside a quoted string misreads the same way: `content: '/*'` ... `content: '*/'` makes cssCommentRE delete every rule in between, including a `main { opacity: .5 }` placed there.",
+    "file": "internal/server/stylesheet_test.go",
+    "line": 50,
+    "end_line": 68,
+    "evidence": "Ran on the reviewed tree through a go test overlay. lintStylesheet(corpusPrelude + css) returned [] for 'main.reader { opacity: .5; & > h1 { margin: 0 } }', for 'main.reader { & > h1 { margin: 0 } filter: invert(1); }', for '.badge { color: white; &:hover { margin: 0 } }', for 'iframe { color-scheme: light; &:hover { margin: 0 } }' and for \".x::before { content: '/*'; } .y { color: white; } .z::after { content: '*/'; }\". The same declarations without nesting return [frame-reach] and [colour-literal]. In Chrome 158, through headless.Open, the nested stylesheet computed opacity=0.5, filter=invert(1) and color=rgb(255, 255, 255). stylesheet_corpus.json has no nested-rule row and no comment-in-string row.",
+    "fix": "Make the CSS reader in lintStylesheet refuse the shape it cannot read. Before parseCSS, scan the text outside quoted strings and comments for brace depth, and emit a new code such as `nesting` whenever a `{` opens while another block is open. Add that code to TestStylesheetCorpus's list of codes that must fire. Strip comments only outside quoted strings. Then add these corpus rows, all with the prelude:\n- class frame-reach, must fire: `main.reader { opacity: .5; & > h1 { margin: 0; } }` and `main.reader { & > h1 { margin: 0; } filter: invert(1); }`;\n- class colour-literals, must fire: `.badge { color: white; &:hover { margin: 0; } }` and `.x::before { content: '/*'; } main { opacity: .5; } .z::after { content: '*/'; }`.",
+    "class_of": "selectors that reach the report frame without naming it",
+    "threat": "accident",
+    "quote": {
+     "path": "internal/server/stylesheet_test.go",
+     "line": 50,
+     "text": "cssRuleRE    = regexp.MustCompile(`([^{}]+)\\{([^{}]*)\\}`)"
+    },
+    "repro": {
+     "path": "internal/server/stylesheet_nesting_test.go",
+     "body": "package server\n\nimport \"testing\"\n\n// A rule that holds a nested rule (CSS nesting, which Chrome applies) keeps its own\n// declarations: the ones before the nested block and the ones after it still paint.\n// The lint has to read them, or anything written beside a nested rule is unchecked.\nfunc TestLintReadsDeclarationsBesideANestedRule(t *testing.T) {\n\tfor _, css := range []string{\n\t\t\"main.reader { opacity: .5; & > h1 { margin: 0; } }\",\n\t\t\"main.reader { & > h1 { margin: 0; } filter: invert(1); }\",\n\t\t\".badge { color: white; &:hover { margin: 0; } }\",\n\t} {\n\t\tif got := lintStylesheet(corpusPrelude + css); len(got) == 0 {\n\t\t\tt.Errorf(\"lintStylesheet says nothing about %q, whose outer declaration Chrome applies\", css)\n\t\t}\n\t}\n}\n",
+     "command": "go test -count=1 -run ^TestLintReadsDeclarationsBesideANestedRule$ ./internal/server/"
+    }
+   },
+   {
+    "id": "IN-m2",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "claim": "On a :root rule, lintStylesheet skips every declaration that is not a custom property right after the frame-reach, url, motion and color-scheme checks. A colour literal written on :root itself therefore never reaches the colour-literal check. `:root { background-color: white; }` and `:root { color: #000000; }` both lint clean, yet they paint the whole page and stay fixed when the scheme flips. That is the stray-literal shape the 'colour literal spellings outside the token table' family (O-022) was closed to prevent. Line 1 of site.css is already a bare `:root { color-scheme: light dark; }`, which is the natural place for an author to add `color:` or `background:` by accident.",
+    "file": "internal/server/stylesheet_test.go",
+    "line": 233,
+    "end_line": 236,
+    "evidence": "Ran through a go test overlay: lintStylesheet(corpusPrelude + ':root { color: black; background-color: white; }') returns [], and so does ':root { background: #ffffff; }'. The same declarations on `.badge` return [colour-literal]. The corpus has no :root row with a non-token colour declaration, so the fix pins nothing that is already quiet.",
+    "fix": "In lintStylesheet's root branch, check a declaration that is not a custom property before the `continue`. Unless the property is color-scheme, run `literalIn(d.value, false)` and add colour-literal for each literal it finds. Add these rows to stylesheet_corpus.json, class colour-literals, with the prelude:\n- must fire: `:root { background-color: white; }` and `:root { color: #000000; }`;\n- must stay quiet: `:root { color-scheme: light dark; text-size-adjust: 100%; }`.",
+    "class_of": "colour literal spellings outside the token table",
+    "threat": "accident",
+    "quote": {
+     "path": "internal/server/stylesheet_test.go",
+     "line": 234,
+     "text": "if !strings.HasPrefix(prop, \"--\") {"
+    },
+    "repro": {
+     "path": "internal/server/stylesheet_root_literal_test.go",
+     "body": "package server\n\nimport \"testing\"\n\n// A colour written on :root itself, not as a token, paints the page and stays the\n// same when the scheme flips: it is a colour outside the token table like any other.\nfunc TestLintRefusesAColourLiteralOnRoot(t *testing.T) {\n\tfor _, css := range []string{\n\t\t\":root { background-color: white; }\",\n\t\t\":root { color: #000000; }\",\n\t} {\n\t\tif got := lintStylesheet(corpusPrelude + css); len(got) == 0 {\n\t\t\tt.Errorf(\"lintStylesheet says nothing about %q\", css)\n\t\t}\n\t}\n}\n",
+     "command": "go test -count=1 -run ^TestLintRefusesAColourLiteralOnRoot$ ./internal/server/"
+    }
+   },
+   {
+    "id": "IN-m3",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "claim": "At a 320 CSS px phone width the admin pages scroll sideways: /admin reaches scrollWidth 331, and /admin/reports/<slug> reaches 323 for both the published report and the draft. `.admin > main` is a flex item whose min-width stays auto, so it cannot shrink below its min-content. On /admin that is the reports table: the nowrap status pill plus `thead th { overflow-wrap: normal }` give about 299 px against a 288 px content box. On /admin/reports/<slug> it is the file input's intrinsic width inside the 16 px-padded upload card. The brief's bar is 375, and every screen fits at 340, 360 and 375. But the look designs a 320 px phone state for this very sidebar ('below 20rem of nav width (a 320px phone) they stack'), and the page under that sidebar is the part that overflows.",
+    "file": "internal/server/static/site.css",
+    "line": 191,
+    "evidence": "Overlay test on seedLook, headless.Open at Viewport(320, 800, mobile) in light, probe.js look(). The only element past 320 was `main`, at w=331 on /admin and w=323 on /admin/reports/x and /admin/reports/draft. Blocked users, the reader report (reader and owner), All reports and the Not allowed page read scrollWidth 320. At 340 and 360 every one of those states read scrollWidth equal to the width asked for.",
+    "fix": "TestThreadFitsPhoneWidth fatals on min-width for a main selector, so do not put `min-width: 0` on `.admin > main`; make its children shrink instead:\n- let the header cells wrap, with `thead th { overflow-wrap: anywhere; }`, or drop `white-space: nowrap` from `.pill`;\n- give the file input `width: 100%; min-width: 0;` in `form[action='/admin/reports']`.\nThen add a 320 px mobile pass over the admin states in TestEveryScreenIsDesigned.",
+    "quote": {
+     "path": "internal/server/static/site.css",
+     "line": 191,
+     "text": ".admin > main { flex: 999 1 40rem; max-width: none; margin: 0; padding-top: 2rem; }"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/server/look_test.go:425-458 loops both schemes with Emulation.setEmulatedMedia. Lines 480-485 assert that html's background differs between schemes. Re-run: PASS."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "probe.js:74-79 on mobile compares scrollWidth with the requested width and requires innerWidth == width. look_test seeds report x (64-hex SHA), /admin (5-column table, file input) and a 39-character reader login. TestLookProbeSeesTheStylesheetBeforeTheDesign reads 600/600 at 375 and flags fit."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "look_test.go:436-441 opens every details element and re-measures. probe.js:127-150 role-checks the .remove and .block confirms and the summaries. The run counted confirm in .remove 176 and in .block 104."
+   },
+   {
+    "key": "O-004",
+    "discharged": "no",
+    "evidence": "look_test.go:448-455 does screenshot and Count the owner states. But `shoot` captures only the 900 px viewport. With pure-red danger tokens planted, the owner's /reports/x, /admin/reports/x and the draft page read 0 red pixels, and only /admin/blocked reads them (see m2). The owner-only controls this case is about are never in the picture on three of the four screens."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "branch_test.go:513-540 (TestStaticThreadScript) covers the found home, report, branch and empty home. probe.js:68-69 checks the script count per state. base.html gates the tag on .ThreadScript, and reader.go answers readerData.ThreadScript with HasReport."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "probe.js:254-268 checks #feedback-sent is drawn only when the hash targets it, and re-hides each button.toggle. look_test.go:173-188 reaches the fragment through about:blank. site.css:59 holds the [hidden]:not(:target) guard."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "phone_test TestThreadFitsPhoneWidth passes. The look_test.go:460-478 360 px pass runs on the report and branch pages. probe.js:178-189 requires a body at depth 5 of at least 240 px and counts atCap, and look_test.go:417-421 fails when no body sits at the cap. The chain is 2*cap+2 levels."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "Re-run of TestReportFrameKeepsItsOwnCanvas: frame-a light shows #ffffff in the frame and #ffffff alone. Note: the site around it is #ffffff too, so this case can no longer tell Canvas from --bg. My overlay probe with the Canvas line removed still passes, which the builder declared."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "Re-run: frame-b dark shows #204060 in the frame and #204060 alone. site.css sets color-scheme only on :root, and the lint refuses it anywhere else."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "Re-run: frame-c shows #ffffff in light and #121212 in dark, equal to the report alone. With Canvas removed, dark reads #131416 against #121212, within the ±8 tolerance, so the result does not depend on the Canvas line."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "internal/auth/forbidden_test.go executes forbiddenPage for '' and 'octo<b>&cat'. It asserts the title, one site.css link, the brand-only header, the escaped login, Sign out only with a login, no data-hband-admin and no script."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "look_test.go:177-185 uses refuseUpload (noValidate, slug 'Bad Slug!'), then tab.Submit, then asserts p.error[role=alert]. devtools.go Submit drains loads, evals and waits on loads with the Navigate timeout and closed cases."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "stylesheet_test.go: lintStylesheet plus the pair table and the used-token-in-a-row check, run on the real site.css. TestStylesheetCorpus plants undefined var, literals, color-scheme and signal-near tokens. Gaps: no planted pair below the bar (m3), and ordinary :root properties escape the literal check (m1)."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "internal/layout/layout_test.go: shellProblems walks every templates folder under internal/, and TestEveryPageTakesTheShell requires at least 7 pages. TestShellCheckerSeesEachFault plants a missing page-start, a missing page-end, two page-ends and a nested package folder."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "TestReportFrameKeepsItsOwnCanvas output: every matched-scheme case (A/B/C light, C dark) equals the report opened alone, and B's own dark rule still paints #204060. Caveat: with --bg #ffffff/#131416 the same results hold without the Canvas line (overlay probe), so the measurement holds but does not single Canvas out. This is owed to validate."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "The browser pass measures every visible text and control on 20 states in both schemes (6232 texts, lowest 5.78:1), plus forced hover and focus on 6 states. The static rows cover the selection, notice, pill and hover pairs I traced in site.css. This is owed to validate."
+   },
+   {
+    "key": "O-017",
+    "discharged": "cannot-tell",
+    "evidence": "Only Chrome is driven on this machine (CHROME_BIN). Firefox and Safari are not measurable here, and the slice owes this to validate."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "probe.js:73-79 compares with the requested width and innerWidth on mobile, and with clientWidth on desktop. TestLookProbeSeesTheStylesheetBeforeTheDesign logs 600/600 and asserts > 375 with a fit violation, pinning no number."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "probe.js:86-123 judges painted properties only (link colour, control fill, edge and radius, summary colour or display, cell colour, fill or bottom edge). bare.html is the browser's own look. The pre-slice stylesheet is flagged on link, button, textarea, th, td, text and select (look_test.go:546)."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "look_test.go:173-188 visits every state through about:blank. devtools.go adds Tab.Submit, and devtools_test.go TestTabSubmitWaitsForTheRedirectedPage covers it."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "probe.js:178-189 takes depth as 1 + the number of .replies ancestors and requires at least 240 px. look_test.go:417-421 requires atCap of at least 1 on capped mobile passes. The branch page comes from the report page's own continue link (look_test.go:101-106)."
+   },
+   {
+    "key": "O-022",
+    "discharged": "no",
+    "evidence": "The family is mostly closed by literalIn and the corpus, but a member gets through. An ordinary property on a `:root` rule skips the literal check (stylesheet_test.go:233-236), and lintStylesheet returns [] for `:root { color: black }`. See m1, with a failing repro and the corpus rows to add."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "stylesheet_test.go:170-171 and 227-229: frameReachRE (filter, backdrop-filter, mix-blend-mode, opacity, mask, mask-*, clip-path) is checked after vendorRE strips prefixes, on every rule including :root (the check runs before the root branch)."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "Every edge in site.css is a literal width and style followed by a *-color longhand (for example lines 82, 120, 166 and 222). `:focus-visible { outline: 2px solid; outline-color: var(--focus) }` is at line 74. The lint's edge-var-shorthand and edge-order checks are at stylesheet_test.go:260-272."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "look_test.go:221-257 forces hover, then focus-visible, through CSS.forcePseudoState on 6 states per scheme and re-runs contrast. probe.js:238-250 requires a 3:1 ring. The pair table has the prescribed hover and focus rows."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "layout_test.go: scriptRE is (?i)<script, the walk covers every templates folder at any depth, and base.html needs exactly one script and the exact gated threadTag substring once. The plants cover upper case, mixed case, a second tag, an ungated tag and a nested folder."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "look_test.go:425-458 runs every state under emulated dark at 1280 and 375. probe.js checks defaults, roles and contrast against the dark tokens, and lines 480-485 compare html's background across schemes."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "seedLook uploads report x (64-hex SHA in the dd) and the /admin table. The upload form has the file input, and the reader login is 39 characters (in the reader-page header and in admin bylines). The 375 mobile pass checks scrollWidth and innerWidth against 375."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "look_test.go:436-441 opens every details element on the owner report (Remove), the admin report (Remove and Block), the populated /admin/blocked (troll, blocked) and the reader branch (Reply at the cap), then runs the role and contrast checks."
+   },
+   {
+    "key": "C-004",
+    "exercised": "no",
+    "evidence": "The owner states are screenshotted, but only the 900 px viewport. On /reports/x every owner-only control starts at 1888 px. My probe with pure-red danger tokens read 0 pixels on /reports/x, /admin/reports/x and the draft page, and only /admin/blocked saw them (m2)."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "branch_test.go TestStaticThreadScript serves an empty harness's / and asserts no <script, alongside the found home, report and branch pages, each with exactly one tag."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "The look test reaches the 'reader report after sending feedback' state (/reports/x#feedback-sent) through about:blank. probe.js (f) compares drawn with location.hash and re-hides each button.toggle."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "TestThreadFitsPhoneWidth models level 5 at 360 (244 px). The look test's 360 pass measures real body widths at depth 5 on the report and branch pages, with atCap required."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "frame_test.go uploads frame-a (no background, no scheme), runs it under light and compares the frame with /raw alone (#ffffff = #ffffff). The site's light --bg is #ffffff, so this case no longer separates Canvas from the surface showing through, but the behaviour is fed and checked."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "frame-b carries @media (prefers-color-scheme: dark) html {background:#204060}. Under dark the frame and the report alone both read #204060."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "frame-c sets :root color-scheme light dark and no background. Both schemes are run: #ffffff light, #121212 dark, equal to the report alone."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "internal/auth/forbidden_test.go executes forbiddenPage with Login '' and 'octo<b>&cat', and checks escaping, title, header, no marker and no script."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "look_test.go refuseUpload sets noValidate with slug 'Bad Slug!' and calls f.submit() via tab.Submit from real Chrome on /admin. It asserts p.error[role=alert] and probes the answer at both widths and both schemes."
+   },
+   {
+    "key": "C-013",
+    "exercised": "no",
+    "evidence": "The named check, TestStylesheetTokens, reads only the real site.css. The sibling TestStylesheetCorpus plants undefined var, literals, color-scheme off :root and signal-near tokens into lintStylesheet. No test plants 'a declared pair below 4.5 or 3.0' (m3)."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "TestEveryPageTakesTheShell holds the real tree. Its sibling TestShellCheckerSeesEachFault (same file) feeds a page with no page-start, text before it, no page-end, two page-ends and a nested package's templates folder."
+   }
+  ],
+  "drift": [
+   "site.css does not mute the help paragraphs of the Upload and Replace sections. The look says the Upload a report section is 'an admin h2, the muted help, and the upload form' and that Replace has 'muted help and the upload form card'. internal/server/static/site.css:255 (`.upload > p, .upload > form, form[action='/admin/reports'] { max-width: 44rem; }`) sets only a width, so admin.html's 'One self-contained .html file…' paragraph and admin_report.html's 'Uploading under this slug…' paragraph render in --text at body size. Only the code hint inside the form is muted (line 261)."
+  ],
+  "matches_design": true,
+  "unreviewed": [
+   "internal/server/testdata/stylesheet_corpus.json: searched for :root rows only, not read whole. My judgment of it rests on TestStylesheetCorpus passing and on the rows I saw.",
+   "internal/testutil/headless/devtools.go: read only the changed hunk (drainLoads, Submit, Navigate), not the whole file.",
+   "internal/fitnessrules/testdata/rule_spellings.json: read only the first 60 lines of the slice's diff (the bounded_by entry and the new shell, layout and frame-restyle rows), not the whole file."
+  ],
+  "second_round": {
+   "run_id": 12467,
+   "filed": 3,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 12468,
+   "session": "2e925e2e-18e4-45ea-a8f4-cada0958e314",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/server/testdata/look/bare.html",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       14
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      14
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/testdata/look/site.before.css",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       48
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      48
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/testdata/stylesheet_corpus.json",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       117
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      117
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 3,
+   "named": [
+    ".taad/look.json"
+   ],
+   "before": {
+    "read_whole": 12,
+    "changed": 29,
+    "listed": 17
+   },
+   "filed": 0,
+   "read_after": 3,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 29,
+   "read_whole": 15,
+   "deleted": [],
+   "runs": [
+    12466,
+    12467,
+    12468
+   ],
+   "range": {
+    "base": "eb0a578270057e3e2c9cc90f04372c6e939f1da9",
+    "head": "662548f7acf9e867d90e20da49b0947b5aa12c4f",
+    "source": "commits",
+    "hunk_base": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".taad/look.json",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 761,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        761
+       ],
+       "unseen": [
+        [
+         1,
+         761
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 761,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "partly-opened",
+     "section": "lines 1-626 of 626",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 626,
+     "hunks": []
+    },
+    {
+     "path": "internal/auth/forbidden_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-58 of 58",
+     "reason": "seen only through a shell command: foreach, git diff",
+     "size_lines": 58,
+     "hunks": []
+    },
+    {
+     "path": "internal/auth/owner.go",
+     "state": "partly-opened",
+     "section": "lines 1-128 of 128",
+     "reason": "seen only through a shell command: foreach, git diff",
+     "size_lines": 128,
+     "hunks": []
+    },
+    {
+     "path": "internal/auth/templates/forbidden.html",
+     "state": "partly-opened",
+     "section": "lines 1-11 of 11",
+     "reason": "seen only as 2 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 11,
+     "hunks": []
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "partly-opened",
+     "section": "lines 1-736 of 736",
+     "reason": "seen only through a shell command: git diff",
+     "size_lines": 736,
+     "hunks": []
+    },
+    {
+     "path": "internal/layout/layout.go",
+     "state": "partly-opened",
+     "section": "lines 1-16 of 16",
+     "reason": "seen only through a shell command: foreach, git diff",
+     "size_lines": 16,
+     "hunks": []
+    },
+    {
+     "path": "internal/layout/templates/base.html",
+     "state": "partly-opened",
+     "section": "lines 1-17 of 17",
+     "reason": "seen only as 2 Grep lines; seen only through a shell command: $s, git diff",
+     "size_lines": 17,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-1195 of 1195",
+     "reason": "seen only as 2 Grep lines; seen only through a shell command: foreach, git diff",
+     "size_lines": 1195,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader.go",
+     "state": "partly-opened",
+     "section": "lines 1-374 of 374",
+     "reason": "seen only as 7 Grep lines; seen only through a shell command: foreach, git diff",
+     "size_lines": 374,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/router.go",
+     "state": "partly-opened",
+     "section": "lines 1-196 of 196",
+     "reason": "seen only as 2 Grep lines; seen only through a shell command: foreach, git diff",
+     "size_lines": 196,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/templates/branch.html",
+     "state": "partly-opened",
+     "section": "lines 1-8 of 8",
+     "reason": "seen only as 2 Grep lines; seen only through a shell command: git diff",
+     "size_lines": 8,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/headless/devtools.go",
+     "state": "partly-opened",
+     "section": "lines 1-342 of 342",
+     "reason": "seen only as 35 Grep lines; seen only through a shell command: foreach, git diff",
+     "size_lines": 342,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/headless/devtools_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-251 of 251",
+     "reason": "seen only through a shell command: foreach, git diff",
+     "size_lines": 251,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

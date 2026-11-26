@@ -1,0 +1,17 @@
+{{define "head"}}<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}</title>
+<link rel="stylesheet" href="/static/site.css">{{end}}
+
+{{define "page-start"}}<!doctype html>
+<html lang="en">
+<head>
+{{template "head" .}}
+{{if .ThreadScript}}<script src="/static/thread.js" defer></script>
+{{end}}</head>
+<body>
+{{template "header" .}}
+{{end}}
+
+{{define "page-end"}}</body>
+</html>{{end}}

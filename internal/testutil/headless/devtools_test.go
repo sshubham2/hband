@@ -220,3 +220,32 @@ func TestTabEmulatesNarrowViewport(t *testing.T) {
 		t.Fatalf("after two clicks: %v", read())
 	}
 }
+
+// Submit starts a form POST whose answer is a redirect, and returns when the page
+// it lands on has loaded, with the fragment the redirect named: the document is a
+// new one, so a load event fires, and the page can be read straight away.
+func TestTabSubmitWaitsForTheRedirectedPage(t *testing.T) {
+	tab := Open(t)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/form", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`<!doctype html><form id="f" method="post" action="/send"><input name="x" value="1"></form>`))
+	})
+	mux.HandleFunc("/send", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/done#sent", http.StatusSeeOther)
+	})
+	mux.HandleFunc("/done", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`<!doctype html><p id="done">landed</p>`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	tab.Navigate(srv.URL + "/form")
+	tab.Submit(`document.getElementById("f").submit()`)
+	var got [2]string
+	tab.Eval(`[location.pathname + location.hash, document.getElementById("done") ? document.getElementById("done").textContent : ""]`, &got)
+	if got != [2]string{"/done#sent", "landed"} {
+		t.Fatalf("after Submit the page is %q, want /done#sent with the landed paragraph", got)
+	}
+}

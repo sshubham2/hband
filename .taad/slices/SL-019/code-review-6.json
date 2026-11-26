@@ -1,0 +1,368 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "code-review",
+ "attempt": 6,
+ "at": "2026-11-26T11:50:11.680Z",
+ "head": "eda347d2670644ed74e8d74332336a247bd452bc",
+ "run_id": 12494,
+ "summary": "I re-checked the one fix batch (571ae37..1d691a8). Both defects on the card are fixed.\n\n**O-037 (picked id under the id-shape switches)**\n- internal/testutil/fakegithub/fakegithub.go:313 is now `fmt.Sprintf(\"%q\", fmt.Sprint(user.ID))` and line 315 is now `fmt.Sprintf(\"%d.0\", user.ID)`. `user` is the picked account when there is one (lines 299-302), otherwise SetUser's account. Behaviour without choices is therefore unchanged: internal/server/signin_test.go:231-232 still passes in a full internal/server run.\n- The engine's TestPickedUserKeepsItsIDUnderIDShapeSwitches is in the tree as given and passes, both subtests.\n\n**O-038 (the Program run() returns)**\n- internal/testutil/seeded/main.go:232 now sets `final.Fake = fake`, so p.Fake.URL() is the stand-in the serving program redirects sign-in to.\n- program.Start's own fake is still closed by its own cleanup, which captured the local variable. Nothing leaks.\n- The new doc comment at main.go:180-184 is accurate. With choices offered, Approve stops on the picker's 200 page, and SignIn and Owner then fatal for want of a session cookie, so none of them signs anyone in.\n- The engine's TestRunReturnsTheStandInItsProgramUses is in the tree as given and passes.\n\n**Following what the fix reaches**\n- The only other p.Fake users are tests/acceptance/e003_1 and e004_2, internal/testutil/program/visitor.go and internal/server/harness_test.go. None of them gets its Program from run(), and their packages pass.\n- The comment at main.go:210-216 (\"program.Start's own stand-in ... is never asked\") is still true.\n- Two stale comments remain, both already waived as notes and not filed again: checkStandIn's doc and messages at main.go:237-250, which still say \"staging\" (N-324), and userFor's comment, which still names a parameter q (N-323).\n\n**What I ran**\n- `go vet` on fakegithub and seeded is clean.\n- The two engine tests, TestOfferChoicesMakesTheAuthorizePageAPicker and TestSeededProductOffersTheOwnerAndTheReader all pass.\n- `go test -count=1` passes for ./internal/testutil/..., ./internal/server/, tests/acceptance/e003_1_sign_in_and_vote and e004_2_deep_threads_and_toggle.\n- gofmt -l on the committed blobs of the four changed Go files is clean.\n\n**Earlier measurements** No product file changed, so these from my earlier reads at 571ae37 still stand: the full suite exits 0 and Fitness holds all 45 rules.\n\nNothing new to file.\n\nSecond round: Second, adversarial pass over the fix batch (571ae37..1d691a8) turned up nothing new. The batch adds no parser, regex or reader; it is two format lines in fakegithub.userInfo and one assignment in seeded.run().\n\n**userInfo (fakegithub.go:299-322).** `user` is either SetUser's account or a copy of the picked one, stored per token at accessToken:280.\n- With UserIDString, UserIDFloat, UserIDZero, UserEmptyLogin and UserMissingID each set, both the picked path and the SetUser path now answer for the same account.\n- With no choices offered, the output is byte-for-byte what it was. internal/server/signin_test.go:231-232 passes.\n\n**Locking.** authorize (picker included), accessToken and userInfo each hold f.mu for their whole body, and OfferChoices and SetUser take the same lock. No check is made, released and then retaken.\n\n**run() (main.go:228-234).**\n- final.Fake is set before run returns, and no goroutine in internal/testutil/program reads Program.Fake after Start, so the assignment cannot race.\n- program.Start's own stand-in is still closed by the cleanup that captured it, so repointing Fake leaks nothing.\n- No other caller takes its Program from run(). e003_1, e004_2, visitor.go and harness_test.go use their own Programs or fakes, and their packages pass.\n\n**Tests run.**\n- The engine's two tests pass.\n- TestOfferChoicesMakesTheAuthorizePageAPicker and TestSeededProductOffersTheOwnerAndTheReader pass.\n- `go test -count=1` is ok for ./internal/testutil/..., ./internal/server/, e003_1 and e004_2.\n- gofmt and vet are clean.\n\nThe two stale comments already filed (N-323 and N-324) are unchanged and not filed again.",
+ "payload": {
+  "status": "complete",
+  "verdict": "clean",
+  "matches_design": true,
+  "summary": "I re-checked the one fix batch (571ae37..1d691a8). Both defects on the card are fixed.\n\n**O-037 (picked id under the id-shape switches)**\n- internal/testutil/fakegithub/fakegithub.go:313 is now `fmt.Sprintf(\"%q\", fmt.Sprint(user.ID))` and line 315 is now `fmt.Sprintf(\"%d.0\", user.ID)`. `user` is the picked account when there is one (lines 299-302), otherwise SetUser's account. Behaviour without choices is therefore unchanged: internal/server/signin_test.go:231-232 still passes in a full internal/server run.\n- The engine's TestPickedUserKeepsItsIDUnderIDShapeSwitches is in the tree as given and passes, both subtests.\n\n**O-038 (the Program run() returns)**\n- internal/testutil/seeded/main.go:232 now sets `final.Fake = fake`, so p.Fake.URL() is the stand-in the serving program redirects sign-in to.\n- program.Start's own fake is still closed by its own cleanup, which captured the local variable. Nothing leaks.\n- The new doc comment at main.go:180-184 is accurate. With choices offered, Approve stops on the picker's 200 page, and SignIn and Owner then fatal for want of a session cookie, so none of them signs anyone in.\n- The engine's TestRunReturnsTheStandInItsProgramUses is in the tree as given and passes.\n\n**Following what the fix reaches**\n- The only other p.Fake users are tests/acceptance/e003_1 and e004_2, internal/testutil/program/visitor.go and internal/server/harness_test.go. None of them gets its Program from run(), and their packages pass.\n- The comment at main.go:210-216 (\"program.Start's own stand-in ... is never asked\") is still true.\n- Two stale comments remain, both already waived as notes and not filed again: checkStandIn's doc and messages at main.go:237-250, which still say \"staging\" (N-324), and userFor's comment, which still names a parameter q (N-323).\n\n**What I ran**\n- `go vet` on fakegithub and seeded is clean.\n- The two engine tests, TestOfferChoicesMakesTheAuthorizePageAPicker and TestSeededProductOffersTheOwnerAndTheReader all pass.\n- `go test -count=1` passes for ./internal/testutil/..., ./internal/server/, tests/acceptance/e003_1_sign_in_and_vote and e004_2_deep_threads_and_toggle.\n- gofmt -l on the committed blobs of the four changed Go files is clean.\n\n**Earlier measurements** No product file changed, so these from my earlier reads at 571ae37 still stand: the full suite exits 0 and Fitness holds all 45 rules.\n\nNothing new to file.\n\nSecond round: Second, adversarial pass over the fix batch (571ae37..1d691a8) turned up nothing new. The batch adds no parser, regex or reader; it is two format lines in fakegithub.userInfo and one assignment in seeded.run().\n\n**userInfo (fakegithub.go:299-322).** `user` is either SetUser's account or a copy of the picked one, stored per token at accessToken:280.\n- With UserIDString, UserIDFloat, UserIDZero, UserEmptyLogin and UserMissingID each set, both the picked path and the SetUser path now answer for the same account.\n- With no choices offered, the output is byte-for-byte what it was. internal/server/signin_test.go:231-232 passes.\n\n**Locking.** authorize (picker included), accessToken and userInfo each hold f.mu for their whole body, and OfferChoices and SetUser take the same lock. No check is made, released and then retaken.\n\n**run() (main.go:228-234).**\n- final.Fake is set before run returns, and no goroutine in internal/testutil/program reads Program.Fake after Start, so the assignment cannot race.\n- program.Start's own stand-in is still closed by the cleanup that captured it, so repointing Fake leaks nothing.\n- No other caller takes its Program from run(). e003_1, e004_2, visitor.go and harness_test.go use their own Programs or fakes, and their packages pass.\n\n**Tests run.**\n- The engine's two tests pass.\n- TestOfferChoicesMakesTheAuthorizePageAPicker and TestSeededProductOffersTheOwnerAndTheReader pass.\n- `go test -count=1` is ok for ./internal/testutil/..., ./internal/server/, e003_1 and e004_2.\n- gofmt and vet are clean.\n\nThe two stale comments already filed (N-323 and N-324) are unchanged and not filed again.",
+  "findings": [],
+  "obligations": [
+   {
+    "key": "O-037",
+    "discharged": "yes",
+    "evidence": "internal/testutil/fakegithub/fakegithub.go:313 `id = fmt.Sprintf(\"%q\", fmt.Sprint(user.ID))` and :315 `id = fmt.Sprintf(\"%d.0\", user.ID)`. internal/testutil/fakegithub/picked_id_shape_test.go is the engine's test verbatim. `go test -count=1 -run ^TestPickedUserKeepsItsIDUnderIDShapeSwitches$ ./internal/testutil/fakegithub/` passes (string and float)."
+   },
+   {
+    "key": "O-038",
+    "discharged": "yes",
+    "evidence": "internal/testutil/seeded/main.go:232 `final.Fake = fake`, and the doc at :180-184 says SignIn, Owner and Approve do not sign anyone in against the picker. internal/testutil/seeded/run_fake_test.go is the engine's test verbatim and passes."
+   },
+   {
+    "key": "O-033",
+    "discharged": "yes",
+    "evidence": "The same defect as O-038, closed by the same change: main.go:232 repoints Fake, and the doc at main.go:180-184 warns that the Program's SignIn, Owner and Approve cannot sign in against the picker."
+   },
+   {
+    "key": "O-034",
+    "discharged": "yes",
+    "evidence": "The same defect as O-037, closed at fakegithub.go:313 and :315."
+   },
+   {
+    "key": "O-035",
+    "discharged": "no",
+    "evidence": "Waived to N-323. internal/testutil/fakegithub/fakegithub_test.go:181 still says 'for the authorize request q', while the parameter is authorizeURL. This batch did not touch it."
+   },
+   {
+    "key": "O-036",
+    "discharged": "no",
+    "evidence": "Waived to N-324. internal/testutil/seeded/main.go:237-250: checkStandIn's doc and both messages still name only 'the staging stand-in', although main.go:219 also calls it for the serving stand-in."
+   },
+   {
+    "key": "O-017",
+    "discharged": "no",
+    "evidence": "Open and owed to validate-slice. Only CHROME_BIN Chrome is driven (look_test.go and frame_test.go through headless.Open). Firefox and Safari are not on this machine."
+   },
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/server/look_test.go:524-534 measures every state under setScheme(dark), and lines 586-591 require the html background to differ between schemes. Unchanged by this batch."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "look_test.go:481 adds a 375x812 mobile viewport over /admin, /admin/reports/x and the 39-character login (line 59). The sensitivity row at lines 665-676 requires scrollWidth > 375 on the old stylesheet. Unchanged."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "look_test.go:542-547 runs the details-open pass, and roleSeen (lines 130-133) requires the danger confirms and summaries. Unchanged."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "look_test.go:554-561 runs headless.Count on the owner states in both schemes. The capture is viewport-only, waived as O-028. Unchanged."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "internal/layout/templates/base.html:10 holds the ThreadScript gate, internal/server/reader.go:32 and :88 supply it, and TestStaticThreadScript passed in the internal/server run."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "internal/server/static/site.css:59 and :218. look_test.go:461 opens #feedback-sent through about:blank (visit, lines 175-190)."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "look_test.go:566-584 runs the 360 px pass with a 12-level chain, and lines 516-519 fail when no body sits at the cap. TestThreadFitsPhoneWidth passes."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "internal/server/frame_test.go:44-45 (report A, under light) and site.css:201 (Canvas)."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "frame_test.go:46-47 (report B, under dark). lintStylesheet refuses color-scheme off :root."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "frame_test.go:48-49 (report C, under both schemes)."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "internal/auth/forbidden_test.go:14-57 feeds '' and 'octo<b>&cat'."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "look_test.go:125-126 and 179-187: a noValidate submit through Tab.Submit, then an assertion of p.error[role=alert]."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "internal/server/stylesheet_test.go:185-279 (lintStylesheet), 367-415 (the pair table and coverage) and 438-492 (the corpus). The planted-pair gap is waived as O-029."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "internal/layout/layout_test.go:82-159 (walk and checks) and 163-208 (15 plants)."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "frame_test.go compares the frame with /raw alone for A, B and C in both schemes, with the control at lines 93-98. The substrate is at site.css:201."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "look_test.go measures rendered contrast per state and forces states (forcedPass, lines 223-259). The static pair table is at stylesheet_test.go:336-365."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "look_test.go:665-676 requires a 'fit' violation and scrollWidth > 375 on site.before.css, and pins no number."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "look_test.go:659-663 requires the default-* codes on the pre-slice stylesheet."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "look_test.go:175-190 uses about:blank for every state and Tab.Submit for the POST."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "look_test.go:516-519 (atCap) and minBody 240 (line 211). seedLook builds a 2*cap+2 chain and takes the branch from the report page's continue link."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "stylesheet_test.go:73-139 (named, system and function colour scan) and 26-34 (exact-name nonColourTokens). The :root member is still open as O-027/O-031."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "stylesheet_test.go:170-171 and 227-232 refuse frame-reach properties after stripping vendor prefixes, plus the frame allow-list. The nesting member is still open as O-030."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "site.css writes every edge as a literal shorthand followed by a *-color longhand (for example :74, :223). stylesheet_test.go:260-272 holds the edge-var-shorthand and edge-order checks."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "look_test.go:223-259 calls CSS.forcePseudoState for hover and focus-visible. The pair rows and coverage are at stylesheet_test.go:349-363 and 400-414."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "layout_test.go:73 matches `(?i)<script`, lines 109-119 hold the base.html pin and the other-template refusal, and lines 184-189 plant the faults."
+   },
+   {
+    "key": "O-027",
+    "discharged": "no",
+    "evidence": "Waived to SC-059. stylesheet_test.go:233-236 still skips ordinary :root properties."
+   },
+   {
+    "key": "O-028",
+    "discharged": "no",
+    "evidence": "Waived to N-255. look_test.go:555 still uses viewport-only shoot()."
+   },
+   {
+    "key": "O-029",
+    "discharged": "no",
+    "evidence": "Waived to N-256. No test plants a below-bar pair."
+   },
+   {
+    "key": "O-030",
+    "discharged": "no",
+    "evidence": "Waived to SC-060. cssRuleRE at stylesheet_test.go:50 is still brace-free."
+   },
+   {
+    "key": "O-031",
+    "discharged": "no",
+    "evidence": "Waived to SC-061. This is the same :root skip at stylesheet_test.go:233-236."
+   },
+   {
+    "key": "O-032",
+    "discharged": "no",
+    "evidence": "Waived to N-254. site.css:125 and :136 are unchanged, and there is no 320 px pass."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "look_test.go:524-534: every state is measured under emulated prefers-color-scheme dark. Unchanged by this batch."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "look_test.go:481: a 375 mobile viewport over /admin/reports/x (SHA-256), /admin (table, file input) and the 39-character login."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "look_test.go:542-547 opens every details on the owner report, the admin report, the populated Blocked users page and the capped branch."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "look_test.go:465-470 and 554-561: the owner states are counted for signal pixels in both schemes. The capture is viewport-only (waived O-028)."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "look_test.go:471 (empty home, 0 scripts) beside the found pages with 1. TestStaticThreadScript covers the same."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "look_test.go:461: /reports/x#feedback-sent, and /reports/x without the fragment, both through about:blank."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "look_test.go:566-584: a 360 pass on the branch and reader report with the 12-level chain."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "frame_test.go:44-45: report A under light."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "frame_test.go:46-47: report B with an @media dark background, under dark."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "frame_test.go:48-49: report C with :root color-scheme light dark, under both schemes."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "forbidden_test.go:14 feeds '' and 'octo<b>&cat'."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "look_test.go:125-126 and 179-187: a real Chrome noValidate submit with an invalid slug, then a check that p.error[role=alert] is present."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "TestStylesheetCorpus plants undefined var, literals, color-scheme off :root and signal-near tokens. The below-bar pair is fed only through the real file (waived O-029)."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "layout_test.go:177-191 plants no page-start, text before page-start, no page-end, two page-ends and a nested templates folder."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12495,
+   "filed": 0
+  },
+  "reading_pass": {
+   "state": "none",
+   "why": [],
+   "lens": null,
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": null,
+   "session": null,
+   "resumed": null,
+   "asked": [],
+   "asked_hunks": 0,
+   "named": [],
+   "before": {
+    "read_whole": 0,
+    "changed": 4,
+    "listed": 4
+   },
+   "filed": 0,
+   "read_after": 0,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 4,
+   "read_whole": 0,
+   "deleted": [],
+   "runs": [
+    12488,
+    12490,
+    12493,
+    12494,
+    12495
+   ],
+   "range": {
+    "base": "eb0a578270057e3e2c9cc90f04372c6e939f1da9",
+    "head": "1d691a82851664989e767ae3b8ae129258464233",
+    "source": "commits",
+    "hunk_base": "571ae37ed63a085797030a94f831a088dc640aed",
+    "hunk_base_from": "the earlier review's scope"
+   },
+   "items": [
+    {
+     "path": "internal/testutil/fakegithub/fakegithub.go",
+     "state": "partly-opened",
+     "section": "lines 313, 315 of 323",
+     "reason": "a Read returned only part of it; seen only as 4 Grep lines; seen only through a shell command: $s, $s (before the build), foreach (before the build), git diff (before the build), git log; 3 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 323,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/fakegithub/picked_id_shape_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-70 of 70",
+     "reason": "seen only as 2 Grep lines; seen only through a shell command: $s, git log",
+     "size_lines": 70,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/seeded/main.go",
+     "state": "partly-opened",
+     "section": "lines 250-279, 281-324, 326-358 of 358",
+     "reason": "a Read returned only part of it; seen only as 5 Grep lines (2 before the build); seen only through a shell command: $s, $s (before the build), foreach (before the build), git diff (before the build), git log; 169 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 358,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/seeded/run_fake_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-23 of 23",
+     "reason": "seen only as 3 Grep lines; seen only through a shell command: $s, git log",
+     "size_lines": 23,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

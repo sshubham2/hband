@@ -1,40 +1,32 @@
-<!doctype html>
-<html lang="en">
-<head>
-{{template "head" .}}
-</head>
-<body>
+{{template "page-start" .}}<div class="admin">
+{{template "admin-nav" "reports"}}
 <main data-hband-admin>
-<h1>Admin</h1>
-<p>{{if .Viewer.AvatarURL}}<img class="avatar" src="{{.Viewer.AvatarURL}}" alt="" width="24" height="24"> {{end}}@{{.Viewer.Login}} (owner)</p>
-<form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
-<p><a href="/">Back to the site</a></p>
-<p><a href="/admin/blocked">Blocked users</a></p>
+<div class="page-head"><h1>Reports</h1><a class="primary" href="#upload">Upload a report</a></div>
 
 {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
 
-<h2>Upload a report</h2>
-<p>One self-contained .html file, with images and styles embedded in it. Uploading again under an existing slug replaces that report and keeps its publish date.</p>
-{{template "uploadform" .Form}}
-
-<h2>Reports</h2>
 {{if .Reports}}<table>
 <thead><tr><th>Title</th><th>Slug</th><th>Status</th><th>First published</th><th>Size</th></tr></thead>
 <tbody>
 {{range .Reports}}<tr>
 <td><a href="/admin/reports/{{.Slug}}">{{.Title}}</a></td>
 <td>{{.Slug}}</td>
-<td>{{.Status}}</td>
+<td><span class="pill pill-{{.Status}}">{{.Status}}</span></td>
 <td>{{if .HasPublishDate}}{{.PublishedAt.Format "2006-01-02 15:04 UTC"}}{{else}}never{{end}}</td>
 <td>{{.SizeBytes}} bytes</td>
 </tr>
 {{end}}</tbody>
 </table>
-{{else}}<p>No reports yet.</p>
+{{else}}<p class="empty">No reports yet.</p>
 {{end}}
+<section class="upload" id="upload">
+<h2>Upload a report</h2>
+<p>One self-contained .html file, with images and styles embedded in it. Uploading again under an existing slug replaces that report and keeps its publish date.</p>
+{{template "uploadform" .Form}}
+</section>
 </main>
-</body>
-</html>
+</div>
+{{template "page-end" .}}
 {{define "uploadform"}}<form method="post" action="/admin/reports" enctype="multipart/form-data">
 <p><label>Title <input type="text" name="title" value="{{.Title}}" maxlength="200" required></label></p>
 <p><label>Slug <input type="text" name="slug" value="{{.Slug}}" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></label></p>

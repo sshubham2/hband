@@ -596,3 +596,31 @@ rules:
     must_not_match:
     - 'exec\.(?:Command|CommandContext|LookPath)\((?:[^()\r\n]|\([^()\r\n]*\))*["`](?:[^"`\r\n]*[\\/])?(?i:python[0-9.]*|pythonw|py)(?:\.(?i:exe))?["`]'
     because: 'The owner requires that nothing in the project needs Python to be built or tested. A Go test that runs a Python interpreter through os/exec makes the Go suite need Python again while every file stays .go, which the ls-files check of E-009 line 6 cannot see. The pattern fires on an os/exec Command, CommandContext or LookPath call that names a Python executable as a string literal, allowing one level of nested parentheses before it (a t.Context() argument), a folder in front, a version suffix and any letter case. It is quiet on the current tree, where every exec site names go, git or the built binary. Known holes, named and not chased: the name held in a variable or built by concatenation, a call split across lines, two or more levels of nested parentheses, a Python run line inside a longer shell string, exec.Cmd with a Path field, os.StartProcess, an aliased os/exec import, and a Python tool runner such as pytest or pip.'
+  # settled by SL-019
+  - name: the shared page shell knows nothing of the product
+    files: internal/layout/**/*.go
+    must_not_import:
+    - github.com/sshubham2/hband*
+    because: internal/server and internal/auth both import internal/layout, and auth holds the
+      owner gate. A product import here risks an import cycle and puts server knowledge into
+      the gate's 403 page. TestRulesHoldOnTheTree skips must_not_import on files that open with
+      a doc comment (#931), so the engine's Fitness check is the guard of record.
+  - name: no page template carries its own document shell or inline style
+    files: internal/**/templates/**
+    must_not_match:
+    - (?i)<(!doctype|html|head|body|meta|link|style)\b
+    - (?i)\sstyle\s*=
+    because: A page with its own head drifts from the one stylesheet link, the title shape and
+      the script gate. siteCSP's style-src 'self' silently drops a style attribute or block,
+      so that element stays at the browser default with no error anywhere.
+    except_files:
+    - internal/layout/templates/base.html
+  - name: the site never restyles the report frame's colours or scheme
+    files: internal/server/static/site.css
+    must_not_match:
+    - '(?i)(iframe|\.report-frame)[^{}]*\{[^{}]*\b(color-scheme|filter|mix-blend-mode|opacity)\s*:'
+    because: Spike report-frame-canvas-under-site-surface (V2) measured that color-scheme on
+      the frame element changes the report's own prefers-color-scheme, and filter, opacity or
+      blend repaint the report's pixels. Either makes site styling reach into the report, which
+      the isolation constraint forbids. color-scheme on an ancestor below :root is refused by
+      TestStylesheetTokens.

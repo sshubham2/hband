@@ -1,48 +1,288 @@
 :root { color-scheme: light dark; }
-body { font-family: system-ui, sans-serif; line-height: 1.5; margin: 0; }
-main { max-width: 48rem; margin: 0 auto; padding: 1rem; }
-.site-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem 1rem; border-bottom: 1px solid #8884; }
-.site-header nav { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+/* The design system. Colours, type, space and shape are tokens in this one block; a colour is light-dark(#light, #dark), so the visitor's own light or dark setting picks it. Warm paper and soft ink, one deep pine accent for what can be pressed, a serif for what is read and a system sans for what is used. Every rule below reads colour only through var(--...). TestStylesheetTokens holds this file to that. */
+:root {
+  --bg: light-dark(#faf8f4, #171513);
+  --surface: light-dark(#ffffff, #201e1b);
+  --surface-2: light-dark(#f1ede5, #2b2925);
+  --text: light-dark(#1f1c18, #ece7de);
+  --text-muted: light-dark(#6a645b, #a8a196);
+  --border: light-dark(#8a8378, #7f786d);
+  --divider: light-dark(#e6e1d7, #34312c);
+  --thread: light-dark(#d3cdc1, #4d4942);
+  --link: light-dark(#1e6b5c, #7cc4b0);
+  --accent: light-dark(#1e6b5c, #7cc4b0);
+  --accent-hover: light-dark(#16544a, #9bd6c5);
+  --on-accent: light-dark(#ffffff, #0f1f1a);
+  --accent-soft: light-dark(#e3efea, #1c2e29);
+  --danger: light-dark(#b42318, #ffa198);
+  --danger-hover: light-dark(#8f1c12, #ffc2ba);
+  --on-danger: light-dark(#ffffff, #3d0c07);
+  --danger-soft: light-dark(#fbeae7, #3b1e1a);
+  --ok: light-dark(#17663a, #86d3a2);
+  --ok-soft: light-dark(#e7f2ea, #17301f);
+  --warning: light-dark(#8a5300, #f0c06a);
+  --warning-soft: light-dark(#fcf1dc, #33290f);
+  --focus: light-dark(#1e6b5c, #7cc4b0);
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --font-serif: Charter, 'Bitstream Charter', 'Sitka Text', 'Iowan Old Style', Georgia, Cambria, serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, Menlo, 'Liberation Mono', monospace;
+  --text-xs: .75rem;
+  --text-sm: .875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: clamp(1.375rem, 1.2rem + .6vw, 1.625rem);
+  --text-3xl: clamp(1.75rem, 1.5rem + 1vw, 2.25rem);
+  --text-display: clamp(2.25rem, 1.5rem + 3.2vw, 3.5rem);
+  --leading: 1.55;
+  --leading-tight: 1.25;
+  --leading-display: 1.12;
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-section: clamp(3rem, 2.25rem + 2.5vw, 4rem);
+  --space-head: clamp(2rem, 1.5rem + 1.5vw, 3rem);
+  --panel-pad: clamp(1rem, .5rem + 1.5vw, 1.5rem);
+  --radius-sm: .5rem;
+  --radius: .75rem;
+  --radius-pill: 999px;
+  --control-h: 2.5rem;
+  --disclosure-h: 2rem;
+}
+
+/* Hidden states stay hidden until the one thing that reveals them: the script drops the attribute, or the fragment targets the element. */
+[hidden]:not(:target) { display: none !important; }
+
+/* Element baseline. No font-size on html, body, main, section, article or the thread boxes: the thread model reads their widths. */
+*, *::before, *::after { box-sizing: border-box; }
+html { background-color: var(--bg); color: var(--text); accent-color: var(--accent); text-size-adjust: 100%; }
+body { margin: 0; font-family: var(--font-sans); line-height: var(--leading); overflow-wrap: anywhere; }
+h1, h2, h3 { color: var(--text); text-wrap: balance; }
+h1 { margin: 0 0 var(--space-4); font-family: var(--font-serif); font-size: var(--text-3xl); font-weight: 600; letter-spacing: -0.01em; line-height: var(--leading-tight); }
+h2 { margin: 2.5rem 0 var(--space-4); font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.01em; line-height: var(--leading-tight); }
+h3 { margin: var(--space-5) 0 var(--space-2); font-size: var(--text-lg); font-weight: 600; line-height: var(--leading-tight); }
+p { margin: var(--space-3) 0; }
+ul, ol { padding-left: var(--space-5); }
+:where(a) { color: var(--link); text-decoration-line: underline; text-decoration-thickness: 1px; text-underline-offset: .2em; }
+:where(a:hover) { text-decoration-thickness: 2px; }
+:where(a:active) { color: var(--accent-hover); }
+:focus-visible { outline: 2px solid; outline-color: var(--focus); outline-offset: 2px; }
+::selection { background-color: var(--accent-soft); color: var(--text); }
+time { color: var(--text-muted); }
+code { font-family: var(--font-mono); font-size: .875em; padding: .0625rem .3125rem; border-radius: var(--radius-sm); background-color: var(--surface-2); color: var(--text); }
+pre { font-family: var(--font-mono); font-size: var(--text-sm); padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); background-color: var(--surface-2); color: var(--text); overflow-x: auto; }
+
+/* Controls. A colour reaches an edge only through a border-color longhand, after a literal width and style, so an engine that cannot resolve a token still draws an edge. */
+:where(button, input, select, textarea) { font-family: var(--font-sans); font-size: var(--text-md); font-weight: 400; line-height: var(--leading-tight); color: var(--text); }
+:where(button) { min-height: var(--control-h); padding: 0 1.125rem; border: 1px solid; border-color: var(--border); border-radius: var(--radius-pill); background-color: var(--surface); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+:where(button:hover) { background-color: var(--surface-2); }
+:where(button:active) { border-color: var(--text-muted); transform: translateY(1px); }
+:where(button:disabled) { background-color: var(--surface-2); color: var(--text-muted); border-color: var(--divider); cursor: not-allowed; transform: none; }
+:where(input[type=text], input:not([type]), select, textarea) { min-height: var(--control-h); max-width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid; border-color: var(--border); border-radius: var(--radius-sm); background-color: var(--surface); }
+:where(textarea) { min-height: 6rem; padding: var(--space-3) .875rem; line-height: var(--leading); resize: vertical; }
+:where(input[type=text]:hover, input:not([type]):hover, select:hover, textarea:hover) { border-color: var(--text-muted); }
+:where(input[type=text]:focus-visible, input:not([type]):focus-visible, select:focus-visible, textarea:focus-visible) { border-color: var(--focus); }
+:where(input[type=text]:user-invalid, input:not([type]):user-invalid, select:user-invalid, textarea:user-invalid) { border-color: var(--danger); }
+:where(input[type=text]:disabled, input:not([type]):disabled, select:disabled, textarea:disabled) { background-color: var(--surface-2); color: var(--text-muted); border-color: var(--divider); }
+input[type=file] { max-width: 100%; font-size: var(--text-sm); color: var(--text-muted); }
+input[type=file]::file-selector-button { margin-right: var(--space-3); min-height: var(--control-h); padding: 0 1.125rem; border: 1px solid; border-color: var(--border); border-radius: var(--radius-pill); background-color: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+input[type=file]:hover::file-selector-button { background-color: var(--surface-2); }
+input[type=file]::file-selector-button:active { transform: translateY(1px); }
+input[type=checkbox], input[type=radio] { width: 1.125rem; height: 1.125rem; margin: 0; accent-color: var(--accent); }
+label { display: grid; gap: var(--space-2); font-size: var(--text-sm); font-weight: 600; color: var(--text); }
+label:has(> input[type=checkbox], > input[type=radio]) { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 400; }
+
+/* Buttons by role. The markup is fixed, so a role is bound to the place a button sits: where it posts, or what holds it. Primary is pine. Danger comes after it, so it wins where both would bind. */
+.primary, .signin, .comments > form button, .reply form button, .feedback form button, .feedback-inbox form button, form[action='/admin/reports'] button { background-color: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.primary:hover, .signin:hover, .comments > form button:hover, .reply form button:hover, .feedback form button:hover, .feedback-inbox form button:hover, form[action='/admin/reports'] button:hover { background-color: var(--accent-hover); border-color: var(--accent-hover); }
+a.primary, .signin { display: inline-flex; align-items: center; min-height: var(--control-h); padding: 0 1.125rem; border-width: 1px; border-style: solid; border-radius: var(--radius-pill); font-size: var(--text-sm); font-weight: 600; line-height: var(--leading-tight); text-decoration-line: none; }
+button.danger, .remove form button, .block form button, form[action$='/delete'] button { background-color: var(--danger); border-color: var(--danger); color: var(--on-danger); }
+button.danger:hover, .remove form button:hover, .block form button:hover, form[action$='/delete'] button:hover { background-color: var(--danger-hover); border-color: var(--danger-hover); }
+.primary:disabled, .comments > form button:disabled, .reply form button:disabled, .feedback form button:disabled, .feedback-inbox form button:disabled, form[action='/admin/reports'] button:disabled, button.danger:disabled, .remove form button:disabled, .block form button:disabled, form[action$='/delete'] button:disabled { background-color: var(--surface-2); border-color: var(--divider); color: var(--text-muted); }
+.quiet, .site-header button { padding: 0 var(--space-3); border: 0; background-color: transparent; color: var(--text); }
+.quiet:hover, .site-header button:hover { background-color: var(--surface-2); }
+
+/* Disclosures: a summary and the replies toggle are quiet text actions. The replies toggle keeps a chevron; Reply, Remove and Block read as words, not as a tree. The toggle never sets display; the hidden guard owns it. */
+summary { display: flex; align-items: center; width: fit-content; max-width: 100%; min-height: var(--disclosure-h); color: var(--text-muted); font-size: var(--text-sm); font-weight: 600; line-height: var(--leading-tight); list-style: none; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+.toggle { min-height: var(--disclosure-h); margin: var(--space-1) 0; padding: 0; border: 0; background-color: transparent; color: var(--text-muted); }
+summary::before, .toggle::before, .back::before { content: ''; display: inline-block; flex: none; width: .45em; height: .45em; margin-right: var(--space-2); vertical-align: middle; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); }
+.reply > summary::before, .remove > summary::before, .block > summary::before { content: none; }
+details[open] > summary::before, .toggle[aria-expanded='true']::before { transform: rotate(45deg); }
+.back::before { transform: rotate(135deg); }
+summary:hover, .toggle:hover { color: var(--text); text-decoration-line: underline; text-underline-offset: .2em; background-color: transparent; }
+.reply[open] > summary, .reply[open] > summary:hover { color: var(--accent); }
+.remove > summary, .block > summary, .remove > summary:hover, .block > summary:hover { color: var(--danger); }
+.remove > form, .block > form { width: fit-content; max-width: 100%; margin: var(--space-1) 0 var(--space-3); padding: var(--space-3); background-color: var(--danger-soft); border: 1px solid; border-color: var(--danger); border-radius: var(--radius-sm); }
+
+/* Data. A table is quiet: no fill, hairline rules, a muted header row. */
+table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+th, td { padding: var(--space-3) clamp(.375rem, 1.5vw, .75rem); text-align: left; vertical-align: middle; border-bottom: 1px solid; border-bottom-color: var(--divider); }
+thead th { padding-top: var(--space-2); padding-bottom: var(--space-2); color: var(--text-muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; overflow-wrap: normal; }
+td:first-child a { color: var(--text); font-size: var(--text-md); font-weight: 600; text-decoration-line: none; }
+td:first-child a:hover { text-decoration-line: underline; }
+td:nth-child(2) { color: var(--text-muted); font-family: var(--font-mono); font-size: .8125rem; }
+td:nth-child(4), td:nth-child(5) { color: var(--text-muted); }
+th:nth-child(5), td:nth-child(5) { text-align: right; }
+tbody tr:hover > td { background-color: var(--surface-2); }
+dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; gap: var(--space-3) var(--space-5); max-width: 44rem; margin: 0 0 var(--space-6); }
+dt { color: var(--text-muted); font-size: var(--text-sm); font-weight: 600; }
+dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+dd:last-child { font-family: var(--font-mono); font-size: .8125rem; }
+.pill { display: inline-flex; align-items: center; gap: .375rem; padding: .125rem .5rem .125rem .4375rem; border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600; letter-spacing: .02em; line-height: 1.4; text-transform: capitalize; white-space: nowrap; }
+.pill::before { content: ''; flex: none; width: .375rem; height: .375rem; border-radius: 50%; background-color: currentColor; }
+.pill-published { background-color: var(--ok-soft); color: var(--ok); }
+.pill-draft { background-color: var(--surface-2); color: var(--text-muted); }
+
+/* Hints, notices, badges, avatars. */
+.hint, .meta, .legend, .vote-hint, .comment-hint, .feedback-hint, .feedback-note, .your-vote, .reply-to { color: var(--text-muted); font-size: var(--text-sm); }
+.meta a { color: var(--text-muted); }
+.meta a:hover { color: var(--text); }
+.lede { max-width: 44rem; margin: 0 0 var(--space-6); color: var(--text-muted); font-size: var(--text-md); line-height: var(--leading); }
+.notice, .error, .feedback-sent { margin: var(--space-3) 0; padding: var(--space-3) var(--space-4); border-left: 4px solid; border-left-color: var(--text-muted); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background-color: var(--surface-2); color: var(--text); font-size: var(--text-sm); line-height: var(--leading); }
+.notice.danger, .error { background-color: var(--danger-soft); border-left-color: var(--danger); }
+.notice.ok, .feedback-sent { background-color: var(--ok-soft); border-left-color: var(--ok); }
+.notice.warning { background-color: var(--warning-soft); border-left-color: var(--warning); }
+.badge { display: inline-flex; align-items: center; padding: .0625rem .5rem; border-radius: var(--radius-pill); background-color: var(--accent-soft); color: var(--accent); font-size: var(--text-xs); font-weight: 600; line-height: 1.4; letter-spacing: .02em; }
+.feedback-inbox .feedback-message > .byline .badge { background-color: var(--danger-soft); color: var(--danger); }
+.avatar { position: relative; flex: none; border-radius: 50%; vertical-align: middle; background-color: var(--surface-2); box-shadow: 0 0 0 1px var(--divider); object-fit: cover; }
+.avatar::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background-color: var(--surface-2); }
+.byline .avatar, .meta .avatar { width: 1.75rem; height: 1.75rem; }
+
+/* Cards are for the admin and the one letter card of the reader page; the comment thread is unboxed. */
+.panel, dl, form[action='/admin/reports'], .feedback-inbox .feedback-message, .mod, .blocked-account { padding: var(--panel-pad); background-color: var(--surface); border: 1px solid; border-color: var(--divider); border-radius: var(--radius); }
+:where(.panel, dl, form[action='/admin/reports'], .feedback-inbox .feedback-message, .mod, .blocked-account) > :first-child { margin-top: 0; }
+:where(.panel, dl, form[action='/admin/reports'], .feedback-inbox .feedback-message, .mod, .blocked-account) > :last-child { margin-bottom: 0; }
+
+/* Empty states: a page-level one is a tinted block, an inline one a smaller tint inside a section. On the reader pages the words are serif italic; in the admin they are sans. */
+.empty, main.reader > h1:first-child + p:last-child, main.reader > .legend + p:last-child { padding: var(--space-7) var(--space-5); border-radius: var(--radius); background-color: var(--surface-2); color: var(--text-muted); text-align: center; }
+.empty { margin: var(--space-5) 0 0; }
+main.reader > h1:first-child + p:last-child, main.reader > .legend + p:last-child { width: 100%; max-width: 38rem; margin-left: auto; margin-right: auto; font-family: var(--font-serif); font-size: var(--text-lg); font-style: italic; }
+main.reader > h1:first-child + p:last-child { margin-top: var(--space-6); margin-bottom: 0; }
+main.reader > .legend + p:last-child { margin-top: 0; margin-bottom: 0; }
+.empty-inline, .feedback-inbox > h2 + p:last-child, .moderation > h2 + p:last-child, .blocked-account > h3 + p { margin: var(--space-2) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); background-color: var(--surface-2); color: var(--text-muted); font-size: var(--text-sm); }
+
+/* The site header: a bar on the paper, a hairline under it, its content on the edges of the reader column. */
+.site-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-5); min-height: 4rem; padding: var(--space-3) max(1rem, (100% - 70rem) / 2); border-bottom: 1px solid; border-bottom-color: var(--divider); }
+.site-header nav { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) 1.25rem; min-width: 0; font-size: var(--text-sm); }
 .site-header form { margin: 0; }
-.brand { font-weight: 700; text-decoration: none; }
-.avatar { border-radius: 50%; vertical-align: middle; }
-button, .signin { min-height: 2.5rem; padding: .25rem .75rem; }
-main.reader { max-width: 72rem; }
-.report-frame { display: block; width: 100%; height: 80vh; min-height: 24rem; border: 1px solid #8884; }
-.votes { margin-top: 1rem; padding-top: .5rem; border-top: 1px solid #8884; }
-.votes p { margin: .25rem 0; }
-.votes form { display: flex; flex-wrap: wrap; gap: .5rem; margin: .5rem 0 0; }
-.comments, .feedback, .feedback-inbox { margin-top: 1rem; padding-top: .5rem; border-top: 1px solid #8884; }
-.comments textarea, .feedback textarea, .feedback-inbox textarea { display: block; box-sizing: border-box; width: 100%; max-width: 40rem; margin: .25rem 0 .5rem; font: inherit; }
-.feedback-message { margin: .75rem 0; }
-.feedback-reply { margin: .5rem 0 .5rem .75rem; padding-left: .5rem; border-left: 1px solid #8884; }
-.own-feedback { list-style: none; margin: .75rem 0 0; padding: 0; }
-.feedback-inbox form { margin: .25rem 0 .5rem; }
-.feedback-sent { margin: .5rem 0; }
+.site-header nav a:not(.signin) { color: var(--text); font-weight: 500; text-decoration-line: none; }
+.site-header nav a:not(.signin):hover { text-decoration-line: underline; text-decoration-thickness: 1px; text-underline-offset: .25em; }
+.brand { color: var(--text); font-family: var(--font-serif); font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1; text-decoration-line: none; }
+.brand:hover { text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: .2em; }
+.who { color: var(--text-muted); min-width: 0; overflow-wrap: anywhere; }
+
+/* The admin frame: a sidebar and the page. There is no breakpoint: the sidebar wraps above the page when the page cannot keep 40rem, and its links stack in a column only while the nav is narrower than 20rem. */
+.admin { display: flex; flex-wrap: wrap; align-items: flex-start; max-width: 72rem; margin: 0 auto; }
+.admin-nav { flex: 1 1 13rem; display: flex; flex-wrap: wrap; gap: .125rem; padding: 2rem 1rem 0; }
+.admin-nav a { display: flex; align-items: center; flex: 1 1 calc((20rem - 100%) * 999); min-height: 2.25rem; padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--text); font-size: var(--text-sm); font-weight: 500; text-decoration-line: none; white-space: nowrap; }
+.admin-nav a:hover, .admin-nav a[aria-current=page] { background-color: var(--surface-2); }
+.admin-nav a[aria-current=page] { font-weight: 600; }
+.admin-nav a:active { color: var(--accent-hover); }
+.page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-5); margin: 0 0 var(--space-6); padding-bottom: var(--space-5); border-bottom: 1px solid; border-bottom-color: var(--divider); }
+.page-head h1 { flex: 1 1 18rem; min-width: 0; margin: 0; }
+.page-head > a, .page-head > form { flex: none; margin: 0; }
+.crumb { flex-basis: 100%; margin: 0; font-size: var(--text-sm); }
+
+/* Page columns. The gutter is a literal 1rem a side: TestThreadFitsPhoneWidth reads it. */
+main { max-width: 38rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+body > main { padding-top: var(--space-8); }
+main.reader { max-width: 72rem; padding-top: clamp(2rem, 1rem + 3vw, 4rem); }
+.admin > main { flex: 999 1 40rem; max-width: none; margin: 0; padding-top: 2rem; }
+.back { display: inline-flex; align-items: center; }
+
+/* The reader page: a serif headline, the author and date, the report sheet, then one reading column. */
+main.reader > h1 { max-width: 44rem; margin: 0 auto var(--space-3); font-size: var(--text-display); letter-spacing: -0.015em; line-height: var(--leading-display); text-align: center; }
+main.reader > .meta { max-width: 44rem; margin: 0 auto var(--space-head); text-align: center; }
+.author { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+.meta .avatar { margin-right: var(--space-2); }
+main.reader h2 { margin: 0 0 var(--space-4); font-family: var(--font-serif); font-size: var(--text-2xl); font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+main.reader > .votes, main.reader > .feedback, main.reader > .comments { max-width: 38rem; margin-left: auto; margin-right: auto; }
+.report-frame { display: block; width: 100%; max-width: 60rem; margin: 0 auto; height: 80vh; min-height: 24rem; }
+iframe { display: block; max-width: 100%; border: 1px solid; border-color: var(--divider); border-radius: var(--radius-sm); background-color: Canvas; }
+
+/* Reactions: one line under a hairline, then the vote buttons. */
+.votes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: 2.5rem; padding: 1.25rem 0 0; border-top: 1px solid; border-top-color: var(--divider); }
+.votes p { margin: 0; font-size: var(--text-sm); }
+.likes, .comment-count { color: var(--text-muted); font-weight: 500; }
+.comment-count::before, .your-vote::before, .vote-hint::before { content: '\00b7'; margin-right: var(--space-3); color: var(--text-muted); }
+.votes > form { display: flex; flex-wrap: wrap; flex-basis: 100%; gap: var(--space-2); margin: 0; }
+.tally { display: inline-block; margin: 0 var(--space-5) 0 0; color: var(--text); font-size: var(--text-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* The letter card is the reader's one boxed thing: a private note to the author, set apart from the public conversation. */
+.comments, .feedback, .feedback-inbox { margin-top: var(--space-section); }
+.comments.branch { margin-top: 0; }
+main[data-hband-admin] .feedback-inbox { margin-top: 0; }
+.feedback { padding: var(--panel-pad); background-color: var(--surface); border: 1px solid; border-color: var(--divider); border-radius: var(--radius); }
+main.reader .feedback h2 { margin: 0 0 var(--space-2); font-size: var(--text-xl); }
+.feedback-hint, .feedback-note { margin: 0 0 var(--space-4); }
+.comments textarea, .feedback textarea, .feedback-inbox textarea { display: block; width: 100%; max-width: 100%; margin: 0 0 var(--space-3); }
+.comments textarea, .feedback textarea { font-family: var(--font-serif); }
+.feedback form { margin: var(--space-3) 0 0; }
+.feedback-message { margin: var(--space-4) 0 0; padding-top: var(--space-4); border-top: 1px solid; border-top-color: var(--divider); }
+.feedback-reply { margin: var(--space-3) 0 0; padding: .25rem 0 .25rem var(--space-4); border-left: 2px solid; border-left-color: var(--accent); }
+.own-feedback { list-style: none; margin: var(--space-5) 0 0; padding: 0; }
+.feedback-inbox form { margin: var(--space-3) 0 0; }
+.feedback-inbox, .moderation { max-width: 44rem; }
 #feedback-sent:target { display: block; }
-.comment { margin: .75rem 0; }
-.replies { margin-left: .75rem; padding-left: .5rem; border-left: 1px solid #8884; }
+
+/* The composer: the comment, reply and feedback forms read as a reply in a conversation, the button at the bottom right under the field. */
+.comments > form, .reply > form, .feedback form { display: flex; flex-direction: column; align-items: flex-end; }
+.comments > form label, .feedback form label, .reply > form textarea { align-self: stretch; }
+.comments > form label, .feedback form label { font-weight: 500; }
+
+/* The thread is unboxed, and its indent is a literal 21px a level: TestThreadFitsPhoneWidth reads these rules. */
+.comments > form { margin: 0 0 var(--space-6); }
+.comment-hint { margin: 0 0 var(--space-5); }
+.comment { margin: 1.25rem 0; }
+.comments > .comment + .comment { padding-top: 1.25rem; border-top: 1px solid; border-top-color: var(--divider); }
+.replies > .comment { margin: 1rem 0; }
+.replies { margin-left: .75rem; padding-left: .5rem; border-left: 1px solid; border-left-color: var(--thread); }
 .replies[hidden] { display: none; }
-.byline { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-.login { font-weight: 600; overflow-wrap: anywhere; }
-.body { margin: .25rem 0; white-space: pre-wrap; overflow-wrap: anywhere; overflow: clip; }
-.badge { border: 1px solid currentColor; border-radius: .25rem; padding: 0 .3rem; font-size: .8em; }
-.removed, .cut { font-style: italic; margin: .25rem 0; }
-.continue { display: inline-block; padding: .5rem 0; }
-.toggle { margin: .25rem 0; }
-.reply summary { cursor: pointer; min-height: 2.5rem; display: flex; align-items: center; }
-.reply form { margin: .25rem 0 .5rem; }
-.comment-count { margin: .25rem 0; }
-.remove summary, .block summary { cursor: pointer; min-height: 2.5rem; display: flex; align-items: center; }
-.remove form, .block form { margin: .25rem 0 .5rem; }
-.moderation { margin-top: 1rem; padding-top: .5rem; border-top: 1px solid #8884; }
-.mod { margin: .75rem 0; }
-.blocked-account { margin-top: 1rem; padding-top: .5rem; border-top: 1px solid #8884; }
-.blocked-account li { margin: .5rem 0; }
-.reply-to { margin: .25rem 0; font-style: italic; }
-.legend { margin: .25rem 0 1rem; font-size: .9em; }
-.report-list { list-style: none; margin: 0; padding: 0; }
-.report-row { padding: .75rem 0; border-top: 1px solid #8884; }
-.report-row h2 { margin: 0 0 .25rem; font-size: 1.1rem; overflow-wrap: anywhere; }
-.report-row p { margin: .25rem 0; }
-.report-row .published { font-size: .9em; }
+.byline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); color: var(--text-muted); font-size: var(--text-sm); line-height: var(--leading-tight); }
+.byline > .login ~ time::before { content: '\00b7'; margin-right: var(--space-2); }
+.login { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.body { margin: .25rem 0; font-family: var(--font-serif); color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; overflow: clip; }
+.removed { margin: .25rem 0; font-family: var(--font-serif); color: var(--text-muted); font-size: var(--text-sm); font-style: italic; }
+.no-comments { margin: var(--space-2) 0; font-family: var(--font-serif); color: var(--text-muted); font-style: italic; }
+.cut { margin: .25rem 0; }
+.continue { display: inline-flex; align-items: center; min-height: var(--disclosure-h); font-size: var(--text-sm); font-weight: 600; }
+.reply > form { margin: var(--space-1) 0 var(--space-3); }
+
+/* All reports: the archive is a hairline list. Each row is a small date line, a serif title, one muted line of numbers. */
+.report-list { width: 100%; max-width: 38rem; margin: 0 auto; padding: 0; list-style: none; }
+.report-row { display: flex; flex-direction: column; gap: .375rem; padding: var(--space-5) 0; }
+.report-row + .report-row { border-top: 1px solid; border-top-color: var(--divider); }
+main.reader .report-row h2 { margin: 0; font-size: var(--text-2xl); line-height: var(--leading-tight); overflow-wrap: anywhere; }
+.report-row h2 a { color: var(--text); text-decoration-line: none; }
+.report-row h2 a:hover { color: var(--accent); text-decoration-line: underline; text-decoration-thickness: 1px; text-underline-offset: .15em; }
+.report-row p { margin: 0; }
+.published { order: -1; color: var(--text-muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.numbers { order: 1; color: var(--text-muted); font-size: var(--text-sm); }
+main.reader:has(> .legend) { display: flex; flex-direction: column; }
+main.reader:has(> .legend) > h1 { margin-bottom: var(--space-head); }
+main.reader > .legend { order: 1; width: 100%; max-width: 38rem; margin: 2.5rem auto 0; text-align: left; }
+
+/* Admin sections. */
+.mod { margin: var(--space-4) 0 0; }
+.reply-to { margin: var(--space-1) 0 0; }
+.blocked-account { max-width: 44rem; margin-top: var(--space-4); }
+.blocked-account h2 { display: flex; align-items: center; gap: var(--space-3); margin: 0; font-size: var(--text-lg); }
+.blocked-account h2 .avatar { width: 2rem; height: 2rem; }
+.blocked-account > h2 + p { margin: var(--space-1) 0 var(--space-3); color: var(--text-muted); font-size: var(--text-sm); }
+.blocked-account h3 { margin: var(--space-5) 0 var(--space-2); color: var(--text-muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.blocked-comments, .blocked-feedback { margin: 0; padding: 0; list-style: none; }
+.blocked-comments li, .blocked-feedback li { padding: var(--space-3) 0; border-top: 1px solid; border-top-color: var(--divider); }
+.blocked-comments time, .blocked-feedback time { display: block; font-size: var(--text-sm); }
+.upload > p, .upload > form, form[action='/admin/reports'] { max-width: 44rem; }
+form[action='/admin/reports'] { margin: var(--space-3) 0 var(--space-5); }
+form[action='/admin/reports'] p { margin: 0 0 var(--space-4); }
+form[action='/admin/reports'] label { max-width: 32rem; }
+form[action='/admin/reports'] input[type=text], form[action='/admin/reports'] select { width: 100%; }
+form[action='/admin/reports'] input[type=file] { justify-self: start; }
+form[action='/admin/reports'] p:not(:has(label, button)) { color: var(--text-muted); font-size: var(--text-sm); }

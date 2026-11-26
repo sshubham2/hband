@@ -1,0 +1,248 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "build-slice",
+ "attempt": 2,
+ "at": "2026-11-26T09:01:54.382Z",
+ "head": "662548f7acf9e867d90e20da49b0947b5aa12c4f",
+ "run_id": 12463,
+ "summary": "Rebuilt the look to the new editorial design without touching the shell or reader markup. site.css is rewritten: new ink/near-black palette as light-dark() tokens, serif display and section type, an unboxed reader column (hairline votes bar, ruled All-reports list), cards for the admin only, status pills, a data table, the admin sidebar and page head. The three admin templates take an admin-nav sidebar and page-head; the owner line, Sign out and back links they duplicated are gone because the shared header and sidebar carry them. TestStylesheetTokens, TestThreadFitsPhoneWidth and TestCommentStyles pass; the look test gained sidebar, page-head and draft-page checks and passes at 1280 and 375, light and dark; `go test -count=1 ./...` exits 0. The shipped seeded product was started and photographed; it serves the new stylesheet under the unchanged CSP.",
+ "payload": {
+  "status": "complete",
+  "summary": "Rebuilt the look to the new editorial design without touching the shell or reader markup. site.css is rewritten: new ink/near-black palette as light-dark() tokens, serif display and section type, an unboxed reader column (hairline votes bar, ruled All-reports list), cards for the admin only, status pills, a data table, the admin sidebar and page head. The three admin templates take an admin-nav sidebar and page-head; the owner line, Sign out and back links they duplicated are gone because the shared header and sidebar carry them. TestStylesheetTokens, TestThreadFitsPhoneWidth and TestCommentStyles pass; the look test gained sidebar, page-head and draft-page checks and passes at 1280 and 375, light and dark; `go test -count=1 ./...` exits 0. The shipped seeded product was started and photographed; it serves the new stylesheet under the unchanged CSP.",
+  "files": [
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "Rewritten to the new look: palette, serif/sans/mono and the 3xl/display/section scales, space and shape tokens, ink primary buttons, quiet and danger buttons, disclosures, two-step tray, notices, pills, cards (admin only), data table, detail list, site header, admin frame and sidebar, page head, reader column, votes bar, ruled report list. Pinned rule texts and the thread indent are unchanged."
+   },
+   {
+    "path": "internal/server/templates/layout.html",
+    "change": "modified",
+    "why": "Adds the admin-nav define after the unchanged header define."
+   },
+   {
+    "path": "internal/server/templates/admin.html",
+    "change": "modified",
+    "why": "Wraps the page in div.admin with the sidebar; page-head with the Upload a report action; status pill; empty block; upload form in section#upload; drops the owner line, Sign out and back links the header and sidebar now carry."
+   },
+   {
+    "path": "internal/server/templates/admin_report.html",
+    "change": "modified",
+    "why": "Sidebar, page-head with the crumb, title and Publish (primary) or Unpublish (neutral); status pill in the details list; empty-inline on the no-feedback note; drops the old back link and the Publish state section. The pinned order, Send reply, Remove, Block and preview markup are unchanged."
+   },
+   {
+    "path": "internal/server/templates/admin_blocked.html",
+    "change": "modified",
+    "why": "Sidebar, page-head, lede class on the intro, empty and empty-inline classes; drops the back link. Account sections unchanged."
+   },
+   {
+    "path": "internal/server/stylesheet_test.go",
+    "change": "modified",
+    "why": "nonColourTokens gains the new type, space and size tokens; the pair table gains text-muted on accent-soft, danger-soft and ok-soft."
+   },
+   {
+    "path": "internal/server/look_test.go",
+    "change": "modified",
+    "why": "New states (draft admin report, empty admin), adminNav expectation per state, three new role rows (primary page-head action, neutral page-head action, current admin nav item), surface-2 and text tokens passed to the probe."
+   },
+   {
+    "path": "internal/server/testdata/look/probe.js",
+    "change": "modified",
+    "why": "Checks: .page-head .primary is the ink fill, a non-primary page-head action is not; the sidebar exists once with one current item on admin pages and on no other page, and is one row inside the width at 375; the sidebar's current tint is exempt from the 3:1 control-boundary rule."
+   }
+  ],
+  "obligations": [],
+  "mandatory": [],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-002",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-003",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-004",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-005",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestStaticThreadScript",
+    "test_command": "go test -count=1 -run ^TestStaticThreadScript$ ./internal/server/"
+   },
+   {
+    "key": "C-006",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-007",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestThreadFitsPhoneWidth",
+    "test_command": "go test -count=1 -run ^TestThreadFitsPhoneWidth$ ./internal/server/"
+   },
+   {
+    "key": "C-008",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReportFrameKeepsItsOwnCanvas",
+    "test_command": "go test -count=1 -run ^TestReportFrameKeepsItsOwnCanvas$ ./internal/server/"
+   },
+   {
+    "key": "C-009",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReportFrameKeepsItsOwnCanvas",
+    "test_command": "go test -count=1 -run ^TestReportFrameKeepsItsOwnCanvas$ ./internal/server/"
+   },
+   {
+    "key": "C-010",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReportFrameKeepsItsOwnCanvas",
+    "test_command": "go test -count=1 -run ^TestReportFrameKeepsItsOwnCanvas$ ./internal/server/"
+   },
+   {
+    "key": "C-011",
+    "test_name": "github.com/sshubham2/hband/internal/auth.TestForbiddenPageTakesTheShell",
+    "test_command": "go test -count=1 -run ^TestForbiddenPageTakesTheShell$ ./internal/auth/"
+   },
+   {
+    "key": "C-012",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-013",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestStylesheetTokens",
+    "test_command": "go test -count=1 -run ^TestStylesheetTokens$ ./internal/server/"
+   },
+   {
+    "key": "C-014",
+    "test_name": "github.com/sshubham2/hband/internal/layout.TestEveryPageTakesTheShell",
+    "test_command": "go test -count=1 -run ^TestEveryPageTakesTheShell$ ./internal/layout/"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 ./... (CHROME_BIN set, TAAD3_HOME in scratch)",
+    "outcome": "passed",
+    "note": "Every package ok, exit 0, acceptance packages and ./internal/server included. All pre-existing assertions pass unedited."
+   },
+   {
+    "command": "go test -count=1 -run 'TestStylesheetTokens|TestStylesheetCorpus|TestThreadFitsPhoneWidth|TestCommentStyles' -v ./internal/server/",
+    "outcome": "passed",
+    "note": "Level 5 still has 244 px at 360 (indent 21 px, gutter 32 px). Every pair in the table passes in both schemes; lowest text pair 5.41:1 and lowest boundary 3.27:1. The new tokens are accepted by the token-shape lint."
+   },
+   {
+    "command": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestEveryScreenIsDesigned$' -Pkg ./internal/server/",
+    "outcome": "passed",
+    "note": "20 states x 2 widths x 2 schemes; 6232 texts (lowest 5.78:1) and 1352 controls judged; all 14 roles seen, including the primary and neutral page-head actions and the current sidebar item; sidebar is one row inside 375 px; no horizontal scroll on any screen at 375."
+   },
+   {
+    "command": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestReportFrameKeepsItsOwnCanvas$' -Pkg ./internal/server/",
+    "outcome": "passed",
+    "note": "A light #ffffff, A dark #ffffff, B dark #204060, C dark #121212: each equals the report opened alone. The site around the frame is #ffffff in light and #131416 in dark."
+   },
+   {
+    "command": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestLookProbeSeesTheStylesheetBeforeTheDesign$' -Pkg ./internal/server/",
+    "outcome": "passed",
+    "note": "The pre-slice stylesheet is still flagged on link, button, text, select, textarea, th and td and reads scrollWidth 600 at 375, so the checks can fail."
+   },
+   {
+    "command": "HBAND_TEST_ARTIFACTS=<scratch> go test -run TestEveryScreenIsDesigned ./internal/server/, then looked at the PNGs",
+    "outcome": "passed",
+    "note": "Viewed reader report (desktop), All reports, /admin (desktop light), admin report (phone dark), Blocked users (desktop dark) and anonymous home (phone dark). The header, serif titles, sidebar, ink buttons, pills, table and the danger tray draw as the look says. Scratch removed."
+   },
+   {
+    "command": "go build -o <scratch>\\seeded.exe ./internal/testutil/seeded; seeded.exe -port 18479; GET / /reports /reports/e004-look /static/site.css /admin; headless Chrome --screenshot of /reports/e004-look",
+    "outcome": "passed",
+    "note": "All 200 except anonymous /admin, which answers 303. site.css is 24764 bytes with 23 light-dark( and no @. The CSP is unchanged (style-src 'self'). The real page photographs in dark with the serif title, ink Sign in button and the report on its own white canvas. Process tree killed with taskkill /T; scratch and leftover hband-* temp folders removed."
+   }
+  ],
+  "screens": [
+   {
+    "name": "Home page",
+    "open": "/"
+   },
+   {
+    "name": "Report page",
+    "open": "/reports/e004-look"
+   },
+   {
+    "name": "Report page, signed in as a reader",
+    "open": "/reports/e004-look",
+    "steps": [
+     "Sign in with GitHub"
+    ]
+   },
+   {
+    "name": "All reports",
+    "open": "/reports"
+   },
+   {
+    "name": "Thread branch page",
+    "open": "/reports/e004-look",
+    "steps": [
+     "continue this thread →"
+    ]
+   },
+   {
+    "name": "Not allowed page",
+    "open": "/admin"
+   }
+  ],
+  "app": {
+   "command": "go run ./internal/testutil/seeded -port {port}",
+   "url": "http://127.0.0.1:{port}/"
+  },
+  "architecture": [
+   {
+    "block": "C-008",
+    "kind": "paths",
+    "add": [
+     "internal/layout/**"
+    ],
+    "why": "internal/layout (layout.go, templates/base.html, layout_test.go) holds the shared head, page-start and page-end that every page template takes; no block's globs matched it."
+   },
+   {
+    "block": "C-008",
+    "kind": "line",
+    "find": "Layout must work on phones.",
+    "replace": "Layout must work on phones. Every page, the admin pages and the Not allowed page included, takes its look from one stylesheet, internal/server/static/site.css, whose colours are light-dark() tokens that follow the visitor's prefers-color-scheme, and its document shell from internal/layout.",
+    "why": "site.css is a token table (:root of light-dark(#hex, #hex)) with no at-rules (the build printed 23 light-dark( and no @); all 7 page templates open with page-start and close with page-end (TestEveryPageTakesTheShell); the admin pages draw the shared header and the admin-nav sidebar."
+   },
+   {
+    "block": "C-002",
+    "kind": "depends",
+    "add": [
+     "C-008"
+    ],
+    "why": "internal/auth/owner.go imports internal/layout to build forbiddenPage (template.ParseFS(layout.FS, ...)) for the Not allowed page; internal/layout imports only embed, so there is no cycle."
+   }
+  ],
+  "deviations": [
+   "admin_report.html: 'Nothing visible on this report.' keeps its bare <p> and is styled through `.moderation > h2 + p:last-child`, not class=\"empty-inline\" as the plan said, because remove_test.go:731 pins the exact string `<p>Nothing visible on this report.</p>`. The plan's own rule is to bind by selector where a test pins the markup. The other empty notes got their classes.",
+   "probe.js exempts `.admin-nav a` from the 3:1 control-boundary check. The sidebar's current page is marked by weight and a --surface-2 tint (1.1:1 against the page, by the look's own tokens), which is state, not a control edge. The link text is still judged for 4.5:1, the current item's fill is role-checked, and the sidebar is checked to be one row inside 375 px.",
+   "The plan's note that /admin 'keeps its own owner line and Sign out' (filed for a person in the first design) is superseded: this look's plan deletes the owner line, Sign out and back links from admin.html, and the shared header and sidebar carry them. main_test.go still finds @the-owner in /admin through the header's 'Signed in as'.",
+   "internal/testutil/seeded is unchanged, so the app command seeds the e004-look thread and signs in as a non-owner only. The plan asked for an owner session, a draft, feedback with replies and a blocked account in the seed; I did not extend it (see not_built).",
+   "This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build. The accepted finding M-add-1 still holds: every edge is a literal width and style plus a *-color longhand, so an engine without light-dark() draws currentColor edges and no fills."
+  ],
+  "not_built": [
+   "The seeded launcher was not extended with an owner session, a draft report, feedback with author replies and a blocked account (design plan item 11). Its browser sign-in is the stand-in's octocat, a non-owner, and its tests pin the nine-comment e004-look seed. So /admin, /admin/reports/<slug> and /admin/blocked are not in `screens` (it also holds at most 6). TestEveryScreenIsDesigned measures all of them as the owner, light and dark, at 1280 and 375, with details open, and I looked at their screenshots.",
+   "Firefox and Safari were not run (O-017, owed to validate): only Chrome is driven here.",
+   "Delete this report permanently has no confirmation step; it is a one-step filled danger button. A confirmation would be new behaviour and stays filed for a person.",
+   "The engine's own Fitness op=check with its real YAML parser was not run; the builder cannot. This attempt did not touch .taad/fitness.yaml, and TestRulesHoldOnTheTree passes."
+  ],
+  "follow_ups": [
+   "With --bg #ffffff and #131416 now almost exactly Chrome's own canvas (#ffffff, #121212), TestReportFrameKeepsItsOwnCanvas can no longer tell `iframe { background-color: Canvas }` from the site surface showing through: removing the Canvas line would still pass. The test's control (A under dark, outside #131416 against inside #ffffff) still shows it can see differences. A row that serves a stylesheet with a different --bg would pin it again.",
+   "Q-012's decided enforcement (a fitness rule forbidding `<script` in report.html and layout.html) does not exist in fitness.yaml, and thread.js loads on the found home, report and branch pages. The tag now lives in internal/layout/templates/base.html and is pinned there by TestEveryPageTakesTheShell. A person should say whether Q-012 is amended to 'thread.js is the one allowed site script'.",
+   "The engine's projects.app_command still has to be repointed to `go run ./internal/testutil/seeded -port {port}`. To photograph the admin screens, the seeded launcher needs a way to sign in as the owner (fakegithub SetUser on the serving program) and a draft, feedback with replies and a blocked account in its seed.",
+   "Cross-rule ordering of border shorthands (a later rule restating `border: 1px solid` after another rule set border-color to a token) is caught only inside one rule. A browser assertion that every bordered control's edge colour differs from its text colour would close it.",
+   "Architecture: internal/server (C-001) also imports internal/layout (C-008); only the C-002 edge fits in this report's three edits."
+  ]
+ }
+}

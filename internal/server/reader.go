@@ -13,6 +13,7 @@ import (
 	"github.com/sshubham2/hband/internal/feedback"
 	"github.com/sshubham2/hband/internal/opens"
 	"github.com/sshubham2/hband/internal/reports"
+	"github.com/sshubham2/hband/internal/store"
 	"github.com/sshubham2/hband/internal/votes"
 )
 
@@ -25,6 +26,11 @@ type pageData struct {
 	// in; empty means the home page.
 	Next string
 }
+
+// ThreadScript says whether the page loads the collapse script: only a page
+// that draws a thread does, which readerData answers for itself. The shell's
+// page-start reads it on every page.
+func (p pageData) ThreadScript() bool { return false }
 
 // SignInNext is the value after ?next= in the header's sign-in anchor.
 func (p pageData) SignInNext() string {
@@ -75,7 +81,17 @@ type readerData struct {
 	// not the owner, read for that viewer's own id, so it is every other viewer's
 	// zero value. The type has no row id to print.
 	OwnFeedback []feedback.Sent
+	// Author is the owner's account as sign-in last saw it, for the byline under
+	// the title: login and avatar. It is filled only for a found report, and it is
+	// the zero value when the owner has never signed in, when no owner is
+	// configured, or when the read failed: the byline then starts at the date.
+	Author store.User
 }
+
+// ThreadScript is true where a report is drawn (the found home and report pages
+// and the branch page, which sets HasReport), and false on the empty and
+// unavailable pages, which draw no thread.
+func (d readerData) ThreadScript() bool { return d.HasReport }
 
 // home is the public landing page: the newest published report, laid out
 // exactly as /reports/<slug> lays it out.
@@ -156,6 +172,16 @@ func (a *app) renderReader(w http.ResponseWriter, r *http.Request, page readerPa
 			state, rep = stateUnavailable, reports.Report{}
 		} else {
 			d.OwnFeedback = own
+		}
+	}
+	if state == stateFound && a.cfg.OwnerGitHubID > 0 {
+		// The author's name and avatar for the byline. Nothing else on the page
+		// depends on it, so a read that fails is logged and the byline starts at the
+		// date: the report is never made unavailable for it.
+		if u, ok, err := a.store.User(r.Context(), a.cfg.OwnerGitHubID); err != nil {
+			slog.Warn("reader: read the author", "error", err)
+		} else if ok {
+			d.Author = u
 		}
 	}
 	switch state {

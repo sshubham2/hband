@@ -8,9 +8,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -36,8 +38,18 @@ type Switches struct {
 	UserEmptyLogin  bool // login is ""
 }
 
+// Choice is one account the picker offers: Label is the text of the link that
+// signs in as User.
+type Choice struct {
+	Label string
+	User  User
+}
+
+// grant is one authorization code. user is the account a picker link chose, or
+// nil when the fake signs in whoever SetUser last named.
 type grant struct {
 	challenge string
+	user      *User
 }
 
 // Fake is a running fake GitHub. Point both HBAND_GITHUB_URL and
@@ -51,8 +63,9 @@ type Fake struct {
 	redirectURI  string
 	user         User
 	sw           Switches
+	choices      []Choice
 	codes        map[string]grant
-	tokens       map[string]bool
+	tokens       map[string]*User // nil value: the account SetUser names when /user is asked
 	tokenCalls   int
 }
 
@@ -65,7 +78,7 @@ func New(clientID, clientSecret, redirectURI string) *Fake {
 		redirectURI:  redirectURI,
 		user:         User{ID: 42, Login: "octocat", AvatarURL: "https://avatars.githubusercontent.com/u/42"},
 		codes:        map[string]grant{},
-		tokens:       map[string]bool{},
+		tokens:       map[string]*User{},
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/login/oauth/authorize", f.authorize)
@@ -86,6 +99,18 @@ func (f *Fake) SetUser(u User) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.user = u
+}
+
+// OfferChoices makes the authorize endpoint a picker: a page of one link per
+// choice, drawn with the choice's Label, instead of an approval of whoever
+// SetUser named. The link a person (or a browser's click on its text) follows
+// approves that choice's account and nobody else, so one running fake can sign a
+// browser in as the owner and another as a reader. With no choices, which is
+// how a fake starts, it approves at once as before.
+func (f *Fake) OfferChoices(cs ...Choice) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.choices = append([]Choice(nil), cs...)
 }
 
 // SetRedirectURI changes the only redirect_uri the fake accepts.
@@ -136,6 +161,21 @@ func (f *Fake) authorize(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "the app must ask for no scopes", http.StatusBadRequest)
 		return
 	}
+	var chosen *User
+	if len(f.choices) > 0 && !f.sw.DenyAtAuthorize {
+		pick := q.Get("pick")
+		if pick == "" {
+			f.picker(w, q)
+			return
+		}
+		i, err := strconv.Atoi(pick)
+		if err != nil || i < 0 || i >= len(f.choices) {
+			http.Error(w, "unknown choice", http.StatusBadRequest)
+			return
+		}
+		u := f.choices[i].User
+		chosen = &u
+	}
 	back, err := url.Parse(f.redirectURI)
 	if err != nil {
 		http.Error(w, "bad redirect_uri", http.StatusInternalServerError)
@@ -151,12 +191,47 @@ func (f *Fake) authorize(w http.ResponseWriter, r *http.Request) {
 		if f.sw.WrongVerifier {
 			challenge = "not-the-challenge"
 		}
-		f.codes[code] = grant{challenge: challenge}
+		f.codes[code] = grant{challenge: challenge, user: chosen}
 		v.Set("code", code)
 	}
 	back.RawQuery = v.Encode()
 	w.Header().Set("Location", back.String())
 	w.WriteHeader(http.StatusFound)
+}
+
+// pickerPage is the page OfferChoices draws. Each link is the authorize request
+// the browser made, with the index of its choice added as pick.
+var pickerPage = template.Must(template.New("picker").Parse(`<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Stand-in GitHub</title></head>
+<body>
+<h1>Stand-in GitHub</h1>
+<p>A test double for GitHub's sign-in. Choose the account to sign in as.</p>
+<ul>
+{{range .}}<li><a href="{{.Href}}">{{.Label}}</a></li>
+{{end}}</ul>
+</body>
+</html>
+`))
+
+// picker answers the authorize request q with a link for each choice. The caller
+// holds f.mu.
+func (f *Fake) picker(w http.ResponseWriter, q url.Values) {
+	type link struct{ Href, Label string }
+	links := make([]link, len(f.choices))
+	for i, c := range f.choices {
+		withPick := url.Values{}
+		for k, vs := range q {
+			withPick[k] = vs
+		}
+		withPick.Set("pick", strconv.Itoa(i))
+		links[i] = link{Href: "/login/oauth/authorize?" + withPick.Encode(), Label: c.Label}
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	if err := pickerPage.Execute(w, links); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}
 }
 
 func (f *Fake) tokenError(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +277,7 @@ func (f *Fake) accessToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tok := "gho_" + randomString()
-	f.tokens[tok] = true
+	f.tokens[tok] = g.user
 	if strings.Contains(r.Header.Get("Accept"), "json") {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"access_token":%q,"token_type":"bearer","scope":""}`, tok)
@@ -216,23 +291,28 @@ func (f *Fake) userInfo(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if f.sw.User401 || !f.tokens[tok] {
+	picked, known := f.tokens[tok]
+	if f.sw.User401 || !known {
 		http.Error(w, `{"message":"Bad credentials"}`, http.StatusUnauthorized)
 		return
 	}
-	login, _ := json.Marshal(f.user.Login)
-	avatar, _ := json.Marshal(f.user.AvatarURL)
+	user := f.user
+	if picked != nil {
+		user = *picked
+	}
+	login, _ := json.Marshal(user.Login)
+	avatar, _ := json.Marshal(user.AvatarURL)
 	if f.sw.UserEmptyLogin {
 		login = []byte(`""`)
 	}
-	id := fmt.Sprint(f.user.ID)
+	id := fmt.Sprint(user.ID)
 	switch {
 	case f.sw.UserIDZero:
 		id = "0"
 	case f.sw.UserIDString:
-		id = fmt.Sprintf("%q", fmt.Sprint(f.user.ID))
+		id = fmt.Sprintf("%q", fmt.Sprint(user.ID))
 	case f.sw.UserIDFloat:
-		id = fmt.Sprintf("%d.0", f.user.ID)
+		id = fmt.Sprintf("%d.0", user.ID)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if f.sw.UserMissingID {

@@ -1,0 +1,699 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-019",
+ "title": "Give every hband screen (reader pages, /admin pages, Blocked users and the forbidden page) one designed look in light and dark, from one shared stylesheet and layout",
+ "status": "active",
+ "branch": "slice/SL-019",
+ "opened_at": "2026-11-26T05:40:27.243Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "One shared design system in one place: colour tokens for light AND dark, a type scale and a spacing scale: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Components covering links, buttons, text inputs/textareas, forms and form rows, notices, lists and tables, cards/panels, details/summary, badges and avatars, plus the admin needs: tables, destructive buttons and the two-step remove: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "One shared base layout that every template takes; no page carries its own head, style block or inline styles: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Every reader screen (home and /reports/<slug> with report frame, like count, vote controls, comments and the feedback box with the sender's own messages and author replies; the show-all page; the branch page), signed in and signed out, shows the designed look: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Every /admin screen (admin.html, admin_report.html, admin_blocked.html) and the forbidden page shows the designed look, with the admin components (tables, destructive buttons, two-step remove): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Dark mode follows prefers-color-scheme with no manual light/dark switch: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "No control or link is left in the browser default (checked by computed styles, not screenshots): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "No horizontal scroll at a true 375 CSS px phone width on every screen: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Text and controls meet a stated contrast bar in both schemes (WCAG AA proposed): partial"
+  },
+  {
+   "stage": "risk-spike",
+   "issue": "report-frame-canvas-under-site-surface: V1 light: report A shows site #f3f1ea inside the frame (not white); dark stays white. V2 flips B."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Thread script: kept in the head behind a ThreadScript() method, giving byte-identical reader pages (practice, chosen), or the tag moved into main, giving a simpler data contract (crossdomain)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Header: inside page-start, so no page can forget it, with forbidden.html defining its own brand-only header (practice, chosen); or called by each page, with a shared \"brand\" partial (crossdomain)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Admin roles: class=\"primary\" on Upload and class=\"danger\" on Delete (practice), or frozen markup with form-action selectors (crossdomain, chosen). Neither button is pinned by a test, so this is a judgement of explicitness against one uniform 'bodies unchanged' rule."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Head: add `<meta name=\"color-scheme\" content=\"light dark\">` to avoid a white flash before the CSS loads (crossdomain), or keep the head verbatim for byte identity (practice, chosen)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Hidden states: a structural [hidden]:not(:target) guard (crossdomain, chosen), or a source check banning display on hidden-carrying hooks (practice)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "internal/layout as a package (both, chosen), or practice's flagged trim: forbidden.html keeps its own head, pinned byte-equal to the server's \"head\", with no new package and no test edit, at the cost of the brief's 'no page carries its own head' bar."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Decoration: an avatar ring drawn with an opaque box-shadow and a CSS-border chevron on summaries. These are left to the frontend designer within the token contract."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "On a phone, a 39-character login in a comment byline pushes the time onto its own row, and the byline's middle dot ('·' on time::before) is left at the start of that row. The earlier validation filed the same orphaned dot on the All reports phone row; it is a cosmetic wrap issue and was left alone."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The look does not say what the admin's own owner line should become now that the shared header carries it; /admin still has no duplicate (earlier attempts removed it). Nothing to decide here, noted only so the next admin slice does not add it back."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "IN-m3 (admin pages scrolling sideways at 320 px, waived as N-254) is untouched: the file input and the nowrap status pill still set the minimum width of /admin and /admin/reports/<slug>."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "O-017 not done: Not discharged and cannot be here. Firefox is not installed and Safari does not exist on Windows, so only Chrome 158 was driven. Held as a known limit of this machine. It is owed to validate-slice, not to the builder."
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): .taad/fitness.yaml -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/fitnessrules/testdata/rule_spellings.json -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/testdata/look/bare.html -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/testdata/look/site.before.css -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/testdata/stylesheet_corpus.json -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/headless/devtools.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/headless/devtools_test.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/auth/owner.go (not seen: lines 101-128 of 128) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/comment_test.go (not seen: lines 1-1076, 1154-1195 of 1195) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/look_test.go (not seen: lines 301 of 777) -- partly-opened: a Read returned only part of it; seen only through a shell command: foreach, git diff, git log; 2 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/reader.go (not seen: lines 1-19, 206-390 of 390) -- partly-opened: a Read returned only part of it; seen only as 1 Grep line; seen only through a shell command: foreach, git diff, git log; 76 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/router.go (not seen: lines 1-9, 102-196 of 196) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/templates/admin.html (not seen: lines 35-41 of 41) -- partly-opened: a Read returned only part of it (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/templates/report.html (not seen: lines 3 of 24) -- partly-opened: a Read returned only part of it; seen only through a shell command: git diff, git log; 1 returned line differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/store/signin.go (not seen: lines 1-85 of 85) -- partly-opened: seen only as 2 Grep lines; seen only through a shell command: foreach, git diff, git log (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/fakegithub/fakegithub.go (not seen: lines 313, 315 of 323) -- partly-opened: a Read returned only part of it; seen only as 4 Grep lines (before the build); seen only through a shell command: $s (before the build), foreach (before the build), git diff (before the build), git log (before the build); 3 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/fakegithub/fakegithub_test.go (not seen: lines 181-296 of 296) -- partly-opened: a Read returned only part of it; seen only through a shell command: $s (before the build), foreach (before the build), git diff (before the build) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/fakegithub/picked_id_shape_test.go (not seen: lines 1-70 of 70) -- partly-opened: seen only as 2 Grep lines (before the build); seen only through a shell command: $s (before the build), git log (before the build) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/seeded/main.go (not seen: lines 250-279, 281-324, 326-358 of 358) -- partly-opened: a Read returned only part of it; seen only as 5 Grep lines (before the build); seen only through a shell command: $s (before the build), foreach (before the build), git diff (before the build), git log (before the build); 169 returned lines differ from the reviewed file (read before it changed) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/seeded/run_fake_test.go (not seen: lines 1-23 of 23) -- partly-opened: seen only as 3 Grep lines (before the build); seen only through a shell command: $s (before the build), git log (before the build) (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Firefox and Safari (O-017): light-dark(), the frame's Canvas substrate and the broken-avatar ::after cover were measured only in Chrome 158."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A real phone: every phone measurement is Chrome mobile emulation (375 px in the tests, 390 px in the engine's pictures), not a device."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: Production behind the VPS reverse proxy: whether it alters the CSP or caching headers for site.css (Q-010, Q-007)."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: A real GitHub avatar loading in the running app. The seed's owner avatar is refused by the CSP on purpose, and the reader's real-host avatar had no DNS here."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The admin Preview frame in the engine's full-page pictures: Chrome does not paint an offscreen sandboxed frame there, so the frame was checked only by my in-process scrolled capture."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: The published report's admin page (s6) is capped at 4000 px, so its Replace and Delete sections are not in any picture. Only the draft page (s7) shows them."
+  },
+  {
+   "stage": "validate-slice",
+   "issue": "not reached: There is no pixel assay of owner danger colours below the fold (N-255). I saw them only by eye in the engine's full-page pictures."
+  },
+  {
+   "stage": "reflect",
+   "issue": "code-review missed: A missing or refused avatar image showed Chrome's broken-image glyph inside the ring on the header and every byline. look.json:646-651 says 'a plain --surface-2 circle with its ring, never a broken-image glyph', and site.css:152 had no cover rule. Code review #2 read the look and called the build 'built as planned' apart from one small drift. A check that samples pixels inside one avatar box on a 404 image would have caught it."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The design's case 'show every screen in its designed look' covers owner-only screens in a Go test but never says how the engine's photograph review reaches /admin, /admin/reports/<slug> or /admin/blocked. The seeded launcher signs the browser in as a non-owner, so those screens could not be photographed. The critic did not ask where an owner session comes from for the pictures."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The m3 fix (allow-list of colour values outside :root, colour-token shape inside :root) says nothing about ordinary properties on a :root rule. lintStylesheet's `if root { if !HasPrefix(prop, \"--\") { continue } }` skips the colour-literal check, so `:root { background-color: white }` lints clean. The critic's three holes for m3 did not include it."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique-review missed: The m4 fix (refuse filter, opacity, mask and the like anywhere in site.css) was only as strong as the reader under it. The critic added vendor prefixes and mask but did not ask whether cssRuleRE (brace-free) and cssCommentRE (ignores quoted strings) can see a declaration beside a nested rule, which Chrome 158 applies, or a '/*' inside content. `main { opacity:.5; & > p {} filter: invert(1) }` passes lint."
+  },
+  {
+   "stage": "reflect",
+   "issue": "critique missed: The 'read a report as its author' case screenshots the owner's pages at 1280x900 with no clip. The owner-only danger controls start at 1888 px on /reports/x and sit below the fold on both /admin/reports pages. With --danger and --danger-soft set to pure red the assay saw 0 red pixels on three of four owner screens. The critic did not ask where the controls the assay guards fall on the page."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does TestReportFrameKeepsItsOwnCanvas still fail with `background-color: Canvas` removed under build 6's palette? Dark paper #171513 is within the oracle's ±8 of Chrome's #121212, and light #faf8f4 differs from #ffffff by (5,7,11). The last Canvas-removed mutation (4 of 6 cases leaked) was on an earlier palette."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Do light-dark(), the frame's Canvas substrate and the .avatar::after cover behave the same in Firefox and Safari? Only Chrome 158 was driven (O-017, waived as N-404). An engine without light-dark() would show transparent fills and currentColor edges (M-add-1)."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Does the production proxy in front of the VPS alter the CSP or caching of /static/site.css, and does a real avatars.githubusercontent.com image load under img-src? The author byline now draws the owner's avatar on every report page, and the seed's avatars.example URLs are refused on purpose (Q-007, Q-010, Q-017)."
+  },
+  {
+   "stage": "reflect",
+   "issue": "still unknown: Is .taad/slices/SL-019/checks/no-skip.ps1, which every browser check was run through, committed with the slice or does it live only in the untracked slice folder? The next slice that re-runs TestEveryScreenIsDesigned needs it."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Two full visual redesigns after build 1 passed: build 2 (editorial, ink and hairline) and build 6 (blog look, after the owner said the first read like a finance reporting interface). Validate #5 was stopped by a person. The brief gave no visual direction, and the screens were never shown to the person before the whole matrix was built."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The broken-avatar glyph (site.css:152 against look.json:650, 'never a broken-image glyph') went through build 1, build 2 and code reviews #1 and #2. Validate #2 found it by looking at screenshots. The look test seeded every avatar to a 404 on purpose and asserted nothing about how it painted. It was fixed in build 3."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The seeded launcher had no owner session, so the engine could not photograph /admin, /admin/reports/<slug> or /admin/blocked. Code review deferred it (m4), then validate #3 and #4 sent the slice back for it. Build 4 changed 10 test-only files (fakegithub picker, seed.go) and introduced two defects, the userInfo id-shape arms and run().Fake, fixed in build 5."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Two stylesheet-linter families were declared closed and reopened by the next reviewer: colour literals (:root non-custom properties) and frame-reach (CSS nesting, comment markers in strings). Both went to SC-059, SC-060 and SC-061 after the loop had already spent three rounds on the spellings."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: Review volume: code-review ran 11 times, with two runs that did not finish (#1 failed, #8 refused). Several runs re-read test-only diffs and each listed 15 to 20 never-opened files as LEFT OPEN."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The same two defects had opposite dispositions: waived as N-321/N-322 (O-033/O-034), then accepted and fixed as O-037/O-038 once a reviewer attached a failing test."
+  },
+  {
+   "stage": "reflect",
+   "issue": "went wrong: The 'check by hand' criteria for the designed look were filed six times (SC-055/056, SC-062/063, SC-064/065) by three different stages, for two criteria. The final validation judged them by eye without a person."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T06:13:22.423Z",
+     "head": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+     "summary": "Both proposals agree on the core, and that core rests on measurements: - One site.css whose dark mode is light-dark() hex tokens.",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T06:44:35.986Z",
+     "head": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+     "summary": "The design holds up against the tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T06:56:31.749Z",
+     "head": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+     "summary": "All six first-pass findings hold at the severities filed.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T07:44:46.855Z",
+     "head": "2847afdd9ed03debb1cee951d639afe22c4fbb20",
+     "summary": "Built the design system and moved every page onto one shell.",
+     "caused_by": null,
+     "changed": {
+      "src": 20,
+      "tests": 7,
+      "config": 2,
+      "listed": 29,
+      "measured_by_git": 33
+     },
+     "details": "build-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-26T09:01:54.382Z",
+     "head": "662548f7acf9e867d90e20da49b0947b5aa12c4f",
+     "summary": "Rebuilt the look to the new editorial design without touching the shell or reader markup.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "Restarted from build-slice by a person: The owner wants a different look: Ghost-like in spirit, without the bloat. The reader pages (a thread, All reports) read like an editorial publication: confident headline type, a roomy reading measure, calm generous spacing, and All reports as a clean list of titles with their date and status. The /admin pages work like a quiet publishing admin: a left sidebar (Reports, Blocked users, View site), a reports list with status pills, and each page's main action at the top right. No bloat: one stylesheet, system fonts only, no web fonts, no script beyond thread.js. Take Ghost's qualities only, never its theme, brand, assets or code. Everything the slice already owes still holds: light and dark, WCAG AA contrast, and Blocked users and the forbidden page on the same look.",
+      "cause": "person",
+      "stage": "restart",
+      "from": [
+       "restart"
+      ]
+     },
+     "changed": {
+      "src": 7,
+      "tests": 1,
+      "listed": 8,
+      "measured_by_git": 12
+     },
+     "details": "build-slice-2.json"
+    },
+    {
+     "n": 3,
+     "state": "passed",
+     "at": "2026-11-26T09:46:23.098Z",
+     "head": "f83e789074307fb11a6ae8b77b8bc1c23c098a34",
+     "summary": "Fixed the one thing sent back: a missing or refused avatar image is now the plain --surface-2 circle with its ring, with no broken-image glyph.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "validation fails this build: I checked the defect in the tree myself; I did not take the report's word for it. Contact for this answer is `code`. What I checked: - .taad/look.json:646-651 is this slice's own design. The Avatar component lists the state 'image missing or refused (alt=''): a plain --surface-2 circle with its ring, never a broken-image glyph'. The token at look.json:394-396 says the ring exists so that 'a dark or missing image still reads as a circle'. - internal/server/static/site.css:152 is the only avatar rule: `.avatar { flex: none; border-radius: 50%; vertical-align: middle; background-color: var(--surface-2); box-shadow: 0 0 0 1px var(--divider); object-fit: cover; }`. Nothing in it covers what Chrome paints for a broken <img>. A background colour sits underneath that painting, and the glyph is drawn on top. - I opened .taad-scratch/screens/s3-wide-light.png. Chrome's broken-image glyph is plainly visible in the header avatar beside 'Signed in as @octocat' and in every byline avatar, levels 1 to 5. - The avatar <img> appears in layout.html:5, comments.html:13, admin_report.html:28 and :45, and admin_blocked.html:9, all with alt=\"\" and width/height 24. So the header, reader threads, admin report and Blocked users all show the fault, as the validator said. - The state is real in production, not only in the seed. router.go:36 allows img-src 'self' https://avatars.githubusercontent.com, but a GitHub avatar can still fail: blocked, offline, or the account deleted. The design names that state explicitly. - Why the suite passed: internal/server/look_test.go:53-59 deliberately points every seeded avatar at /static/no-such-avatar.png, a 404, to draw this exact state. No assertion then judges what the avatar looks like. The state is seeded and never checked. This is the code failing its own design, not a wrong plan. The design is clear and can be done in CSS. Chrome draws ::before/::after on an <img> only when the image fails to load, so a cover over the broken box gives the designed plain circle and leaves a loaded photo alone. What the builder must do: 1. In site.css, make the missing or refused avatar a plain --surface-2 circle with its ring and no glyph. Suggested rule: `.avatar { position: relative; }` and `.avatar::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background-color: var(--surface-2); }`. Keep the existing box-shadow ring and use tokens only, so TestStylesheetCorpus and TestStylesheetTokens still hold. It must work at 24px (header, bylines, admin) and at 2rem (.blocked-account h2 .avatar, site.css:248), in light and dark. 2. Make TestEveryScreenIsDesigned (look_test.go), which already seeds the broken avatar, assert this state. For example, screenshot or sample the pixels of one avatar's bounding box in a header, a byline and the Blocked users heading, in both schemes. Every pixel inside the circle must equal the resolved --surface-2 colour, so there is no glyph. Run the assertion against the pre-fix stylesheet once and confirm it fails, as the existing sensitivity test does for the fit check. 3. Change nothing else. Routes, markup, the iframe sandbox and src, the CSP, and the other states must stay as they are. Everything else this validation found is not this rebuild's work: the orphaned '·' in the All reports phone row, the three-row signed-in phone header with Sign out about 12 px off the All reports edge, mid-word breaks in the 375 px admin table, a long login leaving its avatar alone on a row, and the seed's avatars.example CSP refusals. Those are filed or carried as the validator recorded. The validator's other checks (full suite exit 0 with real Chrome, frame-canvas mutation, pair-check mutation, shell, fitness) stand as reported. I did not re-run them. O-017 (Firefox and Safari: light-dark() and the frame canvas) is not discharged. Firefox is not installed, Safari does not exist on Windows, and only Chrome was measured. It stays open as a known limit of this machine. It is not a reason for this rebuild.",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-027",
+       "O-028",
+       "O-029",
+       "O-030",
+       "O-031",
+       "O-032"
+      ]
+     },
+     "changed": {
+      "src": 2,
+      "tests": 1,
+      "listed": 3,
+      "measured_by_git": 8
+     },
+     "details": "build-slice-3.json"
+    },
+    {
+     "n": 4,
+     "state": "passed",
+     "at": "2026-11-26T10:28:13.157Z",
+     "head": "571ae37ed63a085797030a94f831a088dc640aed",
+     "summary": "Made the admin screens photographable in the engine's run of the seeded app, with no change to the product.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "validation passes this build: The frontend designer is right. /admin, /admin/reports/<slug> and /admin/blocked are designed and carry the admin look the restart asked for, but nobody has judged a picture of them. The build goes back for one thing: make those screens photographable in the engine's run of the seeded app, and name each one in `screens` with what opens it and the steps that reach it. 1. Owner session. The engine needs a session whose GitHub user ID equals HBAND_OWNER_GITHUB_ID. The validator reports the seeded launcher has none, so give it a test-only way to sign in as the owner. The reader session used for s6 must still get the 403 page. 2. /admin. Show at least one published and one draft report, so the table, both status pills, the 'Upload a report' action and the #upload card all show. 3. /admin/reports/<slug>. Use a report with the seeded comment thread and private feedback, with at least one author reply and one sender who is blocked. That shows the crumb, Unpublish, the dl with the SHA-256, the inbox cards with the blocked badge, the moderation cards with Remove and Block, the preview frame, Replace and Delete. Also photograph a draft report's admin page, which shows the ink Publish action. 4. /admin/blocked. Show at least one commenter with both comments and feedback, blocked through POST /admin/users/<id>/block or seeded as blocked. That shows the avatar heading, Unblock, both lists and the two-step Remove. Change nothing else. site.css, the templates, routes, CSP, the iframe and the avatar fix stay as they are. The work belongs in the test-only seed and launcher, not in the product. Everything else this validation measured stands.",
+      "cause": "validation",
+      "stage": "validate-slice",
+      "from": [
+       "validate-slice"
+      ]
+     },
+     "changed": {
+      "tests": 5,
+      "listed": 5,
+      "measured_by_git": 10
+     },
+     "details": "build-slice-4.json"
+    },
+    {
+     "n": 5,
+     "state": "passed",
+     "at": "2026-11-26T10:54:19.041Z",
+     "head": "1d691a82851664989e767ae3b8ae129258464233",
+     "summary": "Fixed the two accepted defects and nothing else.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "2 defect(s) in lines this slice wrote were accepted by the code review (O-037, O-038). None weighs a lap on its own, so they go back to the builder TOGETHER, once, before validation -- instead of to the backlog and from there to a send-back at the merge. Fix exactly these with the smallest change: one scoped re-check reads only your fix. Sent back with what raised them: O-037 (fix): IN-m1 (minor): userInfo now answers with the picked account (`user := f.user; if picked != nil { user = *picked }`) for the id, login and avatar. The UserIDString and UserIDFloat switch cases still format `f.user.ID`, the account SetUser names. So when a test signs in through a picker link with either id-shape switch on, the stand-in reports the SetUser account's id. Measured: a picked owner 4242 comes back as id \"42\" (string) and as 42 (float), with the login report-author. In userInfo, change `f.user.ID` to `user.ID` in the UserIDString and UserIDFloat cases. [shown by a failing run] The engine ran the code review's test for this, internal/testutil/fakegithub/picked_id_shape_test.go, with `go test -count=1 -run ^TestPickedUserKeepsItsIDUnderIDShapeSwitches$ ./internal/testutil/fakegithub/`, and it FAILED. Put that test at internal/testutil/fakegithub/picked_id_shape_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestPickedUserKeepsItsIDUnderIDShapeSwitches$ ./internal/testutil/fakegithub/` again in your tree, and that run is what closes this; your word does not. The test: package fakegithub import ( \"encoding/json\" \"net/http\" \"net/url\" \"strings\" \"testing\" ) // A picked account keeps its own id under the id-shape switches: /user answers // the picked choice's id as a string or a float, never the id SetUser named. func TestPickedUserKeepsItsIDUnderIDShapeSwitches(t *testing.T) { for _, tc := range []struct { name string set func(*Switches) want any }{ {\"string\", func(s *Switches) { s.UserIDString = true }, \"4242\"}, {\"float\", func(s *Switches) { s.UserIDFloat = true }, float64(4242)}, } { t.Run(tc.name, func(t *testing.T) { f := New(cid, secret, redirect) defer f.Close() f.OfferChoices(Choice{Label: \"Continue as the owner\", User: User{ID: 4242, Login: \"report-author\"}}) f.Configure(tc.set) q := authQuery(func(q url.Values) { q.Set(\"pick\", \"0\") }) resp, err := noFollow().Get(f.URL() + \"/login/oauth/authorize?\" + q.Encode()) if err != nil { t.Fatal(err) } resp.Body.Close() back, _ := url.Parse(resp.Header.Get(\"Location\")) code := back.Query().Get(\"code\") if resp.StatusCode != http.StatusFound || code == \"\" { t.Fatalf(\"pick=0 answered %d %q, want a 302 with a code\", resp.StatusCode, resp.Header.Get(\"Location\")) } form := url.Values{\"client_id\": {cid}, \"client_secret\": {secret}, \"redirect_uri\": {redirect}, \"code\": {code}, \"code_verifier\": {\"verifier\"}} req, _ := http.NewRequest(http.MethodPost, f.URL()+\"/login/oauth/access_token\", strings.NewReader(form.Encode())) req.Header.Set(\"Content-Type\", \"application/x-www-form-urlencoded\") req.Header.Set(\"Accept\", \"application/json\") tr, err := http.DefaultClient.Do(req) if err != nil { t.Fatal(err) } var tok struct { AccessToken string `json:\"access_token\"` } json.NewDecoder(tr.Body).Decode(&tok) tr.Body.Close() if tok.AccessToken == \"\" { t.Fatal(\"no token\") } ureq, _ := http.NewRequest(http.MethodGet, f.URL()+\"/user\", nil) ureq.Header.Set(\"Authorization\", \"Bearer \"+tok.AccessToken) ur, err := http.DefaultClient.Do(ureq) if err != nil { t.Fatal(err) } defer ur.Body.Close() var who map[string]any if err := json.NewDecoder(ur.Body).Decode(&who); err != nil { t.Fatal(err) } if who[\"id\"] != tc.want || who[\"login\"] != \"report-author\" { t.Fatalf(\"/user for the picked owner answered id %#v login %#v, want id %#v login report-author\", who[\"id\"], who[\"login\"], tc.want) } }) } } O-038 (fix): IN-m2 (minor): run() now starts the serving program pointed at the launcher's own stand-in GitHub (HBAND_GITHUB_URL = fake.URL() through Options.Env). It returns `final`, whose Fake field is still the stand-in program.Start made for itself, which the serving program never asks. Every caller of the returned *program.Program that goes through p.Fake therefore talks to the wrong stand-in: p.SignIn and p.Owner call p.Fake.SetUser, Approve checks that the sign-in redirect starts with p.Fake.URL(), and p.Fake.TokenCalls counts there. Measured: the serving program redirected sign-in to http://127.0.0.1:52408/login/oauth/authorize while the returned p.Fake.URL() was http://127.0.0.1:52409. Before this build the returned Program's Fake was the one its program used. In run(), after `final := program.Start(...)`, set `final.Fake = fake`, so the returned Program names the stand-in its program signs in through. Alternatively, document that the returned Program's Fake and SignIn must not be used. [shown by a failing run] The engine ran the code review's test for this, internal/testutil/seeded/run_fake_test.go, with `go test -count=1 -run ^TestRunReturnsTheStandInItsProgramUses$ ./internal/testutil/seeded/`, and it FAILED. Put that test at internal/testutil/seeded/run_fake_test.go as it is -- comments and layout aside -- and make it pass. The engine runs `go test -count=1 -run ^TestRunReturnsTheStandInItsProgramUses$ ./internal/testutil/seeded/` again in your tree, and that run is what closes this; your word does not. The test: package main import ( \"io\" \"net/http\" \"strings\" \"testing\" ) // The program run returns names, as its Fake, the stand-in GitHub that program // actually signs in through, so a caller's p.Fake (SignIn, Approve, TokenCalls) // talks to the same stand-in the program redirects to. func TestRunReturnsTheStandInItsProgramUses(t *testing.T) { p := run(t, testPort(t), io.Discard) start := p.Anonymous().Get(t, \"/auth/github/login\") if start.Status < 300 || start.Status >= 400 { t.Fatalf(\"GET /auth/github/login answered %d, want a redirect\", start.Status) } if !strings.HasPrefix(start.Location, p.Fake.URL()+\"/login/oauth/authorize\") { t.Fatalf(\"the serving program sends sign-in to %q, but the Program run returned names its stand-in as %s\", start.Location, p.Fake.URL()) } _ = http.StatusOK }",
+      "stage": "code-review",
+      "from": [
+       "code-review"
+      ],
+      "obligations": [
+       "O-033",
+       "O-034",
+       "O-035",
+       "O-036",
+       "O-037",
+       "O-038"
+      ]
+     },
+     "changed": {
+      "tests": 4,
+      "listed": 4,
+      "measured_by_git": 8
+     },
+     "details": "build-slice-5.json"
+    },
+    {
+     "n": 6,
+     "state": "passed",
+     "at": "2026-11-26T13:01:44.604Z",
+     "head": "eda347d2670644ed74e8d74332336a247bd452bc",
+     "summary": "Rebuilt the look to the new blog design in .taad/look.json: warm paper, soft ink, a serif voice for what is read, a sans for what is used, one deep pine accent.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "Restarted from build-slice by a person: The owner says the current look reads like a finance reporting interface, and hband is a blog. Design it again as a blog people enjoy reading: the reader pages (home, All reports, a report and its thread) lead with the writing -- a confident title, the author and date, a comfortable reading measure and type, calm spacing, and comments that read as a conversation rather than a form. Before deciding the look, search for well-liked blogs and publications and take inspiration from their qualities, never copy them. The /admin pages stay a quiet working admin in the same look. Everything the slice already owes still holds: light and dark, WCAG AA contrast, one shared stylesheet, system fonts only, no script beyond thread.js, and Blocked users and the forbidden page on the same look.",
+      "cause": "person",
+      "stage": "restart",
+      "from": [
+       "restart"
+      ]
+     },
+     "changed": {
+      "src": 7,
+      "tests": 1,
+      "listed": 8,
+      "measured_by_git": 13
+     },
+     "details": "build-slice-6.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T08:15:07.340Z",
+     "head": "662548f7acf9e867d90e20da49b0947b5aa12c4f",
+     "summary": "stopped by s2.shubh2@gmail.com: The owner wants a different look: a Ghost-like editorial publishing interface without the bloat.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
+    },
+    {
+     "n": 2,
+     "state": "passed",
+     "at": "2026-11-26T09:16:29.641Z",
+     "head": "f83e789074307fb11a6ae8b77b8bc1c23c098a34",
+     "summary": "I reviewed the whole slice from c5e4180 to 662548f: the shell package, the auth and server wiring, every changed template, site.css, the stylesheet, shell and look tests, probe.js, the frame test and headless.Submit.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-26T09:31:59.374Z, and build-slice has judged since (2026-11-26T09:56:04.796Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-2.json"
+    },
+    {
+     "n": 3,
+     "state": "passed",
+     "at": "2026-11-26T10:04:05.318Z",
+     "head": "571ae37ed63a085797030a94f831a088dc640aed",
+     "summary": "This was a stale-scope re-read of build 3 (30e2068..f83e789).",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-26T10:12:48.221Z, and build-slice has judged since (2026-11-26T10:40:12.635Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-3.json"
+    },
+    {
+     "n": 4,
+     "state": "unrecorded",
+     "at": "2026-11-26T10:41:17.948Z",
+     "head": "",
+     "summary": "This was a stale-scope re-read of build 4 (f83e789..571ae37).",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "Restarted from build-slice by a person: The owner says the current look reads like a finance reporting interface, and hband is a blog. Design it again as a blog people enjoy reading: the reader pages (home, All reports, a report and its thread) lead with the writing -- a confident title, the author and date, a comfortable reading measure and type, calm spacing, and comments that read as a conversation rather than a form. Before deciding the look, search for well-liked blogs and publications and take inspiration from their qualities, never copy them. The /admin pages stay a quiet working admin in the same look. Everything the slice already owes still holds: light and dark, WCAG AA contrast, one shared stylesheet, system fonts only, no script beyond thread.js, and Blocked users and the forbidden page on the same look.",
+      "cause": "person",
+      "stage": "restart",
+      "from": [
+       "restart"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-4.json"
+    },
+    {
+     "n": 5,
+     "state": "passed",
+     "at": "2026-11-26T10:57:14.739Z",
+     "head": "1d691a82851664989e767ae3b8ae129258464233",
+     "summary": "the provider turned this away rather than running it -- You've hit your 5-hour limit · resets 5:20pm (Asia/Kolkata); it was cut off partway: a model had already worked in this run, and what it spent is booked",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-26T10:51:22.219Z, and build-slice has judged since (2026-11-26T10:57:09.924Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-5.json"
+    },
+    {
+     "n": 6,
+     "state": "passed",
+     "at": "2026-11-26T11:50:11.680Z",
+     "head": "eda347d2670644ed74e8d74332336a247bd452bc",
+     "summary": "I re-checked the one fix batch (571ae37..1d691a8).",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "Restarted from build-slice by a person: The owner says the current look reads like a finance reporting interface, and hband is a blog. Design it again as a blog people enjoy reading: the reader pages (home, All reports, a report and its thread) lead with the writing -- a confident title, the author and date, a comfortable reading measure and type, calm spacing, and comments that read as a conversation rather than a form. Before deciding the look, search for well-liked blogs and publications and take inspiration from their qualities, never copy them. The /admin pages stay a quiet working admin in the same look. Everything the slice already owes still holds: light and dark, WCAG AA contrast, one shared stylesheet, system fonts only, no script beyond thread.js, and Blocked users and the forbidden page on the same look.",
+      "cause": "person",
+      "stage": "restart",
+      "from": [
+       "restart"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-6.json"
+    },
+    {
+     "n": 7,
+     "state": "unrecorded",
+     "at": "2026-11-26T13:13:43.032Z",
+     "head": "",
+     "summary": "Build 6 (commit eda347d, reviewed as d39e278..eda347d) rebuilds the look to the blog design in .taad/look.json and adds the author byline the look calls for.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "Restarted from build-slice by a person: The owner says the current look reads like a finance reporting interface, and hband is a blog. Design it again as a blog people enjoy reading: the reader pages (home, All reports, a report and its thread) lead with the writing -- a confident title, the author and date, a comfortable reading measure and type, calm spacing, and comments that read as a conversation rather than a form. Before deciding the look, search for well-liked blogs and publications and take inspiration from their qualities, never copy them. The /admin pages stay a quiet working admin in the same look. Everything the slice already owes still holds: light and dark, WCAG AA contrast, one shared stylesheet, system fonts only, no script beyond thread.js, and Blocked users and the forbidden page on the same look.",
+      "cause": "person",
+      "stage": "restart",
+      "from": [
+       "restart"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-7.json"
+    }
+   ]
+  },
+  {
+   "stage": "validate-slice",
+   "title": "Validate",
+   "order": 9,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "failed",
+     "at": "2026-11-26T09:39:28.219Z",
+     "head": "30e2068c784b83191b3d1f6ebb47f3f351e3e6f1",
+     "summary": "The slice's machinery holds up when run.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-1.json"
+    },
+    {
+     "n": 2,
+     "state": "failed",
+     "at": "2026-11-26T10:16:31.462Z",
+     "head": "f83e789074307fb11a6ae8b77b8bc1c23c098a34",
+     "summary": "The one defect this validation sent back is fixed.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-2.json"
+    },
+    {
+     "n": 3,
+     "state": "passed",
+     "at": "2026-11-26T12:01:44.001Z",
+     "head": "eda347d2670644ed74e8d74332336a247bd452bc",
+     "summary": "stopped by s2.shubh2@gmail.com: The owner wants the screens designed again in a blog direction before this look is validated.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-3.json"
+    },
+    {
+     "n": 4,
+     "state": "unrecorded",
+     "at": "2026-11-26T13:30:44.576Z",
+     "head": "",
+     "summary": "Build 6 (eda347d, the blog look) holds up when run.",
+     "caused_by": null,
+     "changed": {},
+     "details": "validate-slice-4.json"
+    }
+   ]
+  },
+  {
+   "stage": "reflect",
+   "title": "Reflect",
+   "order": 10,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T13:45:19.877Z",
+     "head": "eda347d2670644ed74e8d74332336a247bd452bc",
+     "summary": "SL-019 replaced the 48-line site.css with one light-dark() token design system (no at-rules), added an internal/layout shell that all 7 page templates take, and brought the reader, admin and Not allowed screens onto it.",
+     "caused_by": null,
+     "changed": {},
+     "details": "reflect-1.json"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,212 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "build-slice",
+ "attempt": 3,
+ "at": "2026-11-26T09:46:23.098Z",
+ "head": "f83e789074307fb11a6ae8b77b8bc1c23c098a34",
+ "run_id": 12474,
+ "summary": "Fixed the one thing sent back: a missing or refused avatar image is now the plain --surface-2 circle with its ring, with no broken-image glyph. In site.css, `.avatar` gets `position: relative` and a new `.avatar::after` rule covers the box with the same token fill. The look test now judges it by pixels: in the header, a byline and a Blocked users heading (2rem), at 1280 and a 375 px mobile viewport, in light and dark, every pixel inside each circle must be the resolved --surface-2. With the fix taken out the check fails (glyph pixels such as #a3a3a3 inside the circle); with it in, it passes. The rest of the build is untouched, and `go test -count=1 ./...` exits 0.",
+ "payload": {
+  "status": "complete",
+  "summary": "Fixed the one thing sent back: a missing or refused avatar image is now the plain --surface-2 circle with its ring, with no broken-image glyph. In site.css, `.avatar` gets `position: relative` and a new `.avatar::after` rule covers the box with the same token fill. The look test now judges it by pixels: in the header, a byline and a Blocked users heading (2rem), at 1280 and a 375 px mobile viewport, in light and dark, every pixel inside each circle must be the resolved --surface-2. With the fix taken out the check fails (glyph pixels such as #a3a3a3 inside the circle); with it in, it passes. The rest of the build is untouched, and `go test -count=1 ./...` exits 0.",
+  "files": [
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "`.avatar` gains `position: relative`; new `.avatar::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background-color: var(--surface-2); }`. Chrome draws ::after on an img only while its image is broken, so a loaded photo is left alone. Tokens only; the ring and every other state are unchanged."
+   },
+   {
+    "path": "internal/server/testdata/look/probe.js",
+    "change": "modified",
+    "why": "Adds drawnAvatars(), avatars(per) (the first few avatars of each kind with their broken/pending state) and avatarBox(i) (scrolls one into view and returns its box), which the Go side photographs."
+   },
+   {
+    "path": "internal/server/look_test.go",
+    "change": "modified",
+    "why": "avatarSamples and avatarPass photograph each avatar in a viewport screenshot and count pixels inside its circle (2.5 CSS px in from the edge) that are not --surface-2. TestEveryScreenIsDesigned runs it on reader report, owner admin report and owner blocked users in both widths and schemes, and fails if no header, byline or heading avatar was measured. New TestAvatarProbeSeesABrokenImageGlyph serves the real stylesheet minus `.avatar::after` and requires every page to be flagged for the glyph. New TestALoadedAvatarIsLeftAlone serves a real same-origin PNG and requires the photo, not the cover, in the header circle. serveStylesheet is a small helper for the sensitivity test."
+   }
+  ],
+  "obligations": [],
+  "mandatory": [],
+  "cases": [
+   {
+    "key": "C-001",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-002",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-003",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-004",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-005",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestStaticThreadScript",
+    "test_command": "go test -count=1 -run ^TestStaticThreadScript$ ./internal/server/"
+   },
+   {
+    "key": "C-006",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-007",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestThreadFitsPhoneWidth",
+    "test_command": "go test -count=1 -run ^TestThreadFitsPhoneWidth$ ./internal/server/"
+   },
+   {
+    "key": "C-008",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReportFrameKeepsItsOwnCanvas",
+    "test_command": "go test -count=1 -run ^TestReportFrameKeepsItsOwnCanvas$ ./internal/server/"
+   },
+   {
+    "key": "C-009",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReportFrameKeepsItsOwnCanvas",
+    "test_command": "go test -count=1 -run ^TestReportFrameKeepsItsOwnCanvas$ ./internal/server/"
+   },
+   {
+    "key": "C-010",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestReportFrameKeepsItsOwnCanvas",
+    "test_command": "go test -count=1 -run ^TestReportFrameKeepsItsOwnCanvas$ ./internal/server/"
+   },
+   {
+    "key": "C-011",
+    "test_name": "github.com/sshubham2/hband/internal/auth.TestForbiddenPageTakesTheShell",
+    "test_command": "go test -count=1 -run ^TestForbiddenPageTakesTheShell$ ./internal/auth/"
+   },
+   {
+    "key": "C-012",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestEveryScreenIsDesigned",
+    "test_command": "go test -count=1 -run ^TestEveryScreenIsDesigned$ ./internal/server/"
+   },
+   {
+    "key": "C-013",
+    "test_name": "github.com/sshubham2/hband/internal/server.TestStylesheetTokens",
+    "test_command": "go test -count=1 -run ^TestStylesheetTokens$ ./internal/server/"
+   },
+   {
+    "key": "C-014",
+    "test_name": "github.com/sshubham2/hband/internal/layout.TestEveryPageTakesTheShell",
+    "test_command": "go test -count=1 -run ^TestEveryPageTakesTheShell$ ./internal/layout/"
+   }
+  ],
+  "tests": [
+   {
+    "command": "go test -count=1 -run '^TestEveryScreenIsDesigned$' ./internal/server/ (before the CSS fix)",
+    "outcome": "failed",
+    "note": "Expected failure, run to prove the assertion can fail: 108 problems, e.g. '281 of 346 pixels inside the byline avatar ... are not the #26272b fill: a broken-image glyph shows'."
+   },
+   {
+    "command": "go test -count=1 -run '^TestEveryScreenIsDesigned$' ./internal/server/ with `.avatar::after` and `position: relative` taken out of site.css (second pre-fix run, after I changed the sampler)",
+    "outcome": "failed",
+    "note": "32 problems, glyph pixels such as #a3a3a3 and #f1f6fe inside the header and byline circles in light and dark. site.css was restored byte-identical (hash compared)."
+   },
+   {
+    "command": "go test -count=1 -run '^TestEveryScreenIsDesigned$' -v ./internal/server/ (with the fix)",
+    "outcome": "passed",
+    "note": "20 states x 2 widths x 2 schemes; 6232 texts (lowest 5.78:1), 1352 controls; avatars measured in the header, a byline and a Blocked users heading on reader report, owner admin report and owner blocked users, both widths and schemes; all 14 roles seen."
+   },
+   {
+    "command": "go test -count=1 -run '^(TestAvatarProbeSeesABrokenImageGlyph|TestALoadedAvatarIsLeftAlone)$' -v ./internal/server/",
+    "outcome": "passed",
+    "note": "Without the cover rule every page is flagged for the glyph, in both schemes (header, byline, heading all looked at). A real PNG avatar is left showing in the header circle, in both schemes, so the cover does not hide a loaded image."
+   },
+   {
+    "command": "go test -count=1 -run 'TestStylesheetTokens|TestStylesheetCorpus|TestThreadFitsPhoneWidth|TestCommentStyles|TestReportFrameKeepsItsOwnCanvas|TestLookProbeSees' -v ./internal/server/",
+    "outcome": "passed",
+    "note": "The static and phone-width pins hold with the new rule (token only, `position` on `.avatar` is not a thread box); the frame canvas test and the pre-slice-stylesheet sensitivity test still pass."
+   },
+   {
+    "command": "go test -count=1 ./... (CHROME_BIN set, TAAD3_HOME in scratch)",
+    "outcome": "passed",
+    "note": "Exit 0, every package ok. One earlier full run failed internal/testutil/seeded TestPortOpensOnlyOnceTheThreadIsSeeded (a 404 on first answer, a timing check under load); that package passes alone and the next full run was clean. I did not touch internal/testutil."
+   }
+  ],
+  "screens": [
+   {
+    "name": "Home page",
+    "open": "/"
+   },
+   {
+    "name": "Report page",
+    "open": "/reports/e004-look"
+   },
+   {
+    "name": "Report page, signed in as a reader",
+    "open": "/reports/e004-look",
+    "steps": [
+     "Sign in with GitHub"
+    ]
+   },
+   {
+    "name": "All reports",
+    "open": "/reports"
+   },
+   {
+    "name": "Thread branch page",
+    "open": "/reports/e004-look",
+    "steps": [
+     "continue this thread →"
+    ]
+   },
+   {
+    "name": "Not allowed page",
+    "open": "/admin"
+   }
+  ],
+  "app": {
+   "command": "go run ./internal/testutil/seeded -port {port}",
+   "url": "http://127.0.0.1:{port}/"
+  },
+  "architecture": [
+   {
+    "block": "C-008",
+    "kind": "paths",
+    "add": [
+     "internal/layout/**"
+    ],
+    "why": "internal/layout (layout.go, templates/base.html, layout_test.go) holds the shared head, page-start and page-end that every page template takes; no block's globs matched it."
+   },
+   {
+    "block": "C-008",
+    "kind": "line",
+    "find": "Layout must work on phones.",
+    "replace": "Layout must work on phones. Every page, the admin pages and the Not allowed page included, takes its look from one stylesheet, internal/server/static/site.css, whose colours are light-dark() tokens that follow the visitor's prefers-color-scheme, and its document shell from internal/layout.",
+    "why": "site.css is a token table (:root of light-dark(#hex, #hex)) with no at-rules; all 7 page templates open with page-start and close with page-end (TestEveryPageTakesTheShell); the admin pages draw the shared header and the admin-nav sidebar."
+   },
+   {
+    "block": "C-002",
+    "kind": "depends",
+    "add": [
+     "C-008"
+    ],
+    "why": "internal/auth/owner.go imports internal/layout to build forbiddenPage (template.ParseFS(layout.FS, ...)) for the Not allowed page; internal/layout imports only embed, so there is no cycle."
+   }
+  ],
+  "deviations": [
+   "The avatar pixel check photographs each avatar after scrolling it to the middle of the viewport, instead of one whole-page capture. A whole-page capture (captureBeyondViewport) drops the scrollbar and shifts the centred column, so boxes measured with the scrollbar did not line up with the picture (my first version reported a false 110-of-343 mismatch on a correctly filled circle). Each avatar's box and picture now come from the same layout. Looked at per page: up to 2 of each kind.",
+   "The circle is sampled 2.5 CSS px in from its edge, not at the edge, so the ring, the anti-aliased rim and sub-pixel snapping of a fractional box position are not read as glyph pixels.",
+   "This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build. A missing avatar image is the project's own CSS to draw, not an outside defect to step around."
+  ],
+  "not_built": [
+   "Nothing in the sending-back was left out. Still not built, as before: the seeded launcher has no owner session, draft, feedback with replies or blocked account (finding m4, deferred by decision), so /admin, /admin/reports/<slug> and /admin/blocked are not in `screens`; TestEveryScreenIsDesigned measures them as the owner.",
+   "Firefox and Safari were not run (O-017, owed to validate): only Chrome is driven on this machine."
+  ],
+  "follow_ups": [
+   "The validator's other recorded findings stand as filed and were not worked here: the orphaned '·' in the All reports phone row, the three-row signed-in phone header, mid-word breaks in the 375 px admin table, a long login leaving its avatar alone on a row, and the seed's avatars.example CSP refusals.",
+   "TestPortOpensOnlyOnceTheThreadIsSeeded (internal/testutil/seeded) failed once in a full-suite run with a 404 on the first answer and passed alone and on the next full run. It looks like a timing check that is sensitive to load; it is not related to this change.",
+   "The engine's projects.app_command still has to be repointed to `go run ./internal/testutil/seeded -port {port}`."
+  ]
+ }
+}
