@@ -125,6 +125,8 @@
       // (g) the role each bound control has to compute, by where it sits.
       const t = args.tokens;
       const roles = [
+        ["accent page-head action", ".page-head .primary", "accent", "onAccent", "fill"],
+        ["current admin nav item", ".admin-nav a[aria-current=page]", "surface2", "text", "fill"],
         ["danger confirm in .remove", ".remove form button", "danger", "onDanger", "fill"],
         ["danger confirm in .block", ".block form button", "danger", "onDanger", "fill"],
         ["danger delete", "form[action$=\"/delete\"] button", "danger", "onDanger", "fill"],
@@ -144,6 +146,31 @@
           const s = getComputedStyle(el);
           if (kind === "fill" && s.backgroundColor !== t[bgKey]) bad("role", el, name + ": fill " + s.backgroundColor + ", want " + t[bgKey]);
           if (s.color !== t[fgKey]) bad("role", el, name + ": text " + s.color + ", want " + t[fgKey]);
+        }
+      }
+
+      // A page-head action that is not the primary one is the neutral button, never the ink fill.
+      for (const el of document.querySelectorAll(".page-head form button:not(.primary)")) {
+        if (!visible(el)) continue;
+        seen["neutral page-head action"] = (seen["neutral page-head action"] || 0) + 1;
+        const s = getComputedStyle(el);
+        if (s.backgroundColor === t.accent || s.backgroundColor === t.danger) bad("role", el, "a neutral page-head action has the fill " + s.backgroundColor);
+      }
+
+      // The admin sidebar is drawn on the admin pages and on no other page, once, with
+      // its current item marked. At phone width it is one row of three, inside the width.
+      const navs = document.querySelectorAll("nav.admin-nav");
+      const wantNav = args.adminNav ? 1 : 0;
+      if (navs.length !== wantNav) bad("admin-nav", de, navs.length + " admin sidebars, want " + wantNav);
+      if (wantNav) {
+        const current = navs[0].querySelectorAll("a[aria-current=page]").length;
+        if (current !== 1) bad("admin-nav", navs[0], current + " items marked as the current page, want 1");
+        if (args.mobile) {
+          const links = [...navs[0].querySelectorAll("a")];
+          const tops = new Set(links.map((a) => Math.round(a.getBoundingClientRect().top)));
+          const right = Math.max(...links.map((a) => a.getBoundingClientRect().right));
+          if (tops.size !== 1) bad("admin-nav", navs[0], "the sidebar is " + tops.size + " rows at " + args.width + " px, want one");
+          if (right > args.width) bad("admin-nav", navs[0], "the sidebar reaches " + right + " px, past the " + args.width + " px viewport");
         }
       }
 
@@ -183,6 +210,9 @@
     const controlSel = "a[href], button, input, select, textarea";
     for (const el of document.body.querySelectorAll(controlSel)) {
       if (!visible(el) || el.disabled || (el.tagName === "INPUT" && (el.type === "hidden" || el.type === "checkbox" || el.type === "radio"))) continue;
+      // The sidebar marks its current page with weight and a tint: that is state, not a
+      // control's boundary, and the link's own text is judged for 4.5:1 above.
+      if (el.matches(".admin-nav a")) continue;
       const edge = (s) => {
         if (!s || s.borderTopStyle === "none" || parseFloat(s.borderTopWidth) === 0) return null;
         return rgb(s.borderTopColor);

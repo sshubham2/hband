@@ -75,6 +75,70 @@
   {
    "stage": "design-slice",
    "issue": "Decoration: an avatar ring drawn with an opaque box-shadow and a CSS-border chevron on summaries. These are left to the frontend designer within the token contract."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The /admin pages and Blocked users are not in `screens`: the engine's seeded product signs in only as a non-owner, so it can reach the Not allowed page but not the admin pages, and `screens` holds at most 6. TestEveryScreenIsDesigned measures all three as the owner, in both schemes, at both widths, with details open."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Firefox and Safari were not run (O-017, owed to validate): only Chrome is driven here."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "No confirmation step on 'Delete this report permanently', and /admin keeps its own owner line and Sign out beside the shared header's. The design filed both for a person because they change behaviour or content."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The engine's Fitness op=check was not run: the builder cannot. The three new rules are plain YAML scalars with no ': ' or ' #' in them, and the repo's lenient loader and corpus tests load them."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Q-012's decided enforcement (a fitness rule forbidding `<script` in report.html and layout.html) does not exist in fitness.yaml, and thread.js is loaded on the found home, report and branch pages. This slice moved the tag into internal/layout/templates/base.html and pinned it there in TestEveryPageTakesTheShell. A person should say whether Q-012 is amended to 'thread.js is the one allowed site script' or whether a fitness rule should also be written."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "On the /admin table at 375 px, the word 'published' breaks mid-word ('publishe/d') because body cells use overflow-wrap: anywhere, which is what keeps the page from scrolling sideways. A fix could be a narrower Status column or a different wrap rule on that cell, if somebody wants it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Cross-rule ordering of border shorthands (a later rule restating `border: 1px solid` after another rule set border-color to a token) is caught only inside one rule. A browser assertion that every bordered control's edge colour differs from its text colour would close it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "The engine's app command was Python-launcher based (#13 of the design); this build reports `go run ./internal/testutil/seeded -port {port}`. The engine's projects.app_command still has to be repointed by the engine for the photographs."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "Architecture: internal/server (C-001) also imports internal/layout (C-008). Only the C-002 edge fits in this report's three architecture edits."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: forbidden.html defines its \"header\" after page-end, not before page-start: TestEveryPageTakesTheShell requires a page to open with page-start, and the design's own contract said both. admin.html's uploadform already sits after page-end the same way."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: .replies uses border-left: 1px solid; border-left-color: var(--thread) instead of leaving the shorthand with var(--thread) as M-add-1 said. phone_test reads the shorthand identically (a 1 px width; border-left-color is not read), so the 'no var() in an edge shorthand' rule has no exemption."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The forced hover pass applies the 3:1 boundary check only to controls that had a fill or edge at rest (tracked in a WeakSet). Quiet buttons (the header's Sign out) take a deliberately subtle --surface-2 hover tint, which is a change of state, not a boundary. Text contrast still applies to every forced control."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: lintStylesheet also refuses clip-path (same class as the frame-reach properties), url(), transition and animation, which the design only listed as rules for later slices."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Added an optional page dump to TestEveryScreenIsDesigned, written only when HBAND_TEST_ARTIFACTS is set (an existing test setting), so a person can look at the screens. The test judges nothing from it."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: Added fire/quiet corpus rows and a bounded_by entry for the three new fitness rules in internal/fitnessrules/testdata/rule_spellings.json. The fitnessrules tests did not require them, but a glob such as internal/layout/**/*.go is otherwise untested."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "deviation: The design says a browser without light-dark() 'falls back to the browser-default look'. The built CSS follows the accepted finding M-add-1 instead: transparent fills, controls and panels keeping literal-width currentColor edges, and the focus ring surviving. This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build."
   }
  ],
  "stages": [
@@ -150,6 +214,48 @@
      "caused_by": null,
      "changed": {},
      "details": "critique-review-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "build-slice",
+   "title": "Build",
+   "order": 7,
+   "state": "sent back",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T07:44:46.855Z",
+     "head": "2847afdd9ed03debb1cee951d639afe22c4fbb20",
+     "summary": "Built the design system and moved every page onto one shell.",
+     "caused_by": null,
+     "changed": {
+      "src": 20,
+      "tests": 7,
+      "config": 2,
+      "listed": 29,
+      "measured_by_git": 33
+     },
+     "details": "build-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "code-review",
+   "title": "Code review",
+   "order": 8,
+   "state": "waiting",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "waiting",
+     "at": "2026-11-26T08:15:07.340Z",
+     "head": "2847afdd9ed03debb1cee951d639afe22c4fbb20",
+     "summary": "stopped by s2.shubh2@gmail.com: The owner wants a different look: a Ghost-like editorial publishing interface without the bloat.",
+     "caused_by": null,
+     "changed": {},
+     "details": "code-review-1.json"
     }
    ]
   }

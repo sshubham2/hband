@@ -108,15 +108,16 @@ func seedLook(t *testing.T) *lookWorld {
 }
 
 type lookState struct {
-	name    string
-	w       *lookWorld
-	sid     string
-	path    string
-	refuse  bool // POST an invalid upload from the /admin form in the browser and measure the answer
-	scripts int  // <script> tags the page owes: 1 where a thread is drawn, else 0
-	capped  bool // the page draws a comment at the depth cap
-	shots   bool // owner screens, held to the signal-colour assay
-	forced  bool // re-measured with hover and focus forced on every control
+	name     string
+	w        *lookWorld
+	sid      string
+	path     string
+	refuse   bool // POST an invalid upload from the /admin form in the browser and measure the answer
+	scripts  int  // <script> tags the page owes: 1 where a thread is drawn, else 0
+	capped   bool // the page draws a comment at the depth cap
+	shots    bool // owner screens, held to the signal-colour assay
+	forced   bool // re-measured with hover and focus forced on every control
+	adminNav bool // the page is an admin page, so it draws the sidebar, and no other page does
 }
 
 const refuseUpload = `(() => { const f = document.querySelector('form[action="/admin/reports"]'); f.noValidate = true;
@@ -126,7 +127,8 @@ const refuseUpload = `(() => { const f = document.querySelector('form[action="/a
 // a role nothing measured.
 var roleSeen = []string{"danger confirm in .remove", "danger confirm in .block", "danger delete", "accent sign in",
 	"accent post comment", "accent post reply", "accent send feedback", "accent send reply", "accent upload",
-	"danger summary of .remove", "danger summary of .block"}
+	"danger summary of .remove", "danger summary of .block",
+	"accent page-head action", "neutral page-head action", "current admin nav item"}
 
 type probeResult struct {
 	Violations []string       `json:"violations"`
@@ -194,7 +196,8 @@ func (b *lookBrowser) tokens(dark bool) map[string]string {
 		r, g, bl := hexRGB(b.tok[name][i])
 		return fmt.Sprintf("rgb(%d, %d, %d)", r, g, bl)
 	}
-	return map[string]string{"danger": rgb("danger"), "onDanger": rgb("on-danger"), "accent": rgb("accent"), "onAccent": rgb("on-accent")}
+	return map[string]string{"danger": rgb("danger"), "onDanger": rgb("on-danger"), "accent": rgb("accent"), "onAccent": rgb("on-accent"),
+		"surface2": rgb("surface-2"), "text": rgb("text")}
 }
 
 func (b *lookBrowser) args(st lookState, dark bool, width int, mobile bool) map[string]any {
@@ -203,7 +206,7 @@ func (b *lookBrowser) args(st lookState, dark bool, width int, mobile bool) map[
 		scheme = "dark"
 	}
 	return map[string]any{"scripts": st.scripts, "width": width, "mobile": mobile, "bare": b.bare[scheme], "tokens": b.tokens(dark),
-		"cap": threadDepthCap, "minBody": 240}
+		"cap": threadDepthCap, "minBody": 240, "adminNav": st.adminNav}
 }
 
 func (b *lookBrowser) measure(st lookState, dark bool, width int, mobile bool) probeResult {
@@ -362,13 +365,15 @@ func TestEveryScreenIsDesigned(t *testing.T) {
 		{name: "reader branch", w: w, sid: w.reader, path: w.branch, scripts: 1, capped: true, forced: true},
 		{name: "reader at the admin door", w: w, sid: w.reader, path: "/admin"},
 		{name: "owner report", w: w, sid: w.owner, path: "/reports/x", scripts: 1, capped: true, shots: true, forced: true},
-		{name: "owner admin", w: w, sid: w.owner, path: "/admin", shots: true, forced: true},
-		{name: "owner admin after a refused upload", w: w, sid: w.owner, refuse: true, shots: true},
-		{name: "owner admin report", w: w, sid: w.owner, path: "/admin/reports/x", shots: true, forced: true},
-		{name: "owner blocked users", w: w, sid: w.owner, path: "/admin/blocked", shots: true, forced: true},
+		{name: "owner admin", w: w, sid: w.owner, path: "/admin", shots: true, forced: true, adminNav: true},
+		{name: "owner admin after a refused upload", w: w, sid: w.owner, refuse: true, shots: true, adminNav: true},
+		{name: "owner admin report", w: w, sid: w.owner, path: "/admin/reports/x", shots: true, forced: true, adminNav: true},
+		{name: "owner admin report of a draft", w: w, sid: w.owner, path: "/admin/reports/draft", shots: true, adminNav: true},
+		{name: "owner blocked users", w: w, sid: w.owner, path: "/admin/blocked", shots: true, forced: true, adminNav: true},
 		{name: "owner empty home", w: we, sid: we.owner, path: "/"},
 		{name: "owner empty all reports", w: we, sid: we.owner, path: "/reports"},
-		{name: "owner empty blocked users", w: we, sid: we.owner, path: "/admin/blocked"},
+		{name: "owner empty admin", w: we, sid: we.owner, path: "/admin", adminNav: true},
+		{name: "owner empty blocked users", w: we, sid: we.owner, path: "/admin/blocked", adminNav: true},
 	}
 	type vp struct {
 		name   string
@@ -529,7 +534,7 @@ func TestLookProbeSeesTheStylesheetBeforeTheDesign(t *testing.T) {
 	got := map[string]bool{}
 	for _, st := range []lookState{
 		{name: "reader report", w: w, sid: w.reader, path: "/reports/x", scripts: 1},
-		{name: "owner admin", w: w, sid: w.owner, path: "/admin"},
+		{name: "owner admin", w: w, sid: w.owner, path: "/admin", adminNav: true},
 	} {
 		b.visit(st)
 		var details float64

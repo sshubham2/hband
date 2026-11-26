@@ -24,11 +24,13 @@ import (
 // light-dark(#rrggbb, #rrggbb): a new type or space token has to be added here on
 // purpose, so no colour can hide behind a name that looks like a size.
 var nonColourTokens = map[string]bool{
-	"--font-sans": true, "--font-mono": true,
+	"--font-sans": true, "--font-serif": true, "--font-mono": true,
 	"--text-xs": true, "--text-sm": true, "--text-md": true, "--text-lg": true, "--text-xl": true, "--text-2xl": true,
-	"--leading": true, "--leading-tight": true,
+	"--text-3xl": true, "--text-display": true,
+	"--leading": true, "--leading-tight": true, "--leading-display": true,
 	"--space-1": true, "--space-2": true, "--space-3": true, "--space-4": true, "--space-5": true, "--space-6": true, "--space-7": true,
-	"--panel-pad": true, "--radius-sm": true, "--radius": true, "--radius-pill": true, "--control-h": true,
+	"--space-8": true, "--space-section": true, "--space-head": true,
+	"--panel-pad": true, "--radius-sm": true, "--radius": true, "--radius-pill": true, "--control-h": true, "--disclosure-h": true,
 }
 
 // decorativeTokens are colour tokens that carry no text and no control edge, so no
@@ -342,6 +344,7 @@ var pairRows = func() []pairRow {
 	// Text, 4.5.
 	add(4.5, "text", "bg", "surface", "surface-2", "accent-soft", "danger-soft", "ok-soft", "warning-soft")
 	add(4.5, "text-muted", page...)
+	add(4.5, "text-muted", "accent-soft", "danger-soft", "ok-soft")
 	add(4.5, "link", page...)
 	add(4.5, "accent-hover", page...)
 	add(4.5, "danger", "bg", "surface", "surface-2", "danger-soft")

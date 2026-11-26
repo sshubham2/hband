@@ -8,3 +8,8 @@
 {{else}}<a class="signin" href="/auth/github/login?next={{.SignInNext}}">Sign in with GitHub</a>
 {{end}}</nav>
 </header>{{end}}
+{{define "admin-nav"}}<nav class="admin-nav" aria-label="Admin">
+<a href="/admin"{{if eq . "reports"}} aria-current="page"{{end}}>Reports</a>
+<a href="/admin/blocked"{{if eq . "blocked"}} aria-current="page"{{end}}>Blocked users</a>
+<a href="/">View site</a>
+</nav>{{end}}

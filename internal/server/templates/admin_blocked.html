@@ -1,8 +1,9 @@
-{{template "page-start" .}}<main data-hband-admin>
-<h1>Blocked users</h1>
-<p><a href="/admin">All reports</a></p>
+{{template "page-start" .}}<div class="admin">
+{{template "admin-nav" "blocked"}}
+<main data-hband-admin>
+<div class="page-head"><h1>Blocked users</h1></div>
 
-<p>A blocked account cannot comment, send feedback or vote, and its vote stays as it was. Its comments are hidden from every reader and from every count, and are kept here for you. Unblocking brings them back, except the ones you remove.</p>
+<p class="lede">A blocked account cannot comment, send feedback or vote, and its vote stays as it was. Its comments are hidden from every reader and from every count, and are kept here for you. Unblocking brings them back, except the ones you remove.</p>
 
 {{range .Blocked}}<section class="blocked-account" id="blocked-{{.GitHubID}}">
 <h2>{{if .AvatarURL}}<img class="avatar" src="{{.AvatarURL}}" alt="" width="24" height="24"> {{end}}{{if .Login}}<span class="login">{{.Login}}</span>{{else}}<span class="login">GitHub user {{.GitHubID}}</span>{{end}}</h2>
@@ -22,15 +23,16 @@
 </details>
 {{end}}</li>
 {{end}}</ul>
-{{else}}<p>No comments.</p>
+{{else}}<p class="empty-inline">No comments.</p>
 {{end}}
 <h3>What it sent you</h3>
 {{if .Feedback}}<ul class="blocked-feedback">
 {{range .Feedback}}<li><span class="body">{{.Body}}</span> on <a href="{{.Href}}">{{.Title}}</a>
 <time datetime="{{.When.Format "2006-01-02T15:04:05Z"}}">{{.When.Format "2006-01-02 15:04 UTC"}}</time></li>
 {{end}}</ul>
-{{else}}<p>No feedback.</p>
+{{else}}<p class="empty-inline">No feedback.</p>
 {{end}}</section>
-{{else}}<p>Nobody is blocked.</p>
+{{else}}<p class="empty">Nobody is blocked.</p>
 {{end}}</main>
+</div>
 {{template "page-end" .}}
