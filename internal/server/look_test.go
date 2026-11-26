@@ -256,9 +256,10 @@ func (b *lookBrowser) forcedPass(st lookState, dark bool, width int, mobile bool
 	return violations
 }
 
-// dump writes the whole page as a PNG under dir/look, for a person to look at, when
-// HBAND_TEST_ARTIFACTS is set (the one test setting the headless package already
-// reads for its screenshots). The test judges nothing from it.
+// dump writes the page as a PNG under dir/look, for a person to look at, cut off
+// at 6000 px tall. Its caller calls it only when HBAND_TEST_ARTIFACTS is set (the
+// one test setting the headless package already reads for its screenshots). The
+// test judges nothing from it.
 func (b *lookBrowser) dump(dir, state, viewport, scheme string, width int) {
 	b.t.Helper()
 	var h float64

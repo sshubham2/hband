@@ -203,7 +203,7 @@ func lintStylesheet(css string) []string {
 	for _, r := range rules {
 		root := r.sel == ":root"
 		frame := frameSelRE.MatchString(r.sel)
-		colourSeen := map[string]bool{} // *-color longhands met so far in this rule
+		colourSeen := map[string]bool{} // border and outline *-color longhands met so far in this rule
 		for _, d := range r.decls {
 			prop := d.prop
 			base := vendorRE.ReplaceAllString(prop, "")
@@ -397,7 +397,8 @@ func TestStylesheetTokens(t *testing.T) {
 		}
 	}
 
-	// A token a rule reads has to be in the table, so that a new token cannot skip it.
+	// A colour token a rule reads has to be judged by a row of the pair table (or be
+	// decorative), so that a new token cannot skip the contrast check.
 	for _, r := range parseCSS(css) {
 		if r.sel == ":root" {
 			continue
@@ -430,8 +431,10 @@ const corpusPrelude = `:root { color-scheme: light dark; }
 // TestStylesheetCorpus runs lintStylesheet over the classes a stylesheet author can
 // produce by accident, each as rows that must fire and look-alikes that must stay
 // quiet: colour literals outside the token table (named colours included), rules
-// that reach the report frame without naming it, and edges whose colour is a token
-// inside a shorthand. Every code the linter has is exercised by some row.
+// that reach the report frame without naming it, edges whose colour is a token
+// inside a shorthand, and the token table itself (token shapes, signal colours,
+// undefined or misplaced tokens, at-rules, url()). Every code the linter has is
+// exercised by some row.
 func TestStylesheetCorpus(t *testing.T) {
 	data, err := os.ReadFile("testdata/stylesheet_corpus.json")
 	if err != nil {

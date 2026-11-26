@@ -149,7 +149,7 @@
         }
       }
 
-      // A page-head action that is not the primary one is the neutral button, never the ink fill.
+      // A page-head action that is not the primary one is the neutral button, never the ink or the danger fill.
       for (const el of document.querySelectorAll(".page-head form button:not(.primary)")) {
         if (!visible(el)) continue;
         seen["neutral page-head action"] = (seen["neutral page-head action"] || 0) + 1;
