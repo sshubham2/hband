@@ -6,6 +6,8 @@ Anyone can read a published report. A reader who signs in with GitHub can give a
 comment and reply (in plain text, to any depth) and send the owner private feedback.
 The owner can reply to feedback, remove any comment, and block a GitHub account.
 A public "All reports" page lists every published report with its likes, visible comments and times opened.
+Every page (reader pages, admin pages, Blocked users and the "Not allowed" page) is drawn from one shared layout and
+one stylesheet, which is light or dark according to the visitor's own browser setting.
 
 It is one Go program (`cmd/hband`) with an embedded SQLite database; there is no other service to run.
 
@@ -76,13 +78,16 @@ Exit status: `0` after a clean shutdown, `2` for invalid configuration, `1` for 
 go test -count=1 ./...
 ```
 
-This runs every package's tests (about half a minute here, all passing). Most of them build the real program with
-`go build` into a folder under the operating system's temporary folder, start it on a loopback port with a throwaway
-data folder and a stand-in for GitHub (`internal/testutil/fakegithub`), and talk to it over HTTP. They need no network,
-no GitHub account and none of the `HBAND_*` settings below, and they leave nothing in the repository.
+This runs every package's tests (about 50 seconds here with `CHROME_BIN` set, all passing). Most of them build the
+real program with `go build` into a folder under the operating system's temporary folder, start it on a loopback port
+with a throwaway data folder and a stand-in for GitHub (`internal/testutil/fakegithub`), and talk to it over HTTP. They
+need no network, no GitHub account and none of the `HBAND_*` settings below, and they leave nothing in the repository.
 
-Two tests drive a real browser: `TestReportScriptsNeverRun` (in `internal/server`) and `TestE004FoldAndFitInBrowser`
-(in `tests/acceptance/e004_2_deep_threads_and_toggle`). The browser is the one named by `CHROME_BIN`, and only that:
+Some tests drive a real browser: in `internal/server`, `TestReportScriptsNeverRun`, `TestEveryScreenIsDesigned` (it
+measures every screen in light and dark, at several widths) and the three look and avatar probe tests beside it
+(`TestLookProbeSeesTheStylesheetBeforeTheDesign`, `TestAvatarProbeSeesABrokenImageGlyph`,
+`TestALoadedAvatarIsLeftAlone`); and `TestE004FoldAndFitInBrowser` in
+`tests/acceptance/e004_2_deep_threads_and_toggle`. The browser is the one named by `CHROME_BIN`, and only that:
 set it to the path of a Chrome executable, for example
 
 ```powershell
@@ -95,6 +100,10 @@ and the rest of the suite still passes. Microsoft Edge is refused (those tests a
 says, and nothing falls back to another browser or to a built-in install path. Set `HBAND_TEST_ARTIFACTS` to a
 folder to keep a copy of every screenshot the browser checks take. Neither variable is read by the program itself.
 
+A second, opt-in check lives behind the build tag `sc042suite` in `tests/acceptance/suite`: it runs the whole suite
+again, once without `CHROME_BIN` and once with it, and judges which tests skipped. It is not part of
+`go test ./...`; the two commands that run it are in the comment at the top of `suite_test.go`.
+
 ## Looking at it with sample data
 
 To open a populated site in a browser without registering a GitHub OAuth app, run this from the repository root:
@@ -104,11 +113,17 @@ go run ./internal/testutil/seeded -port 8081
 ```
 
 `-port` is required: a decimal number from 1 to 65535. The helper builds the real program, seeds a throwaway data
-folder with one published report (`e004-look`) carrying a nine-level comment thread, and serves it on
-`http://127.0.0.1:<port>/`. It prints `serving http://127.0.0.1:<port>/` once the site answers, then runs until
-Ctrl-C, which stops the program and removes its folders. Sign-in on that site goes to a stand-in for GitHub, not to
-GitHub. It is a test helper under `internal/testutil`, not part of the product; if it is killed instead of
-interrupted, its folders (named `hband-*`, under the temporary folder) are left behind.
+folder and serves it on `http://127.0.0.1:<port>/`. The seed is one published report (`e004-look`) carrying a
+nine-level comment thread; a draft report (`e004-draft`); a private message from a reader (`octocat`) with the author's
+reply; and an account (`noisy-reader`) that commented, had a comment removed, sent a private message and was then
+blocked. It prints `serving http://127.0.0.1:<port>/` once the site answers, then runs until Ctrl-C, which stops the
+program and removes its folders.
+
+Sign-in on that site goes to a stand-in for GitHub, not to GitHub. The stand-in shows a page with two links instead of
+approving at once: "Continue as the owner" (the account the program pins as owner, so `/admin` opens) and "Continue as
+a reader" (`octocat`, who gets the "Not allowed" page at `/admin`). A visitor stays anonymous until a link is followed.
+It is a test helper under `internal/testutil`, not part of the product; if it is killed instead of interrupted, its
+folders (named `hband-*`, under the temporary folder) are left behind.
 
 ## Settings
 
@@ -154,13 +169,13 @@ Public pages (no sign-in):
 
 | Path | What |
 |---|---|
-| `GET /` | The newest published report, laid out like its own page. |
+| `GET /` | The newest published report, laid out like its own page ("No reports yet." when there is none). |
 | `GET /reports` | The "All reports" page: every published report, newest first, with likes, visible comments and times opened. |
-| `GET /reports/<slug>` | A published report, with its likes, comments and feedback box. The report itself is shown in an iframe loaded from `/raw/<slug>`. |
+| `GET /reports/<slug>` | A published report, with its likes, comments and feedback box. Under the title is a byline with the owner's GitHub login and avatar (as of the owner's last sign-in; left out if the owner has never signed in) and the first publish date. The report itself is shown in an iframe loaded from `/raw/<slug>`. |
 | `GET /reports/<slug>/comments/<id>` | One branch of a deep comment thread on its own page (the "continue this thread" link; a page draws five levels). |
 | `GET /raw/<slug>` | The report's bytes, served only while published, with a policy that blocks all scripts. |
 | `GET /healthz` | Health check (see above). |
-| `GET /static/...` | The site's stylesheet and its one script. |
+| `GET /static/...` | The site's stylesheet (`site.css`) and its one script (`thread.js`, loaded only on pages that draw a report's thread). |
 
 Actions that need a signed-in reader (a visitor who is not signed in is sent back to the report and nothing is stored):
 `POST /reports/<slug>/vote` (field `vote`: `up`, `down` or `none`), `POST /reports/<slug>/comments` (fields `body`, and
@@ -170,7 +185,8 @@ A comment or feedback body is plain text of 1 to 5000 characters (after trimming
 characters other than newline and tab are refused. Anything else typed is shown as typed, never as markup.
 
 Owner pages (everything under `/admin`): an anonymous `GET` or `HEAD` is redirected to sign-in (any other method from an
-anonymous visitor gets a 403), a signed-in non-owner gets a 403 page, and only the owner gets through.
+anonymous visitor gets a 403), a signed-in non-owner gets a 403 "Not allowed" page, and only the owner gets through.
+The admin pages share a small navigation bar: Reports, Blocked users and View site.
 
 | Path | What |
 |---|---|
@@ -236,7 +252,7 @@ What the code assumes:
 - **Default listening address is loopback** (`127.0.0.1:8080`); set `HBAND_ADDR` to listen elsewhere.
 - **Readers' browsers must be able to reach `avatars.githubusercontent.com`.** The site's content policy allows images
   only from the site itself and `https://avatars.githubusercontent.com`, where GitHub serves the avatars shown beside
-  comments; the program does not fetch or proxy them.
+  comments and in the byline; the program does not fetch or proxy them.
 
 ### Behind a reverse proxy
 
