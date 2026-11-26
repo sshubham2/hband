@@ -17,6 +17,7 @@ import (
 	"github.com/sshubham2/hband/internal/comments"
 	"github.com/sshubham2/hband/internal/config"
 	"github.com/sshubham2/hband/internal/feedback"
+	"github.com/sshubham2/hband/internal/layout"
 	"github.com/sshubham2/hband/internal/opens"
 	"github.com/sshubham2/hband/internal/reports"
 	"github.com/sshubham2/hband/internal/store"
@@ -62,6 +63,13 @@ type app struct {
 	pages  *template.Template
 }
 
+// parsePages is every site page in one template set. The shared shell (head,
+// page-start, page-end) comes from internal/layout and is parsed first; this
+// package's own templates, including the "header" the shell calls, second.
+func parsePages() *template.Template {
+	return template.Must(template.Must(template.ParseFS(layout.FS, "templates/*.html")).ParseFS(templateFS, "templates/*.html"))
+}
+
 // New builds the whole handler. The chain from outside in: security headers,
 // cross-origin protection (trusted origin = the base URL's origin), identity,
 // then the mux. Scheme and host come only from cfg; no handler reads them
@@ -84,7 +92,7 @@ func newApp(cfg config.Config, st *store.Store, lib *reports.Library, clock func
 		feedback: feedback.New(st.DB(), clock),
 		opens:    opens.New(st.DB(), clock),
 		client:   newClientResolver(cfg.TrustedProxies, nil),
-		pages:    template.Must(template.ParseFS(templateFS, "templates/*.html")),
+		pages:    parsePages(),
 	}
 	a.tree = a.comments.Tree
 	a.recordOpen = a.opens.Record

@@ -1,10 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-{{template "head" .}}
-</head>
-<body>
-<main data-hband-admin>
+{{template "page-start" .}}<main data-hband-admin>
 <h1>Admin</h1>
 <p>{{if .Viewer.AvatarURL}}<img class="avatar" src="{{.Viewer.AvatarURL}}" alt="" width="24" height="24"> {{end}}@{{.Viewer.Login}} (owner)</p>
 <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
@@ -33,8 +27,7 @@
 {{else}}<p>No reports yet.</p>
 {{end}}
 </main>
-</body>
-</html>
+{{template "page-end" .}}
 {{define "uploadform"}}<form method="post" action="/admin/reports" enctype="multipart/form-data">
 <p><label>Title <input type="text" name="title" value="{{.Title}}" maxlength="200" required></label></p>
 <p><label>Slug <input type="text" name="slug" value="{{.Slug}}" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></label></p>

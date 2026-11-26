@@ -252,9 +252,9 @@ func (tab *Tab) Viewport(w, h int, mobile bool) {
 	tab.Call("Emulation.setDeviceMetricsOverride", map[string]any{"width": w, "height": h, "deviceScaleFactor": scale, "mobile": mobile})
 }
 
-// Navigate loads url and waits for its load event.
-func (tab *Tab) Navigate(url string) {
-	tab.t.Helper()
+// drainLoads forgets the load events that are already waiting, so that the next
+// wait is for a load that has not happened yet.
+func (tab *Tab) drainLoads() {
 	for drained := false; !drained; {
 		select {
 		case <-tab.loads:
@@ -262,6 +262,30 @@ func (tab *Tab) Navigate(url string) {
 			drained = true
 		}
 	}
+}
+
+// Submit runs expr, which must start a navigation of the page (a form's submit(),
+// say), and waits for the document it lands on to load. It is how a test drives a
+// form POST with its redirects: polling with Eval across the navigation would race
+// the old document's teardown and fail on a destroyed execution context. The
+// expression is evaluated before the wait begins, so it must not itself wait.
+func (tab *Tab) Submit(expr string) {
+	tab.t.Helper()
+	tab.drainLoads()
+	tab.Eval(expr, nil)
+	select {
+	case <-tab.loads:
+	case <-tab.closed:
+		tab.t.Fatalf("headless: the browser closed DevTools before the page the form led to loaded")
+	case <-time.After(callTimeout):
+		tab.t.Fatalf("headless: the page the form led to did not finish loading within %s", callTimeout)
+	}
+}
+
+// Navigate loads url and waits for its load event.
+func (tab *Tab) Navigate(url string) {
+	tab.t.Helper()
+	tab.drainLoads()
 	var res struct {
 		ErrorText string `json:"errorText"`
 	}

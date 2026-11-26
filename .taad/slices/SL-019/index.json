@@ -1,0 +1,157 @@
+{
+ "schema": "slice-record@1",
+ "slice": "SL-019",
+ "title": "Give every hband screen (reader pages, /admin pages, Blocked users and the forbidden page) one designed look in light and dark, from one shared stylesheet and layout",
+ "status": "active",
+ "branch": "slice/SL-019",
+ "opened_at": "2026-11-26T05:40:27.243Z",
+ "merge_commit": null,
+ "how_to_read": "Each attempt is one line and a `details` filename in this same directory. Open a detail file ONLY when this index points you at one -- the summaries are here so you do not have to. `caused_by` is what sent the stage back; `changed` is what the attempt then touched, counted by kind. Several attempts in a row that were caused by the same stage and changed no `src` is a loop, not progress.",
+ "open": [
+  {
+   "stage": "build-check",
+   "issue": "One shared design system in one place: colour tokens for light AND dark, a type scale and a spacing scale: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Components covering links, buttons, text inputs/textareas, forms and form rows, notices, lists and tables, cards/panels, details/summary, badges and avatars, plus the admin needs: tables, destructive buttons and the two-step remove: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "One shared base layout that every template takes; no page carries its own head, style block or inline styles: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Every reader screen (home and /reports/<slug> with report frame, like count, vote controls, comments and the feedback box with the sender's own messages and author replies; the show-all page; the branch page), signed in and signed out, shows the designed look: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Every /admin screen (admin.html, admin_report.html, admin_blocked.html) and the forbidden page shows the designed look, with the admin components (tables, destructive buttons, two-step remove): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Dark mode follows prefers-color-scheme with no manual light/dark switch: missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "No control or link is left in the browser default (checked by computed styles, not screenshots): missing"
+  },
+  {
+   "stage": "build-check",
+   "issue": "No horizontal scroll at a true 375 CSS px phone width on every screen: partial"
+  },
+  {
+   "stage": "build-check",
+   "issue": "Text and controls meet a stated contrast bar in both schemes (WCAG AA proposed): partial"
+  },
+  {
+   "stage": "risk-spike",
+   "issue": "report-frame-canvas-under-site-surface: V1 light: report A shows site #f3f1ea inside the frame (not white); dark stays white. V2 flips B."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Thread script: kept in the head behind a ThreadScript() method, giving byte-identical reader pages (practice, chosen), or the tag moved into main, giving a simpler data contract (crossdomain)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Header: inside page-start, so no page can forget it, with forbidden.html defining its own brand-only header (practice, chosen); or called by each page, with a shared \"brand\" partial (crossdomain)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Admin roles: class=\"primary\" on Upload and class=\"danger\" on Delete (practice), or frozen markup with form-action selectors (crossdomain, chosen). Neither button is pinned by a test, so this is a judgement of explicitness against one uniform 'bodies unchanged' rule."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Head: add `<meta name=\"color-scheme\" content=\"light dark\">` to avoid a white flash before the CSS loads (crossdomain), or keep the head verbatim for byte identity (practice, chosen)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Hidden states: a structural [hidden]:not(:target) guard (crossdomain, chosen), or a source check banning display on hidden-carrying hooks (practice)."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "internal/layout as a package (both, chosen), or practice's flagged trim: forbidden.html keeps its own head, pinned byte-equal to the server's \"head\", with no new package and no test edit, at the cost of the brief's 'no page carries its own head' bar."
+  },
+  {
+   "stage": "design-slice",
+   "issue": "Decoration: an avatar ring drawn with an opaque box-shadow and a CSS-border chevron on summaries. These are left to the frontend designer within the token contract."
+  }
+ ],
+ "stages": [
+  {
+   "stage": "repro",
+   "title": "Repro",
+   "order": 1,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "build-check",
+   "title": "Build check",
+   "order": 2,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "risk-spike",
+   "title": "Risk spike",
+   "order": 3,
+   "state": "passed",
+   "attempts": []
+  },
+  {
+   "stage": "design-slice",
+   "title": "Design",
+   "order": 4,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T06:13:22.423Z",
+     "head": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+     "summary": "Both proposals agree on the core, and that core rests on measurements: - One site.css whose dark mode is light-dark() hex tokens.",
+     "caused_by": null,
+     "changed": {},
+     "details": "design-slice-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique",
+   "title": "Critique",
+   "order": 5,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T06:44:35.986Z",
+     "head": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+     "summary": "The design holds up against the tree.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-1.json"
+    }
+   ]
+  },
+  {
+   "stage": "critique-review",
+   "title": "Critique review",
+   "order": 6,
+   "state": "passed",
+   "attempts": [
+    {
+     "n": 1,
+     "state": "passed",
+     "at": "2026-11-26T06:56:31.749Z",
+     "head": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+     "summary": "All six first-pass findings hold at the severities filed.",
+     "caused_by": null,
+     "changed": {},
+     "details": "critique-review-1.json"
+    }
+   ]
+  }
+ ]
+}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"html"
-	"html/template"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -1129,7 +1128,7 @@ func TestThreadTenThousandTiming(t *testing.T) {
 	t1 := time.Now()
 	views := buildThread(nodes, "x", threadViewer{SignedIn: true}, testOwnerID, threadDepthCap)
 	buildTook := time.Since(t1)
-	pages := template.Must(template.ParseFS(templateFS, "templates/*.html"))
+	pages := parsePages()
 	data := readerData{
 		pageData:  pageData{Title: "x", SignedIn: true, Viewer: auth.Viewer{GitHubID: 7, Login: "reader"}},
 		Report:    reports.Report{ID: rep, Slug: "x", Title: "Report X"},

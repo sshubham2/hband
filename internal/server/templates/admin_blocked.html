@@ -1,10 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-{{template "head" .}}
-</head>
-<body>
-<main data-hband-admin>
+{{template "page-start" .}}<main data-hband-admin>
 <h1>Blocked users</h1>
 <p><a href="/admin">All reports</a></p>
 
@@ -39,5 +33,4 @@
 {{end}}</section>
 {{else}}<p>Nobody is blocked.</p>
 {{end}}</main>
-</body>
-</html>
+{{template "page-end" .}}

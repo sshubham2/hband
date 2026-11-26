@@ -1,10 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-{{template "head" .}}
-</head>
-<body>
-<main data-hband-admin>
+{{template "page-start" .}}<main data-hband-admin>
 <h1>{{.Report.Title}}</h1>
 <p><a href="/admin">All reports</a></p>
 
@@ -77,5 +71,4 @@
 <h2>Delete</h2>
 <form method="post" action="/admin/reports/{{.Report.Slug}}/delete"><button type="submit">Delete this report permanently</button></form>
 </main>
-</body>
-</html>
+{{template "page-end" .}}

@@ -1,11 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-{{template "head" .}}
-</head>
-<body>
-{{template "header" .}}
-<main class="reader">
+{{template "page-start" .}}<main class="reader">
 <h1>All reports</h1>
 <p class="legend">A view is one visitor opening a report on one day (UTC). Obvious bots are not counted.</p>
 {{if .Unavailable}}<p>Reports cannot be shown right now. Try again in a moment.</p>
@@ -18,5 +11,4 @@
 {{end}}</ol>
 {{else}}<p>No reports yet.</p>
 {{end}}</main>
-</body>
-</html>
+{{template "page-end" .}}

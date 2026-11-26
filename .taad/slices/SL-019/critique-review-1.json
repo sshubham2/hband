@@ -1,0 +1,75 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "critique-review",
+ "attempt": 1,
+ "at": "2026-11-26T06:56:31.749Z",
+ "head": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+ "run_id": 12448,
+ "summary": "All six first-pass findings hold at the severities filed. M1 and M2 are real holes in the proof: as written, the 375 px fit assertion and the browser-default assertion would both pass on the exact faults the survey measured. The four minors are enforcement gaps behind rules the design states only in prose. The overall approach is sound: tokens in one file, light-dark() with no at-rules, a leaf layout package, frozen page bodies, and a Canvas background under the report frame. Each of those follows from a measured pin or spike, and no materially simpler design meets both the brief's 'no page carries its own head' bar and the no-'@' pin. Three things were missed, all minor. (1) The design's fallback claim for browsers without light-dark() is wrong. Under the invalid-at-computed-value-time rule, controls lose their fill and their edges, so they do not fall back to the browser default. (2) The static contrast table has no rows for hover and focus, the two states no browser pass draws. (3) The design treats Q-012 as an open question, but a person answered it, and that answer already disagrees with the measured tree.",
+ "payload": {
+  "status": "complete",
+  "verdict": "extend",
+  "summary": "All six first-pass findings hold at the severities filed. M1 and M2 are real holes in the proof: as written, the 375 px fit assertion and the browser-default assertion would both pass on the exact faults the survey measured. The four minors are enforcement gaps behind rules the design states only in prose. The overall approach is sound: tokens in one file, light-dark() with no at-rules, a leaf layout package, frozen page bodies, and a Canvas background under the report frame. Each of those follows from a measured pin or spike, and no materially simpler design meets both the brief's 'no page carries its own head' bar and the no-'@' pin. Three things were missed, all minor. (1) The design's fallback claim for browsers without light-dark() is wrong. Under the invalid-at-computed-value-time rule, controls lose their fill and their edges, so they do not fall back to the browser default. (2) The static contrast table has no rows for hover and focus, the two states no browser pass draws. (3) The design treats Q-012 as an open question, but a person answered it, and that answer already disagrees with the measured tree.",
+  "assessments": [
+   {
+    "finding": "M1",
+    "classification": "valid",
+    "note": "The survey measured scrollWidth 595 and innerWidth 595 at 375 px with mobile emulation on /admin/reports/<slug>, so `scrollWidth <= innerWidth` holds on the one known overflow. The design's fix for that overflow (dd min-width 0 plus overflow-wrap: anywhere) is listed as recalled, not measured. That makes this check the only thing standing between a fix that fails and a green build, so major is right. The suggested sensitivity row (the old c5e4180 stylesheet must report 595 > 375) is the right shape."
+   },
+   {
+    "finding": "M2",
+    "classification": "valid",
+    "note": "In (b), a single differing property marks a control as designed. font-family is inherited from body (site.css:2, system-ui), and button padding comes from site.css:9. Together they make (b) pass on the tree the survey measured as fully browser-default. The element baseline makes a real miss less likely, but (b) is the brief's stated proof for 'checked by computed styles', so a check that cannot fail leaves that criterion unproven. Major is right. The fix should also say how summary, th and td are judged, because its painted-look list covers only links and form controls."
+   },
+   {
+    "finding": "m1",
+    "classification": "valid",
+    "note": "Moving from /reports/<slug> to /reports/<slug>#feedback-sent, or reloading the same fragment URL on the 375 pass, is a same-document navigation, so no load event fires. Q-021 already records a Chrome timeout on #feedback-sent. The failure is loud (a timeout), so the builder finds it on the first run, and minor is the right severity. Reaching the state through the real feedback POST's 303 is the better of the two fixes."
+   },
+   {
+    "finding": "m2",
+    "classification": "valid",
+    "note": "The design itself says wrap() can be bypassed with :where() and tells the builder to put element rules under :where(). The 'backup' it names is an overflow-only fit check, and body/.body overflow-wrap: anywhere squeezes a boxed comment instead of overflowing it. A width assertion on the level-5 .body measures layout, which no spelling can get around. Minor fits: the design forbids the boxing in prose, and only a later slice is likely to break it."
+   },
+   {
+    "finding": "m3",
+    "classification": "valid",
+    "note": "This is the CC-001 class: a list of forbidden spellings misses equivalent forms. Named colours other than red, green and lime (white, black, gray, navy and the rest) and system colours other than Canvas get past check 2. Check 1 also never says how a colour token is recognised. The browser contrast pass (d) would catch a rendered failure on the seeded states, so minor is right. The allow-list fix is correct."
+   },
+   {
+    "finding": "m4",
+    "classification": "valid",
+    "note": "The fitness regex and check 6 are anchored on iframe/.report-frame selectors, so filter, opacity or mix-blend-mode on an ancestor (main.reader, [sandbox], .reader > *) gets past both. The frame oracle samples one 5x5 patch of the report's background. Many filters (sepia, contrast, small saturate shifts) leave a white patch within ±8, so only report B's #204060 patch discriminates, and only in dark. The design uses none of these four properties, so a file-wide ban costs nothing. Minor is right."
+   }
+  ],
+  "missed": [
+   {
+    "dimension": "unfounded-assumptions",
+    "severity": "minor",
+    "route": "premortem",
+    "claim": "The design says a browser without light-dark() 'resolves the colour tokens to nothing and falls back to today's browser-default look'. That is wrong. The author declaration wins the cascade first, which discards the browser's own rule. Only then does the var() substitution turn out invalid, making the declaration invalid at computed-value time, so each property takes its inherited or initial value, not the browser default. `background: var(--surface)` becomes transparent. `border: 1px solid var(--border)` is a shorthand containing var(), so every border longhand resets to its initial value, and border-style none means no border at all. In an engine without light-dark() (Safari before 17.5, Firefox before 120, Chrome before 123), text inputs, selects and textareas therefore render with no fill and no edge, so a reader cannot see where to type, and buttons and the sign-in control read as plain text. This is what breaks if the design's third unproven precondition ('Firefox and Safari treat light-dark() the same way') fails on any engine a reader uses.",
+    "evidence": "Design, site.css token contract: 'A browser without light-dark() resolves the colour tokens to nothing and falls back to today's browser-default look.' The outside_claims entry for this is marked 'recalled'. Element baseline: 'input[type=text], select, textarea: surface fill, 1px var(--border)'; 'button: surface fill, 1px var(--border)'. The no-'@' pin (phone_test.go:141) rules out an @supports fallback.",
+    "fix": "Write control and panel edges with a literal width and style and only the colour through a token, for example `border: 1px solid; border-color: var(--border);`. An unsupported engine then keeps a currentColor edge on every input, textarea, select and button. Leave .replies alone, because phone_test pins which properties it may carry. Rewrite the outside_claim's if_wrong to describe the real degraded look: transparent fills, controls keeping only currentColor edges."
+   },
+   {
+    "dimension": "test-coverage",
+    "severity": "minor",
+    "route": "re-derivation",
+    "claim": "The design names TestStylesheetTokens' pair table as the authority for states the seeded browser pass cannot reach, and lets the frontend designer retune any value. But the table leaves out the pairs for the two states that no browser pass ever draws: hover and focus. --accent-hover, the primary button's hover fill, appears in no row: neither on-accent on accent-hover (4.5) nor accent-hover against bg, surface and surface-2 (3.0). The focus ring is paired only with bg, surface and surface-2. Yet the design puts focusable confirm buttons inside the danger-soft two-step box, and puts controls inside the ok/danger notices and accent-soft tints. Today's starting values pass when worked out by hand, but a retuned --accent-hover or --focus could fall below AA with every test still green.",
+    "evidence": "Design, Static source checks item 7 (pair list); Token layer: '--accent-hover #0a4cb5/#a8c7fa'; 'The frontend designer may retune any value. TestStylesheetTokens and TestEveryScreenIsDesigned are the authority on whether a value is acceptable.' The browser passes set no :hover and no :focus-visible state.",
+    "fix": "Add these rows: on-accent on accent-hover (4.5); accent-hover on bg, surface and surface-2 (3.0); focus on danger-soft, ok-soft and accent-soft (3.0). Also make TestStylesheetTokens fail when a colour token used in any rule appears in no pair row, so that a new token cannot skip the table."
+   },
+   {
+    "dimension": "drift-from-design",
+    "severity": "minor",
+    "route": "re-derivation",
+    "claim": "The design's hidden-guard rationale says 'With script-src 'self' and Q-012 open'. A person answered Q-012: no site JavaScript on reader pages, enforced by a fitness rule forbidding `<script` in internal/server/templates/report.html and layout.html. That answer disagrees with the measured tree. thread.js loads on the found reader and branch pages, TestStaticThreadScript requires exactly one `<script` there, and spike 5's list of every fitness rule that names internal/server/templates by path contains no `<script` rule. This slice then moves the only `<script` tag out of report.html into internal/layout/templates/base.html. Any ban written against the paths the person named would therefore never see it.",
+    "evidence": "Design, key decision on the hidden guard: 'With script-src 'self' and Q-012 open…'. Q-012 is listed under ANSWERED, 'decided by a person'. The survey's criterion 12 and code_claims show report.html loading thread.js when HasReport is true. Spike forbidden-page-can-share-layout-package, design input 8, lists the path-named rules (a) through (d), and none of them is a script ban.",
+    "fix": "Correct the rationale to say Q-012 is decided. Its conclusion is unchanged: hidden plus :target stays the state mechanism. Report the disagreement between Q-012's decided enforcement and the thread.js tag already in the tree to a person instead of building around it. If the tag moves, have TestEveryPageTakesTheShell assert that base.html holds exactly one `<script`, the thread.js tag, inside `{{if .ThreadScript}}`."
+   }
+  ],
+  "frame_challenged": false,
+  "notes": "The first reviewer was strong on test sensitivity: it asked of each browser assertion whether it can fail on a measured defect, and that produced M1 and M2. Every severity was calibrated. No finding is an over-reach that the design already answers. Its blind spots were browser fallback behaviour (how invalid-at-computed-value-time values resolve) and checking the design against the answered-question list.\n\nThe three preconditions the design imported but did not prove, and what breaks if each is false:\n(1) Canvas equals the report's standalone canvas. If this fails in light, reports A and C show the site's #f6f5f1 inside the frame, so site styling reaches the report. TestReportFrameKeepsItsOwnCanvas catches it, though only just: the per-channel difference is 9-14 against a ±8 tolerance. The fallback is light --bg #ffffff. In dark the test cannot tell Canvas apart from the site background, because --bg #131316 is within ±8 of Chrome's #121212. A failure there is invisible both to the test and to a reader, and it becomes detectable only if the dark --bg is retuned away from #121212.\n(2) Pair coverage. If the declared pairs do not cover every pair that renders, the pairs left out are those in states no pass draws: hover, focus, and seeded-absent states such as the unavailable home. This is the second missed finding.\n(3) Firefox and Safari. Current versions support light-dark(). Older engines get transparent, borderless controls rather than today's look. This is the first missed finding.\n\nOn the frame: the practice trim (forbidden.html keeps its own head) and an alternative where auth calls back into server to render the page are both simpler. Neither meets the brief's 'no page carries its own head' bar more cheaply than the measured leaf package, so the frame holds."
+ }
+}

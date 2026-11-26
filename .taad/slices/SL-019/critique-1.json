@@ -1,0 +1,145 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "critique",
+ "attempt": 1,
+ "at": "2026-11-26T06:44:35.986Z",
+ "head": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+ "run_id": 12446,
+ "summary": "The design holds up against the tree. The shell lines of report.html, branch.html and all_reports.html line up with the page-start the design describes. readBranch already sets HasReport: true (reader.go:360). TestThreadTenThousandTiming really does parse templateFS on its own (comment_test.go:1132). phone_test.go's wrap() turns `[hidden]:not(:target)` into an empty subject. `main { margin: 0 auto; padding: 1rem 1rem 3rem }` reads as a 32 px gutter (auto is 0, and the 3-value shorthand is handled). max-width is not fatal. The CSS spec text, quoted in WPT PR #35778, says an opaque Canvas is painted when the frame's scheme and the report's scheme differ, which supports the iframe Canvas substrate. The starting palette passes the AA pairs I worked out by hand.\n\nThe defects are in the browser checks that are meant to prove the slice is done:\n- Assertion (c) compares scrollWidth with innerWidth. Under mobile emulation an overflowing page widens innerWidth too, so the 595 px overflow the survey measured would pass. The existing e004 test warns about exactly this.\n- Assertion (b) counts a control as designed if any one of its listed properties differs from the bare page, and font-family and padding are on that list. Today's site.css already changes the font every link and cell inherits, and the padding of every button. So (b) passes on the unstyled tree it is meant to fail.\n- The reader `#feedback-sent` state cannot be reached through headless.Navigate. It is a same-document navigation, no load event fires, and Navigate fails on its timeout.\n- Three invariants are kept only by remembering: an unboxed thread (hidden from the static reader by `:where()`, which the design itself recommends), no colour literals outside :root (named colours get past a check that only lists forbidden spellings), and no filter or opacity on any ancestor of the frame.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "summary": "The design holds up against the tree. The shell lines of report.html, branch.html and all_reports.html line up with the page-start the design describes. readBranch already sets HasReport: true (reader.go:360). TestThreadTenThousandTiming really does parse templateFS on its own (comment_test.go:1132). phone_test.go's wrap() turns `[hidden]:not(:target)` into an empty subject. `main { margin: 0 auto; padding: 1rem 1rem 3rem }` reads as a 32 px gutter (auto is 0, and the 3-value shorthand is handled). max-width is not fatal. The CSS spec text, quoted in WPT PR #35778, says an opaque Canvas is painted when the frame's scheme and the report's scheme differ, which supports the iframe Canvas substrate. The starting palette passes the AA pairs I worked out by hand.\n\nThe defects are in the browser checks that are meant to prove the slice is done:\n- Assertion (c) compares scrollWidth with innerWidth. Under mobile emulation an overflowing page widens innerWidth too, so the 595 px overflow the survey measured would pass. The existing e004 test warns about exactly this.\n- Assertion (b) counts a control as designed if any one of its listed properties differs from the bare page, and font-family and padding are on that list. Today's site.css already changes the font every link and cell inherits, and the padding of every button. So (b) passes on the unstyled tree it is meant to fail.\n- The reader `#feedback-sent` state cannot be reached through headless.Navigate. It is a same-document navigation, no load event fires, and Navigate fails on its timeout.\n- Three invariants are kept only by remembering: an unboxed thread (hidden from the static reader by `:where()`, which the design itself recommends), no colour literals outside :root (named colours get past a check that only lists forbidden spellings), and no filter or opacity on any ancestor of the frame.",
+  "findings": [
+   {
+    "id": "M1",
+    "severity": "major",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "Assertion (c) of TestEveryScreenIsDesigned, `documentElement.scrollWidth <= innerWidth`, cannot fail at 375 px with mobile emulation. When content overflows, the mobile layout viewport widens to fit it, so innerWidth grows along with scrollWidth. The survey measured exactly that on /admin/reports/<slug>: scrollWidth 595, innerWidth 595. The 'fit every screen on a phone' case, whose stated reason is that 595 px overflow, would pass with the overflow still there.",
+    "evidence": "Design, Browser look check (c): 'documentElement.scrollWidth <= innerWidth'. Build-check survey: '/admin/reports/<slug> does not fit: scrollWidth 595 and innerWidth 595, meaning the mobile layout viewport widened'. The existing browser test already guards against this comparison and checks `wide[0] > float64(v.width)` instead.",
+    "file": "tests/acceptance/e004_2_deep_threads_and_toggle/e004_2_deep_threads_and_toggle_test.go",
+    "line": 297,
+    "quote": {
+     "path": "tests/acceptance/e004_2_deep_threads_and_toggle/e004_2_deep_threads_and_toggle_test.go",
+     "line": 297,
+     "text": "// against the width asked for, not innerWidth: a mobile page that overflows widens its own layout viewport"
+    },
+    "fix": "Compare scrollWidth with the width passed to tab.Viewport (375 or 1280), not with innerWidth, and also assert innerWidth == the requested width at 375. Add a sensitivity row: the same assertion run on today's /admin/reports/<slug> (c5e4180's site.css) must report 595 > 375."
+   },
+   {
+    "id": "M2",
+    "severity": "major",
+    "dimension": "test-coverage",
+    "nature": "defect",
+    "claim": "Assertion (b) fails an element only if it matches the bare.html element on ALL of color, background, border, radius, text-decoration-line, font-family, font-size, padding-top and padding-left. A single differing property counts it as designed. On today's unstyled tree:\n- every link, th, td, summary and inheriting textarea differs in font-family, because body sets system-ui (site.css:2) and the bare page uses the browser's default font;\n- every button differs in padding (site.css:9).\nSo (b) passes against the very state the survey measured as '100% browser default' (default fill, outset border, underlined rgb(158,158,255) links). The brief's 'no control or link is left in the browser default' criterion would have a check that never fails for the two kinds of control the reporter complained about.",
+    "evidence": "Design, Browser look check (b): 'No visible a[href], button, … matches the bare.html element … on all of: color, background-color, border-top style/width/colour, border-radius, text-decoration-line, font-family, font-size, padding-top and padding-left.' site.css:2 is `body { font-family: system-ui, sans-serif; … }`.",
+    "file": "internal/server/static/site.css",
+    "line": 9,
+    "quote": {
+     "path": "internal/server/static/site.css",
+     "line": 9,
+     "text": "button, .signin { min-height: 2.5rem; padding: .25rem .75rem; }"
+    },
+    "fix": "Judge default-ness on the painted look only:\n- links must differ from the bare link in color, or in text-decoration (line or offset);\n- buttons, inputs, selects, textareas and ::file-selector-button must differ in background-color or border-top-color/style/radius;\n- give bare.html the site's body font so inherited typography never counts.\nThen pin a sensitivity control: probe (b) run on c5e4180's site.css (a testdata copy served in place of /static/site.css) must flag the buttons and links."
+   },
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "error-paths",
+    "nature": "defect",
+    "claim": "The reader state `/reports/<slug>#feedback-sent` follows `/reports/<slug>` in the matrix and is reached with tab.Navigate. Page.navigate to a URL that differs only in its fragment, or to the same fragment URL again on the 375 pass, is a same-document navigation. It fires no Page.loadEventFired, and headless.Navigate waits only for that event, so it fails the test after callTimeout. As specified, the look test cannot reach this state.",
+    "evidence": "CDP Page.navigate: 'loaderId … This is omitted in case of same-document navigation' (https://pkg.go.dev/github.com/chromedp/cdproto/page, https://docs.rs/browser-protocol/latest/browser_protocol/page/struct.NavigateReturns.html). headless.Navigate (devtools.go:256-285) drains tab.loads and then blocks on the next load event.",
+    "file": "internal/testutil/headless/devtools.go",
+    "line": 283,
+    "quote": {
+     "path": "internal/testutil/headless/devtools.go",
+     "line": 283,
+     "text": "tab.t.Fatalf(\"headless: %s did not finish loading within %s\", url, callTimeout)"
+    },
+    "fix": "Reach #feedback-sent through the real feedback form POST. Its 303 lands on /reports/<slug>#feedback-sent as a new document, so a load event fires, and this also exercises the real flow. Otherwise, Navigate to about:blank before every state."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "defect",
+    "claim": "The design says the unboxed thread ('no horizontal padding, border or width on comment wrappers, in any spelling') is enforced by the static reader and 'backed up' by the 360 and 375 browser fits. Neither holds:\n- wrap() strips `:where(...)`, `:is(...)` and attribute selectors to an empty subject, and the design itself tells the builder to put element rules under :where().\n- The browser fits only compare scrollWidth with the viewport width. With overflow-wrap: anywhere on .body, and now on body too, boxing comments squeezes the level-5 body instead of overflowing it.\nSo `:where(.comment) { padding: 0 1rem }` would take level 5 from 244 px to about 84 px at 360 and pass every test.",
+    "evidence": "Design key decision: 'TestThreadFitsPhoneWidth's selector reader can be bypassed by spellings like :where(.comment) … The 360 and 375 browser fits back it up.' The browser fit is overflow-only, and phone_test.go:147 strips pseudo-classes and attribute selectors before classifying.",
+    "file": "tests/acceptance/e004_2_deep_threads_and_toggle/e004_2_deep_threads_and_toggle_test.go",
+    "line": 299,
+    "quote": {
+     "path": "tests/acceptance/e004_2_deep_threads_and_toggle/e004_2_deep_threads_and_toggle_test.go",
+     "line": 299,
+     "text": "if wide[0] > float64(v.width) {"
+    },
+    "fix": "In TestEveryScreenIsDesigned's details-open pass, at 375 on the report and branch pages, and on the branch page at 360 if it is cheap to add, assert that every `.comment .body` at depth threadDepthCap has getBoundingClientRect().width >= 240 (phone_test's minBody). This measures the computed layout, so no spelling can get past it."
+   },
+   {
+    "id": "m3",
+    "severity": "minor",
+    "dimension": "cross-cutting-conformance",
+    "nature": "defect",
+    "claim": "TestStylesheetTokens check 2 keeps colour literals out of the rules by listing forbidden spellings: hex, hsl(, hwb(, lab(, lch(, oklab(, oklch(, color(, color-mix( and light-dark(. The 140-odd CSS named colours (white, black, gray, navy …) and system colours other than Canvas are not on it. So `.badge { color: white }` or `border: 1px solid black` gets past the 'no colour literal outside :root' contract and stays fixed when the scheme flips. Check 1 ('every colour custom property is light-dark(#hex6, #hex6)') also does not say how a colour property is recognised, so a token written as a named colour is not checked either.",
+    "evidence": "Design, Static source checks, TestStylesheetTokens 1 and 2. Token contract: 'No colour literal appears outside :root, except Canvas in the frame rule.'",
+    "class_of": "colour literal spellings outside the token table",
+    "threat": "accident",
+    "fix": "Replace the list of forbidden spellings with a list of allowed values. Outside :root, the colour part of every colour-bearing property (color, background*, border*/outline* colour parts, accent-color, text-decoration-color, caret-color, box-shadow) may only be var(--…), currentColor, transparent, inherit, none, or Canvas in an iframe or .report-frame rule. Inside :root, treat every custom property that is not on a short list of type and space tokens as a colour token, and require the light-dark(#hex6, #hex6) shape."
+   },
+   {
+    "id": "m4",
+    "severity": "minor",
+    "dimension": "under-engineering",
+    "nature": "defect",
+    "claim": "The frame substrate contract says 'never on the frame or on any ancestor below :root: color-scheme, filter, backdrop-filter, opacity or mix-blend-mode'. color-scheme is closed for the whole file by TestStylesheetTokens check 5. For the other four properties, both the fitness rule and the check 6 allow-list match only rules that name iframe or .report-frame. `main.reader { filter: … }`, `.reader > * { opacity: … }` and `[sandbox] { mix-blend-mode: … }` all reach the report's pixels and get past both. Only the browser frame oracle remains, and it ignores changes within ±8.",
+    "evidence": "Design, Report frame substrate contract; architecture rule 'the site never restyles the report frame's colours or scheme' (regex anchored on `(iframe|\\.report-frame)[^{}]*\\{`); TestStylesheetTokens checks 5 and 6.",
+    "class_of": "selectors that reach the report frame without naming it",
+    "threat": "accident",
+    "fix": "The design uses none of filter, backdrop-filter, mix-blend-mode or opacity anywhere. Have TestStylesheetTokens refuse all four in the whole of site.css, the same way check 5 closes color-scheme. Keep the frame-rule allow-list as it is."
+   }
+  ],
+  "dimensions_checked": [
+   {
+    "dimension": "unfounded-assumptions",
+    "result": "I checked the recalled outside claims the design leans on.\n- The opaque canvas for an embedded document whose scheme differs from the frame's holds. WPT PR #35778 quotes the spec: 'the UA must use an opaque canvas of the Canvas color appropriate to the embedded document's used color scheme'.\n- `background-color: canvas` on the iframe element is the documented practice (https://fvsch.com/transparent-iframes).\n- The recalled light-dark() fallback is wrong. A var() that is invalid at computed-value time becomes `unset`, not the browser's default look, so a browser without light-dark() would draw borderless transparent buttons. This only affects browsers older than Chrome 123, Firefox 120 or Safari 17.5, nothing else depends on it, and I filed no finding.\n- The code claims I opened all match the tree: the shell lines, readerData.HasReport on the branch page, the comment_test.go:1132 parse, wrap() and cssPx/sides, the forbidden head bytes, and the uploadform and delete form actions."
+   },
+   {
+    "dimension": "missing-edge-cases",
+    "result": "Two findings:\n- m1: the #feedback-sent fragment state is a same-document navigation, which headless.Navigate cannot wait for.\n- m2: a squeezed level-5 body never overflows, so no test measures it.\nThe unavailable home and show-all states are left out of the browser matrix. The brief does not name them, and they are plain paragraphs covered by the element baseline. No finding."
+   },
+   {
+    "dimension": "under-engineering",
+    "result": "Two findings:\n- m2: the unboxed thread is kept only by remembering. :where() hides boxing from the static reader, and the browser test checks overflow only.\n- m4: the ban on filter and opacity over frame ancestors is enforced only on selectors that name the frame.\nThe shell itself holds by construction: TestEveryPageTakesTheShell plus the fitness rule, the ThreadScript method promoted through pageData, and the [hidden] guard."
+   },
+   {
+    "dimension": "over-engineering",
+    "result": "None material. internal/layout follows from the brief's 'no page carries its own head' and the forbidden page living in package auth (spike 5). The frame oracle answers spike 3's no-go. The static pair table covers states the seed cannot reach. The architecture rule on layout imports guards an embed-only package, but it costs almost nothing."
+   },
+   {
+    "dimension": "contract-gaps",
+    "result": "The page-start contract (Title and ThreadScript; each set defines its own header) and forbiddenData are complete, and execution errors fall back as today. Minor, no finding: the Canvas fallback (light --bg #ffffff) passes report C under dark only while dark --bg stays within ±8 of Chrome's #121212, yet the design invites retuning that value."
+   },
+   {
+    "dimension": "error-paths",
+    "result": "One finding, m1: a same-document Navigate fails the test after callTimeout. A data type missing Title or ThreadScript gives a 500 in a.render or the plain 403 in RequireOwner, and both are covered by the look test and TestForbiddenPageTakesTheShell."
+   },
+   {
+    "dimension": "drift-from-design",
+    "result": "None. The design keeps routes, content and page bodies frozen. The header include and the forbidden page's brand bar are what the brief and SC-054 ask for. The two-sign-out and Delete-confirmation questions are correctly filed for a person, not built."
+   },
+   {
+    "dimension": "cross-cutting-conformance",
+    "result": "One finding, m3: named colour keywords get past the literal ban, which only lists forbidden spellings. The checks follow the lessons:\n- #1009: no-skip.ps1 run with -File;\n- #972: one top-level test per check;\n- #971: single-quoted because-prose;\n- #941: signal colours kept away from the danger and ok tokens;\n- #1001: headless.Open only.\nFor CC-001 I tried variants of the new regexes. `<p/style=` gets past `\\sstyle\\s*=`, but CSP and html/template's attribute-name filtering bound that, and lessons #939/#1008 advise stopping at a bound. Not filed."
+   },
+   {
+    "dimension": "test-coverage",
+    "result": "Two major findings:\n- M1: assertion (c) compares with innerWidth and cannot catch the measured 595 px overflow.\n- M2: assertion (b) is satisfied by inherited font-family or the existing button padding, so it passes on today's unstyled tree.\nThe imported preconditions:\n- If Canvas did not equal the standalone canvas, TestReportFrameKeepsItsOwnCanvas would catch it, and the fallback fixes light.\n- If the declared pairs miss a rendered pair, only unseeded states such as the unavailable page or rare notices would go below AA unseen.\n- Firefox and Safari cannot be measured here, and csswg issue #13843 (April 2026) shows iframe scheme inheritance still differs between browsers."
+   },
+   {
+    "dimension": "security",
+    "result": "None. The iframe tags, sandbox and /raw CSP are unchanged. Site styling reaches the frame only through border, radius and Canvas. The color-scheme lever spike 3 measured is banned outside :root. The forbidden page keeps its gate order and escaping, and no data-hband-admin. Avatars point at a same-origin 404, so the test browser stays local."
+   }
+  ]
+ }
+}

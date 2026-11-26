@@ -26,6 +26,11 @@ type pageData struct {
 	Next string
 }
 
+// ThreadScript says whether the page loads the collapse script: only a page
+// that draws a thread does, which readerData answers for itself. The shell's
+// page-start reads it on every page.
+func (p pageData) ThreadScript() bool { return false }
+
 // SignInNext is the value after ?next= in the header's sign-in anchor.
 func (p pageData) SignInNext() string {
 	if p.Next == "" {
@@ -76,6 +81,11 @@ type readerData struct {
 	// zero value. The type has no row id to print.
 	OwnFeedback []feedback.Sent
 }
+
+// ThreadScript is true where a report is drawn (the found home and report pages
+// and the branch page, which sets HasReport), and false on the empty and
+// unavailable pages, which draw no thread.
+func (d readerData) ThreadScript() bool { return d.HasReport }
 
 // home is the public landing page: the newest published report, laid out
 // exactly as /reports/<slug> lays it out.
