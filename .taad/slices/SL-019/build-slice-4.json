@@ -1,0 +1,158 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "build-slice",
+ "attempt": 4,
+ "at": "2026-11-26T10:28:13.157Z",
+ "head": "571ae37ed63a085797030a94f831a088dc640aed",
+ "run_id": 12484,
+ "summary": "Made the admin screens photographable in the engine's run of the seeded app, with no change to the product. The stand-in GitHub the seeded launcher serves now shows two links, \"Continue as the owner\" and \"Continue as a reader\", so a browser that can only click gets an owner session or a reader session. The launcher's staging seed also adds a draft report, a private message from octocat with the author's reply, and a blocked account (two comments, one removed, and a message). I drove the real launcher with headless Chrome through the six screens named below, at 1280 and 375 px, light and dark; every step matched exactly one element, and I looked at the pictures. Admin, the published and draft report pages, Blocked users and the Not allowed page all show their designed look. site.css, the templates, routes, CSP, the iframe and the avatar fix are untouched.",
+ "payload": {
+  "status": "complete",
+  "summary": "Made the admin screens photographable in the engine's run of the seeded app, with no change to the product. The stand-in GitHub the seeded launcher serves now shows two links, \"Continue as the owner\" and \"Continue as a reader\", so a browser that can only click gets an owner session or a reader session. The launcher's staging seed also adds a draft report, a private message from octocat with the author's reply, and a blocked account (two comments, one removed, and a message). I drove the real launcher with headless Chrome through the six screens named below, at 1280 and 375 px, light and dark; every step matched exactly one element, and I looked at the pictures. Admin, the published and draft report pages, Blocked users and the Not allowed page all show their designed look. site.css, the templates, routes, CSP, the iframe and the avatar fix are untouched.",
+  "files": [
+   {
+    "path": "internal/testutil/fakegithub/fakegithub.go",
+    "change": "modified",
+    "why": "New opt-in OfferChoices: the authorize endpoint becomes a page of links, one per account, and the link followed decides who is signed in. With no choices it approves at once as before. Tokens now remember the account their code was granted to."
+   },
+   {
+    "path": "internal/testutil/fakegithub/fakegithub_test.go",
+    "change": "modified",
+    "why": "TestOfferChoicesMakesTheAuthorizePageAPicker: default behaviour unchanged, each link signs in its own account and ignores SetUser, labels are escaped, a bad pick or a bad client_id is still 400, and clearing the choices restores immediate approval."
+   },
+   {
+    "path": "internal/testutil/seeded/main.go",
+    "change": "modified",
+    "why": "run() calls seedScreens after DeepThread. It then starts the serving program against its own stand-in GitHub that offers the owner and reader links, made before the program binds the port, so the first sign-in it answers already has the choices. The doc comment says so."
+   },
+   {
+    "path": "internal/testutil/seeded/seed.go",
+    "change": "added",
+    "why": "seedScreens: a draft report, octocat's private message with the owner's reply, and the noisy-reader account that commented twice, had one comment removed, sent a message and was blocked, all through the product's own routes. It also holds the two choice labels the look presses and the owner and reader accounts."
+   },
+   {
+    "path": "internal/testutil/seeded/screens_test.go",
+    "change": "added",
+    "why": "TestSeededProductOffersTheOwnerAndTheReader: signs in by pressing the stand-in's links and checks /admin, both admin report pages, Blocked users, the Not allowed page, the reader's own message and reply, and that an anonymous visitor is not signed in by asking."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-017",
+    "done": false,
+    "how": "Firefox and Safari: light-dark(), the frame Canvas and the avatar cover were measured only in Chrome 158. Firefox is not installed and Safari does not exist on Windows. This is a known limit of the machine, owed to validate-slice, and I did not work on it in this attempt."
+   }
+  ],
+  "mandatory": [],
+  "cases": [],
+  "tests": [
+   {
+    "command": "go test -count=1 -p 4 ./... (CHROME_BIN=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe, TAAD3_HOME and HBAND_TEST_ARTIFACTS in scratch)",
+    "outcome": "passed",
+    "note": "Exit 0, every package ok: server 48 s, seeded 7.8 s, fakegithub, headless, program, fitnessrules, layout, auth and all tests/acceptance packages. No SKIP, no flake."
+   },
+   {
+    "command": "go test -count=1 -v -run TestSeededProductOffersTheOwnerAndTheReader ./internal/testutil/seeded/",
+    "outcome": "passed",
+    "note": "Three subtests pass. It signs in as the owner by pressing 'Continue as the owner' and sees the Draft and Published pills, the blocked badge, the author's reply, Remove and Block, Unpublish, Publish on the draft, and the Blocked users card with the removed comment and the message. As a reader it sees 403 at /admin and its own message with the reply. The public thread is still nine comments."
+   },
+   {
+    "command": "go test -count=1 ./internal/testutil/fakegithub/",
+    "outcome": "passed",
+    "note": "The picker test passes and the existing fake tests are unchanged."
+   },
+   {
+    "command": "go test -count=1 -overlay <scratch>\\ov_noseed.json and ov_nochoices.json -run TestSeededProductOffersTheOwnerAndTheReader ./internal/testutil/seeded/",
+    "outcome": "passed",
+    "note": "Sensitivity checks that are meant to fail. With seedScreens left out the test failed on the draft, the blocked badge, the reply and the 404 for the draft page. With OfferChoices left out it failed because /admin ended on a 403 instead of the stand-in's page. Both ran from copies of main.go in scratch; the repo files were not touched."
+   },
+   {
+    "command": "seeded.exe -port 18431 (built from ./internal/testutil/seeded, run from the repo root) plus a scratch headless test (go test -overlay ... -run TestZZScreens ./internal/testutil/headless/), one Chrome tab per pass in the order of the screens",
+    "outcome": "passed",
+    "note": "The launcher printed 'serving http://127.0.0.1:18431/'. In 1280 light and 375 mobile dark, all six screens reached the expected URL and title with every step matching exactly one element. I opened the pictures for admin, the report page, the draft, Blocked users, the reader home and the Not allowed page. The launcher process tree was killed afterwards and its hband-* temp folders removed."
+   },
+   {
+    "command": "gofmt -d on LF copies of the five changed Go files",
+    "outcome": "passed",
+    "note": "No gofmt differences. The files are CRLF in the working tree like the rest of the repo."
+   }
+  ],
+  "screens": [
+   {
+    "name": "Admin",
+    "open": "/admin",
+    "steps": [
+     "Continue as the owner"
+    ]
+   },
+   {
+    "name": "Admin report page",
+    "open": "/admin/reports/e004-look"
+   },
+   {
+    "name": "Admin report page, draft",
+    "open": "/admin/reports/e004-draft"
+   },
+   {
+    "name": "Blocked users",
+    "open": "/admin/blocked"
+   },
+   {
+    "name": "Home page, signed in as a reader",
+    "open": "/",
+    "steps": [
+     "Sign out",
+     "Sign in with GitHub",
+     "Continue as a reader"
+    ]
+   },
+   {
+    "name": "Not allowed page",
+    "open": "/admin"
+   }
+  ],
+  "app": {
+   "command": "go run ./internal/testutil/seeded -port {port}",
+   "url": "http://127.0.0.1:{port}/"
+  },
+  "architecture": [
+   {
+    "block": "C-008",
+    "kind": "line",
+    "find": "Layout must work on phones.",
+    "replace": "Layout must work on phones. Every page, the admin pages and the Not allowed page included, takes its look from one stylesheet, internal/server/static/site.css, whose colours are light-dark() tokens that follow the visitor's prefers-color-scheme, and its document shell from internal/layout.",
+    "why": "internal/server/static/site.css holds the light-dark() token table with no at-rule; internal/layout/templates/base.html defines page-start and page-end, which every page template takes, including internal/auth/templates/forbidden.html."
+   },
+   {
+    "block": "C-008",
+    "kind": "paths",
+    "add": [
+     "internal/layout/**"
+    ],
+    "why": "internal/layout/layout.go and templates/base.html are the shared page shell the reader and admin pages are built on."
+   },
+   {
+    "block": "C-008",
+    "kind": "paths",
+    "add": [
+     "internal/testutil/seeded/**"
+    ],
+    "why": "The seeded launcher (main.go, seed.go, screens_test.go) serves the reader and admin screens for a look; no block's globs matched it before this slice."
+   }
+  ],
+  "deviations": [
+   "Owner sign-in is a picker on the test-only stand-in GitHub rather than a session made for the browser. The engine drives a browser only by pressing visible text, so a session cannot be planted, and the stand-in used to sign in one fixed user (octocat, a reader). The stand-in now shows 'Continue as the owner' and 'Continue as a reader'. The product, the session store and the owner gate are unchanged, and an anonymous visitor stays anonymous until a link is pressed.",
+   "The serving program is pointed at a stand-in GitHub made by the launcher before the program starts (HBAND_GITHUB_URL, HBAND_GITHUB_API_URL and the client id and secret through Options.Env). program.Start's own stand-in for that program is created and never asked. Configuring the picker after Start would leave a window in which the port answers without the links.",
+   "`screens` is capped at 6 by the schema. It now names the four admin screens the send-back asked for, the Not allowed page, and the signed-in reader's page. The reader Home, Report, All reports and Thread branch pages, photographed and judged on the previous attempts and unchanged here, are not listed again. The signed-in reader's page is the screen where octocat's own message and the author's reply now show. The order matters: the owner signs in on the first screen, and the reader signs in on the fifth after pressing Sign out.",
+   "This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build."
+  ],
+  "not_built": [],
+  "follow_ups": [
+   "The engine's projects.app_command still has to be repointed to `go run ./internal/testutil/seeded -port {port}`. The recorded command points at a script removed in SL-017, and the builder cannot write the ledger.",
+   "The screens depend on the engine's browser keeping its session from one screen to the next within a pass. Attempt 3's pictures showed that (the All reports and branch screens were signed in after the sign-in step), and a pass starts anonymous (s1-phone-dark has the Sign in button). I verified the six screens in one tab in that order, not in the engine's own harness.",
+   "The reader Home, Report, All reports and Thread branch pages were left out of `screens` by the cap of 6. If the frontend designer wants them photographed again, they need a second screen list in a later pass.",
+   "The earlier look extras stand as filed and were not worked: the orphaned '·' in the All reports phone row, the three-row signed-in phone header, mid-word breaks in the 375 px admin table, a long login leaving its avatar alone on a row, and the seed's avatars.example CSP refusals (the owner's avatar uses that host by design, to stay on this machine)."
+  ]
+ }
+}

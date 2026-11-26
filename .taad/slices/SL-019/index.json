@@ -78,35 +78,39 @@
   },
   {
    "stage": "build-slice",
-   "issue": "Nothing in the sending-back was left out. Still not built, as before: the seeded launcher has no owner session, draft, feedback with replies or blocked account (finding m4, deferred by decision), so /admin, /admin/reports/<slug> and /admin/blocked are not in `screens`; TestEveryScreenIsDesigned measures them as the owner."
+   "issue": "The engine's projects.app_command still has to be repointed to `go run ./internal/testutil/seeded -port {port}`. The recorded command points at a script removed in SL-017, and the builder cannot write the ledger."
   },
   {
    "stage": "build-slice",
-   "issue": "Firefox and Safari were not run (O-017, owed to validate): only Chrome is driven on this machine."
+   "issue": "The screens depend on the engine's browser keeping its session from one screen to the next within a pass. Attempt 3's pictures showed that (the All reports and branch screens were signed in after the sign-in step), and a pass starts anonymous (s1-phone-dark has the Sign in button). I verified the six screens in one tab in that order, not in the engine's own harness."
   },
   {
    "stage": "build-slice",
-   "issue": "The validator's other recorded findings stand as filed and were not worked here: the orphaned '·' in the All reports phone row, the three-row signed-in phone header, mid-word breaks in the 375 px admin table, a long login leaving its avatar alone on a row, and the seed's avatars.example CSP refusals."
+   "issue": "The reader Home, Report, All reports and Thread branch pages were left out of `screens` by the cap of 6. If the frontend designer wants them photographed again, they need a second screen list in a later pass."
   },
   {
    "stage": "build-slice",
-   "issue": "TestPortOpensOnlyOnceTheThreadIsSeeded (internal/testutil/seeded) failed once in a full-suite run with a 404 on the first answer and passed alone and on the next full run. It looks like a timing check that is sensitive to load; it is not related to this change."
+   "issue": "The earlier look extras stand as filed and were not worked: the orphaned '·' in the All reports phone row, the three-row signed-in phone header, mid-word breaks in the 375 px admin table, a long login leaving its avatar alone on a row, and the seed's avatars.example CSP refusals (the owner's avatar uses that host by design, to stay on this machine)."
   },
   {
    "stage": "build-slice",
-   "issue": "The engine's projects.app_command still has to be repointed to `go run ./internal/testutil/seeded -port {port}`."
+   "issue": "deviation: Owner sign-in is a picker on the test-only stand-in GitHub rather than a session made for the browser. The engine drives a browser only by pressing visible text, so a session cannot be planted, and the stand-in used to sign in one fixed user (octocat, a reader). The stand-in now shows 'Continue as the owner' and 'Continue as a reader'. The product, the session store and the owner gate are unchanged, and an anonymous visitor stays anonymous until a link is pressed."
   },
   {
    "stage": "build-slice",
-   "issue": "deviation: The avatar pixel check photographs each avatar after scrolling it to the middle of the viewport, instead of one whole-page capture. A whole-page capture (captureBeyondViewport) drops the scrollbar and shifts the centred column, so boxes measured with the scrollbar did not line up with the picture (my first version reported a false 110-of-343 mismatch on a correctly filled circle). Each avatar's box and picture now come from the same layout. Looked at per page: up to 2 of each kind."
+   "issue": "deviation: The serving program is pointed at a stand-in GitHub made by the launcher before the program starts (HBAND_GITHUB_URL, HBAND_GITHUB_API_URL and the client id and secret through Options.Env). program.Start's own stand-in for that program is created and never asked. Configuring the picker after Start would leave a window in which the port answers without the links."
   },
   {
    "stage": "build-slice",
-   "issue": "deviation: The circle is sampled 2.5 CSS px in from its edge, not at the edge, so the ring, the anti-aliased rim and sub-pixel snapping of a fractional box position are not read as glyph pixels."
+   "issue": "deviation: `screens` is capped at 6 by the schema. It now names the four admin screens the send-back asked for, the Not allowed page, and the signed-in reader's page. The reader Home, Report, All reports and Thread branch pages, photographed and judged on the previous attempts and unchanged here, are not listed again. The signed-in reader's page is the screen where octocat's own message and the author's reply now show. The order matters: the owner signs in on the first screen, and the reader signs in on the fifth after pressing Sign out."
   },
   {
    "stage": "build-slice",
-   "issue": "deviation: This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build. A missing avatar image is the project's own CSS to draw, not an outside defect to step around."
+   "issue": "deviation: This build contains no workaround for a defect outside the project, so there is no per-bug checkbox or notice to build."
+  },
+  {
+   "stage": "build-slice",
+   "issue": "O-017 not done: Firefox and Safari: light-dark(), the frame Canvas and the avatar cover were measured only in Chrome 158. Firefox is not installed and Safari does not exist on Windows. This is a known limit of the machine, owed to validate-slice, and I did not work on it in this attempt."
   },
   {
    "stage": "code-review",
@@ -126,7 +130,19 @@
   },
   {
    "stage": "code-review",
+   "issue": "not read (measured): internal/server/testdata/look/probe.js -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/server/testdata/look/site.before.css -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
    "issue": "not read (measured): internal/server/testdata/stylesheet_corpus.json -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
+  },
+  {
+   "stage": "code-review",
+   "issue": "not read (measured): internal/testutil/headless/devtools.go -- never-opened: no Read, Grep, shell read or graph result returned any of its lines (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "code-review",
@@ -154,7 +170,7 @@
   },
   {
    "stage": "code-review",
-   "issue": "not read (measured): internal/testutil/headless/devtools.go (not seen: lines 1-244, 295-342 of 342) -- partly-opened: a Read returned only part of it; seen only as 44 Grep lines; seen only through a shell command: $s (measured by the engine from the review's own tool record)"
+   "issue": "not read (measured): internal/testutil/fakegithub/fakegithub_test.go (not seen: lines 181-296 of 296) -- partly-opened: a Read returned only part of it; seen only through a shell command: $s, foreach, git diff (measured by the engine from the review's own tool record)"
   },
   {
    "stage": "validate-slice",
@@ -333,6 +349,29 @@
       "measured_by_git": 8
      },
      "details": "build-slice-3.json"
+    },
+    {
+     "n": 4,
+     "state": "passed",
+     "at": "2026-11-26T10:28:13.157Z",
+     "head": "571ae37ed63a085797030a94f831a088dc640aed",
+     "summary": "Made the admin screens photographable in the engine's run of the seeded app, with no change to the product.",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "wrong",
+      "reason": "validation passes this build: The frontend designer is right. /admin, /admin/reports/<slug> and /admin/blocked are designed and carry the admin look the restart asked for, but nobody has judged a picture of them. The build goes back for one thing: make those screens photographable in the engine's run of the seeded app, and name each one in `screens` with what opens it and the steps that reach it. 1. Owner session. The engine needs a session whose GitHub user ID equals HBAND_OWNER_GITHUB_ID. The validator reports the seeded launcher has none, so give it a test-only way to sign in as the owner. The reader session used for s6 must still get the 403 page. 2. /admin. Show at least one published and one draft report, so the table, both status pills, the 'Upload a report' action and the #upload card all show. 3. /admin/reports/<slug>. Use a report with the seeded comment thread and private feedback, with at least one author reply and one sender who is blocked. That shows the crumb, Unpublish, the dl with the SHA-256, the inbox cards with the blocked badge, the moderation cards with Remove and Block, the preview frame, Replace and Delete. Also photograph a draft report's admin page, which shows the ink Publish action. 4. /admin/blocked. Show at least one commenter with both comments and feedback, blocked through POST /admin/users/<id>/block or seeded as blocked. That shows the avatar heading, Unblock, both lists and the two-step Remove. Change nothing else. site.css, the templates, routes, CSP, the iframe and the avatar fix stay as they are. The work belongs in the test-only seed and launcher, not in the product. Everything else this validation measured stands.",
+      "cause": "validation",
+      "stage": "validate-slice",
+      "from": [
+       "validate-slice"
+      ]
+     },
+     "changed": {
+      "tests": 5,
+      "listed": 5,
+      "measured_by_git": 10
+     },
+     "details": "build-slice-4.json"
     }
    ]
   },
@@ -373,14 +412,14 @@
     },
     {
      "n": 3,
-     "state": "unrecorded",
+     "state": "passed",
      "at": "2026-11-26T10:04:05.318Z",
-     "head": "",
+     "head": "571ae37ed63a085797030a94f831a088dc640aed",
      "summary": "This was a stale-scope re-read of build 3 (30e2068..f83e789).",
      "caused_by": {
       "kind": "revoke",
       "why": "stale",
-      "reason": "code-review passed on 2026-11-26T09:31:59.374Z, and build-slice has judged since (2026-11-26T09:56:04.796Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "reason": "code-review passed on 2026-11-26T10:12:48.221Z, and build-slice has judged since (2026-11-26T10:40:12.635Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
       "cause": "knock-on",
       "stage": "build-slice",
       "from": [
@@ -389,6 +428,25 @@
      },
      "changed": {},
      "details": "code-review-3.json"
+    },
+    {
+     "n": 4,
+     "state": "unrecorded",
+     "at": "2026-11-26T10:41:17.948Z",
+     "head": "",
+     "summary": "This was a stale-scope re-read of build 4 (f83e789..571ae37).",
+     "caused_by": {
+      "kind": "revoke",
+      "why": "stale",
+      "reason": "code-review passed on 2026-11-26T10:12:48.221Z, and build-slice has judged since (2026-11-26T10:40:12.635Z). Sent back to read the tree as it now stands -- the merge refuses a pass older than the work it judged, so this was owed either way. Scoped `stale`: only the tree moved, so this reads the diff rather than the whole slice.",
+      "cause": "knock-on",
+      "stage": "build-slice",
+      "from": [
+       "build-slice"
+      ]
+     },
+     "changed": {},
+     "details": "code-review-4.json"
     }
    ]
   },

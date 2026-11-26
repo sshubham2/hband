@@ -176,6 +176,12 @@ func stagingPort(n int) (int, error) {
 // port of its own, stops that program, starts the one that serves n over the
 // same folder, and writes "serving http://127.0.0.1:<n>/" to out once it
 // answers. Every failure is t.Fatalf. What it starts belongs to t's cleanups.
+//
+// The Program it returns names, as its Fake, the stand-in GitHub the serving
+// program signs in through, which offers a picker (the owner and reader links)
+// instead of approving at once. So its Anonymous visitor is the one to use, and a
+// caller signs in the way screens_test's signInBy does, by following the picker's
+// link: the Program's SignIn, Owner and Approve do not sign anyone in against it.
 func run(t program.T, n int, out io.Writer) *program.Program {
 	t.Helper()
 	bin := program.Build(t)
@@ -220,6 +226,10 @@ func run(t program.T, n int, out io.Writer) *program.Program {
 		"HBAND_GITHUB_CLIENT_SECRET": standInSecret,
 	}
 	final := program.Start(t, bin, program.Options{Port: n, Env: serveEnv})
+	// program.Start made a stand-in of its own for this program and the program is
+	// pointed away from it: name the one it really signs in through, so a caller's
+	// p.Fake (Approve's check on the redirect, TokenCalls) reads the same stand-in.
+	final.Fake = fake
 	fmt.Fprintf(out, "serving http://127.0.0.1:%d/\n", n)
 	return final
 }

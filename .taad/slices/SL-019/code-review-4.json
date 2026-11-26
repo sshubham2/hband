@@ -1,0 +1,1608 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "code-review",
+ "attempt": 4,
+ "at": "2026-11-26T10:41:17.948Z",
+ "head": "",
+ "run_id": 12488,
+ "summary": "This was a stale-scope re-read of build 4 (f83e789..571ae37). The build touched only test-only code: internal/testutil/fakegithub/fakegithub.go and its test, internal/testutil/seeded/main.go, and the new seed.go and screens_test.go. No product file changed. site.css, every template, internal/layout, internal/auth, internal/server, routes, CSP and the iframe are byte-identical to f83e789, which my attempt 3 reviewed and found clean. Its measurements still stand for those files.\n\nWhat I checked in the new code:\n- OfferChoices turns the authorize endpoint into a picker drawn with html/template. Labels and hrefs are escaped. The picked index is checked, so out-of-range, negative and non-numeric picks get a 400. Every earlier refusal (client_id, redirect_uri, state, PKCE, scope) still fires before the picker. DenyAtAuthorize skips the picker.\n- Each code carries the chosen account into its token, and /user answers for that account. With no choices offered, the token's value is nil and /user reads SetUser's user at request time, exactly as before.\n- In run(), the launcher's stand-in is built and given its choices before program.Start binds n. Its redirect_uri equals Start's base plus /auth/github/callback. serveEnv overrides only the GitHub URLs, client id and secret through childEnv. HBAND_OWNER_GITHUB_ID still comes from Start. The cleanups run in LIFO order, so the program is killed before the fake closes.\n- seedScreens checks each step for a 303.\n- The six engine screens in the build's `screens` press \"Continue as the owner\" and \"Continue as a reader\". Those are exactly the seed.go constants ownerChoice and readerChoice. I read only that field of build-slice-4.json to check this contract.\n\nWhat I ran:\n- `go vet` on fakegithub and seeded is clean.\n- TestOfferChoicesMakesTheAuthorizePageAPicker and TestSeededProductOffersTheOwnerAndTheReader pass (3 subtests).\n- `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0. All 34 packages are ok, every tests/acceptance package included.\n- The engine's Fitness check holds all 45 rules.\n- gofmt -l on the committed blobs of the five Go files is clean.\n\nA scratch overlay probe measured one contract trap. The *program.Program that run() returns carries program.Start's own stand-in as its Fake, but the serving program talks to the launcher's stand-in. On that value, p.Owner(t) fatals with \"not a redirect to GitHub's authorize page\". No caller uses it today, so I filed it as an extra.\n\nAlso filed: one half-migrated switch in userInfo (an extra) and two stale comments (text). Nothing sends the build back.\n\nSecond reader, for inputs: Input pass over build 4 (f83e789..571ae37): the OfferChoices picker in the stand-in GitHub, seedScreens, and run(), which now serves through the launcher's own stand-in. I read all five changed Go files whole, along with program.Start, childEnv, SignIn and Approve.\n\n**Inputs that hold:**\n- The picker's labels and links are drawn by html/template.\n- A `pick` value that is not a choice (\"2\", \"-1\", \"x\") gets a 400.\n- A bad client_id gets a 400 while choices are on offer.\n- DenyAtAuthorize skips the picker.\n- A token carries a copy of the picked account, so a later SetUser cannot change who it signs in.\n- The launcher's stand-in has its redirect_uri set to `http://127.0.0.1:<n>/auth/github/callback`, which is what HBAND_BASE_URL produces, and it is checked against port n.\n- On the reviewed tree, `go test -count=1` of ./internal/testutil/seeded, ./internal/testutil/fakegithub and ./internal/testutil/program passes.\n\n**Two defects, both confirmed by running scratch tests through `go test -overlay`:**\n1. **fakegithub.userInfo uses the wrong ID under two switches.** It now answers with the picked account's id, login and avatar, but the UserIDString and UserIDFloat cases still format `f.user.ID`. A picked owner (4242) therefore comes back as id \"42\" or 42.0, the account SetUser names. The repro fails on 571ae37 and passes once both lines read `user.ID`.\n2. **run() returns a Program whose Fake is the wrong stand-in.** The serving program redirects sign-in to the launcher's stand-in (port 52408 in my run), but the returned Program's Fake is a different one (52409), the stand-in program.Start made for itself, which nothing asks. A caller's p.Fake, p.SignIn, p.Owner and p.Approve on that Program therefore talk to the wrong stand-in. The repro fails today and passes once `final.Fake = fake` is set. TestSeededProductOffersTheOwnerAndTheReader and the rest of the seeded package still pass with that change.\n\nNothing was written to the repository (git status is unchanged), and my scratch folder is removed.\n\nReading pass: I read every range the engine listed, all with numbered Reads: internal/auth/forbidden_test.go 1-58, internal/auth/owner.go 1-100, forbidden.html 1-11, internal/layout/layout.go 1-16, layout_test.go 1-208 and base.html 1-17, comment_test.go 1077-1153, frame_test.go 1-99, reader.go 20-95, router.go 10-101, site.css 1-262, stylesheet_test.go 1-492, look_test.go 1-777, the three admin templates, all_reports.html, branch.html, layout.html and report.html 1-24. These files did not change in build 4 (f83e789..571ae37). Nothing in them is new to file.\n\nThe shell contract holds:\n- base.html defines only head, page-start and page-end. page-start writes the thread.js tag only behind `{{if .ThreadScript}}` and then calls the consuming set's \"header\".\n- parsePages() parses layout.FS first and templateFS second, and newApp uses it. TestThreadTenThousandTiming changes only its setup line, to `pages := parsePages()`.\n- pageData.ThreadScript() returns false and readerData returns HasReport.\n- forbiddenPage is parsed from layout.FS and then forbidden.html, and executed with forbiddenData{forbiddenTitle, v.Login}. forbiddenData's ThreadScript is false.\n- RequireOwner's order, its Cache-Control and its plain-403 fallback are unchanged.\n- forbidden.html opens with page-start, closes with page-end and defines a header that holds only the brand.\n\nThe templates match the plan:\n- report.html, branch.html and all_reports.html change only their shell lines.\n- The admin pages carry the .admin wrapper, admin-nav with its section dot, the page-head, the pills, the empty and empty-inline classes and the lede.\n- `<p>Nothing visible on this report.</p>` keeps its pinned markup, and site.css styles it through `.moderation > h2 + p:last-child`.\n- layout.html adds only the admin-nav define.\n\nsite.css keeps line 1, the light-dark() token table, the hidden guard, every pinned rule text and the literal thread geometry. It writes edges as a literal width and style with a *-color longhand, and Canvas appears only in the iframe rule.\n\nThe checkers in stylesheet_test.go, layout_test.go, look_test.go and frame_test.go do what the obligations say. The waived limits are still in the code as filed and are not filed again: the :root skip at stylesheet_test.go:233-236, the brace-free cssRuleRE, the owner signal assay that captures only the viewport, no planted pair, and no 320 px pass.\n\nEvidence from my first turn still stands: `go test -count=1 -p 4 ./...` exits 0 with CHROME_BIN set, Fitness holds all 45 rules, and gofmt and vet are clean. The run() and userInfo contract notes from that turn are already on this review under IN-m2 and IN-m1.",
+ "payload": {
+  "status": "complete",
+  "verdict": "needs-fixes",
+  "matches_design": true,
+  "summary": "This was a stale-scope re-read of build 4 (f83e789..571ae37). The build touched only test-only code: internal/testutil/fakegithub/fakegithub.go and its test, internal/testutil/seeded/main.go, and the new seed.go and screens_test.go. No product file changed. site.css, every template, internal/layout, internal/auth, internal/server, routes, CSP and the iframe are byte-identical to f83e789, which my attempt 3 reviewed and found clean. Its measurements still stand for those files.\n\nWhat I checked in the new code:\n- OfferChoices turns the authorize endpoint into a picker drawn with html/template. Labels and hrefs are escaped. The picked index is checked, so out-of-range, negative and non-numeric picks get a 400. Every earlier refusal (client_id, redirect_uri, state, PKCE, scope) still fires before the picker. DenyAtAuthorize skips the picker.\n- Each code carries the chosen account into its token, and /user answers for that account. With no choices offered, the token's value is nil and /user reads SetUser's user at request time, exactly as before.\n- In run(), the launcher's stand-in is built and given its choices before program.Start binds n. Its redirect_uri equals Start's base plus /auth/github/callback. serveEnv overrides only the GitHub URLs, client id and secret through childEnv. HBAND_OWNER_GITHUB_ID still comes from Start. The cleanups run in LIFO order, so the program is killed before the fake closes.\n- seedScreens checks each step for a 303.\n- The six engine screens in the build's `screens` press \"Continue as the owner\" and \"Continue as a reader\". Those are exactly the seed.go constants ownerChoice and readerChoice. I read only that field of build-slice-4.json to check this contract.\n\nWhat I ran:\n- `go vet` on fakegithub and seeded is clean.\n- TestOfferChoicesMakesTheAuthorizePageAPicker and TestSeededProductOffersTheOwnerAndTheReader pass (3 subtests).\n- `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0. All 34 packages are ok, every tests/acceptance package included.\n- The engine's Fitness check holds all 45 rules.\n- gofmt -l on the committed blobs of the five Go files is clean.\n\nA scratch overlay probe measured one contract trap. The *program.Program that run() returns carries program.Start's own stand-in as its Fake, but the serving program talks to the launcher's stand-in. On that value, p.Owner(t) fatals with \"not a redirect to GitHub's authorize page\". No caller uses it today, so I filed it as an extra.\n\nAlso filed: one half-migrated switch in userInfo (an extra) and two stale comments (text). Nothing sends the build back.\n\nSecond reader, for inputs: Input pass over build 4 (f83e789..571ae37): the OfferChoices picker in the stand-in GitHub, seedScreens, and run(), which now serves through the launcher's own stand-in. I read all five changed Go files whole, along with program.Start, childEnv, SignIn and Approve.\n\n**Inputs that hold:**\n- The picker's labels and links are drawn by html/template.\n- A `pick` value that is not a choice (\"2\", \"-1\", \"x\") gets a 400.\n- A bad client_id gets a 400 while choices are on offer.\n- DenyAtAuthorize skips the picker.\n- A token carries a copy of the picked account, so a later SetUser cannot change who it signs in.\n- The launcher's stand-in has its redirect_uri set to `http://127.0.0.1:<n>/auth/github/callback`, which is what HBAND_BASE_URL produces, and it is checked against port n.\n- On the reviewed tree, `go test -count=1` of ./internal/testutil/seeded, ./internal/testutil/fakegithub and ./internal/testutil/program passes.\n\n**Two defects, both confirmed by running scratch tests through `go test -overlay`:**\n1. **fakegithub.userInfo uses the wrong ID under two switches.** It now answers with the picked account's id, login and avatar, but the UserIDString and UserIDFloat cases still format `f.user.ID`. A picked owner (4242) therefore comes back as id \"42\" or 42.0, the account SetUser names. The repro fails on 571ae37 and passes once both lines read `user.ID`.\n2. **run() returns a Program whose Fake is the wrong stand-in.** The serving program redirects sign-in to the launcher's stand-in (port 52408 in my run), but the returned Program's Fake is a different one (52409), the stand-in program.Start made for itself, which nothing asks. A caller's p.Fake, p.SignIn, p.Owner and p.Approve on that Program therefore talk to the wrong stand-in. The repro fails today and passes once `final.Fake = fake` is set. TestSeededProductOffersTheOwnerAndTheReader and the rest of the seeded package still pass with that change.\n\nNothing was written to the repository (git status is unchanged), and my scratch folder is removed.\n\nReading pass: I read every range the engine listed, all with numbered Reads: internal/auth/forbidden_test.go 1-58, internal/auth/owner.go 1-100, forbidden.html 1-11, internal/layout/layout.go 1-16, layout_test.go 1-208 and base.html 1-17, comment_test.go 1077-1153, frame_test.go 1-99, reader.go 20-95, router.go 10-101, site.css 1-262, stylesheet_test.go 1-492, look_test.go 1-777, the three admin templates, all_reports.html, branch.html, layout.html and report.html 1-24. These files did not change in build 4 (f83e789..571ae37). Nothing in them is new to file.\n\nThe shell contract holds:\n- base.html defines only head, page-start and page-end. page-start writes the thread.js tag only behind `{{if .ThreadScript}}` and then calls the consuming set's \"header\".\n- parsePages() parses layout.FS first and templateFS second, and newApp uses it. TestThreadTenThousandTiming changes only its setup line, to `pages := parsePages()`.\n- pageData.ThreadScript() returns false and readerData returns HasReport.\n- forbiddenPage is parsed from layout.FS and then forbidden.html, and executed with forbiddenData{forbiddenTitle, v.Login}. forbiddenData's ThreadScript is false.\n- RequireOwner's order, its Cache-Control and its plain-403 fallback are unchanged.\n- forbidden.html opens with page-start, closes with page-end and defines a header that holds only the brand.\n\nThe templates match the plan:\n- report.html, branch.html and all_reports.html change only their shell lines.\n- The admin pages carry the .admin wrapper, admin-nav with its section dot, the page-head, the pills, the empty and empty-inline classes and the lede.\n- `<p>Nothing visible on this report.</p>` keeps its pinned markup, and site.css styles it through `.moderation > h2 + p:last-child`.\n- layout.html adds only the admin-nav define.\n\nsite.css keeps line 1, the light-dark() token table, the hidden guard, every pinned rule text and the literal thread geometry. It writes edges as a literal width and style with a *-color longhand, and Canvas appears only in the iframe rule.\n\nThe checkers in stylesheet_test.go, layout_test.go, look_test.go and frame_test.go do what the obligations say. The waived limits are still in the code as filed and are not filed again: the :root skip at stylesheet_test.go:233-236, the brace-free cssRuleRE, the owner signal assay that captures only the viewport, no planted pair, and no 320 px pass.\n\nEvidence from my first turn still stands: `go test -count=1 -p 4 ./...` exits 0 with CHROME_BIN set, Fitness holds all 45 rules, and gofmt and vet are clean. The run() and userInfo contract notes from that turn are already on this review under IN-m2 and IN-m1.",
+  "findings": [
+   {
+    "id": "m1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "extra",
+    "file": "internal/testutil/seeded/main.go",
+    "line": 222,
+    "end_line": 224,
+    "claim": "run() returns the serving *program.Program, but its Fake field is the stand-in program.Start made for itself, not the launcher's stand-in that the program is configured with (serveEnv sets HBAND_GITHUB_URL to the launcher's fake). So p.SignIn, p.Owner and p.Approve on run()'s result cannot work. Approve requires the login redirect to start with p.Fake.URL(), and SignIn calls SetUser on a fake nobody asks. Measured with a scratch overlay test: p.Fake.URL() was :62417 while /auth/github/login redirected to :62416, and p.Owner(t) fatalled with 'not a redirect to GitHub's authorize page'. Even with Fake repointed, SignIn would land on the picker's 200 page with no session cookie. No caller uses those methods today: main() and main_test.go discard the result, and screens_test uses only Anonymous(). Lesson #1007 tells later slices to reuse seeded's run(), though, and its doc comment does not warn that the returned Program cannot sign anyone in.",
+    "evidence": "main.go:211-224 builds the launcher's fake and passes it through Options.Env. program.Start still creates and returns its own fake (program.go:168, 205). visitor.go:89 and :123 use p.Fake. Overlay probe TestZZRunResultSignIn printed 'starts with p.Fake: false' and FAIL.",
+    "quote": {
+     "path": "internal/testutil/seeded/main.go",
+     "line": 222,
+     "text": "final := program.Start(t, bin, program.Options{Port: n, Env: serveEnv})"
+    },
+    "fix": "Say in run()'s doc comment that the returned Program's Fake, SignIn, Owner and Approve do not reach the stand-in it signs in through, and that a caller signs in by following the picker as screens_test's signInBy does. Alternatively, return the launcher's *fakegithub.Fake alongside the Program."
+   },
+   {
+    "id": "m2",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "extra",
+    "file": "internal/testutil/fakegithub/fakegithub.go",
+    "line": 312,
+    "end_line": 315,
+    "claim": "This diff switched userInfo to report the picked account (id := fmt.Sprint(user.ID)), but the UserIDString and UserIDFloat switch arms still format f.user.ID, the SetUser account. When a picker choice is followed with either switch on, /user returns SetUser's ID (42 by default) instead of the chosen account's. That contradicts OfferChoices' doc ('approves that choice's account and nobody else'). No test or caller combines a switch with choices today.",
+    "evidence": "fakegithub.go:299-302 picks the user, :308 uses user.ID, and :313 and :315 still use f.user.ID.",
+    "quote": {
+     "path": "internal/testutil/fakegithub/fakegithub.go",
+     "line": 313,
+     "text": "id = fmt.Sprintf(\"%q\", fmt.Sprint(f.user.ID))"
+    },
+    "fix": "Use user.ID in both arms: fmt.Sprintf(\"%q\", fmt.Sprint(user.ID)) and fmt.Sprintf(\"%d.0\", user.ID)."
+   },
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "file": "internal/testutil/fakegithub/fakegithub_test.go",
+    "line": 181,
+    "end_line": 182,
+    "claim": "userFor's doc comment says it runs the exchange 'for the authorize request q', but the function has no q. Its parameter is authorizeURL, a full URL that it GETs.",
+    "quote": {
+     "path": "internal/testutil/fakegithub/fakegithub_test.go",
+     "line": 181,
+     "text": "// userFor runs the whole exchange for the authorize request q (as a browser's"
+    },
+    "fix": "Change the comment to say 'for the authorize URL authorizeURL'."
+   },
+   {
+    "id": "t2",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "file": "internal/testutil/seeded/main.go",
+    "line": 227,
+    "end_line": 231,
+    "claim": "checkStandIn's doc comment describes only the staging stand-in ('It was bound before the staging program'). This diff now also calls it at main.go:213 for the serving stand-in, which is bound before the serving program. Its failure messages (lines 236 and 240) still name 'the staging stand-in', so a collision on the serving stand-in would report the wrong one.",
+    "quote": {
+     "path": "internal/testutil/seeded/main.go",
+     "line": 227,
+     "text": "// checkStandIn fails t when the stand-in GitHub at raw sits on port n. It was"
+    },
+    "fix": "Make the comment cover both callers, for example 'bound before the program it stands in for'. Optionally pass a name into the messages."
+   },
+   {
+    "id": "IN-m1",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "nature": "defect",
+    "file": "internal/testutil/fakegithub/fakegithub.go",
+    "line": 313,
+    "end_line": 315,
+    "claim": "userInfo now answers with the picked account (`user := f.user; if picked != nil { user = *picked }`) for the id, login and avatar. The UserIDString and UserIDFloat switch cases still format `f.user.ID`, the account SetUser names. So when a test signs in through a picker link with either id-shape switch on, the stand-in reports the SetUser account's id. Measured: a picked owner 4242 comes back as id \"42\" (string) and as 42 (float), with the login report-author.",
+    "evidence": "fakegithub.go:308 `id := fmt.Sprint(user.ID)` was changed to the picked user, but :313 `id = fmt.Sprintf(\"%q\", fmt.Sprint(f.user.ID))` and :315 `id = fmt.Sprintf(\"%d.0\", f.user.ID)` were not. The scratch repro fails on 571ae37 and passes with both lines reading user.ID, and the whole fakegithub package stays green.",
+    "fix": "In userInfo, change `f.user.ID` to `user.ID` in the UserIDString and UserIDFloat cases.",
+    "quote": {
+     "path": "internal/testutil/fakegithub/fakegithub.go",
+     "line": 312,
+     "text": "\tcase f.sw.UserIDString:\n\t\tid = fmt.Sprintf(\"%q\", fmt.Sprint(f.user.ID))\n\tcase f.sw.UserIDFloat:\n\t\tid = fmt.Sprintf(\"%d.0\", f.user.ID)"
+    },
+    "repro": {
+     "path": "internal/testutil/fakegithub/picked_id_shape_test.go",
+     "command": "go test -count=1 -run ^TestPickedUserKeepsItsIDUnderIDShapeSwitches$ ./internal/testutil/fakegithub/",
+     "body": "package fakegithub\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n\t\"net/url\"\n\t\"strings\"\n\t\"testing\"\n)\n\n// A picked account keeps its own id under the id-shape switches: /user answers\n// the picked choice's id as a string or a float, never the id SetUser named.\nfunc TestPickedUserKeepsItsIDUnderIDShapeSwitches(t *testing.T) {\n\tfor _, tc := range []struct {\n\t\tname string\n\t\tset  func(*Switches)\n\t\twant any\n\t}{\n\t\t{\"string\", func(s *Switches) { s.UserIDString = true }, \"4242\"},\n\t\t{\"float\", func(s *Switches) { s.UserIDFloat = true }, float64(4242)},\n\t} {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\tf := New(cid, secret, redirect)\n\t\t\tdefer f.Close()\n\t\t\tf.OfferChoices(Choice{Label: \"Continue as the owner\", User: User{ID: 4242, Login: \"report-author\"}})\n\t\t\tf.Configure(tc.set)\n\t\t\tq := authQuery(func(q url.Values) { q.Set(\"pick\", \"0\") })\n\t\t\tresp, err := noFollow().Get(f.URL() + \"/login/oauth/authorize?\" + q.Encode())\n\t\t\tif err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tresp.Body.Close()\n\t\t\tback, _ := url.Parse(resp.Header.Get(\"Location\"))\n\t\t\tcode := back.Query().Get(\"code\")\n\t\t\tif resp.StatusCode != http.StatusFound || code == \"\" {\n\t\t\t\tt.Fatalf(\"pick=0 answered %d %q, want a 302 with a code\", resp.StatusCode, resp.Header.Get(\"Location\"))\n\t\t\t}\n\t\t\tform := url.Values{\"client_id\": {cid}, \"client_secret\": {secret}, \"redirect_uri\": {redirect}, \"code\": {code}, \"code_verifier\": {\"verifier\"}}\n\t\t\treq, _ := http.NewRequest(http.MethodPost, f.URL()+\"/login/oauth/access_token\", strings.NewReader(form.Encode()))\n\t\t\treq.Header.Set(\"Content-Type\", \"application/x-www-form-urlencoded\")\n\t\t\treq.Header.Set(\"Accept\", \"application/json\")\n\t\t\ttr, err := http.DefaultClient.Do(req)\n\t\t\tif err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tvar tok struct {\n\t\t\t\tAccessToken string `json:\"access_token\"`\n\t\t\t}\n\t\t\tjson.NewDecoder(tr.Body).Decode(&tok)\n\t\t\ttr.Body.Close()\n\t\t\tif tok.AccessToken == \"\" {\n\t\t\t\tt.Fatal(\"no token\")\n\t\t\t}\n\t\t\tureq, _ := http.NewRequest(http.MethodGet, f.URL()+\"/user\", nil)\n\t\t\tureq.Header.Set(\"Authorization\", \"Bearer \"+tok.AccessToken)\n\t\t\tur, err := http.DefaultClient.Do(ureq)\n\t\t\tif err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tdefer ur.Body.Close()\n\t\t\tvar who map[string]any\n\t\t\tif err := json.NewDecoder(ur.Body).Decode(&who); err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tif who[\"id\"] != tc.want || who[\"login\"] != \"report-author\" {\n\t\t\t\tt.Fatalf(\"/user for the picked owner answered id %#v login %#v, want id %#v login report-author\", who[\"id\"], who[\"login\"], tc.want)\n\t\t\t}\n\t\t})\n\t}\n}\n"
+    }
+   },
+   {
+    "id": "IN-m2",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "defect",
+    "file": "internal/testutil/seeded/main.go",
+    "line": 222,
+    "end_line": 224,
+    "claim": "run() now starts the serving program pointed at the launcher's own stand-in GitHub (HBAND_GITHUB_URL = fake.URL() through Options.Env). It returns `final`, whose Fake field is still the stand-in program.Start made for itself, which the serving program never asks. Every caller of the returned *program.Program that goes through p.Fake therefore talks to the wrong stand-in: p.SignIn and p.Owner call p.Fake.SetUser, Approve checks that the sign-in redirect starts with p.Fake.URL(), and p.Fake.TokenCalls counts there. Measured: the serving program redirected sign-in to http://127.0.0.1:52408/login/oauth/authorize while the returned p.Fake.URL() was http://127.0.0.1:52409. Before this build the returned Program's Fake was the one its program used.",
+    "evidence": "main.go:211-222 builds `fake := fakegithub.New(...)` and starts `final := program.Start(t, bin, program.Options{Port: n, Env: serveEnv})`. program.go:168 and :205 set Program.Fake to Start's own `fake`, and childEnv lets Options.Env override HBAND_GITHUB_URL/API_URL. The scratch repro fails on 571ae37 and passes once `final.Fake = fake` is added. TestSeededProductOffersTheOwnerAndTheReader and the whole seeded package still pass with that change.",
+    "fix": "In run(), after `final := program.Start(...)`, set `final.Fake = fake`, so the returned Program names the stand-in its program signs in through. Alternatively, document that the returned Program's Fake and SignIn must not be used.",
+    "quote": {
+     "path": "internal/testutil/seeded/main.go",
+     "line": 222,
+     "text": "\tfinal := program.Start(t, bin, program.Options{Port: n, Env: serveEnv})\n\tfmt.Fprintf(out, \"serving http://127.0.0.1:%d/\\n\", n)\n\treturn final"
+    },
+    "repro": {
+     "path": "internal/testutil/seeded/run_fake_test.go",
+     "command": "go test -count=1 -run ^TestRunReturnsTheStandInItsProgramUses$ ./internal/testutil/seeded/",
+     "body": "package main\n\nimport (\n\t\"io\"\n\t\"net/http\"\n\t\"strings\"\n\t\"testing\"\n)\n\n// The program run returns names, as its Fake, the stand-in GitHub that program\n// actually signs in through, so a caller's p.Fake (SignIn, Approve, TokenCalls)\n// talks to the same stand-in the program redirects to.\nfunc TestRunReturnsTheStandInItsProgramUses(t *testing.T) {\n\tp := run(t, testPort(t), io.Discard)\n\tstart := p.Anonymous().Get(t, \"/auth/github/login\")\n\tif start.Status < 300 || start.Status >= 400 {\n\t\tt.Fatalf(\"GET /auth/github/login answered %d, want a redirect\", start.Status)\n\t}\n\tif !strings.HasPrefix(start.Location, p.Fake.URL()+\"/login/oauth/authorize\") {\n\t\tt.Fatalf(\"the serving program sends sign-in to %q, but the Program run returned names its stand-in as %s\", start.Location, p.Fake.URL())\n\t}\n\t_ = http.StatusOK\n}\n"
+    }
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "internal/server/look_test.go TestEveryScreenIsDesigned emulates prefers-color-scheme dark on every state, and probe.js asserts every check plus a background that differs between schemes. Verified in my attempts 2 and 3. The files are unchanged in f83e789..571ae37."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "probe.js compares scrollWidth with the requested width and asserts innerWidth == 375 on mobile. The look test seeds /admin/reports/x (SHA-256 dd), /admin (5-column table, file input) and a 39-character login. Files unchanged since my attempt 3."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "look_test.go runs a details-open pass on the owner report, admin report and populated Blocked users pages, and on Reply at the cap. The role rows require the danger fill on the .remove/.block confirms. Unchanged."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "look_test.go captures the owner states in both schemes with details open and runs headless.Count for #ff0000/#00ff00. The capture is viewport-only, which is the limitation waived as O-028."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "branch_test.go TestStaticThreadScript passes in the full suite I ran (exit 0). base.html gates thread.js on .ThreadScript, and reader.go overrides it on readerData."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "probe.js checks that #feedback-sent has no client rects unless the hash targets it (reached via about:blank), and that re-hidden .toggle computes display none. site.css keeps [hidden]:not(:target). Unchanged."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "TestThreadFitsPhoneWidth passes in my full-suite run. probe.js asserts at least one depth-5 .body of 240 px or more on the branch page at 360 and 375, with a 12-level seed."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "frame_test.go TestReportFrameKeepsItsOwnCanvas, report A light: frame equals standalone. site.css iframe has background-color: Canvas. Unchanged; it passed in my full-suite run."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "Same test, report B dark: #204060 both inside the frame and alone. No color-scheme below :root (lintStylesheet). Unchanged."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "Same test, report C in both schemes equals standalone (#ffffff, #121212). Unchanged."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "internal/auth/forbidden_test.go TestForbiddenPageTakesTheShell covers '' and 'octo<b>&cat': title, one site.css link, sentence, escaped login, brand, no marker, no script. It passed in the full suite."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "look_test.go: the refused-upload state is a real Chrome POST through headless.Tab.Submit with noValidate and an invalid slug. It asserts p.error[role=alert], then probes. Unchanged."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "stylesheet_test.go TestStylesheetTokens and TestStylesheetCorpus pass. The pair fault shape has no planted test, which is waived as O-029."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "internal/layout/layout_test.go TestEveryPageTakesTheShell plus TestShellCheckerSeesEachFault pass in the full suite."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "The builder measured TestReportFrameKeepsItsOwnCanvas with a non-canvas --bg, and removing Canvas failed 4 of 6 cases. The frame rule is unchanged in this build."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "probe.js measures rendered contrast on every visible text and control, including forced :hover and :focus-visible, and the run passes. The limit is states outside the seed and engines other than Chrome. Unchanged."
+   },
+   {
+    "key": "O-017",
+    "discharged": "no",
+    "evidence": "Open and owed to validate-slice. light-dark(), the frame Canvas and the avatar cover were measured only in Chrome 158, because Firefox and Safari are not on this machine. Build 4 did not touch it, and nothing in the tree measures another engine."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "probe.js fit check against the requested width and innerWidth. TestLookProbeSeesTheStylesheetBeforeTheDesign serves testdata/look/site.before.css and requires a fit violation. It passed in the full suite."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "probe.js judges only painted properties. The same sensitivity test flags link, button, input, select, textarea, th and td on the pre-slice stylesheet. Unchanged."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "internal/testutil/headless/devtools.go Tab.Submit drains loads, evaluates once and waits on the load channel, and every state starts from about:blank. TestTabSubmitWaitsForTheRedirectedPage passes in the headless package run."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "probe.js computes depth as 1 + the number of .replies ancestors, asserts the cap body is 240 px or more, and records atCap. The branch page is taken from the continue href. Unchanged."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "lintStylesheet named-colour and function scan with stylesheet_corpus.json colour-literal rows. The :root member gap is still in the code and was carried to SC-059/SC-061 (O-027/O-031)."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "lintStylesheet strips vendor prefixes and bans filter, backdrop-filter, mix-blend-mode, opacity, mask* and clip-path anywhere. The nested-rule gap was carried to SC-060 (O-030)."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "site.css edges are written as a literal width and style followed by a *-color token longhand, and :focus-visible uses outline-color. lintStylesheet refuses var() in an edge shorthand. Unchanged."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "look_test.go forces :hover and :focus-visible through CSS.forcePseudoState and re-runs contrast, and the static pair table has a coverage check. Unchanged."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "layout_test.go matches script case-insensitively across internal/**/templates and pins base.html to the one gated thread.js tag. Unchanged."
+   },
+   {
+    "key": "O-027",
+    "discharged": "no",
+    "evidence": "Waived to SC-059. stylesheet_test.go's :root branch still skips ordinary properties, and nothing changed it in this build."
+   },
+   {
+    "key": "O-028",
+    "discharged": "no",
+    "evidence": "Waived to note N-255. The owner assay still uses the viewport-only shoot in look_test.go. Unchanged."
+   },
+   {
+    "key": "O-029",
+    "discharged": "no",
+    "evidence": "Waived to note N-256. There is still no test planting a below-bar pair."
+   },
+   {
+    "key": "O-030",
+    "discharged": "no",
+    "evidence": "Waived to SC-060. cssRuleRE is still brace-free, so declarations beside a nested rule are not linted."
+   },
+   {
+    "key": "O-031",
+    "discharged": "no",
+    "evidence": "Waived to SC-061. This is the same :root skip as O-027, still in the code."
+   },
+   {
+    "key": "O-032",
+    "discharged": "no",
+    "evidence": "Waived to note N-254. site.css is unchanged in this build, and no 320 px admin pass was added."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "look_test.go TestEveryScreenIsDesigned calls Emulation.setEmulatedMedia with prefers-color-scheme dark on every state and width, and probe.js runs all assertions under it. I read it in attempts 2 and 3; it is unchanged."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "look_test.go seeds a report with a 64-hex SHA-256, the /admin table and file input, and a 39-character login. It runs them at a 375 px mobile viewport, and probe.js compares scrollWidth with 375 and asserts innerWidth == 375."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "The details-open pass opens every details on the owner report, the admin report, the populated /admin/blocked page and the branch page at the cap. The role rows check the danger confirms."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "The owner states are captured in both schemes with details open and counted for signal colours. The capture covers only the viewport, as waived in O-028."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "branch_test.go TestStaticThreadScript renders the empty home alongside the found home, report and branch pages and counts the script tags."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "The probe reaches #feedback-sent with and without the fragment (via about:blank), re-hides each button.toggle with Eval and reads display none."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "phone_test.go TestThreadFitsPhoneWidth models level 5 at 360 px. The look test's 360 pass on the branch page measures a depth-5 body of 240 px or more."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "frame_test.go publishes report A (no background, no color-scheme) and compares the in-frame patch with /raw opened alone under light."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "frame_test.go report B carries an @media (prefers-color-scheme: dark) #204060 background, compared under dark."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "frame_test.go report C has :root color-scheme light dark and no background, compared under both schemes."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "internal/auth/forbidden_test.go executes forbiddenPage with Login '' and 'octo<b>&cat' and asserts the escaped login and no marker."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "look_test.go fills the /admin form in Chrome with an invalid slug and noValidate, submits it via Tab.Submit, and asserts p.error[role=alert] on the answered page."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "TestStylesheetCorpus plants undefined var, literals outside :root, color-scheme off :root and signal-near tokens into lintStylesheet. The below-bar-pair shape is fed only through the real site.css, with no planted fault, as waived in O-029."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "layout_test.go TestShellCheckerSeesEachFault plants pages missing page-start or page-end in both templates directories, and TestEveryPageTakesTheShell walks the real tree."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12489,
+   "filed": 2,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "never-opened product file"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 12490,
+   "session": "c3730099-3e43-4c4e-b29d-4f847fa095a8",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/auth/forbidden_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       58
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      58
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/auth/owner.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       10,
+       11
+      ],
+      [
+       17,
+       32
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      5,
+      37
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/auth/owner.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       86,
+       86
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 67,
+       "header": "func RequireOwner(h http.Handler) http.Handler {"
+      }
+     ],
+     "read": [
+      67,
+      97
+     ],
+     "header": "func RequireOwner(h http.Handler) http.Handler {",
+     "line": 67,
+     "whole_file": false
+    },
+    {
+     "path": "internal/auth/templates/forbidden.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       1
+      ],
+      [
+       8,
+       11
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      11
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/layout/layout.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       16
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      16
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/layout/layout_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       208
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      208
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/layout/templates/base.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       17
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      17
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1131,
+       1131
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 1077,
+       "header": "func TestThreadTenThousandTiming(t *testing.T) {"
+      }
+     ],
+     "read": [
+      1077,
+      1153
+     ],
+     "header": "func TestThreadTenThousandTiming(t *testing.T) {",
+     "line": 1077,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/frame_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       99
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      99
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/look_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       777
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      777
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/reader.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       29,
+       33
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      24,
+      38
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/reader.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       85,
+       89
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      80,
+      94
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/router.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       20,
+       20
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      15,
+      25
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/router.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       66,
+       72
+      ],
+      [
+       95,
+       95
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": 84,
+       "header": "func newApp(cfg config.Config, st *store.Store, lib *reports.Library, clock func() time.Time) *app {"
+      }
+     ],
+     "read": [
+      61,
+      100
+     ],
+     "header": "func newApp(cfg config.Config, st *store.Store, lib *reports.Library, clock func() time.Time) *app {",
+     "line": 84,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/static/site.css",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       2,
+       168
+      ],
+      [
+       170,
+       217
+      ],
+      [
+       219,
+       223
+      ],
+      [
+       225,
+       226
+      ],
+      [
+       228,
+       262
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      262
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/stylesheet_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       492
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      492
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       2
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       14,
+       14
+      ],
+      [
+       20,
+       20
+      ],
+      [
+       22,
+       26
+      ],
+      [
+       28,
+       29
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      34
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin_blocked.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       2
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       26,
+       26
+      ],
+      [
+       33,
+       33
+      ],
+      [
+       35,
+       35
+      ],
+      [
+       37,
+       38
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      38
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin_report.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       2
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       15,
+       15
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      20
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin_report.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       39,
+       39
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      34,
+      44
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin_report.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       75,
+       76
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      70,
+      76
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/all_reports.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       1
+      ],
+      [
+       14,
+       14
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      14
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/branch.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       1
+      ],
+      [
+       8,
+       8
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      8
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/layout.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       11,
+       15
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      6,
+      15
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/report.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       1
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      6
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/report.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       24,
+       24
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      19,
+      24
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 49,
+   "named": [
+    ".taad/fitness.yaml",
+    ".taad/look.json",
+    "internal/fitnessrules/testdata/rule_spellings.json",
+    "internal/server/testdata/look/bare.html",
+    "internal/server/testdata/look/probe.js",
+    "internal/server/testdata/look/site.before.css",
+    "internal/server/testdata/stylesheet_corpus.json",
+    "internal/testutil/headless/devtools.go",
+    "internal/testutil/headless/devtools_test.go"
+   ],
+   "before": {
+    "read_whole": 4,
+    "changed": 34,
+    "listed": 30
+   },
+   "filed": 0,
+   "read_after": 49,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 34,
+   "read_whole": 19,
+   "deleted": [],
+   "runs": [
+    12488,
+    12489,
+    12490
+   ],
+   "range": {
+    "base": "eb0a578270057e3e2c9cc90f04372c6e939f1da9",
+    "head": "571ae37ed63a085797030a94f831a088dc640aed",
+    "source": "commits",
+    "hunk_base": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 626,
+     "hunks": [
+      {
+       "lines": [
+        598,
+        626
+       ],
+       "unseen": [
+        [
+         598,
+         626
+        ]
+       ],
+       "scope": {
+        "first": 593,
+        "last": 626,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": ".taad/look.json",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 761,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        761
+       ],
+       "unseen": [
+        [
+         1,
+         761
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 761,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 736,
+     "hunks": [
+      {
+       "lines": [
+        4,
+        4
+       ],
+       "unseen": [
+        [
+         4,
+         4
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 9,
+        "line": null,
+        "header": null
+       }
+      },
+      {
+       "lines": [
+        33,
+        35
+       ],
+       "unseen": [
+        [
+         33,
+         35
+        ]
+       ],
+       "scope": {
+        "first": 28,
+        "last": 40,
+        "line": null,
+        "header": null
+       }
+      },
+      {
+       "lines": [
+        711,
+        734
+       ],
+       "unseen": [
+        [
+         711,
+         734
+        ]
+       ],
+       "scope": {
+        "first": 706,
+        "last": 736,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/server/testdata/look/bare.html",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 14,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        14
+       ],
+       "unseen": [
+        [
+         1,
+         14
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 14,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/server/testdata/look/probe.js",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 302,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        302
+       ],
+       "unseen": [
+        [
+         1,
+         302
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 302,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/server/testdata/look/site.before.css",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 48,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        48
+       ],
+       "unseen": [
+        [
+         1,
+         48
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 48,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/server/testdata/stylesheet_corpus.json",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 117,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        117
+       ],
+       "unseen": [
+        [
+         1,
+         117
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 117,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/testutil/headless/devtools.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 342,
+     "hunks": [
+      {
+       "lines": [
+        255,
+        257
+       ],
+       "unseen": [
+        [
+         255,
+         257
+        ]
+       ],
+       "scope": {
+        "first": 250,
+        "last": 262,
+        "line": null,
+        "header": null
+       }
+      },
+      {
+       "lines": [
+        265,
+        288
+       ],
+       "unseen": [
+        [
+         265,
+         288
+        ]
+       ],
+       "scope": {
+        "first": 260,
+        "last": 293,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/testutil/headless/devtools_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 251,
+     "hunks": [
+      {
+       "lines": [
+        223,
+        251
+       ],
+       "unseen": [
+        [
+         223,
+         251
+        ]
+       ],
+       "scope": {
+        "first": 218,
+        "last": 251,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/auth/owner.go",
+     "state": "partly-opened",
+     "section": "lines 101-128 of 128",
+     "reason": "a Read returned only part of it",
+     "size_lines": 128,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-1076, 1154-1195 of 1195",
+     "reason": "a Read returned only part of it",
+     "size_lines": 1195,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader.go",
+     "state": "partly-opened",
+     "section": "lines 1-19, 96-374 of 374",
+     "reason": "a Read returned only part of it",
+     "size_lines": 374,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/router.go",
+     "state": "partly-opened",
+     "section": "lines 1-9, 102-196 of 196",
+     "reason": "a Read returned only part of it",
+     "size_lines": 196,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/templates/admin.html",
+     "state": "partly-opened",
+     "section": "lines 35-41 of 41",
+     "reason": "a Read returned only part of it",
+     "size_lines": 41,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/fakegithub/fakegithub_test.go",
+     "state": "partly-opened",
+     "section": "lines 181-296 of 296",
+     "reason": "a Read returned only part of it; seen only through a shell command: $s, foreach, git diff",
+     "size_lines": 296,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

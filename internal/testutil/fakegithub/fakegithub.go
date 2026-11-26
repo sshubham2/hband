@@ -310,9 +310,9 @@ func (f *Fake) userInfo(w http.ResponseWriter, r *http.Request) {
 	case f.sw.UserIDZero:
 		id = "0"
 	case f.sw.UserIDString:
-		id = fmt.Sprintf("%q", fmt.Sprint(f.user.ID))
+		id = fmt.Sprintf("%q", fmt.Sprint(user.ID))
 	case f.sw.UserIDFloat:
-		id = fmt.Sprintf("%d.0", f.user.ID)
+		id = fmt.Sprintf("%d.0", user.ID)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if f.sw.UserMissingID {
