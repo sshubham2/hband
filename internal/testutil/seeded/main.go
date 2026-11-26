@@ -1,6 +1,15 @@
 // Command seeded serves the seeded product for a look: the real ./cmd/hband,
 // started through internal/testutil/program with a stand-in GitHub, holding the
-// nine-level thread of program.DeepThread, at http://127.0.0.1:<port>/.
+// nine-level thread of program.DeepThread and what seedScreens adds to it (a
+// draft report, a private message with the author's reply, a blocked account),
+// at http://127.0.0.1:<port>/.
+//
+// A browser signs in through the stand-in GitHub, which shows a page of two links
+// instead of approving at once: "Continue as the owner" (the account the program
+// pins as its owner, so /admin and the admin pages open) and "Continue as a
+// reader" (octocat, who gets the Not allowed page at /admin). A look presses one
+// by its text. Nothing else about sign-in changes; no session is made for a
+// browser, and an anonymous visitor stays anonymous.
 //
 //	go run ./internal/testutil/seeded -port <port>
 //
@@ -41,6 +50,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sshubham2/hband/internal/testutil/fakegithub"
 	"github.com/sshubham2/hband/internal/testutil/outside"
 	"github.com/sshubham2/hband/internal/testutil/program"
 )
@@ -187,10 +197,29 @@ func run(t program.T, n int, out io.Writer) *program.Program {
 	}
 	s := program.Start(stage, bin, program.Options{Port: p, Env: env})
 	checkStandIn(stage, s.Fake.URL(), n)
-	program.DeepThread(stage, s)
+	th := program.DeepThread(stage, s)
+	seedScreens(stage, s, th)
 	stage.end()
 
-	final := program.Start(t, bin, program.Options{Port: n, Env: env})
+	// The serving program signs a browser in through a stand-in GitHub of the
+	// launcher's own, made before the program starts so that the first sign-in it
+	// answers already offers the owner and reader links. (program.Start's own
+	// stand-in is made with the program and approves whoever it was told to; the
+	// serving program is pointed away from it, and it is never asked.) The
+	// stand-in is bound before the program, from the same pool of ports n came
+	// from, so it is checked against n the way the staging one is.
+	fake := fakegithub.New(standInClientID, standInSecret, fmt.Sprintf("http://127.0.0.1:%d/auth/github/callback", n))
+	t.Cleanup(fake.Close)
+	checkStandIn(t, fake.URL(), n)
+	fake.OfferChoices(choices()...)
+	serveEnv := map[string]string{
+		"HBAND_DATA_DIR":             data,
+		"HBAND_GITHUB_URL":           fake.URL(),
+		"HBAND_GITHUB_API_URL":       fake.URL(),
+		"HBAND_GITHUB_CLIENT_ID":     standInClientID,
+		"HBAND_GITHUB_CLIENT_SECRET": standInSecret,
+	}
+	final := program.Start(t, bin, program.Options{Port: n, Env: serveEnv})
 	fmt.Fprintf(out, "serving http://127.0.0.1:%d/\n", n)
 	return final
 }

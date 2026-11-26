@@ -1,0 +1,1454 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "code-review",
+ "attempt": 3,
+ "at": "2026-11-26T10:04:05.318Z",
+ "head": "",
+ "run_id": 12477,
+ "summary": "This was a stale-scope re-read of build 3 (30e2068..f83e789). Build 3 changed three code files: internal/server/static/site.css, internal/server/testdata/look/probe.js and internal/server/look_test.go. I read the whole diff and the code around it: seedLook, visit, newLookBrowser, the TestEveryScreenIsDesigned loop, within, hexOf, hexRGB, harness.current and the avatar markup in all five templates.\n\n**The fix that was sent back holds.** A missing or refused avatar was showing Chrome's broken-image glyph. `.avatar` now has `position: relative`, and a new `.avatar::after` rule covers the box with the --surface-2 token, so a broken avatar shows as the plain circle with its ring. The rule uses tokens only. `position` and `inset` sit on `.avatar`, which is not a thread box, so TestThreadFitsPhoneWidth, TestStylesheetTokens and TestStylesheetCorpus still pass.\n\n**Measured on this tree:**\n- **Sensitivity test.** TestAvatarProbeSeesABrokenImageGlyph serves site.css without `.avatar::after`. In both schemes every avatar it checks is flagged for the glyph: reader report 3 of 3 (1 header, 2 bylines) and Blocked users 2 of 2 (1 header, 1 2rem heading). So the pixel check can fail for every kind of avatar, not just for each page.\n- **Loaded image.** TestALoadedAvatarIsLeftAlone passes. A real same-origin PNG in the header stays the photo colour in light and dark, so the cover does not hide a loaded image.\n- **Look test.** `no-skip.ps1 -Run '^TestEveryScreenIsDesigned$'` exits 0 with real Chrome: 20 states × 2 widths × 2 schemes, 6232 texts (lowest 5.78:1), 1352 controls, all 14 roles seen. Header, byline and heading avatars are now measured at 1280 and at 375 mobile.\n- **Full suite.** `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0. Every package is ok, including all tests/acceptance packages.\n- **Fitness.** The engine's check holds all 45 rules.\n- **Formatting and vet.** gofmt on the committed look_test.go is clean, and go vet ./internal/server/ is clean.\n- **Cleanup.** No headless Chrome was left running, and the repo is unchanged by this review.\n\n**Contracts in the new test code.** The comments and docstrings on avatarSample, avatarSamples, avatarPass, drawnAvatars, avatars and avatarBox match what the code does. avatarPass reports three different problems for three different cases: still loading ('still loading'), an image that loaded although the seed points every avatar at a 404 ('loaded'), and a glyph ('glyph shows'). The final 'avatar never measured in the <kind>' check stops the run passing if a kind was never measured. The two departures the builder declared (one viewport photo per avatar after scrolling it to the centre, and sampling 2.5 CSS px inside the edge) are what the code does. They are needed for the boxes to line up with the pixels.\n\n**Nothing new to file.** The earlier minors (O-027 to O-032) were waived or carried to the backlog by decision, and the code is still as they describe. I did not file them again.\n\nSecond reader, for inputs: I checked the inputs of the stale-scoped diff 30e2068..f83e789: two lines in site.css (`.avatar` gains `position: relative`, plus the new `.avatar::after` cover), three probe.js helpers (drawnAvatars, avatars, avatarBox), and the pixel sampler and its two sensitivity tests in look_test.go. I read look_test.go whole, along with the site.css and probe.js diffs and every template that draws `.avatar`. Those five avatar sites are all `<img class=\"avatar\" alt=\"\" width=\"24\" height=\"24\">` behind `{{if .AvatarURL}}`, so the ::after cover never lands on an element that is not an img.\n\nI ran a scratch overlay test (go test -overlay; nothing written to the repo) to feed the cover the image shapes a real avatar URL can return. Each was checked in the header circle at 1280 and at 375 mobile, in light and dark:\n- **Loaded images are left alone.** PNG, JPEG, GIF, an SVG with width/height and an SVG with only a viewBox all loaded, and no pixel in the circle was the --surface-2 cover. The GIF reads #cc4488 because GIF quantises the palette, not because it was covered.\n- **A half-transparent PNG** shows the img's own --surface-2 background behind its transparent half. That is the placeholder the design intends.\n- **Unreadable images are covered.** A corrupt PNG and an HTML body served as an image are both treated as broken, and every pixel in the circle was the cover colour, so no glyph shows.\n\nI also ran these on the reviewed tree and all pass:\n- TestAvatarProbeSeesABrokenImageGlyph. Without the cover, every page is flagged for the glyph in header, byline and heading avatars, in both schemes.\n- TestALoadedAvatarIsLeftAlone.\n- TestStylesheetTokens, TestStylesheetCorpus, TestThreadFitsPhoneWidth and TestCommentStyles all still hold with the new rule. `content: ''`, `inset` and `position` on `.avatar` trip no lint, and the phone-width check does not treat `.avatar` as part of the thread.\n\nTwo smaller points on the test code:\n- The sensitivity test strips the rule with a regex that matches `\\r?\\n`, so it works on both CRLF and LF checkouts.\n- The sampler's scale (screenshot width / innerWidth) is right at device scale 1 and 2, and stays consistent even if a mobile page overflowed.\n\nNo input I built breaks the production change or makes the avatar check pass falsely. My scratch folder is removed.\n\nOne server.test.exe whose command line names this worktree was still running when I finished; it was not started by my runs, and all my test runs had already returned.\n\nReading pass: I have now read every range the engine listed, with numbered Reads: internal/auth/forbidden_test.go, internal/auth/owner.go (1-100), internal/auth/templates/forbidden.html, internal/layout/layout.go, internal/layout/layout_test.go, internal/layout/templates/base.html, comment_test.go 1077-1153, frame_test.go, reader.go 20-95, router.go 10-101, site.css 1-262, stylesheet_test.go 1-492, all seven page templates and layout.html, probe.js 1-302, site.before.css and headless/devtools.go 245-294. None of it holds anything new.\n\n**The shell contract holds in the code:**\n- base.html defines only head, page-start and page-end. page-start emits the thread.js tag only behind `{{if .ThreadScript}}`, then `</head>`, `<body>` and the consuming set's \"header\".\n- parsePages() (router.go:69-71) parses layout.FS first and then templateFS, and newApp uses it (router.go:95). TestThreadTenThousandTiming changes only its setup line, to `pages := parsePages()` (comment_test.go:1131).\n- pageData.ThreadScript() returns false (reader.go:32). readerData returns HasReport (reader.go:88).\n- forbiddenPage is built from layout.FS plus forbidden.html (owner.go:20). It runs with forbiddenData{Title: forbiddenTitle, Login} (owner.go:86). RequireOwner's order, Cache-Control and the plain-403 fallback are unchanged.\n- forbidden.html opens with page-start, closes with page-end and defines a brand-only header.\n- Every reader page opens with page-start and closes with page-end, and the bodies are unchanged. The admin pages carry the .admin wrapper, admin-nav, the page-head and the pills, as plan items 4-7 say.\n- admin_report.html:62 keeps `<p>Nothing visible on this report.</p>` without the empty-inline class from plan item 6. remove_test.go:731 pins that exact markup, and plan item 10 tells the builder to keep pinned markup and bind it by selector. site.css:164 does that with `.moderation > h2 + p:last-child`. So this is not drift.\n\n**The checkers:**\n- shellProblems / TestShellCheckerSeesEachFault, lintStylesheet / TestStylesheetCorpus, the pair table and the probe's judgements (fit against the requested width, the painted-only default check, the roles, the cap width with an atCap guard, the forced focus ring, the hidden states) match the obligations they discharge.\n- The limits already waived are still in the code as filed and were not filed again: the root-branch skip at stylesheet_test.go:233-235 (O-027/O-031), the brace-free cssRuleRE at line 50 (O-030), the viewport-only `shoot` in the owner signal assay (O-028), no planted-pair test (O-029) and no 320 px pass (O-032).\n- Tab.Submit (devtools.go:272-283) drains the load channel, evaluates once and then waits for a load, a close or the timeout. It never polls across the navigation.\n\n**What I ran in this round:**\n- **Build 3's avatar fix holds.** Without `.avatar::after`, TestAvatarProbeSeesABrokenImageGlyph flags every avatar it checks, in both schemes: 3 of 3 on the reader report and 2 of 2 on Blocked users, the 2rem heading included. TestALoadedAvatarIsLeftAlone passes.\n- **Look test:** `no-skip.ps1` for TestEveryScreenIsDesigned exits 0. It measured 20 states, 6232 texts with the lowest at 5.78:1, and saw all 14 roles.\n- **Full suite:** `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0.\n- **Fitness:** all 45 rules hold.\n- **Formatting and vet:** gofmt and go vet are clean.\n- **Cleanup:** no headless Chrome was left running, and the review wrote nothing to the repository.",
+ "payload": {
+  "status": "complete",
+  "verdict": "clean",
+  "summary": "This was a stale-scope re-read of build 3 (30e2068..f83e789). Build 3 changed three code files: internal/server/static/site.css, internal/server/testdata/look/probe.js and internal/server/look_test.go. I read the whole diff and the code around it: seedLook, visit, newLookBrowser, the TestEveryScreenIsDesigned loop, within, hexOf, hexRGB, harness.current and the avatar markup in all five templates.\n\n**The fix that was sent back holds.** A missing or refused avatar was showing Chrome's broken-image glyph. `.avatar` now has `position: relative`, and a new `.avatar::after` rule covers the box with the --surface-2 token, so a broken avatar shows as the plain circle with its ring. The rule uses tokens only. `position` and `inset` sit on `.avatar`, which is not a thread box, so TestThreadFitsPhoneWidth, TestStylesheetTokens and TestStylesheetCorpus still pass.\n\n**Measured on this tree:**\n- **Sensitivity test.** TestAvatarProbeSeesABrokenImageGlyph serves site.css without `.avatar::after`. In both schemes every avatar it checks is flagged for the glyph: reader report 3 of 3 (1 header, 2 bylines) and Blocked users 2 of 2 (1 header, 1 2rem heading). So the pixel check can fail for every kind of avatar, not just for each page.\n- **Loaded image.** TestALoadedAvatarIsLeftAlone passes. A real same-origin PNG in the header stays the photo colour in light and dark, so the cover does not hide a loaded image.\n- **Look test.** `no-skip.ps1 -Run '^TestEveryScreenIsDesigned$'` exits 0 with real Chrome: 20 states × 2 widths × 2 schemes, 6232 texts (lowest 5.78:1), 1352 controls, all 14 roles seen. Header, byline and heading avatars are now measured at 1280 and at 375 mobile.\n- **Full suite.** `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0. Every package is ok, including all tests/acceptance packages.\n- **Fitness.** The engine's check holds all 45 rules.\n- **Formatting and vet.** gofmt on the committed look_test.go is clean, and go vet ./internal/server/ is clean.\n- **Cleanup.** No headless Chrome was left running, and the repo is unchanged by this review.\n\n**Contracts in the new test code.** The comments and docstrings on avatarSample, avatarSamples, avatarPass, drawnAvatars, avatars and avatarBox match what the code does. avatarPass reports three different problems for three different cases: still loading ('still loading'), an image that loaded although the seed points every avatar at a 404 ('loaded'), and a glyph ('glyph shows'). The final 'avatar never measured in the <kind>' check stops the run passing if a kind was never measured. The two departures the builder declared (one viewport photo per avatar after scrolling it to the centre, and sampling 2.5 CSS px inside the edge) are what the code does. They are needed for the boxes to line up with the pixels.\n\n**Nothing new to file.** The earlier minors (O-027 to O-032) were waived or carried to the backlog by decision, and the code is still as they describe. I did not file them again.\n\nSecond reader, for inputs: I checked the inputs of the stale-scoped diff 30e2068..f83e789: two lines in site.css (`.avatar` gains `position: relative`, plus the new `.avatar::after` cover), three probe.js helpers (drawnAvatars, avatars, avatarBox), and the pixel sampler and its two sensitivity tests in look_test.go. I read look_test.go whole, along with the site.css and probe.js diffs and every template that draws `.avatar`. Those five avatar sites are all `<img class=\"avatar\" alt=\"\" width=\"24\" height=\"24\">` behind `{{if .AvatarURL}}`, so the ::after cover never lands on an element that is not an img.\n\nI ran a scratch overlay test (go test -overlay; nothing written to the repo) to feed the cover the image shapes a real avatar URL can return. Each was checked in the header circle at 1280 and at 375 mobile, in light and dark:\n- **Loaded images are left alone.** PNG, JPEG, GIF, an SVG with width/height and an SVG with only a viewBox all loaded, and no pixel in the circle was the --surface-2 cover. The GIF reads #cc4488 because GIF quantises the palette, not because it was covered.\n- **A half-transparent PNG** shows the img's own --surface-2 background behind its transparent half. That is the placeholder the design intends.\n- **Unreadable images are covered.** A corrupt PNG and an HTML body served as an image are both treated as broken, and every pixel in the circle was the cover colour, so no glyph shows.\n\nI also ran these on the reviewed tree and all pass:\n- TestAvatarProbeSeesABrokenImageGlyph. Without the cover, every page is flagged for the glyph in header, byline and heading avatars, in both schemes.\n- TestALoadedAvatarIsLeftAlone.\n- TestStylesheetTokens, TestStylesheetCorpus, TestThreadFitsPhoneWidth and TestCommentStyles all still hold with the new rule. `content: ''`, `inset` and `position` on `.avatar` trip no lint, and the phone-width check does not treat `.avatar` as part of the thread.\n\nTwo smaller points on the test code:\n- The sensitivity test strips the rule with a regex that matches `\\r?\\n`, so it works on both CRLF and LF checkouts.\n- The sampler's scale (screenshot width / innerWidth) is right at device scale 1 and 2, and stays consistent even if a mobile page overflowed.\n\nNo input I built breaks the production change or makes the avatar check pass falsely. My scratch folder is removed.\n\nOne server.test.exe whose command line names this worktree was still running when I finished; it was not started by my runs, and all my test runs had already returned.\n\nReading pass: I have now read every range the engine listed, with numbered Reads: internal/auth/forbidden_test.go, internal/auth/owner.go (1-100), internal/auth/templates/forbidden.html, internal/layout/layout.go, internal/layout/layout_test.go, internal/layout/templates/base.html, comment_test.go 1077-1153, frame_test.go, reader.go 20-95, router.go 10-101, site.css 1-262, stylesheet_test.go 1-492, all seven page templates and layout.html, probe.js 1-302, site.before.css and headless/devtools.go 245-294. None of it holds anything new.\n\n**The shell contract holds in the code:**\n- base.html defines only head, page-start and page-end. page-start emits the thread.js tag only behind `{{if .ThreadScript}}`, then `</head>`, `<body>` and the consuming set's \"header\".\n- parsePages() (router.go:69-71) parses layout.FS first and then templateFS, and newApp uses it (router.go:95). TestThreadTenThousandTiming changes only its setup line, to `pages := parsePages()` (comment_test.go:1131).\n- pageData.ThreadScript() returns false (reader.go:32). readerData returns HasReport (reader.go:88).\n- forbiddenPage is built from layout.FS plus forbidden.html (owner.go:20). It runs with forbiddenData{Title: forbiddenTitle, Login} (owner.go:86). RequireOwner's order, Cache-Control and the plain-403 fallback are unchanged.\n- forbidden.html opens with page-start, closes with page-end and defines a brand-only header.\n- Every reader page opens with page-start and closes with page-end, and the bodies are unchanged. The admin pages carry the .admin wrapper, admin-nav, the page-head and the pills, as plan items 4-7 say.\n- admin_report.html:62 keeps `<p>Nothing visible on this report.</p>` without the empty-inline class from plan item 6. remove_test.go:731 pins that exact markup, and plan item 10 tells the builder to keep pinned markup and bind it by selector. site.css:164 does that with `.moderation > h2 + p:last-child`. So this is not drift.\n\n**The checkers:**\n- shellProblems / TestShellCheckerSeesEachFault, lintStylesheet / TestStylesheetCorpus, the pair table and the probe's judgements (fit against the requested width, the painted-only default check, the roles, the cap width with an atCap guard, the forced focus ring, the hidden states) match the obligations they discharge.\n- The limits already waived are still in the code as filed and were not filed again: the root-branch skip at stylesheet_test.go:233-235 (O-027/O-031), the brace-free cssRuleRE at line 50 (O-030), the viewport-only `shoot` in the owner signal assay (O-028), no planted-pair test (O-029) and no 320 px pass (O-032).\n- Tab.Submit (devtools.go:272-283) drains the load channel, evaluates once and then waits for a load, a close or the timeout. It never polls across the navigation.\n\n**What I ran in this round:**\n- **Build 3's avatar fix holds.** Without `.avatar::after`, TestAvatarProbeSeesABrokenImageGlyph flags every avatar it checks, in both schemes: 3 of 3 on the reader report and 2 of 2 on Blocked users, the 2rem heading included. TestALoadedAvatarIsLeftAlone passes.\n- **Look test:** `no-skip.ps1` for TestEveryScreenIsDesigned exits 0. It measured 20 states, 6232 texts with the lowest at 5.78:1, and saw all 14 roles.\n- **Full suite:** `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0.\n- **Fitness:** all 45 rules hold.\n- **Formatting and vet:** gofmt and go vet are clean.\n- **Cleanup:** no headless Chrome was left running, and the review wrote nothing to the repository.",
+  "findings": [],
+  "matches_design": true,
+  "drift": [],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "internal/server/look_test.go:524-563: for every one of the 20 states at 1280 and at 375 mobile, setScheme(true) calls Emulation.setEmulatedMedia with prefers-color-scheme dark before measuring. Lines 586-590 fail the run when html's background is the same in both schemes. Re-run on this tree: pass."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "look_test.go:481 adds the 375x812 mobile viewport. 'owner admin report' is /admin/reports/x, and seedLook uploads x, so the dl holds a real 64-hex SHA-256. 'owner admin' is the 5-column table plus the file input. The reader with the 39-character login is in the header on the reader states. The probe compares scrollWidth with the requested width and requires innerWidth to equal it (verified in the earlier round; probe.js not changed except for the avatar helpers)."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "look_test.go:542-547 opens every details element and measures again. The run logged danger confirm in .remove 176, in .block 104, and accent post reply 312, so the open trays and the reply forms at the cap were measured on the owner report, admin report and populated Blocked users."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "look_test.go:554-561 screenshots the owner states (shots: true) at 1280 in both schemes and counts signal-colour pixels with headless.Count. Limit: `shoot` captures the viewport only, so owner controls below the fold are not counted. That was waived as O-028 / N-255."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "TestStaticThreadScript (branch_test.go) checks the empty home has no <script and that the found and branch pages have exactly one. The look test also checks scripts:1 or 0 per state, including 'owner empty home' on the empty harness. Passes in the full suite."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "The state 'reader report after sending feedback' is reached through visit(), which goes to about:blank first and then to /reports/x#feedback-sent as a new document (look_test.go:173-190). The probe hides each button.toggle again and checks it computes display none (verified earlier). Passes."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "TestThreadFitsPhoneWidth passes unchanged. look_test.go:566-584 measures the branch and reader report at 360 mobile with details open. The chain is 2*cap+2 = 12 levels (seedLook:69), and the branch page comes from the report's own continue link (seedLook:102-107). At mobile widths, atCap < 1 is reported as a problem (look_test.go:516-519)."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "TestReportFrameKeepsItsOwnCanvas publishes report A with no background and no color-scheme, and compares the patch inside the frame with /raw opened alone, under light. Passes in the full suite. With today's --bg #ffffff the case no longer tells Canvas apart from the site background (noted in the earlier round, and O-015's discharge rests on a scratch palette)."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "In TestReportFrameKeepsItsOwnCanvas, report B carries its own @media dark #204060 background and is compared under dark with the report opened alone. Passes in the full suite."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "In TestReportFrameKeepsItsOwnCanvas, report C sets :root color-scheme light dark and no background, and is checked in both schemes. Passes in the full suite."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "internal/auth/forbidden_test.go TestForbiddenPageTakesTheShell runs forbiddenPage with Login '' and 'octo<b>&cat' and checks the title, the brand, the escaped login, no data-hband-admin and no script (verified in the earlier round, file unchanged). Passes in the full suite."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "The state 'owner admin after a refused upload' runs refuseUpload (noValidate, slug 'Bad Slug!') through b.tab.Submit and then requires p.error[role=alert] (look_test.go:125-126, 179-187). The full probe then runs at both widths and in both schemes."
+   },
+   {
+    "key": "C-013",
+    "exercised": "no",
+    "evidence": "The case's named check, TestStylesheetTokens, lints only the real site.css. The undefined-var, literal, color-scheme and signal-near shapes are planted by TestStylesheetCorpus through lintStylesheet. No test plants 'a declared pair below 4.5 or 3.0'. This was waived as O-029 / N-256, and stylesheet_test.go has no pairProblems."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "internal/layout TestEveryPageTakesTheShell walks internal/**/templates and requires page-start first and page-end exactly once. TestShellCheckerSeesEachFault plants faults against it (verified in the earlier round, unchanged). Passes in the full suite."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "look_test.go:524-563 checks the dark scheme on every state and width, and lines 586-590 check the html background differs between schemes. Passes on this tree."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "The 375 mobile pass over /admin/reports/x, /admin and the reader header compares scrollWidth with the requested width and checks innerWidth (probe.js fit check, verified earlier, unchanged). Passes."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "look_test.go:542-547 opens every details element. Roles seen this run: .remove confirm 176, .block confirm 104, post reply 312."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "look_test.go:554-561 runs the signal-colour count on the owner states in both schemes. It covers the viewport only; the below-the-fold gap is waived as O-028."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "TestStaticThreadScript passes, and the look test's per-state scripts count passes."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "visit() goes through about:blank (look_test.go:173-190), and the probe checks the hidden note and the re-hidden toggles. Passes."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "The 360 pass is at look_test.go:566-584 on a 12-level chain, and the atCap guard is at 516-519. TestThreadFitsPhoneWidth passes."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "TestReportFrameKeepsItsOwnCanvas report A under light passes in the full suite."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "TestReportFrameKeepsItsOwnCanvas report B under dark passes in the full suite."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "TestReportFrameKeepsItsOwnCanvas report C in both schemes passes in the full suite."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "internal/auth/forbidden_test.go runs the empty login and 'octo<b>&cat'. Passes."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "look_test.go:179-187: Tab.Submit of refuseUpload, then the check for p.error[role=alert]."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "TestStylesheetTokens and TestStylesheetCorpus pass. The planted-pair shape is still unfed (O-029, waived)."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "internal/layout/layout_test.go TestEveryPageTakesTheShell and TestShellCheckerSeesEachFault pass."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "site.css keeps iframe background-color: Canvas, and the frame test passes. As noted in the earlier round, with the current --bg the test alone does not catch Canvas being removed; the builder's proof used a scratch palette."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "This run of TestEveryScreenIsDesigned measured 6232 rendered texts (lowest 5.78:1) and 1352 controls, plus the forced hover and focus passes (look_test.go:551-553)."
+   },
+   {
+    "key": "O-017",
+    "discharged": "no",
+    "evidence": "Owed to validate. Only Chrome (CHROME_BIN) is driven on this machine; Firefox and Safari were not run. This is a known limit of the machine."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "TestLookProbeSeesTheStylesheetBeforeTheDesign (look_test.go:665-676) requires scrollWidth > 375 and a fit code on the stylesheet from before the slice. Passes."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "TestLookProbeSeesTheStylesheetBeforeTheDesign requires default-link, -button, -textarea, -th, -td, -text and -select on the stylesheet from before the slice (look_test.go:659-663). Passes."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "visit() navigates to about:blank first (look_test.go:178). The refused upload uses Tab.Submit (line 181)."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "The computed body width at the cap is checked by the probe with minBody 240 (look_test.go:211). The atCap guard is at 516-519, and the chain is 12 levels deep."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "lintStylesheet covers named and system colours, as the corpus shows. A further member, plain declarations on :root, is still open at stylesheet_test.go:233-235 and was carried to SC-059 and SC-061."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "lintStylesheet refuses the frame-reach properties, with vendor prefixes stripped, as the corpus shows. Declarations beside a nested rule get past it (cssRuleRE at stylesheet_test.go:50); that was carried to SC-060."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "site.css writes every edge as a literal width and style with a *-color longhand. The new `.avatar::after` adds no edge. The lint refuses var() inside a border or outline shorthand, and the corpus passes."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "forcedPass (look_test.go:223-259) forces :hover and then :focus-visible through CSS.forcePseudoState and runs the contrast check again."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "internal/layout TestEveryPageTakesTheShell makes a case-insensitive script check over the WalkDir of internal/**/templates and pins the gated tag in base.html (verified earlier, unchanged). Passes."
+   },
+   {
+    "key": "O-027",
+    "discharged": "no",
+    "evidence": "Waived and carried to SC-059. stylesheet_test.go:233-235 still has `if root { if !strings.HasPrefix(prop, \"--\") { continue`."
+   },
+   {
+    "key": "O-028",
+    "discharged": "no",
+    "evidence": "Waived as N-255. look_test.go:555 still uses `shoot`, which captures the viewport only, for the owner signal-colour count."
+   },
+   {
+    "key": "O-029",
+    "discharged": "no",
+    "evidence": "Waived as N-256. stylesheet_test.go has no pairProblems, and no test plants a low pair."
+   },
+   {
+    "key": "O-030",
+    "discharged": "no",
+    "evidence": "Waived and carried to SC-060. cssRuleRE at stylesheet_test.go:50 is still `([^{}]+)\\{([^{}]*)\\}`, and cssCommentRE at line 49 still strips comment markers inside strings."
+   },
+   {
+    "key": "O-031",
+    "discharged": "no",
+    "evidence": "Waived and carried to SC-061. This is the same root-branch skip as O-027, at stylesheet_test.go:233-235."
+   },
+   {
+    "key": "O-032",
+    "discharged": "no",
+    "evidence": "Waived as N-254. Build 3 made no change for 320 px, and the look test has no 320 pass."
+   }
+  ],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12478,
+   "filed": 0,
+   "reader": "inputs"
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "never-opened product file",
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 12479,
+   "session": "86bf22d1-acd9-4638-8ba9-e16d2d8e8043",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/auth/forbidden_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       58
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      58
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/auth/owner.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       10,
+       11
+      ],
+      [
+       17,
+       32
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      5,
+      37
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/auth/owner.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       86,
+       86
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 67,
+       "header": "func RequireOwner(h http.Handler) http.Handler {"
+      }
+     ],
+     "read": [
+      67,
+      97
+     ],
+     "header": "func RequireOwner(h http.Handler) http.Handler {",
+     "line": 67,
+     "whole_file": false
+    },
+    {
+     "path": "internal/auth/templates/forbidden.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       1
+      ],
+      [
+       8,
+       11
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      11
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/layout/layout.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       16
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      16
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/layout/layout_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       208
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      208
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/layout/templates/base.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       17
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      17
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1131,
+       1131
+      ]
+     ],
+     "scopes": [
+      {
+       "line": 1077,
+       "header": "func TestThreadTenThousandTiming(t *testing.T) {"
+      }
+     ],
+     "read": [
+      1077,
+      1153
+     ],
+     "header": "func TestThreadTenThousandTiming(t *testing.T) {",
+     "line": 1077,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/frame_test.go",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       99
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      99
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/reader.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       29,
+       33
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      24,
+      38
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/reader.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       85,
+       89
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      80,
+      94
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/router.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       20,
+       20
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      15,
+      25
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/router.go",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       66,
+       72
+      ],
+      [
+       95,
+       95
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": 84,
+       "header": "func newApp(cfg config.Config, st *store.Store, lib *reports.Library, clock func() time.Time) *app {"
+      }
+     ],
+     "read": [
+      61,
+      100
+     ],
+     "header": "func newApp(cfg config.Config, st *store.Store, lib *reports.Library, clock func() time.Time) *app {",
+     "line": 84,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/static/site.css",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       2,
+       168
+      ],
+      [
+       170,
+       217
+      ],
+      [
+       219,
+       223
+      ],
+      [
+       225,
+       226
+      ],
+      [
+       228,
+       262
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      262
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/stylesheet_test.go",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       492
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      492
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       2
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       14,
+       14
+      ],
+      [
+       20,
+       20
+      ],
+      [
+       22,
+       26
+      ],
+      [
+       28,
+       29
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      34
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin_blocked.html",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       2
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       26,
+       26
+      ],
+      [
+       33,
+       33
+      ],
+      [
+       35,
+       35
+      ],
+      [
+       37,
+       38
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      38
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin_report.html",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       2
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       15,
+       15
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      20
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin_report.html",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       39,
+       39
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      34,
+      44
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/admin_report.html",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       75,
+       76
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      70,
+      76
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/all_reports.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       1
+      ],
+      [
+       14,
+       14
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      14
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/branch.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       1
+      ],
+      [
+       8,
+       8
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      8
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/layout.html",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       11,
+       15
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      6,
+      15
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/report.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       1,
+       1
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      6
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/templates/report.html",
+     "kind": "src",
+     "state": "never-opened",
+     "why": "never-opened product file",
+     "hunks": [
+      [
+       24,
+       24
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      19,
+      24
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/testdata/look/probe.js",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       302
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      302
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/testdata/look/site.before.css",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       48
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      48
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/testutil/headless/devtools.go",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       255,
+       257
+      ],
+      [
+       265,
+       288
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      },
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      250,
+      293
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 52,
+   "named": [
+    ".taad/fitness.yaml",
+    ".taad/look.json",
+    "internal/fitnessrules/testdata/rule_spellings.json",
+    "internal/server/testdata/look/bare.html",
+    "internal/server/testdata/stylesheet_corpus.json",
+    "internal/testutil/headless/devtools_test.go"
+   ],
+   "before": {
+    "read_whole": 1,
+    "changed": 29,
+    "listed": 28
+   },
+   "filed": 0,
+   "read_after": 52,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 29,
+   "read_whole": 17,
+   "deleted": [],
+   "runs": [
+    12477,
+    12478,
+    12479
+   ],
+   "range": {
+    "base": "eb0a578270057e3e2c9cc90f04372c6e939f1da9",
+    "head": "f83e789074307fb11a6ae8b77b8bc1c23c098a34",
+    "source": "commits",
+    "hunk_base": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 626,
+     "hunks": [
+      {
+       "lines": [
+        598,
+        626
+       ],
+       "unseen": [
+        [
+         598,
+         626
+        ]
+       ],
+       "scope": {
+        "first": 593,
+        "last": 626,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": ".taad/look.json",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 761,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        761
+       ],
+       "unseen": [
+        [
+         1,
+         761
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 761,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 736,
+     "hunks": [
+      {
+       "lines": [
+        4,
+        4
+       ],
+       "unseen": [
+        [
+         4,
+         4
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 9,
+        "line": null,
+        "header": null
+       }
+      },
+      {
+       "lines": [
+        33,
+        35
+       ],
+       "unseen": [
+        [
+         33,
+         35
+        ]
+       ],
+       "scope": {
+        "first": 28,
+        "last": 40,
+        "line": null,
+        "header": null
+       }
+      },
+      {
+       "lines": [
+        711,
+        734
+       ],
+       "unseen": [
+        [
+         711,
+         734
+        ]
+       ],
+       "scope": {
+        "first": 706,
+        "last": 736,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/server/testdata/look/bare.html",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 14,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        14
+       ],
+       "unseen": [
+        [
+         1,
+         14
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 14,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/server/testdata/stylesheet_corpus.json",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 117,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        117
+       ],
+       "unseen": [
+        [
+         1,
+         117
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 117,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/testutil/headless/devtools_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 251,
+     "hunks": [
+      {
+       "lines": [
+        223,
+        251
+       ],
+       "unseen": [
+        [
+         223,
+         251
+        ]
+       ],
+       "scope": {
+        "first": 218,
+        "last": 251,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/auth/owner.go",
+     "state": "partly-opened",
+     "section": "lines 101-128 of 128",
+     "reason": "a Read returned only part of it",
+     "size_lines": 128,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-1076, 1154-1195 of 1195",
+     "reason": "a Read returned only part of it",
+     "size_lines": 1195,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader.go",
+     "state": "partly-opened",
+     "section": "lines 1-19, 96-374 of 374",
+     "reason": "a Read returned only part of it",
+     "size_lines": 374,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/router.go",
+     "state": "partly-opened",
+     "section": "lines 1-9, 102-196 of 196",
+     "reason": "a Read returned only part of it",
+     "size_lines": 196,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/templates/admin.html",
+     "state": "partly-opened",
+     "section": "lines 35-41 of 41",
+     "reason": "a Read returned only part of it",
+     "size_lines": 41,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/headless/devtools.go",
+     "state": "partly-opened",
+     "section": "lines 1-244, 295-342 of 342",
+     "reason": "a Read returned only part of it; seen only as 44 Grep lines; seen only through a shell command: $s",
+     "size_lines": 342,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}
