@@ -1,0 +1,814 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "code-review",
+ "attempt": 7,
+ "at": "2026-11-26T13:13:43.032Z",
+ "head": "",
+ "run_id": 12504,
+ "summary": "Build 6 (commit eda347d, reviewed as d39e278..eda347d) rebuilds the look to the blog design in .taad/look.json and adds the author byline the look calls for. The person's restart asked for \"the author and date\". The look's foundation and its \"Author byline\" component spell out the markup and its fallback states: a missing users row or a failed read shows the date only, never an error. The builder declared the new store read.\n\nWhat I read and found:\n- **internal/store/signin.go:29-41.** `Store.User` reads github_id, login and avatar_url by id. sql.ErrNoRows becomes ok=false with no error, and any other error is wrapped.\n- **internal/server/reader.go:84-88 and 177-186.** `readerData.Author` is filled only when the state is still found and an owner is configured. A failed read is logged with slog.Warn and leaves Author zero, so the page is never made unavailable for it. readBranch and TestThreadTenThousandTiming build readerData without Author, and branch.html prints no author.\n- **report.html:3.** The span is drawn only `{{if .Author.Login}}` and the login is escaped. It is the same on / and on /reports/<slug>, so TestReaderPagesShareOneLayout still holds.\n- **site.css (289 lines).** It keeps line 1, the light-dark() hex tokens (same names, so the token tests are unedited), the hidden guard (:59), every pinned rule text (`.login {`, `.body {`, `.replies {`, `.replies[hidden]`, `#feedback-sent:target`, the `.comments, .feedback, .feedback-inbox {` rule with vertical margins only, and the other pinned textarea, feedback and inbox rules), the literal thread indent (:245), edges written as a literal width and style with a *-color longhand, Canvas only on iframe (:207), and no '@'. The old orphaned '·' rule on All reports is gone.\n- **probe.js:30 and look_test.go:599.** These add and require a 'meta' avatar kind.\n- **author_test.go** covers the owner with and without an avatar, escaping, an owner who never signed in, no configured owner, and a failing users read (still a 200 with no author).\n- **user_test.go** covers no row, the first sign-in, and a newer sign-in.\n\nWhat I ran:\n- `go vet ./internal/server/ ./internal/store/` is clean.\n- TestReportPageNamesTheAuthor, TestUserReadsWhatSignInLastSaw, TestThreadFitsPhoneWidth (244 px at level 5 at 360), TestReaderPagesShareOneLayout and TestStylesheetTokens pass.\n- `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0. Every package is ok, including internal/server at 51 s, which runs TestEveryScreenIsDesigned and TestReportFrameKeepsItsOwnCanvas, and every tests/acceptance package.\n- Fitness holds all 45 rules.\n- gofmt -l on the committed Go blobs is clean.\n- No test process was left running.\n\nOne stale comment is new to this build: look_test.go:597-598 still names three avatar kinds while the loop under it requires four. The waived items (O-027 to O-036) are still in the code as filed, and I did not file them again.\n\nSecond round: The adversarial pass over build 6 (d39e278..eda347d) found nothing new to file. The build adds no parser, regular expression or reader of a text format. Its new boundaries are Store.User, the author read in renderReader, the meta line in report.html, the probe's 'meta' avatar kind and the CSS rewrite.\n\n- **Store.User** (store/signin.go:29-41). The users columns are `login TEXT NOT NULL` and `avatar_url TEXT NOT NULL DEFAULT ''` (migrations/0001_identity.sql:5-10), and no later migration rebuilds them. A NULL scan error cannot happen, so an owner without an avatar takes the no-image branch, which author_test.go:53-57 pins.\n- **Failure paths in Store.User.** ErrNoRows becomes ok=false. Any other error, a cancelled request context included, is wrapped and returned.\n- **The author read in renderReader** (reader.go:177-186). It runs only while state is still found, so an earlier votes, thread or own-feedback failure skips it. A read error is logged and leaves Author zero; the status, the open count and the rest of the page are unchanged.\n- **Config.** OwnerGitHubID is validated as positive at startup. 0 occurs only in tests, which author_test.go covers.\n- **Lock and gap.** No check is made under a lock and later retaken.\n- **The meta line** (report.html:3). It is drawn only when `.Author.Login` is set. GitHub logins cannot be empty, and sign-in refuses an empty login.\n- **Escaping.** html/template escapes the login (pinned by `the-<b>owner`) and sanitises the avatar src. A host the CSP refuses draws the ::after cover.\n- **Same bytes on both reader pages.** / and /reports/<slug> get identical bytes, and TestReaderPagesShareOneLayout passes.\n- **The probe's 'meta' kind** (probe.js:30) matches only img.avatar inside .meta. The branch page's .meta holds no avatar, and admin pages have no .meta.\n- **CSS edge cases I followed:**\n  - The composer flex column (site.css:235-236) stretches the comment and feedback labels. It also stretches the reply textarea, which is a direct child of its form (comments.html:17-19), so the textarea is never shrink-to-fit.\n  - The All reports flex column with `order` (site.css:259-269) changes only the visual order. The DOM text order the e002 readers parse is unchanged, and the e002 packages pass.\n  - `.comments > .comment + .comment` (site.css:243) adds only vertical space, and TestThreadFitsPhoneWidth still reports 244 px at level 5 at 360.\n- **Evidence from round one still stands:** the full suite exits 0 with CHROME_BIN set, Fitness holds all 45 rules, and gofmt and vet are clean.\n\nReading pass: I read every range the engine listed with numbered Reads. Nothing in them is new to file.\n\n**internal/server/reader.go:20-101**\n- `pageData.ThreadScript()` returns false (line 33), and `readerData.ThreadScript()` returns HasReport (line 94).\n- The comment above the latter says the found home, report and branch pages load the script and the empty and unavailable pages do not. That still matches what the code returns.\n- The new `Author store.User` field (lines 84-88) and its doc match renderReader:177-186.\n\n**internal/server/testdata/look/probe.js:1-302**\n- The new 'meta' kind (line 30) is tested after 'byline'. The only `.meta` that holds an avatar is the author byline in report.html.\n- The other judgements are unchanged and match the obligations they discharge: fit against the requested width (101-109), painted-only default checks (116-153), roles (155-188), the sidebar (190-205), cap width with atCap (207-219), contrast and forced states (224-280), and hidden states (283-299).\n\n**.taad/look.json:1-802**\nThis is the design for this build. I held its tokens, components, layout and foundation against site.css. The new code follows it:\n- Token values (site.css:4-55, under unchanged names).\n- The transparent header (:171) and the 1.5rem serif brand (:176).\n- The Author byline: `.author` (:202), `.meta .avatar` at 1.75rem with margin-right (:155, :203), and the 44rem centred meta line (:201).\n- The pill buttons (:82, :103) and the composer flex column (:235-237).\n- The letter card (:221-223) and the reactions row with its middle dots (:210-214).\n- The comment rhythm (:242-244) and serif bodies (:250).\n- The archive's date-first order and the legend as a footnote (:257-269).\n- The report sheet at 60rem (:206) and the frame at --radius-sm with Canvas (:207).\n- Tabular figures only in the admin (:124, :135, :215).\n- The 38rem reading measure (:193, :205).\n\nThe look's foundation also names the report.html author span, which is where this build departs from the earlier frozen-body design, and the builder declared it.\n\nEvidence from round one still stands: the full suite exits 0 with CHROME_BIN set, Fitness holds all 45 rules, gofmt and vet are clean, and the single stale comment at look_test.go:597-598 is already filed.",
+ "payload": {
+  "status": "complete",
+  "verdict": "clean",
+  "matches_design": true,
+  "summary": "Build 6 (commit eda347d, reviewed as d39e278..eda347d) rebuilds the look to the blog design in .taad/look.json and adds the author byline the look calls for. The person's restart asked for \"the author and date\". The look's foundation and its \"Author byline\" component spell out the markup and its fallback states: a missing users row or a failed read shows the date only, never an error. The builder declared the new store read.\n\nWhat I read and found:\n- **internal/store/signin.go:29-41.** `Store.User` reads github_id, login and avatar_url by id. sql.ErrNoRows becomes ok=false with no error, and any other error is wrapped.\n- **internal/server/reader.go:84-88 and 177-186.** `readerData.Author` is filled only when the state is still found and an owner is configured. A failed read is logged with slog.Warn and leaves Author zero, so the page is never made unavailable for it. readBranch and TestThreadTenThousandTiming build readerData without Author, and branch.html prints no author.\n- **report.html:3.** The span is drawn only `{{if .Author.Login}}` and the login is escaped. It is the same on / and on /reports/<slug>, so TestReaderPagesShareOneLayout still holds.\n- **site.css (289 lines).** It keeps line 1, the light-dark() hex tokens (same names, so the token tests are unedited), the hidden guard (:59), every pinned rule text (`.login {`, `.body {`, `.replies {`, `.replies[hidden]`, `#feedback-sent:target`, the `.comments, .feedback, .feedback-inbox {` rule with vertical margins only, and the other pinned textarea, feedback and inbox rules), the literal thread indent (:245), edges written as a literal width and style with a *-color longhand, Canvas only on iframe (:207), and no '@'. The old orphaned '·' rule on All reports is gone.\n- **probe.js:30 and look_test.go:599.** These add and require a 'meta' avatar kind.\n- **author_test.go** covers the owner with and without an avatar, escaping, an owner who never signed in, no configured owner, and a failing users read (still a 200 with no author).\n- **user_test.go** covers no row, the first sign-in, and a newer sign-in.\n\nWhat I ran:\n- `go vet ./internal/server/ ./internal/store/` is clean.\n- TestReportPageNamesTheAuthor, TestUserReadsWhatSignInLastSaw, TestThreadFitsPhoneWidth (244 px at level 5 at 360), TestReaderPagesShareOneLayout and TestStylesheetTokens pass.\n- `go test -count=1 -p 4 ./...` with CHROME_BIN set exits 0. Every package is ok, including internal/server at 51 s, which runs TestEveryScreenIsDesigned and TestReportFrameKeepsItsOwnCanvas, and every tests/acceptance package.\n- Fitness holds all 45 rules.\n- gofmt -l on the committed Go blobs is clean.\n- No test process was left running.\n\nOne stale comment is new to this build: look_test.go:597-598 still names three avatar kinds while the loop under it requires four. The waived items (O-027 to O-036) are still in the code as filed, and I did not file them again.\n\nSecond round: The adversarial pass over build 6 (d39e278..eda347d) found nothing new to file. The build adds no parser, regular expression or reader of a text format. Its new boundaries are Store.User, the author read in renderReader, the meta line in report.html, the probe's 'meta' avatar kind and the CSS rewrite.\n\n- **Store.User** (store/signin.go:29-41). The users columns are `login TEXT NOT NULL` and `avatar_url TEXT NOT NULL DEFAULT ''` (migrations/0001_identity.sql:5-10), and no later migration rebuilds them. A NULL scan error cannot happen, so an owner without an avatar takes the no-image branch, which author_test.go:53-57 pins.\n- **Failure paths in Store.User.** ErrNoRows becomes ok=false. Any other error, a cancelled request context included, is wrapped and returned.\n- **The author read in renderReader** (reader.go:177-186). It runs only while state is still found, so an earlier votes, thread or own-feedback failure skips it. A read error is logged and leaves Author zero; the status, the open count and the rest of the page are unchanged.\n- **Config.** OwnerGitHubID is validated as positive at startup. 0 occurs only in tests, which author_test.go covers.\n- **Lock and gap.** No check is made under a lock and later retaken.\n- **The meta line** (report.html:3). It is drawn only when `.Author.Login` is set. GitHub logins cannot be empty, and sign-in refuses an empty login.\n- **Escaping.** html/template escapes the login (pinned by `the-<b>owner`) and sanitises the avatar src. A host the CSP refuses draws the ::after cover.\n- **Same bytes on both reader pages.** / and /reports/<slug> get identical bytes, and TestReaderPagesShareOneLayout passes.\n- **The probe's 'meta' kind** (probe.js:30) matches only img.avatar inside .meta. The branch page's .meta holds no avatar, and admin pages have no .meta.\n- **CSS edge cases I followed:**\n  - The composer flex column (site.css:235-236) stretches the comment and feedback labels. It also stretches the reply textarea, which is a direct child of its form (comments.html:17-19), so the textarea is never shrink-to-fit.\n  - The All reports flex column with `order` (site.css:259-269) changes only the visual order. The DOM text order the e002 readers parse is unchanged, and the e002 packages pass.\n  - `.comments > .comment + .comment` (site.css:243) adds only vertical space, and TestThreadFitsPhoneWidth still reports 244 px at level 5 at 360.\n- **Evidence from round one still stands:** the full suite exits 0 with CHROME_BIN set, Fitness holds all 45 rules, and gofmt and vet are clean.\n\nReading pass: I read every range the engine listed with numbered Reads. Nothing in them is new to file.\n\n**internal/server/reader.go:20-101**\n- `pageData.ThreadScript()` returns false (line 33), and `readerData.ThreadScript()` returns HasReport (line 94).\n- The comment above the latter says the found home, report and branch pages load the script and the empty and unavailable pages do not. That still matches what the code returns.\n- The new `Author store.User` field (lines 84-88) and its doc match renderReader:177-186.\n\n**internal/server/testdata/look/probe.js:1-302**\n- The new 'meta' kind (line 30) is tested after 'byline'. The only `.meta` that holds an avatar is the author byline in report.html.\n- The other judgements are unchanged and match the obligations they discharge: fit against the requested width (101-109), painted-only default checks (116-153), roles (155-188), the sidebar (190-205), cap width with atCap (207-219), contrast and forced states (224-280), and hidden states (283-299).\n\n**.taad/look.json:1-802**\nThis is the design for this build. I held its tokens, components, layout and foundation against site.css. The new code follows it:\n- Token values (site.css:4-55, under unchanged names).\n- The transparent header (:171) and the 1.5rem serif brand (:176).\n- The Author byline: `.author` (:202), `.meta .avatar` at 1.75rem with margin-right (:155, :203), and the 44rem centred meta line (:201).\n- The pill buttons (:82, :103) and the composer flex column (:235-237).\n- The letter card (:221-223) and the reactions row with its middle dots (:210-214).\n- The comment rhythm (:242-244) and serif bodies (:250).\n- The archive's date-first order and the legend as a footnote (:257-269).\n- The report sheet at 60rem (:206) and the frame at --radius-sm with Canvas (:207).\n- Tabular figures only in the admin (:124, :135, :215).\n- The 38rem reading measure (:193, :205).\n\nThe look's foundation also names the report.html author span, which is where this build departs from the earlier frozen-body design, and the builder declared it.\n\nEvidence from round one still stands: the full suite exits 0 with CHROME_BIN set, Fitness holds all 45 rules, gofmt and vet are clean, and the single stale comment at look_test.go:597-598 is already filed.",
+  "findings": [
+   {
+    "id": "t1",
+    "severity": "minor",
+    "dimension": "contract-gaps",
+    "nature": "text",
+    "file": "internal/server/look_test.go",
+    "line": 597,
+    "end_line": 598,
+    "claim": "The comment above the avatar-kind check says an avatar was looked at 'in the header, in a byline and in a Blocked users heading (2rem, not 24 px)'. This build made the loop below it, at line 599, also require the 'meta' kind (the author byline under the report title), and byline avatars are now 1.75rem, so they are not the only kind besides the heading that differs from 24 px. The comment describes the old three-kind check.",
+    "quote": {
+     "path": "internal/server/look_test.go",
+     "line": 597,
+     "text": "// An avatar in the header, in a byline and in a Blocked users heading (2rem, not"
+    },
+    "fix": "Name all four kinds: 'An avatar in the header, in a comment byline, in the author byline under the title and in a Blocked users heading was each looked at, or the pixel check judged nothing of that kind.'"
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-017",
+    "discharged": "no",
+    "evidence": "Open and owed to validate-slice. look_test.go and frame_test.go drive only CHROME_BIN through headless.Open, and Firefox and Safari are not on this machine. This build did not touch it."
+   },
+   {
+    "key": "O-001",
+    "discharged": "yes",
+    "evidence": "look_test.go:524-534 measures every state under setScheme(dark), and lines 586-591 require html's background to differ between schemes. It passed in my full-suite run."
+   },
+   {
+    "key": "O-002",
+    "discharged": "yes",
+    "evidence": "look_test.go:481 sets a 375x812 mobile viewport over /admin, /admin/reports/x and the 39-character login. The sensitivity row at lines 665-676 is in place. Both passed."
+   },
+   {
+    "key": "O-003",
+    "discharged": "yes",
+    "evidence": "look_test.go:542-547 runs the details-open pass, and roleSeen (130-133) is required. site.css:104 binds the danger confirms and :120-121 the danger summaries and tray."
+   },
+   {
+    "key": "O-004",
+    "discharged": "yes",
+    "evidence": "look_test.go:554-561 counts signal colour on the owner states in both schemes. The capture is viewport-only, which is waived as O-028."
+   },
+   {
+    "key": "O-005",
+    "discharged": "yes",
+    "evidence": "The gate is at base.html:10, and reader.go:32 and :94 supply it. TestStaticThreadScript passed in the suite."
+   },
+   {
+    "key": "O-006",
+    "discharged": "yes",
+    "evidence": "site.css:59 holds the hidden guard and :232 the `#feedback-sent:target` rule. look_test.go:461 reaches the state through about:blank."
+   },
+   {
+    "key": "O-007",
+    "discharged": "yes",
+    "evidence": "TestThreadFitsPhoneWidth logs 244 px at level 5 at 360. look_test.go:566-584 runs the 360 pass and 516-519 the atCap guard. site.css:245 keeps the literal .replies indent."
+   },
+   {
+    "key": "O-008",
+    "discharged": "yes",
+    "evidence": "frame_test.go:44-45 runs report A under light. site.css:207 sets iframe background-color: Canvas. It passed in the suite."
+   },
+   {
+    "key": "O-009",
+    "discharged": "yes",
+    "evidence": "frame_test.go:46-47 runs report B under dark. No color-scheme is set below :root (lintStylesheet)."
+   },
+   {
+    "key": "O-010",
+    "discharged": "yes",
+    "evidence": "frame_test.go:48-49 runs report C under both schemes."
+   },
+   {
+    "key": "O-011",
+    "discharged": "yes",
+    "evidence": "internal/auth/forbidden_test.go:14-57 is unchanged and passes."
+   },
+   {
+    "key": "O-012",
+    "discharged": "yes",
+    "evidence": "look_test.go:125-126 and 179-187: a real noValidate submit through Tab.Submit, then a check for p.error[role=alert]."
+   },
+   {
+    "key": "O-013",
+    "discharged": "yes",
+    "evidence": "stylesheet_test.go lintStylesheet, the pair table and the corpus are unchanged. TestStylesheetTokens passes on the new palette. The planted-pair gap is waived as O-029."
+   },
+   {
+    "key": "O-014",
+    "discharged": "yes",
+    "evidence": "internal/layout/layout_test.go is unchanged and passes. report.html still opens with page-start and closes with page-end."
+   },
+   {
+    "key": "O-015",
+    "discharged": "yes",
+    "evidence": "frame_test.go compares the frame with the report opened alone in all six cases, and site.css:207 keeps the Canvas substrate. It passed in the suite."
+   },
+   {
+    "key": "O-016",
+    "discharged": "yes",
+    "evidence": "look_test.go measures rendered contrast and forces hover and focus states (forcedPass 223-259). It passed with the new palette."
+   },
+   {
+    "key": "O-018",
+    "discharged": "yes",
+    "evidence": "look_test.go:665-676 is unchanged and passes."
+   },
+   {
+    "key": "O-019",
+    "discharged": "yes",
+    "evidence": "look_test.go:659-663 is unchanged and passes."
+   },
+   {
+    "key": "O-020",
+    "discharged": "yes",
+    "evidence": "look_test.go:175-190: every state goes through about:blank, and Tab.Submit handles the POST."
+   },
+   {
+    "key": "O-021",
+    "discharged": "yes",
+    "evidence": "look_test.go:516-519 and minBody 240 (211). The new `.comments > .comment + .comment` rule (site.css:243) adds only vertical padding and a top border."
+   },
+   {
+    "key": "O-022",
+    "discharged": "yes",
+    "evidence": "stylesheet_test.go:73-139 and 26-34 are unchanged. The new site.css has no literal outside :root (TestStylesheetTokens passes). The :root member stays waived."
+   },
+   {
+    "key": "O-023",
+    "discharged": "yes",
+    "evidence": "stylesheet_test.go:170-171 and 227-232 are unchanged. The new frame rules (site.css:206-207) use only size, margin, border and background."
+   },
+   {
+    "key": "O-024",
+    "discharged": "yes",
+    "evidence": "Every new edge in site.css is a literal shorthand followed by a *-color longhand (for example :82, :121, :221, :243). :74 keeps `outline: 2px solid; outline-color: var(--focus)`."
+   },
+   {
+    "key": "O-025",
+    "discharged": "yes",
+    "evidence": "look_test.go forcedPass (223-259) and the pair rows in stylesheet_test.go are unchanged and pass on the new palette."
+   },
+   {
+    "key": "O-026",
+    "discharged": "yes",
+    "evidence": "layout_test.go:73 and 109-119 are unchanged. report.html adds no script."
+   },
+   {
+    "key": "O-027",
+    "discharged": "no",
+    "evidence": "Waived to SC-059. stylesheet_test.go's :root skip is unchanged."
+   },
+   {
+    "key": "O-028",
+    "discharged": "no",
+    "evidence": "Waived to N-255. look_test.go:555 still uses viewport-only shoot()."
+   },
+   {
+    "key": "O-029",
+    "discharged": "no",
+    "evidence": "Waived to N-256. There is still no planted below-bar pair."
+   },
+   {
+    "key": "O-030",
+    "discharged": "no",
+    "evidence": "Waived to SC-060. cssRuleRE is unchanged."
+   },
+   {
+    "key": "O-031",
+    "discharged": "no",
+    "evidence": "Waived to SC-061. The :root skip is unchanged."
+   },
+   {
+    "key": "O-032",
+    "discharged": "no",
+    "evidence": "Waived to N-254. site.css:126 keeps `overflow-wrap: normal` on thead th and :137 keeps `white-space: nowrap` on .pill, and there is no 320 px pass. The builder noted this."
+   },
+   {
+    "key": "O-033",
+    "discharged": "yes",
+    "evidence": "internal/testutil/seeded/main.go:232 has `final.Fake = fake`, with the doc at :180-184 (unchanged since 1d691a8)."
+   },
+   {
+    "key": "O-034",
+    "discharged": "yes",
+    "evidence": "internal/testutil/fakegithub/fakegithub.go:313 and :315 use user.ID (unchanged since 1d691a8)."
+   },
+   {
+    "key": "O-035",
+    "discharged": "no",
+    "evidence": "Waived to N-323. fakegithub_test.go:181 still names a parameter q."
+   },
+   {
+    "key": "O-036",
+    "discharged": "no",
+    "evidence": "Waived to N-324. seeded/main.go:237-250 checkStandIn still says only 'staging'."
+   },
+   {
+    "key": "O-037",
+    "discharged": "yes",
+    "evidence": "fakegithub.go:313 and :315. picked_id_shape_test.go passed in the testutil packages of the full suite."
+   },
+   {
+    "key": "O-038",
+    "discharged": "yes",
+    "evidence": "seeded/main.go:232. run_fake_test.go passed in the seeded package of the full suite."
+   }
+  ],
+  "cases": [
+   {
+    "key": "C-001",
+    "exercised": "yes",
+    "evidence": "look_test.go:524-534 runs every state under emulated dark. It passed on the new palette."
+   },
+   {
+    "key": "C-002",
+    "exercised": "yes",
+    "evidence": "look_test.go:481 runs the 375 mobile viewport over /admin/reports/x (SHA-256), /admin (table, file input) and the 39-character login."
+   },
+   {
+    "key": "C-003",
+    "exercised": "yes",
+    "evidence": "look_test.go:542-547 opens every details on the owner and admin pages and at the cap."
+   },
+   {
+    "key": "C-004",
+    "exercised": "yes",
+    "evidence": "look_test.go:465-470 and 554-561 run the owner signal assay in both schemes. The capture is viewport-only, which is waived as O-028."
+   },
+   {
+    "key": "C-005",
+    "exercised": "yes",
+    "evidence": "look_test.go:471 runs the empty home with 0 scripts beside the found pages with 1. TestStaticThreadScript passes."
+   },
+   {
+    "key": "C-006",
+    "exercised": "yes",
+    "evidence": "look_test.go:461 runs #feedback-sent with and without the fragment."
+   },
+   {
+    "key": "C-007",
+    "exercised": "yes",
+    "evidence": "look_test.go:566-584 runs the 360 pass on the 12-level chain, and TestThreadFitsPhoneWidth logs 244 px."
+   },
+   {
+    "key": "C-008",
+    "exercised": "yes",
+    "evidence": "frame_test.go:44-45 runs report A under light."
+   },
+   {
+    "key": "C-009",
+    "exercised": "yes",
+    "evidence": "frame_test.go:46-47 runs report B under dark."
+   },
+   {
+    "key": "C-010",
+    "exercised": "yes",
+    "evidence": "frame_test.go:48-49 runs report C under both schemes."
+   },
+   {
+    "key": "C-011",
+    "exercised": "yes",
+    "evidence": "forbidden_test.go:14 feeds '' and 'octo<b>&cat'."
+   },
+   {
+    "key": "C-012",
+    "exercised": "yes",
+    "evidence": "look_test.go:125-126 and 179-187 make a real noValidate submit with an invalid slug."
+   },
+   {
+    "key": "C-013",
+    "exercised": "yes",
+    "evidence": "TestStylesheetCorpus plants faults into lintStylesheet. The below-bar pair is fed only through the real file, which is waived as O-029."
+   },
+   {
+    "key": "C-014",
+    "exercised": "yes",
+    "evidence": "layout_test.go:177-191 plants the shell faults."
+   }
+  ],
+  "drift": [],
+  "unreviewed": [],
+  "second_round": {
+   "run_id": 12505,
+   "filed": 0
+  },
+  "reading_pass": {
+   "state": "landed",
+   "why": [
+    "unseen changed hunks"
+   ],
+   "lens": "contracts",
+   "cut_off": false,
+   "cut_runs": {
+    "line": false,
+    "inputs": false,
+    "any": false
+   },
+   "run_id": 12506,
+   "session": "c3730099-3e43-4c4e-b29d-4f847fa095a8",
+   "resumed": true,
+   "asked": [
+    {
+     "path": "internal/server/reader.go",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       30,
+       34
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      25,
+      39
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/reader.go",
+     "kind": "src",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       91,
+       95
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      86,
+      100
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": "internal/server/testdata/look/probe.js",
+     "kind": "tests",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       302
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      302
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    },
+    {
+     "path": ".taad/look.json",
+     "kind": "config",
+     "state": "partly-opened",
+     "why": "unseen changed hunks",
+     "hunks": [
+      [
+       1,
+       802
+      ]
+     ],
+     "scopes": [
+      {
+       "line": null,
+       "header": null
+      }
+     ],
+     "read": [
+      1,
+      802
+     ],
+     "header": null,
+     "line": null,
+     "whole_file": false
+    }
+   ],
+   "asked_hunks": 4,
+   "named": [
+    ".taad/fitness.yaml",
+    "internal/fitnessrules/testdata/rule_spellings.json",
+    "internal/server/testdata/look/bare.html",
+    "internal/server/testdata/look/site.before.css",
+    "internal/server/testdata/stylesheet_corpus.json",
+    "internal/testutil/headless/devtools.go",
+    "internal/testutil/headless/devtools_test.go"
+   ],
+   "before": {
+    "read_whole": 17,
+    "changed": 39,
+    "listed": 22
+   },
+   "filed": 0,
+   "read_after": 4,
+   "still_unread": []
+  },
+  "unread_measured": {
+   "measured": true,
+   "why": "",
+   "changed": 39,
+   "read_whole": 19,
+   "deleted": [],
+   "runs": [
+    12488,
+    12490,
+    12493,
+    12494,
+    12495,
+    12504,
+    12505,
+    12506
+   ],
+   "range": {
+    "base": "eb0a578270057e3e2c9cc90f04372c6e939f1da9",
+    "head": "eda347d2670644ed74e8d74332336a247bd452bc",
+    "source": "commits",
+    "hunk_base": "c5e418021ecb7357fcae3cbd72063908e784b6e2",
+    "hunk_base_from": "the merge base with the integration branch"
+   },
+   "items": [
+    {
+     "path": ".taad/fitness.yaml",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 626,
+     "hunks": [
+      {
+       "lines": [
+        598,
+        626
+       ],
+       "unseen": [
+        [
+         598,
+         626
+        ]
+       ],
+       "scope": {
+        "first": 593,
+        "last": 626,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/fitnessrules/testdata/rule_spellings.json",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 736,
+     "hunks": [
+      {
+       "lines": [
+        4,
+        4
+       ],
+       "unseen": [
+        [
+         4,
+         4
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 9,
+        "line": null,
+        "header": null
+       }
+      },
+      {
+       "lines": [
+        33,
+        35
+       ],
+       "unseen": [
+        [
+         33,
+         35
+        ]
+       ],
+       "scope": {
+        "first": 28,
+        "last": 40,
+        "line": null,
+        "header": null
+       }
+      },
+      {
+       "lines": [
+        711,
+        734
+       ],
+       "unseen": [
+        [
+         711,
+         734
+        ]
+       ],
+       "scope": {
+        "first": 706,
+        "last": 736,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/server/testdata/look/bare.html",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 14,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        14
+       ],
+       "unseen": [
+        [
+         1,
+         14
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 14,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/server/testdata/look/site.before.css",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 48,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        48
+       ],
+       "unseen": [
+        [
+         1,
+         48
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 48,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/server/testdata/stylesheet_corpus.json",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 117,
+     "hunks": [
+      {
+       "lines": [
+        1,
+        117
+       ],
+       "unseen": [
+        [
+         1,
+         117
+        ]
+       ],
+       "scope": {
+        "first": 1,
+        "last": 117,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/testutil/headless/devtools.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 342,
+     "hunks": [
+      {
+       "lines": [
+        255,
+        257
+       ],
+       "unseen": [
+        [
+         255,
+         257
+        ]
+       ],
+       "scope": {
+        "first": 250,
+        "last": 262,
+        "line": null,
+        "header": null
+       }
+      },
+      {
+       "lines": [
+        265,
+        288
+       ],
+       "unseen": [
+        [
+         265,
+         288
+        ]
+       ],
+       "scope": {
+        "first": 260,
+        "last": 293,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/testutil/headless/devtools_test.go",
+     "state": "never-opened",
+     "section": null,
+     "reason": "no Read, Grep, shell read or graph result returned any of its lines",
+     "size_lines": 251,
+     "hunks": [
+      {
+       "lines": [
+        223,
+        251
+       ],
+       "unseen": [
+        [
+         223,
+         251
+        ]
+       ],
+       "scope": {
+        "first": 218,
+        "last": 251,
+        "line": null,
+        "header": null
+       }
+      }
+     ]
+    },
+    {
+     "path": "internal/auth/owner.go",
+     "state": "partly-opened",
+     "section": "lines 101-128 of 128",
+     "reason": "a Read returned only part of it",
+     "size_lines": 128,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/comment_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-1076, 1154-1195 of 1195",
+     "reason": "a Read returned only part of it",
+     "size_lines": 1195,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/look_test.go",
+     "state": "partly-opened",
+     "section": "lines 301 of 777",
+     "reason": "a Read returned only part of it; seen only through a shell command: foreach, git diff, git log; 2 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 777,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/reader.go",
+     "state": "partly-opened",
+     "section": "lines 1-19, 206-390 of 390",
+     "reason": "a Read returned only part of it; seen only as 1 Grep line; seen only through a shell command: foreach, git diff, git log; 76 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 390,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/router.go",
+     "state": "partly-opened",
+     "section": "lines 1-9, 102-196 of 196",
+     "reason": "a Read returned only part of it",
+     "size_lines": 196,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/templates/admin.html",
+     "state": "partly-opened",
+     "section": "lines 35-41 of 41",
+     "reason": "a Read returned only part of it",
+     "size_lines": 41,
+     "hunks": []
+    },
+    {
+     "path": "internal/server/templates/report.html",
+     "state": "partly-opened",
+     "section": "lines 3 of 24",
+     "reason": "a Read returned only part of it; seen only through a shell command: git diff, git log; 1 returned line differ from the reviewed file (read before it changed)",
+     "size_lines": 24,
+     "hunks": []
+    },
+    {
+     "path": "internal/store/signin.go",
+     "state": "partly-opened",
+     "section": "lines 1-85 of 85",
+     "reason": "seen only as 2 Grep lines; seen only through a shell command: foreach, git diff, git log",
+     "size_lines": 85,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/fakegithub/fakegithub.go",
+     "state": "partly-opened",
+     "section": "lines 313, 315 of 323",
+     "reason": "a Read returned only part of it; seen only as 4 Grep lines (before the build); seen only through a shell command: $s (before the build), foreach (before the build), git diff (before the build), git log (before the build); 3 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 323,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/fakegithub/fakegithub_test.go",
+     "state": "partly-opened",
+     "section": "lines 181-296 of 296",
+     "reason": "a Read returned only part of it; seen only through a shell command: $s (before the build), foreach (before the build), git diff (before the build)",
+     "size_lines": 296,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/fakegithub/picked_id_shape_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-70 of 70",
+     "reason": "seen only as 2 Grep lines (before the build); seen only through a shell command: $s (before the build), git log (before the build)",
+     "size_lines": 70,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/seeded/main.go",
+     "state": "partly-opened",
+     "section": "lines 250-279, 281-324, 326-358 of 358",
+     "reason": "a Read returned only part of it; seen only as 5 Grep lines (before the build); seen only through a shell command: $s (before the build), foreach (before the build), git diff (before the build), git log (before the build); 169 returned lines differ from the reviewed file (read before it changed)",
+     "size_lines": 358,
+     "hunks": []
+    },
+    {
+     "path": "internal/testutil/seeded/run_fake_test.go",
+     "state": "partly-opened",
+     "section": "lines 1-23 of 23",
+     "reason": "seen only as 3 Grep lines (before the build); seen only through a shell command: $s (before the build), git log (before the build)",
+     "size_lines": 23,
+     "hunks": []
+    }
+   ],
+   "notes": []
+  }
+ }
+}

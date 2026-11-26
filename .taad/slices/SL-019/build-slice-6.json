@@ -1,0 +1,184 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "build-slice",
+ "attempt": 6,
+ "at": "2026-11-26T13:01:44.604Z",
+ "head": "eda347d2670644ed74e8d74332336a247bd452bc",
+ "run_id": 12503,
+ "summary": "Rebuilt the look to the new blog design in .taad/look.json: warm paper, soft ink, a serif voice for what is read, a sans for what is used, one deep pine accent. site.css is rewritten in the foundation order with the look's tokens (same names, so the token tests needed no edits), pill buttons, reply-style composers, the letter card, the one-line reactions row, hairline-separated top-level comments, the date-first archive and the quiet admin. The report page now leads with the title, then an author byline (name, avatar, date), through a new store.User read, readerData.Author and one line in report.html. The pinned rule texts and the thread geometry are unchanged (244 px at level 5 at 360 px). Full `go test -count=1 ./...` passes with CHROME_BIN, and both browser tests ran through no-skip.ps1.",
+ "payload": {
+  "status": "complete",
+  "summary": "Rebuilt the look to the new blog design in .taad/look.json: warm paper, soft ink, a serif voice for what is read, a sans for what is used, one deep pine accent. site.css is rewritten in the foundation order with the look's tokens (same names, so the token tests needed no edits), pill buttons, reply-style composers, the letter card, the one-line reactions row, hairline-separated top-level comments, the date-first archive and the quiet admin. The report page now leads with the title, then an author byline (name, avatar, date), through a new store.User read, readerData.Author and one line in report.html. The pinned rule texts and the thread geometry are unchanged (244 px at level 5 at 360 px). Full `go test -count=1 ./...` passes with CHROME_BIN, and both browser tests ran through no-skip.ps1.",
+  "files": [
+   {
+    "path": "internal/server/static/site.css",
+    "change": "modified",
+    "why": "Rewritten to the warm-paper/pine/serif look: new token values (colours, serif stack with Sitka Text and Cambria, radii .5/.75rem, leading 1.55, display and section type), pill buttons, composer flex columns with serif textareas, letter card, one-line reactions row with dots, comment rhythm, date-first archive with the legend as a footnote, quiet badge/pill/notice/empty states, 38rem reading column, .author byline and 1.75rem byline and meta avatars."
+   },
+   {
+    "path": "internal/server/templates/report.html",
+    "change": "modified",
+    "why": "Inserts the author span (avatar, login) and a middle dot right after <p class=\"meta\">, only when .Author.Login is set."
+   },
+   {
+    "path": "internal/server/reader.go",
+    "change": "modified",
+    "why": "readerData gains Author store.User; renderReader fills it for a found report from the configured owner id, and a missing row, owner id 0 or a read error leaves it empty (slog.Warn, page never unavailable)."
+   },
+   {
+    "path": "internal/store/signin.go",
+    "change": "modified",
+    "why": "Adds Store.User(ctx, githubID) reading github_id, login and avatar_url from users; ok is false for an account that never signed in."
+   },
+   {
+    "path": "internal/store/user_test.go",
+    "change": "added",
+    "why": "TestUserReadsWhatSignInLastSaw: zero User and false before sign-in, the account after sign-in, the newest login and avatar after a second sign-in."
+   },
+   {
+    "path": "internal/server/author_test.go",
+    "change": "added",
+    "why": "TestReportPageNamesTheAuthor: the byline names the owner with avatar and escaped login on / and /reports/<slug> for anonymous and owner viewers, without an avatar when none is stored, and is 200 with no author span for an owner who never signed in, owner id 0 and a failing users read."
+   },
+   {
+    "path": "internal/server/testdata/look/probe.js",
+    "change": "modified",
+    "why": "Avatars under .meta (the author byline) are their own kind, 'meta', so the pixel check judges them."
+   },
+   {
+    "path": "internal/server/look_test.go",
+    "change": "modified",
+    "why": "The required avatar kinds now include 'meta', so the run fails if no author-byline avatar was measured."
+   }
+  ],
+  "obligations": [
+   {
+    "key": "O-017",
+    "done": false,
+    "how": "Not discharged and cannot be here. Firefox is not installed and Safari does not exist on Windows, so only Chrome 158 was driven. Held as a known limit of this machine. It is owed to validate-slice, not to the builder."
+   }
+  ],
+  "mandatory": [],
+  "tests": [
+   {
+    "command": "go test -count=1 ./... (CHROME_BIN set, TAAD3_HOME in a scratch folder)",
+    "outcome": "passed",
+    "note": "Exit 0. Every package ok, including internal/server (about 56 s), internal/layout, internal/auth, internal/fitnessrules, internal/testutil/seeded and every tests/acceptance package. No SQLITE_BUSY flake this time."
+   },
+   {
+    "command": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestEveryScreenIsDesigned$' -Pkg ./internal/server/",
+    "outcome": "passed",
+    "note": "Ran, not skipped: 20 states x 2 widths x 2 schemes, 6276 texts (lowest 5.01:1) and 1352 controls judged, forced hover and focus, avatar pixels, depth-5 body widths. Every role was met. Exit 0."
+   },
+   {
+    "command": "pwsh -NoProfile -File .taad/slices/SL-019/checks/no-skip.ps1 -Run '^TestReportFrameKeepsItsOwnCanvas$' -Pkg ./internal/server/",
+    "outcome": "passed",
+    "note": "Frame equals the report opened alone in all six cases (A, B, C under light and dark), with the paper #faf8f4 / #171513 around the frame."
+   },
+   {
+    "command": "go test -count=1 -v -run 'TestStylesheetTokens|TestStylesheetCorpus|TestThreadFitsPhoneWidth|TestCommentStyles|TestStaticThreadScript|TestReaderPagesShareOneLayout|TestThreadTenThousandTiming' ./internal/server/",
+    "outcome": "passed",
+    "note": "Every declared token pair meets its bar with the new palette. TestThreadFitsPhoneWidth logs 'a comment at level 5 has 244 px at 360 px'."
+   },
+   {
+    "command": "go test -count=1 -v -run 'TestLookProbeSeesTheStylesheetBeforeTheDesign|TestAvatarProbeSeesABrokenImageGlyph' ./internal/server/",
+    "outcome": "passed",
+    "note": "The probe still flags the pre-slice stylesheet (scrollWidth 600 at 375). The avatar check, now including the author-byline avatar, still fails with .avatar::after taken out."
+   },
+   {
+    "command": "go test -count=1 -v -run 'TestReportPageNamesTheAuthor|TestUserReadsWhatSignInLastSaw' ./internal/server/ ./internal/store/",
+    "outcome": "passed",
+    "note": "New tests. The failing-read case logs the slog warning and still answers 200 with no author."
+   },
+   {
+    "command": "go test -count=1 -v -run 'TestEveryPageTakesTheShell|TestForbiddenPageTakesTheShell' ./internal/layout/ ./internal/auth/",
+    "outcome": "passed",
+    "note": "Shell and forbidden-page tests pass unchanged."
+   },
+   {
+    "command": "seeded.exe -port 18612 (the real launcher binary built from ./internal/testutil/seeded), then GET /",
+    "outcome": "passed",
+    "note": "Printed 'serving http://127.0.0.1:18612/'. The home page byline reads <span class=\"author\"><img class=\"avatar\" ...> report-author</span> &middot; Published 26 November 2026 &middot; Link to this report, so the seeded owner has a users row and no seed change was needed. One thread.js tag and the unchanged CSP. The process tree was killed afterwards."
+   },
+   {
+    "command": "Screenshots from TestEveryScreenIsDesigned via HBAND_TEST_ARTIFACTS, looked at by me",
+    "outcome": "passed",
+    "note": "Looked at the reader report (desktop light, phone dark), All reports, Blocked users (dark), the admin report, the empty home and the Not allowed page. They read as designed, with no sideways scroll. The scratch PNGs were deleted afterwards."
+   }
+  ],
+  "screens": [
+   {
+    "name": "Home page",
+    "open": "/"
+   },
+   {
+    "name": "Report page",
+    "open": "/reports/e004-look"
+   },
+   {
+    "name": "All reports",
+    "open": "/reports"
+   },
+   {
+    "name": "Thread branch page",
+    "open": "/reports/e004-look",
+    "steps": [
+     "continue this thread →"
+    ]
+   },
+   {
+    "name": "Admin",
+    "open": "/admin",
+    "steps": [
+     "Continue as the owner"
+    ]
+   },
+   {
+    "name": "Admin report page",
+    "open": "/admin/reports/e004-look"
+   },
+   {
+    "name": "Admin report page, draft",
+    "open": "/admin/reports/e004-draft"
+   },
+   {
+    "name": "Blocked users",
+    "open": "/admin/blocked"
+   },
+   {
+    "name": "Report page, signed in as the owner",
+    "open": "/reports/e004-look"
+   },
+   {
+    "name": "Home page, signed in as a reader",
+    "open": "/",
+    "steps": [
+     "Sign out",
+     "Sign in with GitHub",
+     "Continue as a reader"
+    ]
+   },
+   {
+    "name": "Report page, signed in as a reader",
+    "open": "/reports/e004-look"
+   },
+   {
+    "name": "Not allowed page",
+    "open": "/admin"
+   }
+  ],
+  "app": {
+   "command": "go run ./internal/testutil/seeded -port {port}",
+   "url": "http://127.0.0.1:{port}/"
+  },
+  "architecture": [],
+  "deviations": [],
+  "not_built": [],
+  "follow_ups": [
+   "On a phone, a 39-character login in a comment byline pushes the time onto its own row, and the byline's middle dot ('·' on time::before) is left at the start of that row. The earlier validation filed the same orphaned dot on the All reports phone row; it is a cosmetic wrap issue and was left alone.",
+   "The look does not say what the admin's own owner line should become now that the shared header carries it; /admin still has no duplicate (earlier attempts removed it). Nothing to decide here, noted only so the next admin slice does not add it back.",
+   "IN-m3 (admin pages scrolling sideways at 320 px, waived as N-254) is untouched: the file input and the nowrap status pill still set the minimum width of /admin and /admin/reports/<slug>."
+  ]
+ }
+}

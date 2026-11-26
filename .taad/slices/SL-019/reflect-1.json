@@ -1,0 +1,248 @@
+{
+ "schema": "slice-detail@1",
+ "slice": "SL-019",
+ "stage": "reflect",
+ "attempt": 1,
+ "at": "2026-11-26T13:45:19.877Z",
+ "head": "eda347d2670644ed74e8d74332336a247bd452bc",
+ "run_id": 12516,
+ "summary": "SL-019 replaced the 48-line site.css with one light-dark() token design system (no at-rules), added an internal/layout shell that all 7 page templates take, and brought the reader, admin and Not allowed screens onto it. Checks include a 20-state x 2-width x 2-scheme Chrome probe, a frame-canvas oracle and a stylesheet linter. It took 6 builds, 11 code reviews and 7 validations. Two builds were a person's visual restarts (editorial, then blog look), one fixed a broken-avatar glyph, and one built a test-only owner/reader picker so the admin screens could be photographed. The last build (eda347d) passed on Chrome 158 only.",
+ "payload": {
+  "status": "complete",
+  "summary": "SL-019 replaced the 48-line site.css with one light-dark() token design system (no at-rules), added an internal/layout shell that all 7 page templates take, and brought the reader, admin and Not allowed screens onto it. Checks include a 20-state x 2-width x 2-scheme Chrome probe, a frame-canvas oracle and a stylesheet linter. It took 6 builds, 11 code reviews and 7 validations. Two builds were a person's visual restarts (editorial, then blog look), one fixed a broken-avatar glyph, and one built a test-only owner/reader picker so the admin screens could be photographed. The last build (eda347d) passed on Chrome 158 only.",
+  "estimate_error": "Tier and size were right in kind and wrong in shape. High risk held: the owner gate, the report-frame substrate and the cross-package template contract were all touched, and the frame spike was a real no-go. Large undercounted the work. It was effectively three slices: the design system, two person-directed visual redesigns (builds 2 and 6, plus a halted validate #5), and a test-launcher build (build 4, 10 files). Merging SC-054 was sized as 'class attributes and a header include' (about 190 lines, one saved loop). The admin pages instead got a sidebar, page head and pills, and needed an owner session in the seeded launcher that nobody had planned, so the saved loop came back as build 4 and its review cycle.",
+  "learned": [
+   {
+    "kind": "process",
+    "lesson": "A 'designed look' slice with no stated visual direction is built more than once. Open the next visual slice with a tone or reference and one approved screenshot of a single screen before the full 20-state matrix is built.",
+    "evidence": "Build 2 (ink-and-hairline editorial) and build 6 (blog) were both person restarts, and the owner said the first draft read like a finance reporting interface. Validate #5 was halted by a person. The brief said only 'designed', and its criteria 4 and 5 were checked_by person (SC-031 was dropped for exactly that reason)."
+   },
+   {
+    "kind": "process",
+    "lesson": "The 'designed look' criteria that are checked by a person were re-filed as check-by-hand candidates by every stage that met them. After a model-only validation judged the screenshots by eye, they are still unchecked by a person.",
+    "evidence": "SC-055/SC-056 (build-check), SC-062/SC-063 and SC-064/SC-065 (two validations) cover the same two criteria. Validate #7 says the two person-checked criteria were 'judged only by eye from the engine's 48 screenshots, not by a person'."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "Any slice that needs the engine to photograph /admin screens must plan the owner session at design time. The launcher now offers it: the stand-in GitHub authorize page is a picker with 'Continue as the owner' and 'Continue as a reader' (seed.go ownerChoice/readerChoice, fakegithub.OfferChoices), and the staging seed adds a draft, a feedback reply and a blocked account. Reuse it. Do not extend program.Start.",
+    "evidence": "Seeded launcher extension was deferred at code review (plan item 11, finding m4). Validate #3 and #4 were then sent back because Admin, Admin report and Blocked users 'were designed and never photographed'. Build 4 changed 10 test-only files and produced two defects (userInfo id-shape arms, run().Fake) fixed in build 5."
+   },
+   {
+    "kind": "design",
+    "lesson": "The stylesheet linter's CSS reader is the weak point, not its list of spellings. lintStylesheet reads with a brace-free regex (cssRuleRE, stylesheet_test.go:50) and comment stripping that ignores quoted strings, and its :root branch skips non-custom properties (~:233-236). Every 'class closed' claim (colour literals O-022, frame-reach O-023) was reopened by the next reviewer. The next change to the linter should make unreadable shapes fail (a 'nesting' code) rather than add spellings; SC-059, SC-060 and SC-061 already carry this.",
+    "evidence": "Code review #2 reproduced `:root { color: black }`, `main { opacity:.5; & > p {} filter: invert(1) }` (Chrome 158 computes opacity 0.5 and filter invert(1)) and a '/*' inside content strings, all passing lint. O-027, O-030 and O-031 were waived to SC-059, SC-060 and SC-061 as 'a class that comes back after it was closed'."
+   },
+   {
+    "kind": "risk",
+    "lesson": "The frame-canvas oracle's sensitivity depends on the palette, and it was last proven against an earlier one. The oracle ignores differences within ±8. Build 6's dark paper #171513 is within 5/3/1 of Chrome's dark canvas #121212, so removing `background-color: Canvas` probably cannot be seen in the dark cases. In light, #faf8f4 against #ffffff differs by (5,7,11), so only the blue channel gives the signal. Any later palette change must re-run the Canvas-removed mutation. This is arithmetic from the recorded values, not a run.",
+    "evidence": "Code review #2 found that removing Canvas still passed all six cases when --bg was close to the browser canvas. Validate #1 only got 4 of 6 leaks after setting --bg to #f3f1ea/#202830. Validate #7's mutation was on --text-muted only."
+   },
+   {
+    "kind": "process",
+    "lesson": "The engine's waive-or-accept decision follows whether a finding ships a failing test. The same two defects were waived as notes and then accepted and fixed once a reviewer attached a test file. Raise findings with a failing scratch test from the start.",
+    "evidence": "O-033/O-034 (m1/m2) were waived as N-321/N-322 ('a miss nobody required'). O-037/O-038 (IN-m1/IN-m2, the same defects) were discharged by picked_id_shape_test.go and run_fake_test.go in build 5. O-028 was waived 'no reproduction' although the review measured 0 red pixels."
+   },
+   {
+    "kind": "codebase",
+    "lesson": "The site.css pins still bind every later CSS change, and the rewrites kept them. There is no '@'; colour goes through light-dark() tokens in :root; there is no var()/calc()/% in horizontal margin, padding or border on the thread boxes; edges are a literal width and style plus a *-color longhand. Level 5 has 244 px at 360 against the 240 px minimum. Three rewrites left it at 244, so a next stylesheet slice has 4 px of slack and no room for a new wrapper box.",
+    "evidence": "TestThreadFitsPhoneWidth logged 244 px at level 5 in builds 1, 2 and 6. Phone_test.go:141 refuses '@'. Probe.js asserts every .comment .body at depth 5 is at least 240 px, and the 'at cap' guard stops it passing on an empty set."
+   },
+   {
+    "kind": "process",
+    "lesson": "Code review was the most repeated gate (11 runs) and most of the extra runs added nothing. Two did not finish (#1 failed, #8 refused). Three were stale-scope re-reads of test-only fix batches (#4, #5, #9). Each pass listed 15 to 20 'not read' files (fixtures, fitness.yaml) as LEFT OPEN. When a fix batch touches only test-only files, scope the re-review to that diff and drop the unread-file report for files the diff did not change.",
+    "evidence": "Code-review #4, #5 and #9 reviewed build 3, 4 and 5 diffs that touched only site.css 2 lines, probe.js, look_test.go and internal/testutil/**. Reviews #8 and #10 left 15 and 20 files listed as not read, including .taad/fitness.yaml and stylesheet_corpus.json."
+   }
+  ],
+  "lessons_judged": [
+   {
+    "id": 941,
+    "verdict": "used",
+    "why": "Token names and values were chosen to stay far from #ff0000/#00ff00. TestStylesheetTokens has a nearSignal check, and the owner-page screenshot assay with headless.Count was added."
+   },
+   {
+    "id": 1001,
+    "verdict": "used",
+    "why": "TestEveryScreenIsDesigned reuses headless.Open, Viewport, Navigate and Eval. The fit check compares scrollWidth with clientWidth at desktop and with the requested width at 375, as the lesson warned."
+   },
+   {
+    "id": 940,
+    "verdict": "used",
+    "why": "The design used the CDP viewport rather than headless.Shot for the 375 px assertions, and used Page.captureScreenshot only for pixel patches."
+   },
+   {
+    "id": 978,
+    "verdict": "used",
+    "why": "The details-open pass and the owner states (report, admin, refused upload, blocked users) were rendered in a real browser for the first time. The viewport-only screenshot assay left the owner danger controls below the fold, which is still open as N-255."
+   },
+   {
+    "id": 950,
+    "verdict": "used",
+    "why": "The author byline added to report.html had to render identically on / and /reports/<slug> (TestReaderPagesShareOneLayout stays green). #feedback-sent is reached through a server-side feedback POST plus about:blank."
+   },
+   {
+    "id": 955,
+    "verdict": "used",
+    "why": "The indent geometry was kept literal. Level 5 was measured at 244 px at 360, and at 375 on the report and branch pages, through computed body widths rather than overflow alone."
+   },
+   {
+    "id": 981,
+    "verdict": "used",
+    "why": "The seed chain is 12 levels deep (more than twice threadDepthCap 5), and the branch page is reached through the report page's own 'continue this thread' link."
+   },
+   {
+    "id": 979,
+    "verdict": "used",
+    "why": "The date-first All reports archive reorders visually with flex `order` only. The DOM text order that the e002 readers parse is unchanged and the e002 packages pass."
+   },
+   {
+    "id": 1014,
+    "verdict": "not relevant",
+    "why": "No show-all row markup or seed numbers changed in this slice."
+   },
+   {
+    "id": 1007,
+    "verdict": "used",
+    "why": "Build 4 reused seeded's run() for the owner/reader picker. The lesson omitted that the returned Program's Fake is the wrong stand-in, which cost defect IN-m2."
+   },
+   {
+    "id": 1000,
+    "verdict": "not relevant",
+    "why": "No acceptance test or tests/acceptance package was added. The browser checks live in internal/server, and tests/acceptance is unchanged from c5e4180."
+   },
+   {
+    "id": 1009,
+    "verdict": "used",
+    "why": "The browser checks are .ps1 files (checks/no-skip.ps1) run with pwsh -NoProfile -File, and they fail on a SKIP or a missing PASS line."
+   },
+   {
+    "id": 957,
+    "verdict": "used",
+    "why": "The design rejected a spelling tripwire for hidden states, and the critics did find two majors (M1, M2) in how the checks run. The pattern still came back as four lint-spelling findings (m3, m4, IN-m1, IN-m2) that reopened 'closed' classes."
+   }
+  ],
+  "what_went_wrong": [
+   "Two full visual redesigns after build 1 passed: build 2 (editorial, ink and hairline) and build 6 (blog look, after the owner said the first read like a finance reporting interface). Validate #5 was stopped by a person. The brief gave no visual direction, and the screens were never shown to the person before the whole matrix was built.",
+   "The broken-avatar glyph (site.css:152 against look.json:650, 'never a broken-image glyph') went through build 1, build 2 and code reviews #1 and #2. Validate #2 found it by looking at screenshots. The look test seeded every avatar to a 404 on purpose and asserted nothing about how it painted. It was fixed in build 3.",
+   "The seeded launcher had no owner session, so the engine could not photograph /admin, /admin/reports/<slug> or /admin/blocked. Code review deferred it (m4), then validate #3 and #4 sent the slice back for it. Build 4 changed 10 test-only files (fakegithub picker, seed.go) and introduced two defects, the userInfo id-shape arms and run().Fake, fixed in build 5.",
+   "Two stylesheet-linter families were declared closed and reopened by the next reviewer: colour literals (:root non-custom properties) and frame-reach (CSS nesting, comment markers in strings). Both went to SC-059, SC-060 and SC-061 after the loop had already spent three rounds on the spellings.",
+   "Review volume: code-review ran 11 times, with two runs that did not finish (#1 failed, #8 refused). Several runs re-read test-only diffs and each listed 15 to 20 never-opened files as LEFT OPEN.",
+   "The same two defects had opposite dispositions: waived as N-321/N-322 (O-033/O-034), then accepted and fixed as O-037/O-038 once a reviewer attached a failing test.",
+   "The 'check by hand' criteria for the designed look were filed six times (SC-055/056, SC-062/063, SC-064/065) by three different stages, for two criteria. The final validation judged them by eye without a person."
+  ],
+  "missed": [
+   {
+    "gate": "code-review",
+    "what": "A missing or refused avatar image showed Chrome's broken-image glyph inside the ring on the header and every byline. look.json:646-651 says 'a plain --surface-2 circle with its ring, never a broken-image glyph', and site.css:152 had no cover rule. Code review #2 read the look and called the build 'built as planned' apart from one small drift. A check that samples pixels inside one avatar box on a 404 image would have caught it.",
+    "severity": "major",
+    "dimension": "drift-from-design",
+    "caught_by": "validate-slice #2 (frontend designer's pictures, confirmed against the tree)",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique",
+    "what": "The design's case 'show every screen in its designed look' covers owner-only screens in a Go test but never says how the engine's photograph review reaches /admin, /admin/reports/<slug> or /admin/blocked. The seeded launcher signs the browser in as a non-owner, so those screens could not be photographed. The critic did not ask where an owner session comes from for the pictures.",
+    "severity": "major",
+    "dimension": "test-coverage",
+    "caught_by": "validate-slice #3 and #4 (sent back; built in build 4)",
+    "prescribed_fix": ""
+   },
+   {
+    "gate": "critique-review",
+    "what": "The m3 fix (allow-list of colour values outside :root, colour-token shape inside :root) says nothing about ordinary properties on a :root rule. lintStylesheet's `if root { if !HasPrefix(prop, \"--\") { continue } }` skips the colour-literal check, so `:root { background-color: white }` lints clean. The critic's three holes for m3 did not include it.",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "caught_by": "code-review #2 (m1 and IN-m2)",
+    "prescribed_fix": "m3"
+   },
+   {
+    "gate": "critique-review",
+    "what": "The m4 fix (refuse filter, opacity, mask and the like anywhere in site.css) was only as strong as the reader under it. The critic added vendor prefixes and mask but did not ask whether cssRuleRE (brace-free) and cssCommentRE (ignores quoted strings) can see a declaration beside a nested rule, which Chrome 158 applies, or a '/*' inside content. `main { opacity:.5; & > p {} filter: invert(1) }` passes lint.",
+    "severity": "minor",
+    "dimension": "missing-edge-cases",
+    "caught_by": "code-review #2 second reader (IN-m1)",
+    "prescribed_fix": "m4"
+   },
+   {
+    "gate": "critique",
+    "what": "The 'read a report as its author' case screenshots the owner's pages at 1280x900 with no clip. The owner-only danger controls start at 1888 px on /reports/x and sit below the fold on both /admin/reports pages. With --danger and --danger-soft set to pure red the assay saw 0 red pixels on three of four owner screens. The critic did not ask where the controls the assay guards fall on the page.",
+    "severity": "minor",
+    "dimension": "test-coverage",
+    "caught_by": "code-review #2 (m2, scratch probe; waived as N-255)",
+    "prescribed_fix": ""
+   }
+  ],
+  "candidates": [
+   {
+    "title": "Admin pages scroll sideways at 320 px: make /admin and /admin/reports/<slug> fit",
+    "urgency": "soon",
+    "why": "Code review #2 (IN-m3) measured /admin at scrollWidth 331 and /admin/reports/<slug> at 323 at 320 px (published and draft). That was on build 2's CSS. Build 6's left-open note says the file input and the nowrap status pill still set the minimum width. The look itself designs a 320 px stack for the admin sidebar (.taad/look.json:442). Waived as N-254 because the brief's bar was 375. In site.css, let thead th wrap or drop nowrap from .pill, give form[action='/admin/reports'] the file input width:100% and min-width:0, and add a 320 mobile pass over the admin states in TestEveryScreenIsDesigned. Do not set min-width on `.admin > main` (TestThreadFitsPhoneWidth fatals on it). Re-measure on the current CSS first."
+   },
+   {
+    "title": "Phone bylines and the All reports numbers line start a wrapped row with an orphaned '·'",
+    "urgency": "soon",
+    "why": "Seen by three stages. Validate #2 saw it on the All reports phone row. Build 6 left open a 39-character login that pushes the time onto its own row with the dot ('·' via time::before) at its start. Validate #7 saw it on any byline with an Author or blocked badge, with ordinary logins. Cause: the separator is drawn at the start of the following item in site.css. Draw it so it cannot start a row (trailing on the previous item, or gap-based) and add a probe.js check that no wrapped byline row begins with a separator at 375. Validations recorded it as an extra, so check for a duplicate before ranking."
+   },
+   {
+    "title": "Make the owner signal-colour screenshot assay capture the whole page",
+    "urgency": "soon",
+    "why": "look_test.go `shoot` takes a viewport-only capture, while `dump` already uses captureBeyondViewport with a scrollHeight clip. Code review #2 set --danger and --danger-soft to pure red and the assay saw 0 red pixels on the owner's /reports/x (14 owner danger elements start at 1888 px), /admin/reports/x and the draft page; only /admin/blocked saw them (12121 px). Waived as N-255, and validate #9 still lists 'no pixel assay of owner danger colours below the fold'. Only the static nearSignal token lint protects owner controls now. Use a full-page capture for the owner assay and keep `shoot` for the frame-patch test."
+   }
+  ],
+  "unknowns": [
+   "Does TestReportFrameKeepsItsOwnCanvas still fail with `background-color: Canvas` removed under build 6's palette? Dark paper #171513 is within the oracle's ±8 of Chrome's #121212, and light #faf8f4 differs from #ffffff by (5,7,11). The last Canvas-removed mutation (4 of 6 cases leaked) was on an earlier palette.",
+   "Do light-dark(), the frame's Canvas substrate and the .avatar::after cover behave the same in Firefox and Safari? Only Chrome 158 was driven (O-017, waived as N-404). An engine without light-dark() would show transparent fills and currentColor edges (M-add-1).",
+   "Does the production proxy in front of the VPS alter the CSP or caching of /static/site.css, and does a real avatars.githubusercontent.com image load under img-src? The author byline now draws the owner's avatar on every report page, and the seed's avatars.example URLs are refused on purpose (Q-007, Q-010, Q-017).",
+   "Is .taad/slices/SL-019/checks/no-skip.ps1, which every browser check was run through, committed with the slice or does it live only in the untracked slice folder? The next slice that re-runs TestEveryScreenIsDesigned needs it."
+  ],
+  "filed": [
+   {
+    "key": "SC-055",
+    "title": "Check by hand: Every reader screen (home and /reports/<slug> with report frame, like count, vote controls, comments and the feedback box with the sender's own messages and author replies; the show-all page; the branch page), signed in and signed out, shows the designed look",
+    "urgency": "soon",
+    "source": "survey"
+   },
+   {
+    "key": "SC-056",
+    "title": "Check by hand: Every /admin screen (admin.html, admin_report.html, admin_blocked.html) and the forbidden page shows the designed look, with the admin components (tables, destructive buttons, two-step remove)",
+    "urgency": "soon",
+    "source": "survey"
+   },
+   {
+    "key": "SC-057",
+    "title": "Check by hand: Decide whether /admin should drop its own '@login (owner)' line and Sign out form, now that the shared header shows both.",
+    "urgency": "soon",
+    "source": "design"
+   },
+   {
+    "key": "SC-058",
+    "title": "Check by hand: Decide whether 'Delete this report permanently' should gain a confirmation step like the two-step Remove.",
+    "urgency": "soon",
+    "source": "design"
+   },
+   {
+    "key": "SC-062",
+    "title": "Check by hand: Every reader screen (home and /reports/<slug> with frame, likes, votes, comments, feedback box with own messages and author replies; show-all; branch page), signed in and signed out, shows the designed look",
+    "urgency": "soon",
+    "source": "validation"
+   },
+   {
+    "key": "SC-063",
+    "title": "Check by hand: Every /admin screen (admin.html, admin_report.html, admin_blocked.html) and the forbidden page shows the designed look, with tables, destructive buttons and the two-step remove",
+    "urgency": "soon",
+    "source": "validation"
+   },
+   {
+    "key": "SC-064",
+    "title": "Check by hand: Brief: every reader screen (home and /reports/<slug> with the frame, like count, vote controls, comments and the feedback box with own messages and author replies; show-all; branch), signed in and signed out, shows the designed look",
+    "urgency": "soon",
+    "source": "validation"
+   },
+   {
+    "key": "SC-065",
+    "title": "Check by hand: Brief: every /admin screen (admin.html, admin_report.html, admin_blocked.html) and the forbidden page shows the designed look, with tables, destructive buttons and the two-step remove",
+    "urgency": "soon",
+    "source": "validation"
+   }
+  ]
+ }
+}
