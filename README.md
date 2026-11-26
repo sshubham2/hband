@@ -13,9 +13,9 @@ It is one Go program (`cmd/hband`) with an embedded SQLite database; there is no
 
 | To | You need |
 |---|---|
-| Build and test | Go 1.27.4 (the `go` line in `go.mod`). No C compiler: the SQLite driver (`modernc.org/sqlite`) is pure Go. Dependencies are downloaded by `go` the first time. |
+| Build and test | Go 1.27.4 (the `go` line in `go.mod`). No C compiler: the SQLite driver (`modernc.org/sqlite`) is pure Go. Dependencies are downloaded by `go` the first time. The tests run `go build` themselves, so `go` must be on the `PATH`. |
 | Run | The built program, a writable folder for its data, and a GitHub OAuth app (see [Sign-in with GitHub](#sign-in-with-github)). |
-| Run the browser-based test | Optional: a Chromium-family browser (see [Tests](#tests)). Without one that test is skipped. |
+| Run the browser-based tests | Optional: Google Chrome, named by the `CHROME_BIN` variable (see [Tests](#tests)). Without it those tests are skipped. |
 
 ## Build
 
@@ -76,15 +76,39 @@ Exit status: `0` after a clean shutdown, `2` for invalid configuration, `1` for 
 go test -count=1 ./...
 ```
 
-This runs every package's tests (about 20 seconds here, all passing). The tests build their own handlers and a
-stand-in for GitHub; they need no network, no GitHub account and none of the `HBAND_*` settings above.
+This runs every package's tests (about half a minute here, all passing). Most of them build the real program with
+`go build` into a folder under the operating system's temporary folder, start it on a loopback port with a throwaway
+data folder and a stand-in for GitHub (`internal/testutil/fakegithub`), and talk to it over HTTP. They need no network,
+no GitHub account and none of the `HBAND_*` settings below, and they leave nothing in the repository.
 
-One check in `internal/server` loads pages in a headless browser. It uses the browser named by
-`HBAND_TEST_BROWSER` (and fails if that path is unusable); if that is unset it looks for Chrome at
-`C:\Program Files\Google\Chrome\Application\chrome.exe` and `C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
-and if neither exists the check is skipped with a message. It never defaults to Microsoft Edge. Set
-`HBAND_TEST_ARTIFACTS` to a folder to keep a copy of every screenshot those checks take. Neither variable is read by
-the program itself.
+Two tests drive a real browser: `TestReportScriptsNeverRun` (in `internal/server`) and `TestE004FoldAndFitInBrowser`
+(in `tests/acceptance/e004_2_deep_threads_and_toggle`). The browser is the one named by `CHROME_BIN`, and only that:
+set it to the path of a Chrome executable, for example
+
+```powershell
+$env:CHROME_BIN = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+go test -count=1 ./...
+```
+
+If `CHROME_BIN` is unset, or names no existing file, those tests are skipped with a message that names `CHROME_BIN`,
+and the rest of the suite still passes. Microsoft Edge is refused (those tests are skipped) whatever `CHROME_BIN`
+says, and nothing falls back to another browser or to a built-in install path. Set `HBAND_TEST_ARTIFACTS` to a
+folder to keep a copy of every screenshot the browser checks take. Neither variable is read by the program itself.
+
+## Looking at it with sample data
+
+To open a populated site in a browser without registering a GitHub OAuth app, run this from the repository root:
+
+```
+go run ./internal/testutil/seeded -port 8081
+```
+
+`-port` is required: a decimal number from 1 to 65535. The helper builds the real program, seeds a throwaway data
+folder with one published report (`e004-look`) carrying a nine-level comment thread, and serves it on
+`http://127.0.0.1:<port>/`. It prints `serving http://127.0.0.1:<port>/` once the site answers, then runs until
+Ctrl-C, which stops the program and removes its folders. Sign-in on that site goes to a stand-in for GitHub, not to
+GitHub. It is a test helper under `internal/testutil`, not part of the product; if it is killed instead of
+interrupted, its folders (named `hband-*`, under the temporary folder) are left behind.
 
 ## Settings
 
@@ -105,7 +129,7 @@ printed or logged). An empty value counts as unset. Any other `HBAND_*` name is 
 | `HBAND_GITHUB_URL` | no | `https://github.com` | Base URL of GitHub's sign-in pages (`/login/oauth/authorize` and `/login/oauth/access_token` are added). Intended for pointing sign-in at a stand-in during testing. Must be `https`, or `http` on a loopback host, with no path, query or fragment. When it differs from the default the program logs a warning at start. |
 | `HBAND_GITHUB_API_URL` | no | `https://api.github.com` | Base URL of GitHub's API (`/user` is added). Same rules and same purpose as `HBAND_GITHUB_URL`. |
 
-Test-only variables, read by the tests and not by the program: `HBAND_TEST_BROWSER`, `HBAND_TEST_ARTIFACTS`
+Test-only variables, read by the tests and not by the program: `CHROME_BIN`, `HBAND_TEST_ARTIFACTS`
 (see [Tests](#tests)).
 
 ## Sign-in with GitHub
@@ -210,6 +234,9 @@ What the code assumes:
 - **A GitHub OAuth app** whose callback URL is `HBAND_BASE_URL` + `/auth/github/callback`, and the owner's numeric GitHub ID.
 - **A data folder that survives restarts** and is writable by the program.
 - **Default listening address is loopback** (`127.0.0.1:8080`); set `HBAND_ADDR` to listen elsewhere.
+- **Readers' browsers must be able to reach `avatars.githubusercontent.com`.** The site's content policy allows images
+  only from the site itself and `https://avatars.githubusercontent.com`, where GitHub serves the avatars shown beside
+  comments; the program does not fetch or proxy them.
 
 ### Behind a reverse proxy
 
@@ -231,7 +258,7 @@ What the code assumes:
 ## What it deliberately does not do
 
 - It does not offer any sign-in other than GitHub, has no passwords, and asks GitHub for no scopes.
-- It does not run a report's scripts. A report is shown in a sandboxed iframe without `allow-scripts` and with a policy
+- It does not run a report's scripts. A report is shown in a sandboxed iframe that grants only `allow-popups` and `allow-popups-to-escape-sandbox` (never `allow-scripts`), and with a policy
   that forbids scripts, external resources and forms; it may use inline styles and `data:` images and fonts only. The upload
   accepts one UTF-8 `.html` file, not a zip or a folder of assets.
 - Dislikes are never shown to readers: they appear only on the owner's admin page. Likes are public.
